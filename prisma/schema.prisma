@@ -36,9 +36,9 @@ model PlayerRating {
   player        Player            @relation(fields: [playerId], references: [id], onDelete: Cascade)
 }
 
-// Hero - 10 unique heroes tied to lobby slots (1-10)
+// Hero - 12 unique heroes tied to lobby slots (1-12)
 model Hero {
-  id            Int               @id // 1-10, matches slot number
+  id            Int               @id // 1-12, matches slot number
   name          String            @unique
   color         String?           // Lobby color name (e.g., "Red", "Blue")
   heroRatings   PlayerHeroRating[]
@@ -65,7 +65,7 @@ model PlayerHeroRating {
   @@index([heroId])
 }
 
-// Match - 5v5 game session
+// Match - up to 6v6 game session (unbalanced human fills allowed)
 model Match {
   id            String        @id @default(cuid())
   status        MatchStatus   @default(PENDING)
@@ -81,9 +81,9 @@ model Match {
 model MatchPlayer {
   matchId       String
   playerId      String
-  team          Int           // 1 or 2 (1-5 = Team A, 6-10 = Team B)
-  slot          Int           // 1-10 (Absolute position - determines team + hero)
-  heroId        Int           // 1-10 (DBZ heroes mapped to slots)
+  team          Int           // 1 or 2 (1-6 = Team A, 7-12 = Team B)
+  slot          Int           // 1-12 (Absolute position - determines team + hero)
+  heroId        Int           // 1-12 (DBZ heroes mapped to slots)
   result        MatchResult?  // Null until match ends
   isQuitter     Boolean       @default(false) // Quitter penalty flag
 

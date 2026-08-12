@@ -5,7 +5,7 @@ alwaysApply: true
 
 # DBZ WC3 Bot
 
-Discord bot for **5v5 matches** on a custom Dragon Ball Z Warcraft III map. Ten heroes map to lobby slots/colors. Ranking uses **OpenSkill** (global + hero-specific ratings).
+Discord bot for **up to 6v6** ranked matches on a custom Dragon Ball Z Warcraft III map. Twelve heroes map to lobby slots/colors. Full lobby is 6v6; **unbalanced** human fills are allowed (e.g. 4v6) as long as both teams have at least one player. Ranking uses **OpenSkill** (global + hero-specific ratings).
 
 ## Stack
 

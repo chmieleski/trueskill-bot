@@ -10,14 +10,15 @@ alwaysApply: false
 
 - **Player** — `username` (battletag/nick); optional `discordId` (Ghost Profile)
 - **PlayerRating** — Global skill (μ/σ), separate table for SRP
-- **Hero** — IDs 1–10, tied to lobby slots
+- **Hero** — IDs 1–12, tied to lobby slots
 - **PlayerHeroRating** — Hero-specific μ/σ + matchesPlayed
-- **Match** — 5v5 sessions with status
+- **Match** — Up to 6v6 sessions with status (unbalanced fills allowed)
 - **MatchPlayer** — team, slot, hero, result
 
 ## Design Decisions
 
 - Username is the primary player identifier (not Discord ID)
 - Global vs hero ratings live in separate tables (SOLID/SRP)
-- Slots 1–5 = Team A, 6–10 = Team B; slot ID = hero ID
+- Lobby has 12 slots: 1–6 = Team A, 7–12 = Team B; slot ID = hero ID
+- Full lobby is 6v6; asymmetric human fills (e.g. 4v6, 5v3) are valid if both teams have ≥1 player
 - `MatchResult` may include DRAW, but the game only uses WIN/LOSS

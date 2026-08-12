@@ -23,3 +23,4 @@ alwaysApply: true
 - `DIRECT_URL` — Supabase direct (5432)
 - `NODE_ENV` — `development` | `production`
 - `AUTO_DEPLOY_COMMANDS` — auto-register commands on startup
+- `GEMINI_API_KEY` — Google Gemini API key for lobby screenshot OCR

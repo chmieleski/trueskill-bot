@@ -14,10 +14,10 @@ alwaysApply: false
 ```typescript
 export const data = new SlashCommandBuilder()
   .setName('register_lobby')
-  .setDescription('Register a DBZ 5v5 match lobby (work in progress)');
+  .setDescription('Register a DBZ match lobby (up to 6v6) from a screenshot');
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();
-  await interaction.editReply('Analyzing Ki...');
+  // OCR / network work after defer…
 }
 ```

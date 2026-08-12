@@ -7,6 +7,7 @@ interface EnvConfig {
   isDev: boolean;
   autoDeployCommands: boolean;
   databaseUrl: string;
+  geminiApiKey: string;
 }
 
 function parseBoolean(value: string | undefined, defaultValue: boolean): boolean {
@@ -34,4 +35,5 @@ export const env: EnvConfig = {
   isDev: process.env.NODE_ENV !== 'production',
   autoDeployCommands: parseBoolean(process.env.AUTO_DEPLOY_COMMANDS, process.env.NODE_ENV !== 'production'),
   databaseUrl: requireEnv('DATABASE_URL'),
+  geminiApiKey: requireEnv('GEMINI_API_KEY'),
 };
