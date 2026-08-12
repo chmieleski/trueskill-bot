@@ -1,0 +1,112 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  directUrl         = env("DIRECT_URL")
+  relationMode      = "prisma"
+}
+
+// Player - Identified by username (Ghost Profile pattern)
+// Discord linking is optional - players can exist without Discord
+model Player {
+  id            String            @id @default(uuid())
+  username      String            @unique // Battletag/nick in-game (PRIMARY identifier)
+  discordId     String?           @unique // Optional - for account linking
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  matches       MatchPlayer[]
+  ratings       PlayerRating[]
+  heroRatings   PlayerHeroRating[]
+
+  @@index([username])
+  @@index([discordId])
+}
+
+// PlayerRating - Global skill rating (OpenSkill μ/σ)
+// Separated for SRP - handles global rating only
+model PlayerRating {
+  playerId      String            @id
+  mu            Float             @default(25.0) // Skill estimate
+  sigma         Float             @default(8.333) // Uncertainty
+  updatedAt     DateTime          @updatedAt
+
+  player        Player            @relation(fields: [playerId], references: [id], onDelete: Cascade)
+}
+
+// Hero - 10 unique heroes tied to lobby slots (1-10)
+model Hero {
+  id            Int               @id // 1-10, matches slot number
+  name          String            @unique
+  color         String?           // Lobby color name (e.g., "Red", "Blue")
+  heroRatings   PlayerHeroRating[]
+
+  @@index([name])
+}
+
+// PlayerHeroRating - Hero-specific skill tracking (Cold Start solution)
+// Separated for SRP - handles hero-specific ratings only
+model PlayerHeroRating {
+  playerId      String
+  heroId        Int
+  mu            Float             @default(25.0) // Hero-specific skill (μ)
+  sigma         Float             @default(8.333) // Hero-specific uncertainty (σ)
+  matchesPlayed Int               @default(0)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  player        Player            @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  hero          Hero              @relation(fields: [heroId], references: [id], onDelete: Cascade)
+
+  @@id([playerId, heroId])
+  @@index([playerId])
+  @@index([heroId])
+}
+
+// Match - 5v5 game session
+model Match {
+  id            String        @id @default(cuid())
+  status        MatchStatus   @default(PENDING)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  players       MatchPlayer[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+// MatchPlayer - Player participation in a match
+model MatchPlayer {
+  matchId       String
+  playerId      String
+  team          Int           // 1 or 2 (1-5 = Team A, 6-10 = Team B)
+  slot          Int           // 1-10 (Absolute position - determines team + hero)
+  heroId        Int           // 1-10 (DBZ heroes mapped to slots)
+  result        MatchResult?  // Null until match ends
+  isQuitter     Boolean       @default(false) // Quitter penalty flag
+
+  match         Match         @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player        Player        @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@id([matchId, playerId])
+  @@index([matchId])
+  @@index([playerId])
+}
+
+enum MatchStatus {
+  PENDING       // Lobby created, waiting for players
+  IN_PROGRESS   // Match started
+  COMPLETED     // Match finished with results
+  CANCELLED     // Match cancelled before completion
+}
+
+enum MatchResult {
+  WIN
+  LOSS
+  DRAW          // Not used in game mechanics, kept for future flexibility
+}

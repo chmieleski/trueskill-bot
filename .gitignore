@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+*.log
+
+/src/generated/prisma
+
+# Ruflo local secrets and runtime data
+.env.local
+.env.*.local
+.claude-flow/data/
+.claude-flow/logs/
+.claude-flow/sessions/
+
+# Local database and runtime data
+ruvector.db
+.swarm/
