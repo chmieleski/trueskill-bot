@@ -2,7 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { Client } from 'discord.js';
+import { createLogger } from '../lib/logger.js';
 import type { Command } from '../types/command.js';
+
+const log = createLogger('commands');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,10 +34,12 @@ export async function loadCommands(client: Client): Promise<void> {
   const commandsPath = path.join(__dirname, '..', 'commands');
 
   if (!fs.existsSync(commandsPath)) {
+    log.warn({ commandsPath }, 'Commands directory missing — skipping load');
     return;
   }
 
   const commandFiles = collectCommandFiles(commandsPath);
+  log.debug({ count: commandFiles.length, commandsPath }, 'Scanning command files');
 
   for (const filePath of commandFiles) {
     const commandModule = (await import(pathToFileURL(filePath).href)) as {
@@ -50,13 +55,15 @@ export async function loadCommands(client: Client): Promise<void> {
         : undefined);
 
     if (!command?.data || !command.execute) {
-      console.warn(`[commands] Skipped file (missing data/execute): ${filePath}`);
+      log.warn({ filePath }, 'Skipped command file (missing data/execute)');
       continue;
     }
 
     client.commands.set(command.data.name, command);
-    console.log(`[commands] Loaded: /${command.data.name}`);
+    log.info({ command: command.data.name }, 'Loaded slash command');
   }
+
+  log.debug({ loaded: client.commands.size }, 'Command load complete');
 }
 
 export async function getCommandPayloads(): Promise<ReturnType<Command['data']['toJSON']>[]> {

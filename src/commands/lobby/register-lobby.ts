@@ -1,24 +1,20 @@
-import {
-  ActionRowBuilder,
-  Attachment,
-  ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder,
-  SlashCommandBuilder,
-} from 'discord.js';
+import { Attachment, SlashCommandBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
+import { createLogger } from '../../lib/logger.js';
+import { setLobbyDraft } from '../../services/lobby-draft-store.js';
 import {
   extractLobbyPlayers,
   LobbyOcrError,
   validateLobbyPlayers,
-  type LobbyPlayer,
 } from '../../services/lobby-ocr.js';
+import {
+  buildLobbyPreviewButtons,
+  buildLobbyPreviewEmbed,
+} from '../../services/lobby-preview.js';
+
+const log = createLogger('register_lobby');
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
-
-function formatTeamLines(players: LobbyPlayer[]): string {
-  return players.map((player) => `[Slot ${player.slot}] - ${player.nick}`).join('\n');
-}
 
 function isImageAttachment(attachment: Attachment): boolean {
   if (attachment.contentType?.startsWith('image/')) {
@@ -73,51 +69,67 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   const attachment = interaction.options.getAttachment('print', true);
 
+  log.info(
+    {
+      userId: interaction.user.id,
+      guildId: interaction.guildId,
+      attachmentName: attachment.name,
+      contentType: attachment.contentType,
+      size: attachment.size,
+    },
+    'Register lobby started',
+  );
+
   if (!isImageAttachment(attachment)) {
+    log.warn(
+      { userId: interaction.user.id, contentType: attachment.contentType, name: attachment.name },
+      'Rejected non-image attachment',
+    );
     await interaction.editReply('Please attach a valid lobby screenshot image (PNG, JPG, WEBP, or GIF).');
     return;
   }
 
   try {
     const mimeType = resolveMimeType(attachment);
+    log.debug({ mimeType }, 'Resolved attachment MIME type');
+
     const players = await extractLobbyPlayers(attachment.url, mimeType);
-    const { teamA, teamB } = validateLobbyPlayers(players);
+    log.debug({ playerCount: players.length, players }, 'OCR players extracted');
 
-    // Slot X implies heroId X later — Hero table is not queried in this command.
-    const embed = new EmbedBuilder()
-      .setTitle('Lobby Preview')
-      .setDescription('Review the OCR reading, then confirm or fix the teams.')
-      .addFields(
-        {
-          name: `Team A (${teamA.length})`,
-          value: formatTeamLines(teamA),
-          inline: true,
-        },
-        {
-          name: `Team B (${teamB.length})`,
-          value: formatTeamLines(teamB),
-          inline: true,
-        },
-      )
-      .setColor(0x5865f2);
-
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId('confirm_lobby')
-        .setLabel('Confirm Teams')
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId('edit_lobby')
-        .setLabel('Fix Reading')
-        .setStyle(ButtonStyle.Secondary),
+    const validated = validateLobbyPlayers(players);
+    log.info(
+      {
+        teamA: validated.teamA.length,
+        teamB: validated.teamB.length,
+        slots: [...validated.teamA, ...validated.teamB].map((player) => player.slot),
+      },
+      'Lobby players validated',
     );
 
+    // Slot X implies heroId X later — Hero table is not queried in this command.
     await interaction.editReply({
-      embeds: [embed],
-      components: [row],
+      embeds: [buildLobbyPreviewEmbed(validated)],
+      components: [buildLobbyPreviewButtons()],
     });
+
+    const previewMessage = await interaction.fetchReply();
+    const flatPlayers = [...validated.teamA, ...validated.teamB];
+
+    setLobbyDraft(previewMessage.id, {
+      ownerId: interaction.user.id,
+      players: flatPlayers,
+    });
+
+    log.info(
+      { messageId: previewMessage.id, ownerId: interaction.user.id, playerCount: flatPlayers.length },
+      'Lobby draft created',
+    );
   } catch (error) {
-    console.error('Failed to register lobby from screenshot:', error);
+    if (error instanceof LobbyOcrError) {
+      log.warn({ err: error, userId: interaction.user.id }, 'Lobby registration rejected');
+    } else {
+      log.error({ err: error, userId: interaction.user.id }, 'Failed to register lobby from screenshot');
+    }
 
     const message =
       error instanceof LobbyOcrError

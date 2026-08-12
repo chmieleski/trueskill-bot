@@ -2,6 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { Client } from 'discord.js';
+import { createLogger } from '../lib/logger.js';
+
+const log = createLogger('events');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,7 +37,7 @@ export async function loadEvents(client: Client): Promise<void> {
         : undefined);
 
     if (!event?.name || !event.execute) {
-      console.warn(`[events] Skipped file (missing name/execute): ${filePath}`);
+      log.warn({ filePath }, 'Skipped event file (missing name/execute)');
       continue;
     }
 
@@ -44,6 +47,6 @@ export async function loadEvents(client: Client): Promise<void> {
       client.on(event.name, (...args) => event.execute(...args));
     }
 
-    console.log(`[events] Loaded: ${event.name}${event.once ? ' (once)' : ''}`);
+    log.info({ event: event.name, once: Boolean(event.once) }, 'Loaded event');
   }
 }

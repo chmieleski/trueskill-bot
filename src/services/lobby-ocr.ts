@@ -1,5 +1,8 @@
 import { GoogleGenAI } from '@google/genai';
 import { env } from '../config/env.js';
+import { createLogger } from '../lib/logger.js';
+
+const log = createLogger('lobby-ocr');
 
 export interface LobbyPlayer {
   slot: number;
@@ -25,6 +28,7 @@ const LOBBY_OCR_SYSTEM_INSTRUCTION =
 const MIN_SLOT = 1;
 const MAX_SLOT = 12;
 const TEAM_A_MAX_SLOT = 6;
+const GEMINI_MODEL = 'gemini-3.5-flash';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -33,15 +37,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function parsePlayersPayload(raw: string): LobbyPlayer[] {
   let parsed: unknown;
 
-  console.log('raw', raw);
-
   try {
     parsed = JSON.parse(raw);
-  } catch {
+  } catch (error) {
+    log.warn({ err: error, rawPreview: raw.slice(0, 200) }, 'OCR JSON parse failed');
     throw new LobbyOcrError('Could not parse the lobby screenshot. Please try again with a clearer image.');
   }
 
   if (!isRecord(parsed) || !Array.isArray(parsed.players)) {
+    log.warn({ parsedType: typeof parsed }, 'OCR payload missing players array');
     throw new LobbyOcrError('Could not parse the lobby screenshot. Please try again with a clearer image.');
   }
 
@@ -49,6 +53,7 @@ function parsePlayersPayload(raw: string): LobbyPlayer[] {
 
   for (const entry of parsed.players) {
     if (!isRecord(entry)) {
+      log.warn({ entry }, 'OCR player entry is not an object');
       throw new LobbyOcrError('Could not parse the lobby screenshot. Please try again with a clearer image.');
     }
 
@@ -56,6 +61,7 @@ function parsePlayersPayload(raw: string): LobbyPlayer[] {
     const nick = typeof entry.nick === 'string' ? entry.nick : '';
 
     if (!Number.isInteger(slot) || nick.trim() === '') {
+      log.warn({ slot, nick }, 'OCR player entry invalid');
       throw new LobbyOcrError('Could not parse the lobby screenshot. Please try again with a clearer image.');
     }
 
@@ -65,6 +71,7 @@ function parsePlayersPayload(raw: string): LobbyPlayer[] {
     });
   }
 
+  log.verbose({ playerCount: players.length }, 'Parsed OCR players payload');
   return players;
 }
 
@@ -75,22 +82,34 @@ export async function extractLobbyPlayers(
   imageUrl: string,
   mimeType: string,
 ): Promise<LobbyPlayer[]> {
+  log.debug({ mimeType }, 'Downloading lobby screenshot');
+  const startedAt = Date.now();
   const imageResponse = await fetch(imageUrl);
 
   if (!imageResponse.ok) {
+    log.error(
+      { status: imageResponse.status, statusText: imageResponse.statusText },
+      'Failed to download lobby screenshot',
+    );
     throw new LobbyOcrError('Could not download the lobby screenshot. Please try again.');
   }
 
   const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
   const base64Image = imageBuffer.toString('base64');
+  log.debug(
+    { bytes: imageBuffer.byteLength, downloadMs: Date.now() - startedAt },
+    'Screenshot downloaded',
+  );
 
   const ai = new GoogleGenAI({ apiKey: env.geminiApiKey });
+  const ocrStartedAt = Date.now();
 
   let response;
 
   try {
+    log.info({ model: GEMINI_MODEL, mimeType }, 'Calling Gemini lobby OCR');
     response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
+      model: GEMINI_MODEL,
       contents: [
         {
           inlineData: {
@@ -106,16 +125,25 @@ export async function extractLobbyPlayers(
       },
     });
   } catch (error) {
-    console.error('Gemini lobby OCR request failed:', error);
+    log.error(
+      { err: error, model: GEMINI_MODEL, ocrMs: Date.now() - ocrStartedAt },
+      'Gemini lobby OCR request failed',
+    );
     throw new LobbyOcrError('Lobby OCR failed. Please try again in a moment.');
   }
 
   const text = response.text;
+  log.debug(
+    { ocrMs: Date.now() - ocrStartedAt, responseChars: text?.length ?? 0 },
+    'Gemini OCR response received',
+  );
 
   if (!text) {
+    log.warn('Gemini OCR returned empty text');
     throw new LobbyOcrError('Could not read the lobby screenshot. Please try again with a clearer image.');
   }
 
+  log.verbose({ rawPreview: text.slice(0, 300) }, 'Gemini OCR raw text');
   return parsePlayersPayload(text);
 }
 
@@ -129,19 +157,19 @@ export function validateLobbyPlayers(players: LobbyPlayer[]): ValidatedLobby {
 
   for (const player of players) {
     if (player.slot < MIN_SLOT || player.slot > MAX_SLOT) {
+      log.warn({ slot: player.slot }, 'Invalid lobby slot');
       throw new LobbyOcrError(
         `Invalid slot ${player.slot}. Slots must be between ${MIN_SLOT} and ${MAX_SLOT}.`,
       );
     }
 
     if (seenSlots.has(player.slot)) {
+      log.warn({ slot: player.slot }, 'Duplicate lobby slot');
       throw new LobbyOcrError(`Duplicate slot ${player.slot} found in the screenshot reading.`);
     }
 
     seenSlots.add(player.slot);
   }
-
-  console.log('players', players);
 
   const teamA = players
     .filter((player) => player.slot <= TEAM_A_MAX_SLOT)
@@ -152,8 +180,10 @@ export function validateLobbyPlayers(players: LobbyPlayer[]): ValidatedLobby {
     .sort((a, b) => a.slot - b.slot);
 
   if (teamA.length === 0 || teamB.length === 0) {
+    log.warn({ teamA: teamA.length, teamB: teamB.length }, 'Lobby missing a team');
     throw new LobbyOcrError('Both Team A and Team B need at least one human player.');
   }
 
+  log.debug({ teamA: teamA.length, teamB: teamB.length }, 'Lobby validation passed');
   return { teamA, teamB };
 }

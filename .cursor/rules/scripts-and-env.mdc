@@ -24,3 +24,4 @@ alwaysApply: true
 - `NODE_ENV` — `development` | `production`
 - `AUTO_DEPLOY_COMMANDS` — auto-register commands on startup
 - `GEMINI_API_KEY` — Google Gemini API key for lobby screenshot OCR
+- `LOG_LEVEL` — `fatal` | `error` | `warn` | `info` | `verbose` | `debug` | `trace` (default: `debug` in dev, `info` in production)

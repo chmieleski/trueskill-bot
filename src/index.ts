@@ -4,10 +4,18 @@ import { createClient } from './client/create-client.js';
 import { loadCommands } from './handlers/load-commands.js';
 import { loadEvents } from './handlers/load-events.js';
 import { registerCommands } from './handlers/register-commands.js';
+import { createLogger } from './lib/logger.js';
+
+const log = createLogger('bootstrap');
 
 let client: Client | undefined;
 
 async function bootstrap(): Promise<void> {
+  log.info(
+    { autoDeployCommands: env.autoDeployCommands, isDev: env.isDev, logLevel: env.logLevel ?? (env.isDev ? 'debug' : 'info') },
+    'Starting bot',
+  );
+
   client = createClient();
 
   await loadCommands(client);
@@ -18,18 +26,20 @@ async function bootstrap(): Promise<void> {
 
   await loadEvents(client);
 
+  log.debug('Logging in to Discord…');
   await client.login(env.discordToken);
 
   if (env.isDev) {
-    console.log('[dev] Development mode — changes in src/ restart the bot automatically');
+    log.info('Development mode — changes in src/ restart the bot automatically');
   }
 }
 
 async function shutdown(signal: NodeJS.Signals): Promise<void> {
-  console.log(`[shutdown] Shutting down bot (${signal})...`);
+  log.info({ signal }, 'Shutting down bot');
 
   if (client) {
     client.destroy();
+    log.debug('Discord client destroyed');
   }
 
   process.exit(0);
@@ -43,7 +53,16 @@ process.on('SIGTERM', (signal) => {
   void shutdown(signal);
 });
 
+process.on('unhandledRejection', (reason) => {
+  log.error({ err: reason }, 'Unhandled promise rejection');
+});
+
+process.on('uncaughtException', (error) => {
+  log.fatal({ err: error }, 'Uncaught exception');
+  process.exit(1);
+});
+
 bootstrap().catch((error: unknown) => {
-  console.error('[bootstrap] Failed to start bot:', error);
+  log.fatal({ err: error }, 'Failed to start bot');
   process.exit(1);
 });

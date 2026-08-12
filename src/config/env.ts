@@ -1,5 +1,15 @@
 import 'dotenv/config';
 
+const LOG_LEVELS = new Set([
+  'fatal',
+  'error',
+  'warn',
+  'info',
+  'verbose',
+  'debug',
+  'trace',
+]);
+
 interface EnvConfig {
   discordToken: string;
   clientId: string;
@@ -8,6 +18,24 @@ interface EnvConfig {
   autoDeployCommands: boolean;
   databaseUrl: string;
   geminiApiKey: string;
+  /** Override default log level (dev: debug, prod: info). */
+  logLevel: string | undefined;
+}
+
+function parseLogLevel(value: string | undefined): string | undefined {
+  if (value === undefined || value.trim() === '') {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (!LOG_LEVELS.has(normalized)) {
+    throw new Error(
+      `Invalid LOG_LEVEL "${value}". Expected one of: ${[...LOG_LEVELS].join(', ')}`,
+    );
+  }
+
+  return normalized;
 }
 
 function parseBoolean(value: string | undefined, defaultValue: boolean): boolean {
@@ -36,4 +64,5 @@ export const env: EnvConfig = {
   autoDeployCommands: parseBoolean(process.env.AUTO_DEPLOY_COMMANDS, process.env.NODE_ENV !== 'production'),
   databaseUrl: requireEnv('DATABASE_URL'),
   geminiApiKey: requireEnv('GEMINI_API_KEY'),
+  logLevel: parseLogLevel(process.env.LOG_LEVEL),
 };
