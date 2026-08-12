@@ -1,0 +1,19 @@
+---
+description: DBZ WC3 Discord bot — product context, stack, and language
+alwaysApply: true
+---
+
+# DBZ WC3 Bot
+
+Discord bot for **5v5 matches** on a custom Dragon Ball Z Warcraft III map. Ten heroes map to lobby slots/colors. Ranking uses **OpenSkill** (global + hero-specific ratings).
+
+## Stack
+
+- Node.js + TypeScript (ESM, `"type": "module"`)
+- discord.js v14 — Slash Commands, REST API
+- Prisma + Supabase PostgreSQL
+- dotenv, tsx (dev hot-reload; no build in dev)
+
+## Language
+
+All user-facing strings, logs, command names/descriptions, and errors must be in **English**.

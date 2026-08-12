@@ -1,0 +1,23 @@
+---
+description: How to add and implement Discord slash commands
+globs: src/commands/**/*.ts,src/handlers/**/*.ts,src/types/command.ts
+alwaysApply: false
+---
+
+# Adding a Slash Command
+
+1. Create `src/commands/<domain>/<name>.ts` exporting `data` + `execute`
+2. Build `data` with `SlashCommandBuilder`
+3. If work may exceed ~3s: `await interaction.deferReply()` then `editReply()`
+4. Dev auto-registers on restart (`AUTO_DEPLOY_COMMANDS` defaults to true)
+
+```typescript
+export const data = new SlashCommandBuilder()
+  .setName('register_lobby')
+  .setDescription('Register a DBZ 5v5 match lobby (work in progress)');
+
+export async function execute(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply();
+  await interaction.editReply('Analyzing Ki...');
+}
+```

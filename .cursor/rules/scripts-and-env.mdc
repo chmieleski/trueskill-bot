@@ -1,0 +1,25 @@
+---
+description: npm scripts and required environment variables
+alwaysApply: true
+---
+
+# Scripts & Environment
+
+| Script | Purpose |
+|--------|---------|
+| `npm run dev` | tsx watch, auto-restart, auto-deploy commands |
+| `npm run build` | Prisma generate + TypeScript compile |
+| `npm start` | Production from `dist/` |
+| `npm run deploy-commands` | Manual guild command deploy |
+| `npm run db:migrate` | Create/apply Prisma migration |
+| `npm run db:push` | Push schema without migration |
+| `npm run db:studio` | Prisma Studio |
+| `npm run db:generate` | Regenerate Prisma client |
+
+## Env vars
+
+- `DISCORD_TOKEN`, `CLIENT_ID`, `GUILD_ID`
+- `DATABASE_URL` — Supabase pooled (6543)
+- `DIRECT_URL` — Supabase direct (5432)
+- `NODE_ENV` — `development` | `production`
+- `AUTO_DEPLOY_COMMANDS` — auto-register commands on startup

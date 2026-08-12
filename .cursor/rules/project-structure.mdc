@@ -1,0 +1,24 @@
+---
+description: Source layout and bootstrap flow for the Discord bot
+globs: src/**/*.ts
+alwaysApply: false
+---
+
+# Project Structure
+
+```
+src/
+├── index.ts              # load commands → deploy → load events → login
+├── deploy-commands.ts    # Standalone deploy (CI/manual)
+├── config/env.ts         # Validated env vars
+├── lib/prisma.ts         # Prisma client singleton
+├── client/create-client.ts
+├── types/command.ts      # Command interface { data, execute }
+├── handlers/
+│   ├── load-commands.ts  # Recursive auto-load from src/commands/**
+│   ├── load-events.ts    # Auto-load from src/events/**
+│   └── register-commands.ts
+├── commands/             # One file per command, grouped by domain
+├── events/               # ready.ts, interaction-create.ts
+└── services/             # Reserved: WebSocket, cron, ranking
+```

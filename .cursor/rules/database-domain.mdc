@@ -1,0 +1,23 @@
+---
+description: Match/player/hero domain model and ranking design decisions
+globs: prisma/**/*.{prisma,sql,ts},src/**/*.{ts,prisma}
+alwaysApply: false
+---
+
+# Database Domain
+
+## Tables
+
+- **Player** — `username` (battletag/nick); optional `discordId` (Ghost Profile)
+- **PlayerRating** — Global skill (μ/σ), separate table for SRP
+- **Hero** — IDs 1–10, tied to lobby slots
+- **PlayerHeroRating** — Hero-specific μ/σ + matchesPlayed
+- **Match** — 5v5 sessions with status
+- **MatchPlayer** — team, slot, hero, result
+
+## Design Decisions
+
+- Username is the primary player identifier (not Discord ID)
+- Global vs hero ratings live in separate tables (SOLID/SRP)
+- Slots 1–5 = Team A, 6–10 = Team B; slot ID = hero ID
+- `MatchResult` may include DRAW, but the game only uses WIN/LOSS
