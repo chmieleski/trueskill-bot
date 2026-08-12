@@ -5,9 +5,10 @@ import {
   EmbedBuilder,
 } from 'discord.js';
 import type { LobbyPlayer, ValidatedLobby } from './lobby-ocr.js';
+import { validateLobbyPlayers } from './lobby-ocr.js';
 
 export const LOBBY_CUSTOM_IDS = {
-  confirm: 'lobby:confirm',
+  start: 'lobby:start',
   fix: 'lobby:fix',
 } as const;
 
@@ -19,12 +20,41 @@ export function formatTeamLines(players: LobbyPlayer[]): string {
   return players.map((player) => `[Slot ${player.slot}] - ${player.nick}`).join('\n');
 }
 
-export function buildLobbyPreviewEmbed(lobby: ValidatedLobby): EmbedBuilder {
-  const { teamA, teamB } = lobby;
+export function splitLobbyPlayers(players: LobbyPlayer[]): ValidatedLobby {
+  const teamA = players
+    .filter((player) => player.slot <= 6)
+    .sort((a, b) => a.slot - b.slot);
+  const teamB = players
+    .filter((player) => player.slot > 6)
+    .sort((a, b) => a.slot - b.slot);
+
+  return { teamA, teamB };
+}
+
+export function canStartLobby(players: LobbyPlayer[]): boolean {
+  try {
+    validateLobbyPlayers(players);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function buildMatchLobbyEmbed(
+  matchId: string,
+  players: LobbyPlayer[],
+  options: { canStart?: boolean } = {},
+): EmbedBuilder {
+  const { teamA, teamB } = splitLobbyPlayers(players);
+  const canStart = options.canStart ?? canStartLobby(players);
+
+  const description = canStart
+    ? `Match \`${matchId}\`\nReview the lobby, then start when ready.`
+    : `Match \`${matchId}\`\nAdd at least one human player to each team before starting.`;
 
   return new EmbedBuilder()
-    .setTitle('Lobby Preview')
-    .setDescription('Review the OCR reading, then confirm or fix the teams.')
+    .setTitle('Match Lobby')
+    .setDescription(description)
     .addFields(
       {
         name: `Team A (${teamA.length})`,
@@ -40,21 +70,62 @@ export function buildLobbyPreviewEmbed(lobby: ValidatedLobby): EmbedBuilder {
     .setColor(0x5865f2);
 }
 
-export function buildLobbyPreviewButtons(
-  options: { disabled?: boolean } = {},
-): ActionRowBuilder<ButtonBuilder> {
-  const disabled = options.disabled ?? false;
+export function buildMatchInProgressEmbed(
+  matchId: string,
+  players: LobbyPlayer[],
+): EmbedBuilder {
+  const { teamA, teamB } = splitLobbyPlayers(players);
 
-  return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(LOBBY_CUSTOM_IDS.confirm)
-      .setLabel('Confirm Teams')
-      .setStyle(ButtonStyle.Success)
-      .setDisabled(disabled),
+  return new EmbedBuilder()
+    .setTitle('Match In Progress')
+    .setDescription(`Match \`${matchId}\` has started.`)
+    .addFields(
+      {
+        name: `Team A (${teamA.length})`,
+        value: formatTeamLines(teamA),
+        inline: true,
+      },
+      {
+        name: `Team B (${teamB.length})`,
+        value: formatTeamLines(teamB),
+        inline: true,
+      },
+    )
+    .setColor(0x57f287);
+}
+
+export function buildMatchCancelledEmbed(matchId: string): EmbedBuilder {
+  return new EmbedBuilder()
+    .setTitle('Match Cancelled')
+    .setDescription(`Match \`${matchId}\` was cancelled (expired).`)
+    .setColor(0xed4245);
+}
+
+export function buildLobbyButtons(
+  options: { canStart?: boolean; locked?: boolean } = {},
+): ActionRowBuilder<ButtonBuilder>[] {
+  if (options.locked) {
+    return [];
+  }
+
+  const canStart = options.canStart ?? false;
+  const row = new ActionRowBuilder<ButtonBuilder>();
+
+  if (canStart) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(LOBBY_CUSTOM_IDS.start)
+        .setLabel('Start Match')
+        .setStyle(ButtonStyle.Success),
+    );
+  }
+
+  row.addComponents(
     new ButtonBuilder()
       .setCustomId(LOBBY_CUSTOM_IDS.fix)
       .setLabel('Fix Reading')
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(disabled),
+      .setStyle(ButtonStyle.Secondary),
   );
+
+  return [row];
 }

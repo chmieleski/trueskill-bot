@@ -16,22 +16,22 @@ import type {
   StringSelectMenuInteraction,
 } from 'discord.js';
 import { createLogger } from '../lib/logger.js';
+import type { LobbyPlayer } from '../services/lobby-ocr.js';
 import {
-  deleteLobbyDraft,
-  getLobbyDraft,
-  updateLobbyDraftPlayers,
-  type LobbyDraft,
-} from '../services/lobby-draft-store.js';
-import {
-  LobbyOcrError,
-  validateLobbyPlayers,
-  type LobbyPlayer,
-} from '../services/lobby-ocr.js';
-import {
-  buildLobbyPreviewButtons,
-  buildLobbyPreviewEmbed,
+  buildLobbyButtons,
+  buildMatchInProgressEmbed,
+  buildMatchLobbyEmbed,
+  canStartLobby,
   LOBBY_CUSTOM_IDS,
 } from '../services/lobby-preview.js';
+import {
+  getMatchByDiscordMessageId,
+  matchToLobbyPlayers,
+  MatchServiceError,
+  replaceMatchRoster,
+  startMatch,
+  type MatchWithPlayers,
+} from '../services/match-service.js';
 
 const log = createLogger('lobby');
 
@@ -39,8 +39,9 @@ const MIN_SLOT = 1;
 const MAX_SLOT = 12;
 
 const OWNER_ONLY_MESSAGE = 'Only the user who registered this lobby can do that.';
-const EXPIRED_MESSAGE = 'This lobby preview has expired. Run /register_lobby again.';
-const UPDATED_MESSAGE = 'Lobby preview updated.';
+const NOT_FOUND_MESSAGE = 'This match lobby was not found. Run /register_lobby again.';
+const NOT_EDITABLE_MESSAGE = 'This match can no longer be edited.';
+const UPDATED_MESSAGE = 'Lobby updated.';
 
 function normalizeNick(nick: string): string {
   return nick.trim().toLowerCase();
@@ -106,34 +107,43 @@ async function updateEphemeral(
   await interaction.update({ content, components });
 }
 
-function requireDraft(
+async function requirePendingMatch(
   messageId: string,
   userId: string,
-): { draft: LobbyDraft } | { error: string } {
-  const draft = getLobbyDraft(messageId);
+): Promise<{ match: MatchWithPlayers; players: LobbyPlayer[] } | { error: string }> {
+  const match = await getMatchByDiscordMessageId(messageId);
 
-  if (!draft) {
-    log.verbose({ messageId, userId }, 'Lobby draft missing or expired');
-    return { error: EXPIRED_MESSAGE };
+  if (!match) {
+    log.verbose({ messageId, userId }, 'Match lobby missing for message');
+    return { error: NOT_FOUND_MESSAGE };
   }
 
-  if (draft.ownerId !== userId) {
-    log.warn({ messageId, userId, ownerId: draft.ownerId }, 'Lobby action rejected (not owner)');
+  if (match.hostDiscordId !== userId) {
+    log.warn(
+      { messageId, userId, hostDiscordId: match.hostDiscordId, matchId: match.id },
+      'Lobby action rejected (not host)',
+    );
     return { error: OWNER_ONLY_MESSAGE };
   }
 
-  return { draft };
+  if (match.status !== 'PENDING') {
+    log.warn({ messageId, userId, matchId: match.id, status: match.status }, 'Lobby not editable');
+    return { error: NOT_EDITABLE_MESSAGE };
+  }
+
+  return { match, players: matchToLobbyPlayers(match) };
 }
 
-async function refreshPreviewMessage(
+async function refreshLobbyMessage(
   interaction: MessageComponentInteraction | ModalSubmitInteraction,
   messageId: string,
+  matchId: string,
   players: LobbyPlayer[],
 ): Promise<void> {
-  const validated = validateLobbyPlayers(players);
+  const canStart = canStartLobby(players);
   const payload = {
-    embeds: [buildLobbyPreviewEmbed(validated)],
-    components: [buildLobbyPreviewButtons()],
+    embeds: [buildMatchLobbyEmbed(matchId, players, { canStart })],
+    components: buildLobbyButtons({ canStart }),
   };
 
   const channel = interaction.channel;
@@ -146,7 +156,7 @@ async function refreshPreviewMessage(
   const channelId = interaction.channelId;
 
   if (!channelId) {
-    throw new Error('Missing channel for lobby preview update');
+    throw new Error('Missing channel for lobby message update');
   }
 
   const fetched = await interaction.client.channels.fetch(channelId);
@@ -159,51 +169,30 @@ async function refreshPreviewMessage(
 async function applyPlayersUpdate(
   interaction: MessageComponentInteraction | ModalSubmitInteraction,
   messageId: string,
+  matchId: string,
   nextPlayers: LobbyPlayer[],
 ): Promise<boolean> {
   try {
-    validateLobbyPlayers(nextPlayers);
+    const updated = await replaceMatchRoster(matchId, nextPlayers);
+    const players = matchToLobbyPlayers(updated);
+
+    await refreshLobbyMessage(interaction, messageId, matchId, players);
+    log.debug({ messageId, matchId, playerCount: players.length }, 'Lobby message refreshed');
+    return true;
   } catch (error) {
-    log.warn(
-      {
-        err: error,
-        messageId,
-        userId: interaction.user.id,
-        playerCount: nextPlayers.length,
-      },
-      'Lobby players update rejected by validation',
-    );
+    if (error instanceof MatchServiceError) {
+      log.warn(
+        { err: error, messageId, matchId, userId: interaction.user.id },
+        'Lobby roster update rejected',
+      );
+      await replyEphemeral(interaction, error.message);
+      return false;
+    }
 
-    const content =
-      error instanceof LobbyOcrError
-        ? error.message
-        : 'Invalid lobby changes. Please try again.';
-
-    await replyEphemeral(interaction, content);
+    log.error({ err: error, messageId, matchId }, 'Failed to update lobby roster');
+    await replyEphemeral(interaction, 'Could not update the lobby. Please try again.');
     return false;
   }
-
-  const updated = updateLobbyDraftPlayers(messageId, nextPlayers);
-
-  if (!updated) {
-    log.warn({ messageId, userId: interaction.user.id }, 'Lobby draft gone during players update');
-    await replyEphemeral(interaction, EXPIRED_MESSAGE);
-    return false;
-  }
-
-  try {
-    await refreshPreviewMessage(interaction, messageId, updated.players);
-    log.debug(
-      { messageId, revision: updated.revision, playerCount: updated.players.length },
-      'Lobby preview message refreshed',
-    );
-  } catch (error) {
-    log.error({ err: error, messageId }, 'Failed to refresh preview message');
-    await replyEphemeral(interaction, 'Could not update the lobby preview message.');
-    return false;
-  }
-
-  return true;
 }
 
 function buildFixMenuRow(messageId: string): ActionRowBuilder<ButtonBuilder> {
@@ -227,44 +216,57 @@ function buildFixMenuRow(messageId: string): ActionRowBuilder<ButtonBuilder> {
   );
 }
 
-async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
+async function handleStart(interaction: ButtonInteraction): Promise<void> {
   const messageId = interaction.message.id;
-  const result = requireDraft(messageId, interaction.user.id);
+  const userId = interaction.user.id;
+  const result = await requirePendingMatch(messageId, userId);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
     return;
   }
 
-  // TODO: Persist match / MatchPlayer / OpenSkill from result.draft.players
-  const { teamA, teamB } = validateLobbyPlayers(result.draft.players);
+  await interaction.deferUpdate();
 
-  log.info(
-    {
-      messageId,
-      userId: interaction.user.id,
-      teamA: teamA.length,
-      teamB: teamB.length,
-    },
-    'Lobby teams confirmed',
-  );
+  try {
+    const started = await startMatch(result.match.id);
+    const players = matchToLobbyPlayers(started);
 
-  deleteLobbyDraft(messageId);
+    await interaction.editReply({
+      embeds: [buildMatchInProgressEmbed(started.id, players)],
+      components: [],
+    });
 
-  await interaction.update({
-    embeds: [buildLobbyPreviewEmbed({ teamA, teamB })],
-    components: [buildLobbyPreviewButtons({ disabled: true })],
-  });
+    log.info(
+      { messageId, userId, matchId: started.id, playerCount: players.length },
+      'Match started from lobby',
+    );
 
-  await interaction.followUp({
-    content: 'Teams confirmed. Match registration will be available soon.',
-    flags: MessageFlags.Ephemeral,
-  });
+    await interaction.followUp({
+      content: `Match \`${started.id}\` started.`,
+      flags: MessageFlags.Ephemeral,
+    });
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      log.warn({ messageId, userId, err: error }, 'Start match rejected');
+      await interaction.followUp({
+        content: error.message,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    log.error({ messageId, userId, err: error }, 'Failed to start match');
+    await interaction.followUp({
+      content: 'Failed to start the match. Please try again.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 }
 
 async function handleFixOpen(interaction: ButtonInteraction): Promise<void> {
   const messageId = interaction.message.id;
-  const result = requireDraft(messageId, interaction.user.id);
+  const result = await requirePendingMatch(messageId, interaction.user.id);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
@@ -279,14 +281,14 @@ async function handleFixOpen(interaction: ButtonInteraction): Promise<void> {
 }
 
 async function handleFixEditNick(interaction: ButtonInteraction, messageId: string): Promise<void> {
-  const result = requireDraft(messageId, interaction.user.id);
+  const result = await requirePendingMatch(messageId, interaction.user.id);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
     return;
   }
 
-  const options = playerSelectOptions(result.draft.players);
+  const options = playerSelectOptions(result.players);
 
   if (options.length === 0) {
     await replyEphemeral(interaction, 'No players to edit.');
@@ -304,21 +306,21 @@ async function handleFixEditNick(interaction: ButtonInteraction, messageId: stri
 }
 
 async function handleFixMove(interaction: ButtonInteraction, messageId: string): Promise<void> {
-  const result = requireDraft(messageId, interaction.user.id);
+  const result = await requirePendingMatch(messageId, interaction.user.id);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
     return;
   }
 
-  const options = playerSelectOptions(result.draft.players);
+  const options = playerSelectOptions(result.players);
 
   if (options.length === 0) {
     await replyEphemeral(interaction, 'No players to move.');
     return;
   }
 
-  const freeSlots = emptySlotSelectOptions(result.draft.players);
+  const freeSlots = emptySlotSelectOptions(result.players);
 
   if (freeSlots.length === 0) {
     await replyEphemeral(interaction, 'No empty slots available to move into.');
@@ -336,14 +338,14 @@ async function handleFixMove(interaction: ButtonInteraction, messageId: string):
 }
 
 async function handleFixRemove(interaction: ButtonInteraction, messageId: string): Promise<void> {
-  const result = requireDraft(messageId, interaction.user.id);
+  const result = await requirePendingMatch(messageId, interaction.user.id);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
     return;
   }
 
-  const options = playerSelectOptions(result.draft.players);
+  const options = playerSelectOptions(result.players);
 
   if (options.length === 0) {
     await replyEphemeral(interaction, 'No players to remove.');
@@ -361,14 +363,14 @@ async function handleFixRemove(interaction: ButtonInteraction, messageId: string
 }
 
 async function handleFixAdd(interaction: ButtonInteraction, messageId: string): Promise<void> {
-  const result = requireDraft(messageId, interaction.user.id);
+  const result = await requirePendingMatch(messageId, interaction.user.id);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
     return;
   }
 
-  if (emptySlotSelectOptions(result.draft.players).length === 0) {
+  if (emptySlotSelectOptions(result.players).length === 0) {
     await replyEphemeral(interaction, 'No empty slots available. Remove a player first.');
     return;
   }
@@ -404,7 +406,7 @@ async function handleSelectEditNick(
   interaction: StringSelectMenuInteraction,
   messageId: string,
 ): Promise<void> {
-  const result = requireDraft(messageId, interaction.user.id);
+  const result = await requirePendingMatch(messageId, interaction.user.id);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
@@ -412,10 +414,10 @@ async function handleSelectEditNick(
   }
 
   const slot = Number(interaction.values[0]);
-  const player = result.draft.players.find((entry) => entry.slot === slot);
+  const player = result.players.find((entry) => entry.slot === slot);
 
   if (!player) {
-    await replyEphemeral(interaction, 'That player is no longer in the lobby preview.');
+    await replyEphemeral(interaction, 'That player is no longer in the lobby.');
     return;
   }
 
@@ -440,7 +442,7 @@ async function handleSelectMovePlayer(
   interaction: StringSelectMenuInteraction,
   messageId: string,
 ): Promise<void> {
-  const result = requireDraft(messageId, interaction.user.id);
+  const result = await requirePendingMatch(messageId, interaction.user.id);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
@@ -448,14 +450,14 @@ async function handleSelectMovePlayer(
   }
 
   const fromSlot = Number(interaction.values[0]);
-  const player = result.draft.players.find((entry) => entry.slot === fromSlot);
+  const player = result.players.find((entry) => entry.slot === fromSlot);
 
   if (!player) {
-    await replyEphemeral(interaction, 'That player is no longer in the lobby preview.');
+    await replyEphemeral(interaction, 'That player is no longer in the lobby.');
     return;
   }
 
-  const freeSlots = emptySlotSelectOptions(result.draft.players);
+  const freeSlots = emptySlotSelectOptions(result.players);
 
   if (freeSlots.length === 0) {
     await replyEphemeral(interaction, 'No empty slots available to move into.');
@@ -481,7 +483,7 @@ async function handleSelectMoveSlot(
   messageId: string,
   fromSlot: number,
 ): Promise<void> {
-  const result = requireDraft(messageId, interaction.user.id);
+  const result = await requirePendingMatch(messageId, interaction.user.id);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
@@ -495,16 +497,16 @@ async function handleSelectMoveSlot(
     return;
   }
 
-  if (result.draft.players.some((player) => player.slot === toSlot)) {
+  if (result.players.some((player) => player.slot === toSlot)) {
     await replyEphemeral(interaction, `Slot ${toSlot} is already occupied.`);
     return;
   }
 
-  const nextPlayers = result.draft.players.map((player) =>
+  const nextPlayers = result.players.map((player) =>
     player.slot === fromSlot ? { ...player, slot: toSlot } : player,
   );
 
-  const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
+  const ok = await applyPlayersUpdate(interaction, messageId, result.match.id, nextPlayers);
 
   if (ok) {
     await updateEphemeral(interaction, UPDATED_MESSAGE);
@@ -515,7 +517,7 @@ async function handleSelectRemove(
   interaction: StringSelectMenuInteraction,
   messageId: string,
 ): Promise<void> {
-  const result = requireDraft(messageId, interaction.user.id);
+  const result = await requirePendingMatch(messageId, interaction.user.id);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
@@ -523,9 +525,9 @@ async function handleSelectRemove(
   }
 
   const slot = Number(interaction.values[0]);
-  const nextPlayers = result.draft.players.filter((player) => player.slot !== slot);
+  const nextPlayers = result.players.filter((player) => player.slot !== slot);
 
-  const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
+  const ok = await applyPlayersUpdate(interaction, messageId, result.match.id, nextPlayers);
 
   if (ok) {
     await updateEphemeral(interaction, UPDATED_MESSAGE);
@@ -537,7 +539,7 @@ async function handleModalEditNick(
   messageId: string,
   slot: number,
 ): Promise<void> {
-  const result = requireDraft(messageId, interaction.user.id);
+  const result = await requirePendingMatch(messageId, interaction.user.id);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
@@ -551,16 +553,16 @@ async function handleModalEditNick(
     return;
   }
 
-  if (!result.draft.players.some((player) => player.slot === slot)) {
-    await replyEphemeral(interaction, 'That player is no longer in the lobby preview.');
+  if (!result.players.some((player) => player.slot === slot)) {
+    await replyEphemeral(interaction, 'That player is no longer in the lobby.');
     return;
   }
 
-  const nextPlayers = result.draft.players.map((player) =>
+  const nextPlayers = result.players.map((player) =>
     player.slot === slot ? { ...player, nick } : player,
   );
 
-  const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
+  const ok = await applyPlayersUpdate(interaction, messageId, result.match.id, nextPlayers);
 
   if (ok) {
     await interaction.reply({ content: UPDATED_MESSAGE, flags: MessageFlags.Ephemeral });
@@ -571,7 +573,7 @@ async function handleModalAdd(
   interaction: ModalSubmitInteraction,
   messageId: string,
 ): Promise<void> {
-  const result = requireDraft(messageId, interaction.user.id);
+  const result = await requirePendingMatch(messageId, interaction.user.id);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
@@ -595,13 +597,13 @@ async function handleModalAdd(
     return;
   }
 
-  if (result.draft.players.some((player) => player.slot === slot)) {
+  if (result.players.some((player) => player.slot === slot)) {
     await replyEphemeral(interaction, `Slot ${slot} is already occupied.`);
     return;
   }
 
-  const nextPlayers = [...result.draft.players, { slot, nick }];
-  const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
+  const nextPlayers = [...result.players, { slot, nick }];
+  const ok = await applyPlayersUpdate(interaction, messageId, result.match.id, nextPlayers);
 
   if (ok) {
     await interaction.reply({ content: UPDATED_MESSAGE, flags: MessageFlags.Ephemeral });
@@ -612,8 +614,8 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
   const customId = interaction.customId;
   log.debug({ customId, userId: interaction.user.id }, 'Lobby button interaction');
 
-  if (customId === LOBBY_CUSTOM_IDS.confirm) {
-    await handleConfirm(interaction);
+  if (customId === LOBBY_CUSTOM_IDS.start) {
+    await handleStart(interaction);
     return;
   }
 
@@ -624,7 +626,6 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
 
   const parts = parseCustomId(customId);
 
-  // lobby:fix:edit_nick:{msgId}
   if (parts[0] === 'lobby' && parts[1] === 'fix' && parts[3]) {
     const messageId = parts[3];
     const action = parts[2];
@@ -660,10 +661,6 @@ async function handleSelect(interaction: StringSelectMenuInteraction): Promise<v
     'Lobby select interaction',
   );
 
-  // lobby:select:edit_nick:{msgId}
-  // lobby:select:move_player:{msgId}
-  // lobby:select:move_slot:{msgId}:{fromSlot}
-  // lobby:select:remove:{msgId}
   if (parts[0] !== 'lobby' || parts[1] !== 'select' || !parts[3]) {
     return;
   }
@@ -698,8 +695,6 @@ async function handleModal(interaction: ModalSubmitInteraction): Promise<void> {
   const parts = parseCustomId(interaction.customId);
   log.debug({ customId: interaction.customId, userId: interaction.user.id }, 'Lobby modal submit');
 
-  // lobby:modal:edit_nick:{msgId}:{slot}
-  // lobby:modal:add:{msgId}
   if (parts[0] !== 'lobby' || parts[1] !== 'modal' || !parts[3]) {
     return;
   }

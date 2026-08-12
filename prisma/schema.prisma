@@ -67,14 +67,19 @@ model PlayerHeroRating {
 
 // Match - up to 6v6 game session (unbalanced human fills allowed)
 model Match {
-  id            String        @id @default(cuid())
-  status        MatchStatus   @default(PENDING)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  players       MatchPlayer[]
+  id                String        @id @default(cuid())
+  status            MatchStatus   @default(PENDING)
+  hostDiscordId     String
+  discordChannelId  String
+  discordMessageId  String?       @unique
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  players           MatchPlayer[]
 
   @@index([status])
   @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([hostDiscordId])
 }
 
 // MatchPlayer - Player participation in a match

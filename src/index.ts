@@ -5,6 +5,7 @@ import { loadCommands } from './handlers/load-commands.js';
 import { loadEvents } from './handlers/load-events.js';
 import { registerCommands } from './handlers/register-commands.js';
 import { createLogger } from './lib/logger.js';
+import { stopMatchCleanupScheduler } from './services/match-cleanup.js';
 
 const log = createLogger('bootstrap');
 
@@ -36,6 +37,8 @@ async function bootstrap(): Promise<void> {
 
 async function shutdown(signal: NodeJS.Signals): Promise<void> {
   log.info({ signal }, 'Shutting down bot');
+
+  stopMatchCleanupScheduler();
 
   if (client) {
     client.destroy();

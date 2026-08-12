@@ -1,16 +1,17 @@
 import { Attachment, SlashCommandBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
-import { setLobbyDraft } from '../../services/lobby-draft-store.js';
+import { extractLobbyPlayers, type LobbyPlayer } from '../../services/lobby-ocr.js';
 import {
-  extractLobbyPlayers,
-  LobbyOcrError,
-  validateLobbyPlayers,
-} from '../../services/lobby-ocr.js';
-import {
-  buildLobbyPreviewButtons,
-  buildLobbyPreviewEmbed,
+  buildLobbyButtons,
+  buildMatchLobbyEmbed,
+  canStartLobby,
 } from '../../services/lobby-preview.js';
+import {
+  attachDiscordMessage,
+  createPendingMatch,
+  MatchServiceError,
+} from '../../services/match-service.js';
 
 const log = createLogger('register_lobby');
 
@@ -57,6 +58,24 @@ function resolveMimeType(attachment: Attachment): string {
   return 'image/png';
 }
 
+/**
+ * Soft OCR: return extracted players when possible, otherwise [].
+ * Keep partial lobbies even when both-teams validation fails.
+ */
+async function tryExtractLobbyPlayers(
+  url: string,
+  mimeType: string,
+): Promise<LobbyPlayer[]> {
+  try {
+    const players = await extractLobbyPlayers(url, mimeType);
+    log.debug({ playerCount: players.length, players }, 'OCR players extracted');
+    return players;
+  } catch (error) {
+    log.warn({ err: error }, 'OCR failed; continuing with empty lobby');
+    return [];
+  }
+}
+
 export const data = new SlashCommandBuilder()
   .setName('register_lobby')
   .setDescription('Register a DBZ match lobby (up to 6v6) from a screenshot')
@@ -73,6 +92,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     {
       userId: interaction.user.id,
       guildId: interaction.guildId,
+      channelId: interaction.channelId,
       attachmentName: attachment.name,
       contentType: attachment.contentType,
       size: attachment.size,
@@ -89,53 +109,49 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
+  if (!interaction.channelId) {
+    await interaction.editReply('Could not determine the channel for this lobby.');
+    return;
+  }
+
+  const mimeType = resolveMimeType(attachment);
+  const players = await tryExtractLobbyPlayers(attachment.url, mimeType);
+  const canStart = canStartLobby(players);
+
   try {
-    const mimeType = resolveMimeType(attachment);
-    log.debug({ mimeType }, 'Resolved attachment MIME type');
+    const created = await createPendingMatch({
+      hostDiscordId: interaction.user.id,
+      discordChannelId: interaction.channelId,
+      players,
+    });
 
-    const players = await extractLobbyPlayers(attachment.url, mimeType);
-    log.debug({ playerCount: players.length, players }, 'OCR players extracted');
-
-    const validated = validateLobbyPlayers(players);
-    log.info(
-      {
-        teamA: validated.teamA.length,
-        teamB: validated.teamB.length,
-        slots: [...validated.teamA, ...validated.teamB].map((player) => player.slot),
-      },
-      'Lobby players validated',
-    );
-
-    // Slot X implies heroId X later — Hero table is not queried in this command.
     await interaction.editReply({
-      embeds: [buildLobbyPreviewEmbed(validated)],
-      components: [buildLobbyPreviewButtons()],
+      embeds: [buildMatchLobbyEmbed(created.matchId, players, { canStart })],
+      components: buildLobbyButtons({ canStart }),
     });
 
     const previewMessage = await interaction.fetchReply();
-    const flatPlayers = [...validated.teamA, ...validated.teamB];
 
-    setLobbyDraft(previewMessage.id, {
-      ownerId: interaction.user.id,
-      players: flatPlayers,
-    });
+    await attachDiscordMessage(created.matchId, previewMessage.id, interaction.channelId);
 
     log.info(
-      { messageId: previewMessage.id, ownerId: interaction.user.id, playerCount: flatPlayers.length },
-      'Lobby draft created',
+      {
+        matchId: created.matchId,
+        messageId: previewMessage.id,
+        ownerId: interaction.user.id,
+        playerCount: players.length,
+        canStart,
+      },
+      'Match lobby registered',
     );
   } catch (error) {
-    if (error instanceof LobbyOcrError) {
-      log.warn({ err: error, userId: interaction.user.id }, 'Lobby registration rejected');
-    } else {
-      log.error({ err: error, userId: interaction.user.id }, 'Failed to register lobby from screenshot');
+    if (error instanceof MatchServiceError) {
+      log.warn({ err: error, userId: interaction.user.id }, 'Match lobby registration rejected');
+      await interaction.editReply(error.message);
+      return;
     }
 
-    const message =
-      error instanceof LobbyOcrError
-        ? error.message
-        : 'Could not read the lobby screenshot. Please try again with a clearer image.';
-
-    await interaction.editReply(message);
+    log.error({ err: error, userId: interaction.user.id }, 'Failed to register match lobby');
+    await interaction.editReply('Could not create the match lobby. Please try again.');
   }
 }
