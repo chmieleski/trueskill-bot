@@ -1,57 +1,70 @@
-import { describe, expect, it } from 'vitest';
 import { rating } from 'openskill';
+import { describe, expect, it } from 'vitest';
+import { MatchServiceError } from './match-service.js';
 import {
-  QUITTER_SYNTHETIC_LOSSES,
   applySyntheticLosses,
   assertBothTeamsHaveActivePlayers,
   buildDummyOpponentTeam,
   partitionRosterForRating,
+  QUITTER_SYNTHETIC_LOSSES,
 } from './rating-update.js';
-import { MatchServiceError } from './match-service.js';
 
-describe('applySyntheticLosses', () => {
-  it('lowers mu over N synthetic losses', () => {
-    const before = [rating({ mu: 25, sigma: 8.333 }), rating({ mu: 25, sigma: 8.333 })];
-    const after = applySyntheticLosses(before, QUITTER_SYNTHETIC_LOSSES);
-    expect(after).toHaveLength(2);
-    expect(after[0]!.mu).toBeLessThan(before[0]!.mu);
-    expect(after[1]!.mu).toBeLessThan(before[1]!.mu);
-  });
-
-  it('uses default N=3', () => {
+describe('QUITTER_SYNTHETIC_LOSSES', () => {
+  it('uses the configured quitter penalty count', () => {
     expect(QUITTER_SYNTHETIC_LOSSES).toBe(3);
   });
 });
 
 describe('buildDummyOpponentTeam', () => {
-  it('returns a non-empty strong team', () => {
+  it('builds the fixed strong dummy team', () => {
     const dummy = buildDummyOpponentTeam();
-    expect(dummy.length).toBeGreaterThanOrEqual(2);
-    expect(dummy[0]!.mu).toBeGreaterThan(25);
+
+    expect(dummy).toHaveLength(2);
+    expect(dummy[0]!.mu).toBe(40);
+    expect(dummy[0]!.sigma).toBe(4);
+    expect(dummy[1]!.mu).toBe(40);
+    expect(dummy[1]!.sigma).toBe(4);
+  });
+});
+
+describe('applySyntheticLosses', () => {
+  it('lowers the player team after repeated losses', () => {
+    const before = [
+      rating({ mu: 25, sigma: 8.333 }),
+      rating({ mu: 25, sigma: 8.333 }),
+    ];
+
+    const after = applySyntheticLosses(before);
+
+    expect(after).toHaveLength(2);
+    expect(after[0]!.mu).toBeLessThan(before[0]!.mu);
+    expect(after[1]!.mu).toBeLessThan(before[1]!.mu);
   });
 });
 
 describe('partitionRosterForRating', () => {
-  it('splits quitters from active', () => {
+  it('splits quitters from active entries', () => {
     const { quitters, active } = partitionRosterForRating([
       { slot: 1, isQuitter: true },
+      { slot: 2, isQuitter: false },
       { slot: 7, isQuitter: false },
     ]);
-    expect(quitters.map((e) => e.slot)).toEqual([1]);
-    expect(active.map((e) => e.slot)).toEqual([7]);
+
+    expect(quitters.map((entry) => entry.slot)).toEqual([1]);
+    expect(active.map((entry) => entry.slot)).toEqual([2, 7]);
   });
 });
 
 describe('assertBothTeamsHaveActivePlayers', () => {
-  it('throws when a team has zero active players', () => {
-    expect(() =>
-      assertBothTeamsHaveActivePlayers([{ slot: 1 }, { slot: 2 }]),
-    ).toThrow(MatchServiceError);
-  });
-
-  it('passes when both teams have at least one', () => {
+  it('accepts one active player per team', () => {
     expect(() =>
       assertBothTeamsHaveActivePlayers([{ slot: 1 }, { slot: 7 }]),
     ).not.toThrow();
+  });
+
+  it('rejects when quitters empty a team', () => {
+    expect(() => assertBothTeamsHaveActivePlayers([{ slot: 1 }])).toThrow(
+      MatchServiceError,
+    );
   });
 });
