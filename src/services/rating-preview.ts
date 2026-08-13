@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { predictWin } from 'openskill';
 import { prisma } from '../lib/prisma.js';
 import { createLogger } from '../lib/logger.js';
@@ -18,6 +19,7 @@ export interface LobbyRatingPlayerLine {
   nick: string;
   globalOrdinal: number;
   heroOrdinal: number;
+  isQuitter?: boolean;
 }
 
 export interface LobbyRatingPreview {
@@ -34,7 +36,10 @@ export type RatingPreviewRosterEntry = {
   slot: number;
   heroId: number;
   nick: string;
+  isQuitter?: boolean;
 };
+
+type Db = Prisma.TransactionClient | typeof prisma;
 
 /** Process-lifetime cache so we only seed Hero 1–12 once. */
 let heroesEnsurePromise: Promise<void> | null = null;
@@ -62,20 +67,22 @@ export async function ensureHeroesExist(): Promise<void> {
 
 /**
  * Batch cold-start for missing global + hero ratings (few round-trips).
+ * Accepts optional transaction client for match completion flows.
  */
 export async function ensurePlayerRatings(
-  entries: RatingPreviewRosterEntry[],
+  entries: Pick<RatingPreviewRosterEntry, 'playerId' | 'heroId'>[],
+  db: Db = prisma,
 ): Promise<void> {
   if (entries.length === 0) {
     return;
   }
 
-  await prisma.playerRating.createMany({
+  await db.playerRating.createMany({
     data: entries.map((entry) => ({ playerId: entry.playerId })),
     skipDuplicates: true,
   });
 
-  await prisma.playerHeroRating.createMany({
+  await db.playerHeroRating.createMany({
     data: entries.map((entry) => ({
       playerId: entry.playerId,
       heroId: entry.heroId,
@@ -136,6 +143,7 @@ export async function loadLobbyRatingPreview(
         nick: entry.nick,
         globalOrdinal: displayOrdinal(global.mu, global.sigma),
         heroOrdinal: displayOrdinal(hero.mu, hero.sigma),
+        isQuitter: entry.isQuitter,
       };
     });
 
@@ -182,6 +190,7 @@ export function matchPlayersToRatingEntries(
     playerId: string;
     slot: number;
     heroId: number;
+    isQuitter?: boolean;
     player: { username: string };
   }[],
 ): RatingPreviewRosterEntry[] {
@@ -190,5 +199,6 @@ export function matchPlayersToRatingEntries(
     slot: entry.slot,
     heroId: entry.heroId,
     nick: entry.player.username,
+    isQuitter: entry.isQuitter,
   }));
 }

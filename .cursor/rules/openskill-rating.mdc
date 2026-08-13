@@ -48,7 +48,7 @@ Use this conservative ordinal everywhere players see a single “rating” numbe
 |------|------|
 | **Cold start (new hero)** | Missing `PlayerHeroRating` → create defaults (μ 25, σ ≈ 8.333). Global rating still enters the team array, so pairing is not tanked. Wins mostly raise the new hero’s μ; veteran global μ barely moves. |
 | **Asymmetric lobbies** | Fewer humans → lower `Σ μ`. Upset underfill gets maximized reward. Empty slots are absent entities, not zero-μ fillers. |
-| **Quitters** | `MatchPlayer.isQuitter` → **static** punitive μ drop on global **and** hero (outside Bayesian update; treat as several consecutive losses). Host may still process remaining players or cancel the match. |
+| **Quitters** | `MatchPlayer.isQuitter` → N=3 OpenSkill synthetic losses (`rate` vs strong dummy) on global **and** hero; excluded from match Bayesian `rate()`. Host/mod may still complete remaining players or cancel (cancel applies quit penalties if flagged). |
 
 ## Agent constraints
 
