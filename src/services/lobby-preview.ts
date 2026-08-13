@@ -16,6 +16,9 @@ export const LOBBY_CUSTOM_IDS = {
   move: 'lobby:move',
   remove: 'lobby:remove',
   add: 'lobby:add',
+  reportWinner: 'match:report',
+  quitters: 'match:quitters',
+  cancelInProgress: 'match:cancel',
 } as const;
 
 /** Must match stale PENDING cleanup TTL in match-cleanup / match-service. */
@@ -49,6 +52,7 @@ export function formatTeamLines(players: LobbyPlayer[]): string {
 /**
  * Format roster lines with global / hero ordinals.
  * Uses monospace padding so rating columns align and sit clear of the nick.
+ * Quitter lines get a trailing 🚪 marker outside the code span.
  */
 export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): string {
   if (players.length === 0) {
@@ -62,7 +66,8 @@ export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): st
       const nick = player.nick.padEnd(nickWidth, ' ');
       const global = String(player.globalOrdinal).padStart(3, ' ');
       const hero = String(player.heroOrdinal).padStart(3, ' ');
-      return `\`${nick}   ${global} / ${hero}\``;
+      const quitterMark = player.isQuitter ? ' 🚪' : '';
+      return `\`${nick}   ${global} / ${hero}\`${quitterMark}`;
     })
     .join('\n');
 }
@@ -254,6 +259,66 @@ export function buildMatchInProgressEmbed(
       ...ratingPreviewFields(options.ratingPreview),
     )
     .setColor(0x57f287);
+
+  return applyEmbedChrome(embed, {
+    matchId,
+    ratingPreview: options.ratingPreview,
+    timestamp: new Date(),
+  });
+}
+
+export function buildMatchReportButtons(): ActionRowBuilder<ButtonBuilder>[] {
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(LOBBY_CUSTOM_IDS.reportWinner)
+        .setLabel('Report Winner')
+        .setEmoji('🏆')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(LOBBY_CUSTOM_IDS.quitters)
+        .setLabel('Quitters')
+        .setEmoji('🚪')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId(LOBBY_CUSTOM_IDS.cancelInProgress)
+        .setLabel('Cancel')
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  ];
+}
+
+export function buildMatchCompletedEmbed(
+  matchId: string,
+  players: LobbyPlayer[],
+  options: {
+    ratingPreview?: LobbyRatingPreview;
+    winningTeam: 1 | 2;
+  },
+): EmbedBuilder {
+  const { teamAValue, teamBValue, teamACount, teamBCount } = teamFieldValues(
+    players,
+    options.ratingPreview,
+  );
+  const winnerLabel = options.winningTeam === 1 ? 'Team A' : 'Team B';
+  const color = options.winningTeam === 1 ? 0xf1c40f : 0x57f287;
+
+  const embed = new EmbedBuilder()
+    .setTitle('Match Completed')
+    .setDescription(`${winnerLabel} won the match.`)
+    .addFields(
+      {
+        name: `${TEAM_A_EMOJI} Team A (${teamACount})`,
+        value: teamAValue,
+        inline: false,
+      },
+      {
+        name: `${TEAM_B_EMOJI} Team B (${teamBCount})`,
+        value: teamBValue,
+        inline: false,
+      },
+    )
+    .setColor(color);
 
   return applyEmbedChrome(embed, {
     matchId,

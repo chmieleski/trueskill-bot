@@ -1,11 +1,13 @@
-import type { Client } from 'discord.js';
+import type { ActionRowBuilder, ButtonBuilder, Client, EmbedBuilder } from 'discord.js';
 import { createLogger } from '../lib/logger.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
 import {
   buildLobbyButtons,
   buildMatchCancelledEmbed,
+  buildMatchCompletedEmbed,
   buildMatchInProgressEmbed,
   buildMatchLobbyEmbed,
+  buildMatchReportButtons,
   canStartLobby,
 } from './lobby-preview.js';
 import {
@@ -35,7 +37,7 @@ const NO_PENDING_MESSAGE = 'You have no pending match lobby. Run /register_lobby
 const AMBIGUOUS_PENDING_MESSAGE =
   'You have more than one pending lobby. Pass match_id to choose which one.';
 
-export type LobbySyncMode = 'pending' | 'started' | 'cancelled';
+export type LobbySyncMode = 'pending' | 'started' | 'cancelled' | 'completed';
 
 export interface LobbyActionResult {
   match: MatchWithPlayers;
@@ -67,6 +69,10 @@ function assertHostOwnsPending(match: MatchWithPlayers, hostDiscordId: string): 
   if (match.status !== 'PENDING') {
     throw new MatchServiceError(NOT_EDITABLE_MESSAGE);
   }
+}
+
+function determineWinningTeam(players: MatchWithPlayers['players']): 1 | 2 {
+  return players.some((player) => player.result === 'WIN' && player.slot <= 6) ? 1 : 2;
 }
 
 /**
@@ -300,7 +306,10 @@ export async function syncLobbyDiscordMessage(
   }
 
   const players = matchToLobbyPlayers(match);
-  let payload: { embeds: ReturnType<typeof buildMatchLobbyEmbed>[]; components: ReturnType<typeof buildLobbyButtons> };
+  let payload: {
+    embeds: EmbedBuilder[];
+    components: ActionRowBuilder<ButtonBuilder>[];
+  };
 
   if (mode === 'pending') {
     const canStart = canStartLobby(players);
@@ -323,6 +332,19 @@ export async function syncLobbyDiscordMessage(
     );
     payload = {
       embeds: [buildMatchInProgressEmbed(match.id, players, { ratingPreview })],
+      components: buildMatchReportButtons(),
+    };
+  } else if (mode === 'completed') {
+    const ratingPreview = await loadLobbyRatingPreview(
+      matchPlayersToRatingEntries(match.players),
+    );
+    payload = {
+      embeds: [
+        buildMatchCompletedEmbed(match.id, players, {
+          ratingPreview,
+          winningTeam: determineWinningTeam(match.players),
+        }),
+      ],
       components: [],
     };
   } else {

@@ -19,6 +19,7 @@ export interface LobbyRatingPlayerLine {
   nick: string;
   globalOrdinal: number;
   heroOrdinal: number;
+  isQuitter?: boolean;
 }
 
 export interface LobbyRatingPreview {
@@ -35,6 +36,7 @@ export type RatingPreviewRosterEntry = {
   slot: number;
   heroId: number;
   nick: string;
+  isQuitter?: boolean;
 };
 
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -141,6 +143,7 @@ export async function loadLobbyRatingPreview(
         nick: entry.nick,
         globalOrdinal: displayOrdinal(global.mu, global.sigma),
         heroOrdinal: displayOrdinal(hero.mu, hero.sigma),
+        isQuitter: entry.isQuitter,
       };
     });
 
@@ -187,6 +190,7 @@ export function matchPlayersToRatingEntries(
     playerId: string;
     slot: number;
     heroId: number;
+    isQuitter?: boolean;
     player: { username: string };
   }[],
 ): RatingPreviewRosterEntry[] {
@@ -195,5 +199,6 @@ export function matchPlayersToRatingEntries(
     slot: entry.slot,
     heroId: entry.heroId,
     nick: entry.player.username,
+    isQuitter: entry.isQuitter,
   }));
 }
