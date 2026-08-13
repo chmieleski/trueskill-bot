@@ -1,4 +1,4 @@
-import { Attachment, SlashCommandBuilder } from 'discord.js';
+import { Attachment, GuildMember, SlashCommandBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import { extractLobbyPlayers, type LobbyPlayer } from '../../services/lobby-ocr.js';
@@ -7,6 +7,7 @@ import {
   buildMatchLobbyEmbed,
   canStartLobby,
 } from '../../services/lobby-preview.js';
+import { assertCanCreateMatch } from '../../services/match-auth.js';
 import {
   attachDiscordMessage,
   createPendingMatch,
@@ -19,6 +20,31 @@ import {
 } from '../../services/rating-preview.js';
 
 const log = createLogger('register_lobby');
+
+function memberRoleIds(interaction: { member: unknown }): string[] {
+  const member = interaction.member;
+
+  if (member instanceof GuildMember) {
+    return [...member.roles.cache.keys()];
+  }
+
+  if (member && typeof member === 'object' && 'roles' in member) {
+    const roles = (member as { roles: unknown }).roles;
+
+    if (Array.isArray(roles)) {
+      return roles;
+    }
+
+    if (roles && typeof roles === 'object' && 'cache' in roles) {
+      const cache = (roles as { cache?: Map<string, unknown> }).cache;
+      if (cache instanceof Map) {
+        return [...cache.keys()];
+      }
+    }
+  }
+
+  return [];
+}
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
 
@@ -90,6 +116,18 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
+
+  try {
+    assertCanCreateMatch({ memberRoleIds: memberRoleIds(interaction) });
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      log.warn({ err: error, userId: interaction.user.id }, 'Match lobby creation forbidden');
+      await interaction.editReply(error.message);
+      return;
+    }
+
+    throw error;
+  }
 
   const attachment = interaction.options.getAttachment('print', true);
 
