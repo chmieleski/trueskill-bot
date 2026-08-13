@@ -8,24 +8,80 @@ import {
 } from 'discord.js';
 import type { LobbyPlayer, ValidatedLobby } from './lobby-ocr.js';
 import { validateLobbyPlayers } from './lobby-ocr.js';
+import type { LobbyRatingPlayerLine, LobbyRatingPreview } from './rating-preview.js';
 
 export const LOBBY_CUSTOM_IDS = {
   start: 'lobby:start',
-  fix: 'lobby:fix',
+  editNick: 'lobby:edit_nick',
+  move: 'lobby:move',
+  remove: 'lobby:remove',
+  add: 'lobby:add',
 } as const;
 
 /** Must match stale PENDING cleanup TTL in match-cleanup / match-service. */
 export const LOBBY_PENDING_TTL_MS = 2 * 60 * 60 * 1000;
+
+const TEAM_A_EMOJI = '🟥';
+const TEAM_B_EMOJI = '🟦';
+
+/** Real Discord embed footer (not a field) — no markdown supported here. */
+const ORDINAL_FOOTER = 'Per player: global / hero (ordinal)';
+
+/** Win-chance accent: green favored, red underdog, white even. */
+function winChanceEmoji(selfPercent: number, otherPercent: number): string {
+  if (selfPercent > otherPercent) {
+    return '🟢';
+  }
+  if (selfPercent < otherPercent) {
+    return '🔴';
+  }
+  return '⚪';
+}
 
 export function formatTeamLines(players: LobbyPlayer[]): string {
   if (players.length === 0) {
     return '_Empty_';
   }
 
-  return players.map((player) => `[Slot ${player.slot}] - ${player.nick}`).join('\n');
+  return players.map((player) => `**${player.nick}**`).join('\n');
+}
+
+/**
+ * Format roster lines with global / hero ordinals.
+ * Uses monospace padding so rating columns align and sit clear of the nick.
+ */
+export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): string {
+  if (players.length === 0) {
+    return '_Empty_';
+  }
+
+  const nickWidth = Math.max(8, ...players.map((player) => player.nick.length));
+
+  return players
+    .map((player) => {
+      const nick = player.nick.padEnd(nickWidth, ' ');
+      const global = String(player.globalOrdinal).padStart(3, ' ');
+      const hero = String(player.heroOrdinal).padStart(3, ' ');
+      return `\`${nick}   ${global} / ${hero}\``;
+    })
+    .join('\n');
 }
 
 export function splitLobbyPlayers(players: LobbyPlayer[]): ValidatedLobby {
+  const teamA = players
+    .filter((player) => player.slot <= 6)
+    .sort((a, b) => a.slot - b.slot);
+  const teamB = players
+    .filter((player) => player.slot > 6)
+    .sort((a, b) => a.slot - b.slot);
+
+  return { teamA, teamB };
+}
+
+function splitPreviewPlayers(players: LobbyRatingPlayerLine[]): {
+  teamA: LobbyRatingPlayerLine[];
+  teamB: LobbyRatingPlayerLine[];
+} {
   const teamA = players
     .filter((player) => player.slot <= 6)
     .sort((a, b) => a.slot - b.slot);
@@ -45,61 +101,165 @@ export function canStartLobby(players: LobbyPlayer[]): boolean {
   }
 }
 
+/**
+ * Win-chance row: two inline fields + blank spacer so Discord keeps a clean
+ * two-column row (embeds lay out inline fields in groups of three).
+ */
+function ratingPreviewFields(preview: LobbyRatingPreview | undefined) {
+  if (!preview?.winChance) {
+    return [];
+  }
+
+  const { teamAPercent, teamBPercent } = preview.winChance;
+  return [
+    {
+      name: '\u200b',
+      value: '\u200b',
+      inline: false,
+    },
+    {
+      name: `${TEAM_A_EMOJI} Team A win`,
+      value: `${winChanceEmoji(teamAPercent, teamBPercent)} **${teamAPercent}%**`,
+      inline: true,
+    },
+    {
+      name: '\u200b',
+      value: '\u200b',
+      inline: true,
+    },
+    {
+      name: `${TEAM_B_EMOJI} Team B win`,
+      value: `${winChanceEmoji(teamBPercent, teamAPercent)} **${teamBPercent}%**`,
+      inline: true,
+    },
+  ];
+}
+
+function teamFieldValues(
+  players: LobbyPlayer[],
+  ratingPreview: LobbyRatingPreview | undefined,
+): { teamAValue: string; teamBValue: string; teamACount: number; teamBCount: number } {
+  if (ratingPreview) {
+    const { teamA, teamB } = splitPreviewPlayers(ratingPreview.players);
+    return {
+      teamAValue: formatTeamLinesFromPreview(teamA),
+      teamBValue: formatTeamLinesFromPreview(teamB),
+      teamACount: teamA.length,
+      teamBCount: teamB.length,
+    };
+  }
+
+  const { teamA, teamB } = splitLobbyPlayers(players);
+  return {
+    teamAValue: formatTeamLines(teamA),
+    teamBValue: formatTeamLines(teamB),
+    teamACount: teamA.length,
+    teamBCount: teamB.length,
+  };
+}
+
+/** Shared chrome: author (match id), footer legend, timestamp. */
+function applyEmbedChrome(
+  embed: EmbedBuilder,
+  options: {
+    matchId: string;
+    ratingPreview?: LobbyRatingPreview;
+    timestamp?: Date;
+  },
+): EmbedBuilder {
+  embed.setAuthor({ name: `Match ${options.matchId}` });
+
+  if (options.ratingPreview) {
+    embed.setFooter({ text: ORDINAL_FOOTER });
+  }
+
+  if (options.timestamp) {
+    embed.setTimestamp(options.timestamp);
+  }
+
+  return embed;
+}
+
 export function buildMatchLobbyEmbed(
   matchId: string,
   players: LobbyPlayer[],
-  options: { canStart?: boolean; createdAt?: Date } = {},
+  options: {
+    canStart?: boolean;
+    createdAt?: Date;
+    ratingPreview?: LobbyRatingPreview;
+  } = {},
 ): EmbedBuilder {
-  const { teamA, teamB } = splitLobbyPlayers(players);
   const canStart = options.canStart ?? canStartLobby(players);
   const createdAt = options.createdAt ?? new Date();
   const expiresAt = new Date(createdAt.getTime() + LOBBY_PENDING_TTL_MS);
-  const expiresLine = `Lobby expires ${time(expiresAt, TimestampStyles.RelativeTime)}.`;
+  const expiresLine = `Expires ${time(expiresAt, TimestampStyles.RelativeTime)}`;
+  const { teamAValue, teamBValue, teamACount, teamBCount } = teamFieldValues(
+    players,
+    options.ratingPreview,
+  );
 
   const description = canStart
-    ? `Match \`${matchId}\`\nReview the lobby, then start when ready.\n\n${expiresLine}`
-    : `Match \`${matchId}\`\nAdd at least one human player to each team before starting.\n\n${expiresLine}`;
+    ? `Review the lobby, then start when ready.\n${expiresLine}`
+    : `Add at least one human player to each team before starting.\n${expiresLine}`;
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setTitle('Match Lobby')
     .setDescription(description)
     .addFields(
       {
-        name: `Team A (${teamA.length})`,
-        value: formatTeamLines(teamA),
-        inline: true,
+        name: `${TEAM_A_EMOJI} Team A (${teamACount})`,
+        value: teamAValue,
+        inline: false,
       },
       {
-        name: `Team B (${teamB.length})`,
-        value: formatTeamLines(teamB),
-        inline: true,
+        name: `${TEAM_B_EMOJI} Team B (${teamBCount})`,
+        value: teamBValue,
+        inline: false,
       },
+      ...ratingPreviewFields(options.ratingPreview),
     )
     .setColor(0x5865f2);
+
+  return applyEmbedChrome(embed, {
+    matchId,
+    ratingPreview: options.ratingPreview,
+    timestamp: createdAt,
+  });
 }
 
 export function buildMatchInProgressEmbed(
   matchId: string,
   players: LobbyPlayer[],
+  options: { ratingPreview?: LobbyRatingPreview } = {},
 ): EmbedBuilder {
-  const { teamA, teamB } = splitLobbyPlayers(players);
+  const { teamAValue, teamBValue, teamACount, teamBCount } = teamFieldValues(
+    players,
+    options.ratingPreview,
+  );
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setTitle('Match In Progress')
-    .setDescription(`Match \`${matchId}\` has started.`)
+    .setDescription('Match has started. Report the result when finished.')
     .addFields(
       {
-        name: `Team A (${teamA.length})`,
-        value: formatTeamLines(teamA),
-        inline: true,
+        name: `${TEAM_A_EMOJI} Team A (${teamACount})`,
+        value: teamAValue,
+        inline: false,
       },
       {
-        name: `Team B (${teamB.length})`,
-        value: formatTeamLines(teamB),
-        inline: true,
+        name: `${TEAM_B_EMOJI} Team B (${teamBCount})`,
+        value: teamBValue,
+        inline: false,
       },
+      ...ratingPreviewFields(options.ratingPreview),
     )
     .setColor(0x57f287);
+
+  return applyEmbedChrome(embed, {
+    matchId,
+    ratingPreview: options.ratingPreview,
+    timestamp: new Date(),
+  });
 }
 
 export function buildMatchCancelledEmbed(
@@ -108,8 +268,10 @@ export function buildMatchCancelledEmbed(
 ): EmbedBuilder {
   return new EmbedBuilder()
     .setTitle('Match Cancelled')
-    .setDescription(`Match \`${matchId}\` was cancelled (${reason}).`)
-    .setColor(0xed4245);
+    .setAuthor({ name: `Match ${matchId}` })
+    .setDescription(`This match was cancelled (${reason}).`)
+    .setColor(0xed4245)
+    .setTimestamp(new Date());
 }
 
 export function buildLobbyButtons(
@@ -119,24 +281,41 @@ export function buildLobbyButtons(
     return [];
   }
 
-  const canStart = options.canStart ?? false;
-  const row = new ActionRowBuilder<ButtonBuilder>();
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
 
-  if (canStart) {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(LOBBY_CUSTOM_IDS.start)
-        .setLabel('Start Match')
-        .setStyle(ButtonStyle.Success),
+  if (options.canStart) {
+    rows.push(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(LOBBY_CUSTOM_IDS.start)
+          .setLabel('Start Match')
+          .setEmoji('▶️')
+          .setStyle(ButtonStyle.Success),
+      ),
     );
   }
 
-  row.addComponents(
-    new ButtonBuilder()
-      .setCustomId(LOBBY_CUSTOM_IDS.fix)
-      .setLabel('Fix Reading')
-      .setStyle(ButtonStyle.Secondary),
+  // Icon-only roster controls (emoji is enough for Discord buttons).
+  rows.push(
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(LOBBY_CUSTOM_IDS.editNick)
+        .setEmoji('✏️')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(LOBBY_CUSTOM_IDS.move)
+        .setEmoji('🔀')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(LOBBY_CUSTOM_IDS.remove)
+        .setEmoji('🗑️')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId(LOBBY_CUSTOM_IDS.add)
+        .setEmoji('➕')
+        .setStyle(ButtonStyle.Success),
+    ),
   );
 
-  return [row];
+  return rows;
 }

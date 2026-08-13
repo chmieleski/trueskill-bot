@@ -1,0 +1,58 @@
+---
+description: OpenSkill rating business rules — μ/σ, dual entities, ordinal, edge cases
+globs: src/**/*.{ts},prisma/**/*.{prisma,sql,ts}
+alwaysApply: false
+---
+
+# OpenSkill Rating System (IHL)
+
+Ranking uses **OpenSkill** (Weng–Lin Bayesian). Prefer it over Elo/Glicko-2 for team games and hero-specific skill. Persist μ/σ in `PlayerRating` and `PlayerHeroRating` (defaults match Prisma: μ `25.0`, σ `8.333` ≈ `25/3`).
+
+## Dual entity graph (per human participant)
+
+Each filled human slot contributes **two** ratings to the team array:
+
+1. **Global** (`PlayerRating`) — game sense / positioning, hero-agnostic
+2. **Hero** (`PlayerHeroRating`) — mechanics on that slot’s hero (IDs **1–12**; slot = hero)
+
+A full 6v6 is therefore up to **24** rating entities (12 players × 2), not 12. Team A slots 1–6, Team B slots 7–12. Unbalanced fills (e.g. 4v6) are valid if both teams have ≥1 player.
+
+```text
+Team array = [Player1, Hero1, Player2, Hero2, ...]
+```
+
+## Team strength (for win probability)
+
+- Team μ: `Σ μᵢ`
+- Team variance: `Σ σᵢ²`
+
+Compare Team A vs Team B to get P(win). After the match, OpenSkill updates μ/σ from actual vs expected outcome.
+
+## Update dynamics (do not reinvent)
+
+- Expected win → small μ gains; upset → large μ gains
+- High-σ entities absorb most of the swing; low-σ (veterans / main heroes) move little
+- Never display raw μ on leaderboards / public embeds
+
+## Public ordinal (leaderboard)
+
+```text
+Public rating = μ − 3σ
+```
+
+Use this conservative ordinal everywhere players see a single “rating” number.
+
+## Edge cases
+
+| Case | Rule |
+|------|------|
+| **Cold start (new hero)** | Missing `PlayerHeroRating` → create defaults (μ 25, σ ≈ 8.333). Global rating still enters the team array, so pairing is not tanked. Wins mostly raise the new hero’s μ; veteran global μ barely moves. |
+| **Asymmetric lobbies** | Fewer humans → lower `Σ μ`. Upset underfill gets maximized reward. Empty slots are absent entities, not zero-μ fillers. |
+| **Quitters** | `MatchPlayer.isQuitter` → **static** punitive μ drop on global **and** hero (outside Bayesian update; treat as several consecutive losses). Host may still process remaining players or cancel the match. |
+
+## Agent constraints
+
+- Keep global vs hero ratings in separate tables/services (SRP); do not merge into one μ
+- Rating math belongs in a dedicated service (e.g. match report / rating update); commands and buttons only call it
+- `MatchResult.DRAW` exists in schema but game flow is WIN/LOSS only
+- Do not invent Elo-style single MMR or equal point splits across teammates

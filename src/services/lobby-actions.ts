@@ -19,7 +19,10 @@ import {
   startMatch,
   type MatchWithPlayers,
 } from './match-service.js';
-
+import {
+  loadLobbyRatingPreview,
+  matchPlayersToRatingEntries,
+} from './rating-preview.js';
 const log = createLogger('lobby-actions');
 
 const MIN_SLOT = 1;
@@ -101,39 +104,22 @@ export async function resolveHostPendingMatch(
 
 /**
  * Resolve a PENDING match from the Discord lobby message (button/modal path).
+ * Any user may act — no host ownership check.
  */
-export async function resolveHostPendingMatchByMessageId(input: {
+export async function resolvePendingMatchByMessageId(input: {
   messageId: string;
-  hostDiscordId: string;
 }): Promise<{ match: MatchWithPlayers; players: LobbyPlayer[] }> {
   const match = await getMatchByDiscordMessageId(input.messageId);
 
   if (!match) {
-    log.verbose(
-      { messageId: input.messageId, userId: input.hostDiscordId },
-      'Match lobby missing for message',
-    );
+    log.verbose({ messageId: input.messageId }, 'Match lobby missing for message');
     throw new MatchServiceError(NOT_FOUND_MESSAGE);
-  }
-
-  if (match.hostDiscordId !== input.hostDiscordId) {
-    log.warn(
-      {
-        messageId: input.messageId,
-        userId: input.hostDiscordId,
-        hostDiscordId: match.hostDiscordId,
-        matchId: match.id,
-      },
-      'Lobby action rejected (not host)',
-    );
-    throw new MatchServiceError(OWNER_ONLY_MESSAGE);
   }
 
   if (match.status !== 'PENDING') {
     log.warn(
       {
         messageId: input.messageId,
-        userId: input.hostDiscordId,
         matchId: match.id,
         status: match.status,
       },
@@ -143,6 +129,14 @@ export async function resolveHostPendingMatchByMessageId(input: {
   }
 
   return { match, players: matchToLobbyPlayers(match) };
+}
+
+/** @deprecated Prefer resolvePendingMatchByMessageId — host check removed. */
+export async function resolveHostPendingMatchByMessageId(input: {
+  messageId: string;
+  hostDiscordId: string;
+}): Promise<{ match: MatchWithPlayers; players: LobbyPlayer[] }> {
+  return resolvePendingMatchByMessageId({ messageId: input.messageId });
 }
 
 export function addPlayer(players: LobbyPlayer[], nickRaw: string, slot: number): LobbyPlayer[] {
@@ -217,12 +211,17 @@ export function movePlayer(
   assertSlotInRange(fromSlot);
   assertSlotInRange(toSlot);
 
+  if (fromSlot === toSlot) {
+    throw new MatchServiceError('Choose a different slot to move into.');
+  }
+
   if (!players.some((player) => player.slot === fromSlot)) {
     throw new MatchServiceError(`Slot ${fromSlot} is empty.`);
   }
 
+  // Occupied destination → swap (Change Slot / relocate UX).
   if (players.some((player) => player.slot === toSlot)) {
-    throw new MatchServiceError(`Slot ${toSlot} is already occupied.`);
+    return swapPlayers(players, fromSlot, toSlot);
   }
 
   return players.map((player) =>
@@ -305,13 +304,25 @@ export async function syncLobbyDiscordMessage(
 
   if (mode === 'pending') {
     const canStart = canStartLobby(players);
+    const ratingPreview = await loadLobbyRatingPreview(
+      matchPlayersToRatingEntries(match.players),
+    );
     payload = {
-      embeds: [buildMatchLobbyEmbed(match.id, players, { canStart, createdAt: match.createdAt })],
+      embeds: [
+        buildMatchLobbyEmbed(match.id, players, {
+          canStart,
+          createdAt: match.createdAt,
+          ratingPreview,
+        }),
+      ],
       components: buildLobbyButtons({ canStart }),
     };
   } else if (mode === 'started') {
+    const ratingPreview = await loadLobbyRatingPreview(
+      matchPlayersToRatingEntries(match.players),
+    );
     payload = {
-      embeds: [buildMatchInProgressEmbed(match.id, players)],
+      embeds: [buildMatchInProgressEmbed(match.id, players, { ratingPreview })],
       components: [],
     };
   } else {
@@ -419,16 +430,14 @@ export async function editLobbyPlayerNick(input: {
   return applyRosterAndSync(input.client, match.id, next);
 }
 
-/** Button/modal path: mutate by Discord message id (host already resolved via message). */
+/** Button/modal path: mutate by Discord message id (any user). */
 export async function applyRosterUpdateForMessage(input: {
   client: Client;
   messageId: string;
-  hostDiscordId: string;
   nextPlayers: LobbyPlayer[];
 }): Promise<LobbyActionResult> {
-  const { match } = await resolveHostPendingMatchByMessageId({
+  const { match } = await resolvePendingMatchByMessageId({
     messageId: input.messageId,
-    hostDiscordId: input.hostDiscordId,
   });
   return applyRosterAndSync(input.client, match.id, input.nextPlayers);
 }
@@ -450,11 +459,9 @@ export async function startLobbyMatch(input: {
 export async function startLobbyMatchByMessageId(input: {
   client: Client;
   messageId: string;
-  hostDiscordId: string;
 }): Promise<LobbyActionResult> {
-  const { match } = await resolveHostPendingMatchByMessageId({
+  const { match } = await resolvePendingMatchByMessageId({
     messageId: input.messageId,
-    hostDiscordId: input.hostDiscordId,
   });
   const started = await startMatch(match.id);
   await syncLobbyDiscordMessage(input.client, started, 'started');

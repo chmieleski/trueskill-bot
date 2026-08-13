@@ -15,3 +15,7 @@ dist/
 # Local database and runtime data
 ruvector.db
 .swarm/
+
+# Brainstorm / visual companion artifacts
+.superpowers/
+

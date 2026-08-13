@@ -10,8 +10,13 @@ import {
 import {
   attachDiscordMessage,
   createPendingMatch,
+  getMatchById,
   MatchServiceError,
 } from '../../services/match-service.js';
+import {
+  loadLobbyRatingPreview,
+  matchPlayersToRatingEntries,
+} from '../../services/rating-preview.js';
 
 const log = createLogger('register_lobby');
 
@@ -125,11 +130,17 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       players,
     });
 
+    const match = await getMatchById(created.matchId);
+    const ratingPreview = match
+      ? await loadLobbyRatingPreview(matchPlayersToRatingEntries(match.players))
+      : undefined;
+
     await interaction.editReply({
       embeds: [
         buildMatchLobbyEmbed(created.matchId, players, {
           canStart,
           createdAt: created.createdAt,
+          ratingPreview,
         }),
       ],
       components: buildLobbyButtons({ canStart }),

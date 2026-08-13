@@ -10,6 +10,7 @@ Project guidance for AI agents lives in **Cursor rules** (single source of truth
 | `scripts-and-env.mdc` | Always — npm scripts and env vars |
 | `project-structure.mdc` | `src/**/*.ts` |
 | `database-domain.mdc` | Prisma / domain TypeScript |
+| `openskill-rating.mdc` | `src/**/*.ts`, Prisma — OpenSkill μ/σ, dual ratings, ordinal, quitters |
 | `slash-commands.mdc` | Commands, handlers, command types |
 | `conventions.mdc` | `src/**/*.ts` — ESM, Prisma singleton, shutdown |
 | `shared-domain-logic.mdc` | `src/**/*.ts` — DRY: buttons & commands share use-cases |

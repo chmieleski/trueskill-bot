@@ -2,6 +2,7 @@ import type { Match, MatchPlayer, Player, Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { createLogger } from '../lib/logger.js';
 import { LobbyOcrError, validateLobbyPlayers, type LobbyPlayer } from './lobby-ocr.js';
+import { ensureHeroesExist } from './rating-preview.js';
 
 const log = createLogger('match');
 
@@ -76,32 +77,64 @@ function teamCounts(players: LobbyPlayer[]): { teamACount: number; teamBCount: n
   return { teamACount, teamBCount: players.length - teamACount };
 }
 
+/**
+ * Resolve lobby nicks to Player rows (+ default ratings) with batched queries.
+ * Avoids per-player sequential upserts that time out on full 6v6 rosters.
+ */
 async function resolvePlayersInTx(
   tx: Prisma.TransactionClient,
   players: LobbyPlayer[],
 ): Promise<{ playerId: string; slot: number; team: number }[]> {
   const sorted = [...players].sort((a, b) => a.slot - b.slot);
-  const resolved: { playerId: string; slot: number; team: number }[] = [];
 
-  for (const player of sorted) {
-    const dbPlayer = await tx.player.upsert({
-      where: { username: player.nick },
-      create: { username: player.nick },
-      update: {},
+  if (sorted.length === 0) {
+    return [];
+  }
+
+  const nicks = sorted.map((player) => player.nick);
+  const existing = await tx.player.findMany({
+    where: { username: { in: nicks } },
+  });
+  const byNick = new Map(existing.map((row) => [row.username, row]));
+
+  const missingNicks = nicks.filter((nick) => !byNick.has(nick));
+  if (missingNicks.length > 0) {
+    await tx.player.createMany({
+      data: missingNicks.map((username) => ({ username })),
+      skipDuplicates: true,
     });
-
-    await tx.playerRating.upsert({
-      where: { playerId: dbPlayer.id },
-      create: { playerId: dbPlayer.id },
-      update: {},
+    const created = await tx.player.findMany({
+      where: { username: { in: missingNicks } },
     });
+    for (const row of created) {
+      byNick.set(row.username, row);
+    }
+  }
 
-    resolved.push({
+  const resolved = sorted.map((player) => {
+    const dbPlayer = byNick.get(player.nick);
+    if (!dbPlayer) {
+      throw new MatchServiceError(`Could not resolve player "${player.nick}".`);
+    }
+    return {
       playerId: dbPlayer.id,
       slot: player.slot,
       team: player.slot <= TEAM_A_MAX_SLOT ? 1 : 2,
-    });
-  }
+    };
+  });
+
+  await tx.playerRating.createMany({
+    data: resolved.map((entry) => ({ playerId: entry.playerId })),
+    skipDuplicates: true,
+  });
+
+  await tx.playerHeroRating.createMany({
+    data: resolved.map((entry) => ({
+      playerId: entry.playerId,
+      heroId: entry.slot,
+    })),
+    skipDuplicates: true,
+  });
 
   return resolved;
 }
@@ -115,6 +148,8 @@ export async function createPendingMatch(
 ): Promise<CreatedPendingMatch> {
   assertValidSlots(input.players);
   assertUniqueNicks(input.players);
+
+  await ensureHeroesExist();
 
   const created = await prisma.$transaction(async (tx) => {
     const resolved = await resolvePlayersInTx(tx, input.players);
@@ -230,6 +265,8 @@ export async function replaceMatchRoster(
 ): Promise<MatchWithPlayers> {
   assertValidSlots(players);
   assertUniqueNicks(players);
+
+  await ensureHeroesExist();
 
   const updated = await prisma.$transaction(async (tx) => {
     const existing = await tx.match.findUnique({ where: { id: matchId } });

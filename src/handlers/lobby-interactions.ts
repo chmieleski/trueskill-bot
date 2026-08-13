@@ -23,7 +23,7 @@ import {
   editPlayerNick,
   movePlayer,
   removePlayer,
-  resolveHostPendingMatchByMessageId,
+  resolvePendingMatchByMessageId,
   startLobbyMatchByMessageId,
 } from '../services/lobby-actions.js';
 import { LOBBY_CUSTOM_IDS } from '../services/lobby-preview.js';
@@ -68,11 +68,49 @@ function emptySlotSelectOptions(players: LobbyPlayer[]) {
   return options;
 }
 
+/** Destinations for Change Slot: empty slots (move) and occupied slots (swap). */
+function destinationSlotSelectOptions(players: LobbyPlayer[], fromSlot: number) {
+  const bySlot = new Map(players.map((player) => [player.slot, player]));
+  const options = [];
+
+  for (let slot = MIN_SLOT; slot <= MAX_SLOT; slot += 1) {
+    if (slot === fromSlot) {
+      continue;
+    }
+
+    const team = slot <= 6 ? 'Team A' : 'Team B';
+    const occupant = bySlot.get(slot);
+
+    if (occupant) {
+      options.push({
+        label: `Swap → Slot ${slot} (${occupant.nick})`.slice(0, 100),
+        description: team,
+        value: String(slot),
+      });
+    } else {
+      options.push({
+        label: `Move → Slot ${slot} (empty)`,
+        description: team,
+        value: String(slot),
+      });
+    }
+  }
+
+  return options;
+}
+
 async function replyEphemeral(
   interaction: MessageComponentInteraction | ModalSubmitInteraction,
   content: string,
 ): Promise<void> {
   if (interaction.deferred || interaction.replied) {
+    // Modal deferReply → edit the ephemeral; component deferUpdate → followUp so we
+    // do not overwrite the public lobby message.
+    if (interaction.isModalSubmit()) {
+      await interaction.editReply({ content });
+      return;
+    }
+
     await interaction.followUp({ content, flags: MessageFlags.Ephemeral });
     return;
   }
@@ -96,12 +134,9 @@ async function updateEphemeral(
   await interaction.update({ content, components });
 }
 
-async function requirePendingMatch(messageId: string, userId: string) {
+async function requirePendingMatch(messageId: string) {
   try {
-    return await resolveHostPendingMatchByMessageId({
-      messageId,
-      hostDiscordId: userId,
-    });
+    return await resolvePendingMatchByMessageId({ messageId });
   } catch (error) {
     if (error instanceof MatchServiceError) {
       return { error: error.message };
@@ -120,7 +155,6 @@ async function applyPlayersUpdate(
     await applyRosterUpdateForMessage({
       client: interaction.client,
       messageId,
-      hostDiscordId: interaction.user.id,
       nextPlayers,
     });
     log.debug({ messageId, playerCount: nextPlayers.length }, 'Lobby message refreshed');
@@ -141,31 +175,10 @@ async function applyPlayersUpdate(
   }
 }
 
-function buildFixMenuRow(messageId: string): ActionRowBuilder<ButtonBuilder> {
-  return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`lobby:fix:edit_nick:${messageId}`)
-      .setLabel('Edit Nick')
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId(`lobby:fix:move:${messageId}`)
-      .setLabel('Change Slot')
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId(`lobby:fix:remove:${messageId}`)
-      .setLabel('Remove')
-      .setStyle(ButtonStyle.Danger),
-    new ButtonBuilder()
-      .setCustomId(`lobby:fix:add:${messageId}`)
-      .setLabel('Add')
-      .setStyle(ButtonStyle.Success),
-  );
-}
-
 async function handleStart(interaction: ButtonInteraction): Promise<void> {
   const messageId = interaction.message.id;
   const userId = interaction.user.id;
-  const result = await requirePendingMatch(messageId, userId);
+  const result = await requirePendingMatch(messageId);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
@@ -178,7 +191,6 @@ async function handleStart(interaction: ButtonInteraction): Promise<void> {
     const started = await startLobbyMatchByMessageId({
       client: interaction.client,
       messageId,
-      hostDiscordId: userId,
     });
 
     log.info(
@@ -213,24 +225,9 @@ async function handleStart(interaction: ButtonInteraction): Promise<void> {
   }
 }
 
-async function handleFixOpen(interaction: ButtonInteraction): Promise<void> {
+async function handleEditNick(interaction: ButtonInteraction): Promise<void> {
   const messageId = interaction.message.id;
-  const result = await requirePendingMatch(messageId, interaction.user.id);
-
-  if ('error' in result) {
-    await replyEphemeral(interaction, result.error);
-    return;
-  }
-
-  await interaction.reply({
-    content: 'Choose a correction:',
-    components: [buildFixMenuRow(messageId)],
-    flags: MessageFlags.Ephemeral,
-  });
-}
-
-async function handleFixEditNick(interaction: ButtonInteraction, messageId: string): Promise<void> {
-  const result = await requirePendingMatch(messageId, interaction.user.id);
+  const result = await requirePendingMatch(messageId);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
@@ -251,11 +248,16 @@ async function handleFixEditNick(interaction: ButtonInteraction, messageId: stri
       .addOptions(options),
   );
 
-  await updateEphemeral(interaction, 'Select a player to edit their nick:', [row]);
+  await interaction.reply({
+    content: 'Select a player to edit their nick:',
+    components: [row],
+    flags: MessageFlags.Ephemeral,
+  });
 }
 
-async function handleFixMove(interaction: ButtonInteraction, messageId: string): Promise<void> {
-  const result = await requirePendingMatch(messageId, interaction.user.id);
+async function handleMove(interaction: ButtonInteraction): Promise<void> {
+  const messageId = interaction.message.id;
+  const result = await requirePendingMatch(messageId);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
@@ -269,25 +271,23 @@ async function handleFixMove(interaction: ButtonInteraction, messageId: string):
     return;
   }
 
-  const freeSlots = emptySlotSelectOptions(result.players);
-
-  if (freeSlots.length === 0) {
-    await replyEphemeral(interaction, 'No empty slots available to move into.');
-    return;
-  }
-
   const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(`lobby:select:move_player:${messageId}`)
-      .setPlaceholder('Select a player to move')
+      .setPlaceholder('Select a player to move or swap')
       .addOptions(options),
   );
 
-  await updateEphemeral(interaction, 'Select a player to change their slot:', [row]);
+  await interaction.reply({
+    content: 'Select a player to change their slot (empty = move, occupied = swap):',
+    components: [row],
+    flags: MessageFlags.Ephemeral,
+  });
 }
 
-async function handleFixRemove(interaction: ButtonInteraction, messageId: string): Promise<void> {
-  const result = await requirePendingMatch(messageId, interaction.user.id);
+async function handleRemove(interaction: ButtonInteraction): Promise<void> {
+  const messageId = interaction.message.id;
+  const result = await requirePendingMatch(messageId);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
@@ -308,11 +308,16 @@ async function handleFixRemove(interaction: ButtonInteraction, messageId: string
       .addOptions(options),
   );
 
-  await updateEphemeral(interaction, 'Select a player to remove:', [row]);
+  await interaction.reply({
+    content: 'Select a player to remove:',
+    components: [row],
+    flags: MessageFlags.Ephemeral,
+  });
 }
 
-async function handleFixAdd(interaction: ButtonInteraction, messageId: string): Promise<void> {
-  const result = await requirePendingMatch(messageId, interaction.user.id);
+async function handleAdd(interaction: ButtonInteraction): Promise<void> {
+  const messageId = interaction.message.id;
+  const result = await requirePendingMatch(messageId);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
@@ -355,7 +360,7 @@ async function handleSelectEditNick(
   interaction: StringSelectMenuInteraction,
   messageId: string,
 ): Promise<void> {
-  const result = await requirePendingMatch(messageId, interaction.user.id);
+  const result = await requirePendingMatch(messageId);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
@@ -391,7 +396,7 @@ async function handleSelectMovePlayer(
   interaction: StringSelectMenuInteraction,
   messageId: string,
 ): Promise<void> {
-  const result = await requirePendingMatch(messageId, interaction.user.id);
+  const result = await requirePendingMatch(messageId);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
@@ -406,18 +411,13 @@ async function handleSelectMovePlayer(
     return;
   }
 
-  const freeSlots = emptySlotSelectOptions(result.players);
-
-  if (freeSlots.length === 0) {
-    await replyEphemeral(interaction, 'No empty slots available to move into.');
-    return;
-  }
+  const destinations = destinationSlotSelectOptions(result.players, fromSlot);
 
   const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(`lobby:select:move_slot:${messageId}:${fromSlot}`)
-      .setPlaceholder(`Move ${player.nick} to…`)
-      .addOptions(freeSlots),
+      .setPlaceholder(`Move/swap ${player.nick} to…`)
+      .addOptions(destinations),
   );
 
   await updateEphemeral(
@@ -432,7 +432,7 @@ async function handleSelectMoveSlot(
   messageId: string,
   fromSlot: number,
 ): Promise<void> {
-  const result = await requirePendingMatch(messageId, interaction.user.id);
+  const result = await requirePendingMatch(messageId);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
@@ -462,7 +462,7 @@ async function handleSelectRemove(
   interaction: StringSelectMenuInteraction,
   messageId: string,
 ): Promise<void> {
-  const result = await requirePendingMatch(messageId, interaction.user.id);
+  const result = await requirePendingMatch(messageId);
 
   if ('error' in result) {
     await replyEphemeral(interaction, result.error);
@@ -493,10 +493,12 @@ async function handleModalEditNick(
   messageId: string,
   slot: number,
 ): Promise<void> {
-  const result = await requirePendingMatch(messageId, interaction.user.id);
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  const result = await requirePendingMatch(messageId);
 
   if ('error' in result) {
-    await replyEphemeral(interaction, result.error);
+    await interaction.editReply({ content: result.error });
     return;
   }
 
@@ -507,11 +509,11 @@ async function handleModalEditNick(
     const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
     if (ok) {
-      await interaction.reply({ content: UPDATED_MESSAGE, flags: MessageFlags.Ephemeral });
+      await interaction.editReply({ content: UPDATED_MESSAGE });
     }
   } catch (error) {
     if (error instanceof MatchServiceError) {
-      await replyEphemeral(interaction, error.message);
+      await interaction.editReply({ content: error.message });
       return;
     }
 
@@ -523,10 +525,12 @@ async function handleModalAdd(
   interaction: ModalSubmitInteraction,
   messageId: string,
 ): Promise<void> {
-  const result = await requirePendingMatch(messageId, interaction.user.id);
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  const result = await requirePendingMatch(messageId);
 
   if ('error' in result) {
-    await replyEphemeral(interaction, result.error);
+    await interaction.editReply({ content: result.error });
     return;
   }
 
@@ -539,20 +543,19 @@ async function handleModalAdd(
     const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
     if (ok) {
-      await interaction.reply({ content: UPDATED_MESSAGE, flags: MessageFlags.Ephemeral });
+      await interaction.editReply({ content: UPDATED_MESSAGE });
     }
   } catch (error) {
     if (error instanceof MatchServiceError) {
       // Preserve clearer invalid-slot wording when Number() fails
       if (!Number.isInteger(slot)) {
-        await replyEphemeral(
-          interaction,
-          `Invalid slot ${slotRaw}. Slots must be between ${MIN_SLOT} and ${MAX_SLOT}.`,
-        );
+        await interaction.editReply({
+          content: `Invalid slot ${slotRaw}. Slots must be between ${MIN_SLOT} and ${MAX_SLOT}.`,
+        });
         return;
       }
 
-      await replyEphemeral(interaction, error.message);
+      await interaction.editReply({ content: error.message });
       return;
     }
 
@@ -569,39 +572,27 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
     return;
   }
 
-  if (customId === LOBBY_CUSTOM_IDS.fix) {
-    await handleFixOpen(interaction);
+  if (customId === LOBBY_CUSTOM_IDS.editNick) {
+    await handleEditNick(interaction);
     return;
   }
 
-  const parts = parseCustomId(customId);
-
-  if (parts[0] === 'lobby' && parts[1] === 'fix' && parts[3]) {
-    const messageId = parts[3];
-    const action = parts[2];
-
-    if (action === 'edit_nick') {
-      await handleFixEditNick(interaction, messageId);
-      return;
-    }
-
-    if (action === 'move') {
-      await handleFixMove(interaction, messageId);
-      return;
-    }
-
-    if (action === 'remove') {
-      await handleFixRemove(interaction, messageId);
-      return;
-    }
-
-    if (action === 'add') {
-      await handleFixAdd(interaction, messageId);
-      return;
-    }
-
-    log.warn({ customId }, 'Unhandled lobby fix button');
+  if (customId === LOBBY_CUSTOM_IDS.move) {
+    await handleMove(interaction);
+    return;
   }
+
+  if (customId === LOBBY_CUSTOM_IDS.remove) {
+    await handleRemove(interaction);
+    return;
+  }
+
+  if (customId === LOBBY_CUSTOM_IDS.add) {
+    await handleAdd(interaction);
+    return;
+  }
+
+  log.warn({ customId }, 'Unhandled lobby button');
 }
 
 async function handleSelect(interaction: StringSelectMenuInteraction): Promise<void> {
