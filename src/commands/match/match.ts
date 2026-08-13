@@ -251,7 +251,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     if (subcommand === 'complete') {
       const winner = parseWinner(interaction.options.getString('winner', true));
-      const quitterSlots = parseQuitterSlots(interaction.options.getString('quitters'));
+      const quittersRaw = interaction.options.getString('quitters');
+      const quitterSlots = quittersRaw === null ? undefined : parseQuitterSlots(quittersRaw);
       const completed = await completeMatch(match.id, winner, quitterSlots);
       await applyMatchMutation(
         interaction,

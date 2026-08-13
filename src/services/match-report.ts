@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { createLogger } from '../lib/logger.js';
 import { prisma } from '../lib/prisma.js';
 import {
@@ -14,6 +15,13 @@ import {
 
 const log = createLogger('match-report');
 
+const matchWithPlayersInclude = {
+  players: {
+    include: { player: true },
+    orderBy: { slot: 'asc' },
+  },
+} satisfies Prisma.MatchInclude;
+
 function requireInProgress(match: MatchWithPlayers | null): MatchWithPlayers {
   if (!match) {
     throw new MatchServiceError('This match was not found.');
@@ -24,6 +32,41 @@ function requireInProgress(match: MatchWithPlayers | null): MatchWithPlayers {
   }
 
   return match;
+}
+
+async function lockInProgressMatch(
+  tx: Prisma.TransactionClient,
+  matchId: string,
+): Promise<MatchWithPlayers> {
+  await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "Match"
+    WHERE id = ${matchId} AND status = 'IN_PROGRESS'
+    FOR UPDATE
+  `;
+
+  return requireInProgress(
+    await tx.match.findUnique({
+      where: { id: matchId },
+      include: matchWithPlayersInclude,
+    }),
+  );
+}
+
+function normalizeSlots(slots: number[]): number[] {
+  return [...new Set(slots)].sort((a, b) => a - b);
+}
+
+export function resolveQuitterSlots(
+  persistedFlags: Pick<MatchWithPlayers['players'][number], 'slot' | 'isQuitter'>[],
+  quitterSlots?: number[],
+): number[] {
+  if (quitterSlots !== undefined) {
+    return normalizeSlots(quitterSlots);
+  }
+
+  return normalizeSlots(
+    persistedFlags.filter((player) => player.isQuitter).map((player) => player.slot),
+  );
 }
 
 function toRatingEntries(
@@ -89,29 +132,19 @@ export async function setQuitters(
 export async function completeMatch(
   matchId: string,
   winningTeam: 1 | 2,
-  quitterSlots: number[],
+  quitterSlots?: number[],
 ): Promise<MatchWithPlayers> {
-  const match = requireInProgress(await getMatchById(matchId));
-  const quitterSet = new Set(quitterSlots);
-  assertKnownQuitterSlots(match, quitterSet);
-
-  const entries = toRatingEntries(match, quitterSet);
-  const active = entries.filter((entry) => !entry.isQuitter);
-  assertBothTeamsHaveActivePlayers(active);
+  let resolvedQuitterSlots: number[] = [];
 
   await prisma.$transaction(async (tx) => {
-    const current = await tx.match.findUnique({
-      where: { id: matchId },
-      select: { status: true },
-    });
+    const match = await lockInProgressMatch(tx, matchId);
+    resolvedQuitterSlots = resolveQuitterSlots(match.players, quitterSlots);
+    const quitterSet = new Set(resolvedQuitterSlots);
+    assertKnownQuitterSlots(match, quitterSet);
 
-    if (!current) {
-      throw new MatchServiceError('This match was not found.');
-    }
-
-    if (current.status !== 'IN_PROGRESS') {
-      throw new MatchServiceError('This match is not in progress.');
-    }
+    const entries = toRatingEntries(match, quitterSet);
+    const active = entries.filter((entry) => !entry.isQuitter);
+    assertBothTeamsHaveActivePlayers(active);
 
     for (const player of match.players) {
       const isQuitter = quitterSet.has(player.slot);
@@ -136,30 +169,19 @@ export async function completeMatch(
   });
 
   const updated = await getMatchById(matchId);
-  log.info({ matchId, winningTeam, quitterSlots: [...quitterSet] }, 'Match completed');
+  log.info({ matchId, winningTeam, quitterSlots: resolvedQuitterSlots }, 'Match completed');
   return updated!;
 }
 
 export async function cancelInProgressMatch(
   matchId: string,
 ): Promise<MatchWithPlayers> {
-  const match = requireInProgress(await getMatchById(matchId));
-  const quitterSlots = match.players.filter((player) => player.isQuitter).map((player) => player.slot);
-  const entries = toRatingEntries(match, new Set(quitterSlots));
+  let quitterSlots: number[] = [];
 
   await prisma.$transaction(async (tx) => {
-    const current = await tx.match.findUnique({
-      where: { id: matchId },
-      select: { status: true },
-    });
-
-    if (!current) {
-      throw new MatchServiceError('This match was not found.');
-    }
-
-    if (current.status !== 'IN_PROGRESS') {
-      throw new MatchServiceError('This match is not in progress.');
-    }
+    const match = await lockInProgressMatch(tx, matchId);
+    quitterSlots = resolveQuitterSlots(match.players);
+    const entries = toRatingEntries(match, new Set(quitterSlots));
 
     if (quitterSlots.length > 0) {
       await applyQuitterPenalties(entries, tx);
