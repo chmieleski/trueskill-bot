@@ -351,7 +351,7 @@ export async function syncLobbyDiscordMessage(
           ratingPreview,
         }),
       ],
-      components: buildLobbyButtons({ canStart }),
+      components: buildLobbyButtons({ canStart, playerCount: players.length }),
     };
   } else if (mode === 'started') {
     const ratingPreview = await loadLobbyRatingPreview(

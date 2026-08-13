@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildLobbyButtons,
   buildMatchCompletedEmbed,
   buildMatchInProgressEmbed,
   buildMatchLobbyEmbed,
   buildMatchReportButtons,
   formatSignedDelta,
   formatTeamLinesFromPreview,
+  LOBBY_CUSTOM_IDS,
 } from './lobby-preview.js';
 import { buildCompletedRatingPreview } from './rating-preview.js';
 
@@ -110,6 +112,27 @@ describe('buildMatchReportButtons', () => {
       'match:report',
       'match:quitters',
       'match:cancel',
+    ]);
+  });
+});
+
+describe('buildLobbyButtons', () => {
+  it('includes Add when the lobby is not full', () => {
+    const rows = buildLobbyButtons({ canStart: true, playerCount: 11 });
+    const rosterIds = rows.at(-1)?.toJSON().components.map((button) => button.custom_id);
+
+    expect(rosterIds).toContain(LOBBY_CUSTOM_IDS.add);
+  });
+
+  it('omits Add when all 12 slots are filled', () => {
+    const rows = buildLobbyButtons({ canStart: true, playerCount: 12 });
+    const rosterIds = rows.at(-1)?.toJSON().components.map((button) => button.custom_id);
+
+    expect(rosterIds).not.toContain(LOBBY_CUSTOM_IDS.add);
+    expect(rosterIds).toEqual([
+      LOBBY_CUSTOM_IDS.editNick,
+      LOBBY_CUSTOM_IDS.move,
+      LOBBY_CUSTOM_IDS.remove,
     ]);
   });
 });

@@ -374,8 +374,11 @@ export function buildMatchCancelledEmbed(
     .setTimestamp(new Date());
 }
 
+/** Full 6v6 lobby: all slots 1–12 occupied. */
+const MAX_LOBBY_HUMANS = 12;
+
 export function buildLobbyButtons(
-  options: { canStart?: boolean; locked?: boolean } = {},
+  options: { canStart?: boolean; locked?: boolean; playerCount?: number } = {},
 ): ActionRowBuilder<ButtonBuilder>[] {
   if (options.locked) {
     return [];
@@ -395,27 +398,34 @@ export function buildLobbyButtons(
     );
   }
 
+  const canAdd = (options.playerCount ?? 0) < MAX_LOBBY_HUMANS;
+
   // Icon-only roster controls (emoji is enough for Discord buttons).
-  rows.push(
-    new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(LOBBY_CUSTOM_IDS.editNick)
-        .setEmoji('✏️')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(LOBBY_CUSTOM_IDS.move)
-        .setEmoji('🔀')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(LOBBY_CUSTOM_IDS.remove)
-        .setEmoji('🗑️')
-        .setStyle(ButtonStyle.Danger),
+  const rosterControls = [
+    new ButtonBuilder()
+      .setCustomId(LOBBY_CUSTOM_IDS.editNick)
+      .setEmoji('✏️')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId(LOBBY_CUSTOM_IDS.move)
+      .setEmoji('🔀')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId(LOBBY_CUSTOM_IDS.remove)
+      .setEmoji('🗑️')
+      .setStyle(ButtonStyle.Danger),
+  ];
+
+  if (canAdd) {
+    rosterControls.push(
       new ButtonBuilder()
         .setCustomId(LOBBY_CUSTOM_IDS.add)
         .setEmoji('➕')
         .setStyle(ButtonStyle.Success),
-    ),
-  );
+    );
+  }
+
+  rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...rosterControls));
 
   return rows;
 }

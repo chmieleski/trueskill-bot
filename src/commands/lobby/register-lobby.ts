@@ -143,7 +143,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           ratingPreview,
         }),
       ],
-      components: buildLobbyButtons({ canStart }),
+      components: buildLobbyButtons({ canStart, playerCount: players.length }),
     });
 
     const previewMessage = await interaction.fetchReply();
