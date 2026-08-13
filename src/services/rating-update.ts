@@ -2,7 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { rating, rate, type Rating } from 'openskill';
 import { prisma } from '../lib/prisma.js';
 import { MatchServiceError } from './match-service.js';
-import { ensureHeroesExist } from './rating-preview.js';
+import { ensureHeroesExist, ensurePlayerRatings } from './rating-preview.js';
 import { splitRosterByTeam, toOpenSkillRatings } from './rating-math.js';
 
 const DEFAULT_MU = 25;
@@ -21,43 +21,12 @@ export type RatingRosterEntry = {
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
-type RatingSeedEntry = Pick<RatingRosterEntry, 'playerId' | 'heroId'>;
-
 function defaultRatingEntity(): { mu: number; sigma: number } {
   return { mu: DEFAULT_MU, sigma: DEFAULT_SIGMA };
 }
 
 function heroKey(playerId: string, heroId: number): string {
   return `${playerId}:${heroId}`;
-}
-
-async function ensurePlayerRatings(entries: RatingSeedEntry[], db: Db): Promise<void> {
-  if (entries.length === 0) {
-    return;
-  }
-
-  await db.playerRating.createMany({
-    data: entries.map((entry) => ({ playerId: entry.playerId })),
-    skipDuplicates: true,
-  });
-
-  await db.playerHeroRating.createMany({
-    data: entries.map((entry) => ({
-      playerId: entry.playerId,
-      heroId: entry.heroId,
-    })),
-    skipDuplicates: true,
-  });
-}
-
-async function ensureHeroesExistInDb(db: Db): Promise<void> {
-  await db.hero.createMany({
-    data: Array.from({ length: 12 }, (_, index) => ({
-      id: index + 1,
-      name: `Hero ${index + 1}`,
-    })),
-    skipDuplicates: true,
-  });
 }
 
 /** Strong fixed opponent for quitter penalties (not persisted). */
@@ -117,11 +86,7 @@ export async function applyQuitterPenalties(
     return;
   }
 
-  if (db === prisma) {
-    await ensureHeroesExist();
-  } else {
-    await ensureHeroesExistInDb(db);
-  }
+  await ensureHeroesExist();
   await ensurePlayerRatings(
     quitters.map((entry) => ({
       playerId: entry.playerId,
@@ -205,11 +170,7 @@ export async function applyMatchRatings(
 
   assertBothTeamsHaveActivePlayers(active);
 
-  if (db === prisma) {
-    await ensureHeroesExist();
-  } else {
-    await ensureHeroesExistInDb(db);
-  }
+  await ensureHeroesExist();
   await ensurePlayerRatings(
     active.map((entry) => ({
       playerId: entry.playerId,

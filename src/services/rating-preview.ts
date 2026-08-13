@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { predictWin } from 'openskill';
 import { prisma } from '../lib/prisma.js';
 import { createLogger } from '../lib/logger.js';
@@ -36,6 +37,8 @@ export type RatingPreviewRosterEntry = {
   nick: string;
 };
 
+type Db = Prisma.TransactionClient | typeof prisma;
+
 /** Process-lifetime cache so we only seed Hero 1–12 once. */
 let heroesEnsurePromise: Promise<void> | null = null;
 
@@ -62,20 +65,22 @@ export async function ensureHeroesExist(): Promise<void> {
 
 /**
  * Batch cold-start for missing global + hero ratings (few round-trips).
+ * Accepts optional transaction client for match completion flows.
  */
 export async function ensurePlayerRatings(
-  entries: RatingPreviewRosterEntry[],
+  entries: Pick<RatingPreviewRosterEntry, 'playerId' | 'heroId'>[],
+  db: Db = prisma,
 ): Promise<void> {
   if (entries.length === 0) {
     return;
   }
 
-  await prisma.playerRating.createMany({
+  await db.playerRating.createMany({
     data: entries.map((entry) => ({ playerId: entry.playerId })),
     skipDuplicates: true,
   });
 
-  await prisma.playerHeroRating.createMany({
+  await db.playerHeroRating.createMany({
     data: entries.map((entry) => ({
       playerId: entry.playerId,
       heroId: entry.heroId,
