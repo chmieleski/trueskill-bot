@@ -20,6 +20,8 @@ interface EnvConfig {
   geminiApiKey: string;
   /** Override default log level (dev: debug, prod: info). */
   logLevel: string | undefined;
+  /** Discord role ID allowed to report/cancel matches like the host. Empty = host-only. */
+  matchModRoleId: string | undefined;
 }
 
 function parseLogLevel(value: string | undefined): string | undefined {
@@ -65,4 +67,8 @@ export const env: EnvConfig = {
   databaseUrl: requireEnv('DATABASE_URL'),
   geminiApiKey: requireEnv('GEMINI_API_KEY'),
   logLevel: parseLogLevel(process.env.LOG_LEVEL),
+  matchModRoleId: (() => {
+    const value = process.env.MATCH_MOD_ROLE_ID?.trim();
+    return value && value.length > 0 ? value : undefined;
+  })(),
 };
