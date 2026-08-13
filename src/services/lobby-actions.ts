@@ -25,6 +25,7 @@ import {
   loadLobbyRatingPreview,
   matchPlayersToRatingEntries,
 } from './rating-preview.js';
+import { assertCanManageMatch } from './match-auth.js';
 const log = createLogger('lobby-actions');
 
 const MIN_SLOT = 1;
@@ -135,6 +136,30 @@ export async function resolvePendingMatchByMessageId(input: {
   }
 
   return { match, players: matchToLobbyPlayers(match) };
+}
+
+export async function resolveInProgressMatchByMessageId(input: {
+  messageId: string;
+  actorDiscordId: string;
+  memberRoleIds: string[];
+}): Promise<MatchWithPlayers> {
+  const match = await getMatchByDiscordMessageId(input.messageId);
+
+  if (!match) {
+    throw new MatchServiceError('This match was not found.');
+  }
+
+  if (match.status !== 'IN_PROGRESS') {
+    throw new MatchServiceError('This match is not in progress.');
+  }
+
+  assertCanManageMatch({
+    hostDiscordId: match.hostDiscordId,
+    actorDiscordId: input.actorDiscordId,
+    memberRoleIds: input.memberRoleIds,
+  });
+
+  return match;
 }
 
 /** @deprecated Prefer resolvePendingMatchByMessageId — host check removed. */

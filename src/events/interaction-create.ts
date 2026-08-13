@@ -1,6 +1,7 @@
 import { Events, MessageFlags } from 'discord.js';
 import type { Interaction } from 'discord.js';
 import { handleLobbyInteraction } from '../handlers/lobby-interactions.js';
+import { handleMatchInteraction } from '../handlers/match-interactions.js';
 import { createLogger } from '../lib/logger.js';
 
 const log = createLogger('interaction');
@@ -19,6 +20,11 @@ export async function execute(interaction: Interaction): Promise<void> {
   );
 
   try {
+    if (await handleMatchInteraction(interaction)) {
+      log.debug({ userId: interaction.user.id }, 'Match interaction handled');
+      return;
+    }
+
     if (await handleLobbyInteraction(interaction)) {
       log.debug({ userId: interaction.user.id }, 'Lobby interaction handled');
       return;
@@ -33,7 +39,7 @@ export async function execute(interaction: Interaction): Promise<void> {
             ? interaction.customId
             : undefined,
       },
-      'Failed to handle lobby interaction',
+      'Failed to handle message component interaction',
     );
 
     const content = 'An error occurred while processing this action.';
