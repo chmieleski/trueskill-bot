@@ -18,34 +18,23 @@ import type {
 import { createLogger } from '../lib/logger.js';
 import type { LobbyPlayer } from '../services/lobby-ocr.js';
 import {
-  buildLobbyButtons,
-  buildMatchInProgressEmbed,
-  buildMatchLobbyEmbed,
-  canStartLobby,
-  LOBBY_CUSTOM_IDS,
-} from '../services/lobby-preview.js';
-import {
-  getMatchByDiscordMessageId,
-  matchToLobbyPlayers,
-  MatchServiceError,
-  replaceMatchRoster,
-  startMatch,
-  type MatchWithPlayers,
-} from '../services/match-service.js';
+  addPlayer,
+  applyRosterUpdateForMessage,
+  editPlayerNick,
+  movePlayer,
+  removePlayer,
+  resolveHostPendingMatchByMessageId,
+  startLobbyMatchByMessageId,
+} from '../services/lobby-actions.js';
+import { LOBBY_CUSTOM_IDS } from '../services/lobby-preview.js';
+import { MatchServiceError } from '../services/match-service.js';
 
 const log = createLogger('lobby');
 
 const MIN_SLOT = 1;
 const MAX_SLOT = 12;
 
-const OWNER_ONLY_MESSAGE = 'Only the user who registered this lobby can do that.';
-const NOT_FOUND_MESSAGE = 'This match lobby was not found. Run /register_lobby again.';
-const NOT_EDITABLE_MESSAGE = 'This match can no longer be edited.';
 const UPDATED_MESSAGE = 'Lobby updated.';
-
-function normalizeNick(nick: string): string {
-  return nick.trim().toLowerCase();
-}
 
 function parseCustomId(customId: string): string[] {
   return customId.split(':');
@@ -107,89 +96,46 @@ async function updateEphemeral(
   await interaction.update({ content, components });
 }
 
-async function requirePendingMatch(
-  messageId: string,
-  userId: string,
-): Promise<{ match: MatchWithPlayers; players: LobbyPlayer[] } | { error: string }> {
-  const match = await getMatchByDiscordMessageId(messageId);
+async function requirePendingMatch(messageId: string, userId: string) {
+  try {
+    return await resolveHostPendingMatchByMessageId({
+      messageId,
+      hostDiscordId: userId,
+    });
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      return { error: error.message };
+    }
 
-  if (!match) {
-    log.verbose({ messageId, userId }, 'Match lobby missing for message');
-    return { error: NOT_FOUND_MESSAGE };
-  }
-
-  if (match.hostDiscordId !== userId) {
-    log.warn(
-      { messageId, userId, hostDiscordId: match.hostDiscordId, matchId: match.id },
-      'Lobby action rejected (not host)',
-    );
-    return { error: OWNER_ONLY_MESSAGE };
-  }
-
-  if (match.status !== 'PENDING') {
-    log.warn({ messageId, userId, matchId: match.id, status: match.status }, 'Lobby not editable');
-    return { error: NOT_EDITABLE_MESSAGE };
-  }
-
-  return { match, players: matchToLobbyPlayers(match) };
-}
-
-async function refreshLobbyMessage(
-  interaction: MessageComponentInteraction | ModalSubmitInteraction,
-  messageId: string,
-  matchId: string,
-  players: LobbyPlayer[],
-): Promise<void> {
-  const canStart = canStartLobby(players);
-  const payload = {
-    embeds: [buildMatchLobbyEmbed(matchId, players, { canStart })],
-    components: buildLobbyButtons({ canStart }),
-  };
-
-  const channel = interaction.channel;
-
-  if (channel && 'messages' in channel) {
-    await channel.messages.edit(messageId, payload);
-    return;
-  }
-
-  const channelId = interaction.channelId;
-
-  if (!channelId) {
-    throw new Error('Missing channel for lobby message update');
-  }
-
-  const fetched = await interaction.client.channels.fetch(channelId);
-
-  if (fetched && 'messages' in fetched) {
-    await fetched.messages.edit(messageId, payload);
+    throw error;
   }
 }
 
 async function applyPlayersUpdate(
   interaction: MessageComponentInteraction | ModalSubmitInteraction,
   messageId: string,
-  matchId: string,
   nextPlayers: LobbyPlayer[],
 ): Promise<boolean> {
   try {
-    const updated = await replaceMatchRoster(matchId, nextPlayers);
-    const players = matchToLobbyPlayers(updated);
-
-    await refreshLobbyMessage(interaction, messageId, matchId, players);
-    log.debug({ messageId, matchId, playerCount: players.length }, 'Lobby message refreshed');
+    await applyRosterUpdateForMessage({
+      client: interaction.client,
+      messageId,
+      hostDiscordId: interaction.user.id,
+      nextPlayers,
+    });
+    log.debug({ messageId, playerCount: nextPlayers.length }, 'Lobby message refreshed');
     return true;
   } catch (error) {
     if (error instanceof MatchServiceError) {
       log.warn(
-        { err: error, messageId, matchId, userId: interaction.user.id },
+        { err: error, messageId, userId: interaction.user.id },
         'Lobby roster update rejected',
       );
       await replyEphemeral(interaction, error.message);
       return false;
     }
 
-    log.error({ err: error, messageId, matchId }, 'Failed to update lobby roster');
+    log.error({ err: error, messageId }, 'Failed to update lobby roster');
     await replyEphemeral(interaction, 'Could not update the lobby. Please try again.');
     return false;
   }
@@ -229,21 +175,24 @@ async function handleStart(interaction: ButtonInteraction): Promise<void> {
   await interaction.deferUpdate();
 
   try {
-    const started = await startMatch(result.match.id);
-    const players = matchToLobbyPlayers(started);
-
-    await interaction.editReply({
-      embeds: [buildMatchInProgressEmbed(started.id, players)],
-      components: [],
+    const started = await startLobbyMatchByMessageId({
+      client: interaction.client,
+      messageId,
+      hostDiscordId: userId,
     });
 
     log.info(
-      { messageId, userId, matchId: started.id, playerCount: players.length },
+      {
+        messageId,
+        userId,
+        matchId: started.match.id,
+        playerCount: started.players.length,
+      },
       'Match started from lobby',
     );
 
     await interaction.followUp({
-      content: `Match \`${started.id}\` started.`,
+      content: `Match \`${started.match.id}\` started.`,
       flags: MessageFlags.Ephemeral,
     });
   } catch (error) {
@@ -492,24 +441,20 @@ async function handleSelectMoveSlot(
 
   const toSlot = Number(interaction.values[0]);
 
-  if (!Number.isInteger(toSlot) || toSlot < MIN_SLOT || toSlot > MAX_SLOT) {
-    await replyEphemeral(interaction, `Invalid slot. Slots must be between ${MIN_SLOT} and ${MAX_SLOT}.`);
-    return;
-  }
+  try {
+    const nextPlayers = movePlayer(result.players, fromSlot, toSlot);
+    const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
-  if (result.players.some((player) => player.slot === toSlot)) {
-    await replyEphemeral(interaction, `Slot ${toSlot} is already occupied.`);
-    return;
-  }
+    if (ok) {
+      await updateEphemeral(interaction, UPDATED_MESSAGE);
+    }
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await replyEphemeral(interaction, error.message);
+      return;
+    }
 
-  const nextPlayers = result.players.map((player) =>
-    player.slot === fromSlot ? { ...player, slot: toSlot } : player,
-  );
-
-  const ok = await applyPlayersUpdate(interaction, messageId, result.match.id, nextPlayers);
-
-  if (ok) {
-    await updateEphemeral(interaction, UPDATED_MESSAGE);
+    throw error;
   }
 }
 
@@ -525,12 +470,21 @@ async function handleSelectRemove(
   }
 
   const slot = Number(interaction.values[0]);
-  const nextPlayers = result.players.filter((player) => player.slot !== slot);
 
-  const ok = await applyPlayersUpdate(interaction, messageId, result.match.id, nextPlayers);
+  try {
+    const nextPlayers = removePlayer(result.players, { slot });
+    const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
-  if (ok) {
-    await updateEphemeral(interaction, UPDATED_MESSAGE);
+    if (ok) {
+      await updateEphemeral(interaction, UPDATED_MESSAGE);
+    }
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await replyEphemeral(interaction, error.message);
+      return;
+    }
+
+    throw error;
   }
 }
 
@@ -546,26 +500,22 @@ async function handleModalEditNick(
     return;
   }
 
-  const nick = normalizeNick(interaction.fields.getTextInputValue('nick'));
+  const nick = interaction.fields.getTextInputValue('nick');
 
-  if (nick === '') {
-    await replyEphemeral(interaction, 'Nick cannot be empty.');
-    return;
-  }
+  try {
+    const nextPlayers = editPlayerNick(result.players, slot, nick);
+    const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
-  if (!result.players.some((player) => player.slot === slot)) {
-    await replyEphemeral(interaction, 'That player is no longer in the lobby.');
-    return;
-  }
+    if (ok) {
+      await interaction.reply({ content: UPDATED_MESSAGE, flags: MessageFlags.Ephemeral });
+    }
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await replyEphemeral(interaction, error.message);
+      return;
+    }
 
-  const nextPlayers = result.players.map((player) =>
-    player.slot === slot ? { ...player, nick } : player,
-  );
-
-  const ok = await applyPlayersUpdate(interaction, messageId, result.match.id, nextPlayers);
-
-  if (ok) {
-    await interaction.reply({ content: UPDATED_MESSAGE, flags: MessageFlags.Ephemeral });
+    throw error;
   }
 }
 
@@ -580,33 +530,33 @@ async function handleModalAdd(
     return;
   }
 
-  const nick = normalizeNick(interaction.fields.getTextInputValue('nick'));
+  const nick = interaction.fields.getTextInputValue('nick');
   const slotRaw = interaction.fields.getTextInputValue('slot').trim();
   const slot = Number(slotRaw);
 
-  if (nick === '') {
-    await replyEphemeral(interaction, 'Nick cannot be empty.');
-    return;
-  }
+  try {
+    const nextPlayers = addPlayer(result.players, nick, slot);
+    const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
-  if (!Number.isInteger(slot) || slot < MIN_SLOT || slot > MAX_SLOT) {
-    await replyEphemeral(
-      interaction,
-      `Invalid slot ${slotRaw}. Slots must be between ${MIN_SLOT} and ${MAX_SLOT}.`,
-    );
-    return;
-  }
+    if (ok) {
+      await interaction.reply({ content: UPDATED_MESSAGE, flags: MessageFlags.Ephemeral });
+    }
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      // Preserve clearer invalid-slot wording when Number() fails
+      if (!Number.isInteger(slot)) {
+        await replyEphemeral(
+          interaction,
+          `Invalid slot ${slotRaw}. Slots must be between ${MIN_SLOT} and ${MAX_SLOT}.`,
+        );
+        return;
+      }
 
-  if (result.players.some((player) => player.slot === slot)) {
-    await replyEphemeral(interaction, `Slot ${slot} is already occupied.`);
-    return;
-  }
+      await replyEphemeral(interaction, error.message);
+      return;
+    }
 
-  const nextPlayers = [...result.players, { slot, nick }];
-  const ok = await applyPlayersUpdate(interaction, messageId, result.match.id, nextPlayers);
-
-  if (ok) {
-    await interaction.reply({ content: UPDATED_MESSAGE, flags: MessageFlags.Ephemeral });
+    throw error;
   }
 }
 

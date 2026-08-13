@@ -197,6 +197,24 @@ export async function getMatchById(matchId: string): Promise<MatchWithPlayers | 
   });
 }
 
+export async function findPendingMatchesByHost(
+  hostDiscordId: string,
+): Promise<MatchWithPlayers[]> {
+  return prisma.match.findMany({
+    where: {
+      hostDiscordId,
+      status: 'PENDING',
+    },
+    include: {
+      players: {
+        include: { player: true },
+        orderBy: { slot: 'asc' },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
 export function matchToLobbyPlayers(match: MatchWithPlayers): LobbyPlayer[] {
   return toLobbyPlayers(match);
 }
@@ -301,6 +319,36 @@ export async function startMatch(matchId: string): Promise<MatchWithPlayers> {
     { matchId, playerCount: players.length, ...teamCounts(players) },
     'Match started',
   );
+
+  return updated;
+}
+
+/**
+ * Flip a PENDING match to CANCELLED (host cancel).
+ */
+export async function cancelMatch(matchId: string): Promise<MatchWithPlayers> {
+  const match = await getMatchById(matchId);
+
+  if (!match) {
+    throw new MatchServiceError('This match lobby was not found.');
+  }
+
+  if (match.status !== 'PENDING') {
+    throw new MatchServiceError('This match can no longer be cancelled.');
+  }
+
+  const updated = await prisma.match.update({
+    where: { id: matchId },
+    data: { status: 'CANCELLED' },
+    include: {
+      players: {
+        include: { player: true },
+        orderBy: { slot: 'asc' },
+      },
+    },
+  });
+
+  log.info({ matchId, playerCount: updated.players.length }, 'Match cancelled');
 
   return updated;
 }

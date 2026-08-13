@@ -10,6 +10,7 @@ alwaysApply: false
 2. Build `data` with `SlashCommandBuilder`
 3. If work may exceed ~3s: `await interaction.deferReply()` then `editReply()`
 4. Dev auto-registers on restart (`AUTO_DEPLOY_COMMANDS` defaults to true)
+5. If the action already exists via buttons/modals, call shared service/use-case logic — see `shared-domain-logic.mdc`
 
 ```typescript
 export const data = new SlashCommandBuilder()

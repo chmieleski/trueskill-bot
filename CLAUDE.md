@@ -12,5 +12,6 @@ Project guidance for AI agents lives in **Cursor rules** (single source of truth
 | `database-domain.mdc` | Prisma / domain TypeScript |
 | `slash-commands.mdc` | Commands, handlers, command types |
 | `conventions.mdc` | `src/**/*.ts` — ESM, Prisma singleton, shutdown |
+| `shared-domain-logic.mdc` | `src/**/*.ts` — DRY: buttons & commands share use-cases |
 
 Do not duplicate this content here; edit the `.mdc` files instead.

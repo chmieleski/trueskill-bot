@@ -1,0 +1,36 @@
+---
+description: Prefer shared domain/use-case functions over duplicating button and command paths
+globs: src/**/*.ts
+alwaysApply: false
+---
+
+# Shared Domain Logic (DRY)
+
+When the same host/lobby/match action is reachable from **buttons, modals, selects, and slash commands**, put the business logic in one place. Interaction handlers and command `execute` functions only adapt Discord I/O.
+
+## Rules
+
+1. **Extract use-cases** into `src/services/` (or a focused module under services) — e.g. add/remove/swap roster, start match, cancel match. Pure roster transforms and auth/status checks live there, not in command files.
+2. **One implementation path** — buttons and slash commands call the same functions. Do not copy-paste roster math, host checks, or message refresh into a second file.
+3. **Thin adapters** — handlers/commands: resolve match + host, call shared function, map result to reply/embed update. No divergent validation rules between UI paths.
+4. **Shared Discord side effects** — lobby message refresh / embed rebuild after a roster change belongs in one helper used by every entry point.
+5. **Extend, don't fork** — new QoL commands for an existing button action must refactor toward shared code first if logic is still buried in `lobby-interactions.ts`.
+
+## Example
+
+```typescript
+// ❌ BAD — command reimplements remove; button keeps its own copy
+async function execute(interaction) {
+  const players = match.players.filter((p) => p.slot !== slot);
+  await replaceMatchRoster(match.id, players);
+  // …different host check / embed update than the button path
+}
+
+// ✅ GOOD — both button and /lobby_remove call the same use-case
+const result = await removeLobbyPlayer({ matchId, hostDiscordId, slot });
+await refreshLobbyMessage(/* … */, result);
+```
+
+## When adding host QoL commands
+
+Prefer `/lobby_*` (or a single command with subcommands) that wrap existing lobby use-cases. Keep Fix Reading buttons as UI; do not grow a parallel business layer.

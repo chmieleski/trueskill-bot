@@ -94,10 +94,13 @@ export function buildMatchInProgressEmbed(
     .setColor(0x57f287);
 }
 
-export function buildMatchCancelledEmbed(matchId: string): EmbedBuilder {
+export function buildMatchCancelledEmbed(
+  matchId: string,
+  reason: string = 'expired',
+): EmbedBuilder {
   return new EmbedBuilder()
     .setTitle('Match Cancelled')
-    .setDescription(`Match \`${matchId}\` was cancelled (expired).`)
+    .setDescription(`Match \`${matchId}\` was cancelled (${reason}).`)
     .setColor(0xed4245);
 }
 
