@@ -20,5 +20,5 @@ src/
 │   └── register-commands.ts
 ├── commands/             # One file per command, grouped by domain
 ├── events/               # ready.ts, interaction-create.ts
-└── services/             # Reserved: WebSocket, cron, ranking
+└── services/             # Domain logic: match-report, match-service, rating-update, lobby-preview, lobby-ocr, …
 ```
