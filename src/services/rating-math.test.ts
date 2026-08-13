@@ -7,10 +7,11 @@ import {
 } from './rating-math.js';
 
 describe('displayOrdinal', () => {
-  it('returns mu - 3*sigma rounded to nearest int', () => {
-    // default OpenSkill: 25 - 3*8.333 ≈ 0
-    expect(displayOrdinal(25, 8.333)).toBe(0);
-    expect(displayOrdinal(30, 2)).toBe(24);
+  it('returns display ki: OFFSET + SCALE * (mu - 3*sigma)', () => {
+    // cold start: ordinal ≈ 0 → 1000 ki
+    expect(displayOrdinal(25, 8.333)).toBe(1000);
+    // solid: ordinal 24 → 1000 + 200*24 = 5800
+    expect(displayOrdinal(30, 2)).toBe(5800);
   });
 });
 

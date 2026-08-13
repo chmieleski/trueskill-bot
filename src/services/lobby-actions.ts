@@ -24,6 +24,7 @@ import {
 import {
   loadLobbyRatingPreview,
   matchPlayersToRatingEntries,
+  type LobbyRatingPreview,
 } from './rating-preview.js';
 import { assertCanManageMatch } from './match-auth.js';
 const log = createLogger('lobby-actions');
@@ -324,6 +325,7 @@ export async function syncLobbyDiscordMessage(
   client: Client,
   match: MatchWithPlayers,
   mode: LobbySyncMode,
+  options: { ratingPreview?: LobbyRatingPreview } = {},
 ): Promise<void> {
   if (!match.discordMessageId || !match.discordChannelId) {
     log.warn({ matchId: match.id, mode }, 'Match has no Discord message to sync');
@@ -360,9 +362,9 @@ export async function syncLobbyDiscordMessage(
       components: buildMatchReportButtons(),
     };
   } else if (mode === 'completed') {
-    const ratingPreview = await loadLobbyRatingPreview(
-      matchPlayersToRatingEntries(match.players),
-    );
+    const ratingPreview =
+      options.ratingPreview ??
+      (await loadLobbyRatingPreview(matchPlayersToRatingEntries(match.players)));
     payload = {
       embeds: [
         buildMatchCompletedEmbed(match.id, players, {

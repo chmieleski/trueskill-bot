@@ -2,9 +2,18 @@ import { ordinal, rating, type Rating } from 'openskill';
 
 const TEAM_A_MAX_SLOT = 6;
 
-/** Public display ordinal (μ − 3σ), nearest integer. */
+/** Display offset so cold-start OpenSkill ordinal 0 maps to ~1000 ki. */
+export const KI_OFFSET = 1000;
+
+/** Scale so elite ordinal (~35) lands near 8000 ki. */
+export const KI_SCALE = 200;
+
+/**
+ * Public display rating as themed ki: OFFSET + SCALE × (μ − 3σ).
+ * DTO fields may still be named *Ordinal; values are display ki.
+ */
 export function displayOrdinal(mu: number, sigma: number): number {
-  return Math.round(ordinal({ mu, sigma }));
+  return Math.round(KI_OFFSET + KI_SCALE * ordinal({ mu, sigma }));
 }
 
 /** Convert μ/σ entities into OpenSkill Rating objects (order preserved). */

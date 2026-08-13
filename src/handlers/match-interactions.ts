@@ -241,6 +241,17 @@ async function resolveById(
   return match;
 }
 
+/**
+ * Show a processing state on the ephemeral wizard (clear buttons) before slow work.
+ * After this, use editReply for the final result.
+ */
+async function showWorking(
+  interaction: MessageComponentInteraction,
+  content: string,
+): Promise<void> {
+  await updateEphemeral(interaction, content, []);
+}
+
 async function safeHandle(
   interaction: MessageComponentInteraction,
   action: () => Promise<void>,
@@ -253,6 +264,13 @@ async function safeHandle(
         { err: error, customId: interaction.customId, userId: interaction.user.id },
         'Match interaction rejected',
       );
+
+      // Prefer replacing the "working…" message when the interaction was already updated.
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ content: error.message, components: [] });
+        return;
+      }
+
       await replyEphemeral(interaction, error.message);
       return;
     }
@@ -343,10 +361,15 @@ async function handleConfirmResult(
   quitterSlots: number[],
 ): Promise<void> {
   await resolveById(interaction, matchId);
-  await interaction.deferUpdate();
+  await showWorking(
+    interaction,
+    'Updating ratings and completing the match… This can take a few seconds.',
+  );
 
   const completed = await completeMatch(matchId, winningTeam, quitterSlots);
-  await syncLobbyDiscordMessage(interaction.client, completed, 'completed');
+  await syncLobbyDiscordMessage(interaction.client, completed.match, 'completed', {
+    ratingPreview: completed.ratingPreview,
+  });
   await interaction.editReply({
     content: `Match \`${matchId}\` completed. Winner: **${teamLabel(winningTeam)}**.`,
     components: [],
@@ -358,7 +381,7 @@ async function handleQuittersSet(
   matchId: string,
 ): Promise<void> {
   await resolveById(interaction, matchId);
-  await interaction.deferUpdate();
+  await showWorking(interaction, 'Saving quitters…');
 
   const quitterSlots = interaction.values.map((slot) => Number(slot));
   const updated = await setQuitters(matchId, quitterSlots);
@@ -374,7 +397,10 @@ async function handleCancelConfirm(
   matchId: string,
 ): Promise<void> {
   await resolveById(interaction, matchId);
-  await interaction.deferUpdate();
+  await showWorking(
+    interaction,
+    'Cancelling the match… Applying quitter penalties if any are marked.',
+  );
 
   const cancelled = await cancelInProgressMatch(matchId);
   await syncLobbyDiscordMessage(interaction.client, cancelled, 'cancelled');

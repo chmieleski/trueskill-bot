@@ -7,6 +7,12 @@ import {
   type MatchWithPlayers,
 } from './match-service.js';
 import {
+  buildCompletedRatingPreview,
+  loadPlayerKiBySlot,
+  matchPlayersToRatingEntries,
+  type LobbyRatingPreview,
+} from './rating-preview.js';
+import {
   applyMatchRatings,
   applyQuitterPenalties,
   assertBothTeamsHaveActivePlayers,
@@ -21,6 +27,11 @@ const matchWithPlayersInclude = {
     orderBy: { slot: 'asc' },
   },
 } satisfies Prisma.MatchInclude;
+
+export type CompleteMatchResult = {
+  match: MatchWithPlayers;
+  ratingPreview: LobbyRatingPreview;
+};
 
 function requireInProgress(match: MatchWithPlayers | null): MatchWithPlayers {
   if (!match) {
@@ -133,8 +144,9 @@ export async function completeMatch(
   matchId: string,
   winningTeam: 1 | 2,
   quitterSlots?: number[],
-): Promise<MatchWithPlayers> {
+): Promise<CompleteMatchResult> {
   let resolvedQuitterSlots: number[] = [];
+  let ratingPreview: LobbyRatingPreview = { players: [] };
 
   await prisma.$transaction(async (tx) => {
     const match = await lockInProgressMatch(tx, matchId);
@@ -145,6 +157,15 @@ export async function completeMatch(
     const entries = toRatingEntries(match, quitterSet);
     const active = entries.filter((entry) => !entry.isQuitter);
     assertBothTeamsHaveActivePlayers(active);
+
+    const previewEntries = matchPlayersToRatingEntries(
+      match.players.map((player) => ({
+        ...player,
+        isQuitter: quitterSet.has(player.slot),
+      })),
+    );
+
+    const beforeBySlot = await loadPlayerKiBySlot(previewEntries, tx);
 
     for (const player of match.players) {
       const isQuitter = quitterSet.has(player.slot);
@@ -166,11 +187,18 @@ export async function completeMatch(
       where: { id: matchId },
       data: { status: 'COMPLETED' },
     });
+
+    const afterBySlot = await loadPlayerKiBySlot(previewEntries, tx);
+    ratingPreview = buildCompletedRatingPreview(
+      previewEntries,
+      beforeBySlot,
+      afterBySlot,
+    );
   });
 
   const updated = await getMatchById(matchId);
   log.info({ matchId, winningTeam, quitterSlots: resolvedQuitterSlots }, 'Match completed');
-  return updated!;
+  return { match: updated!, ratingPreview };
 }
 
 export async function cancelInProgressMatch(

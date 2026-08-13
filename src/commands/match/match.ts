@@ -15,6 +15,7 @@ import {
   MatchServiceError,
   type MatchWithPlayers,
 } from '../../services/match-service.js';
+import type { LobbyRatingPreview } from '../../services/rating-preview.js';
 
 const log = createLogger('match_cmd');
 
@@ -154,8 +155,9 @@ async function applyMatchMutation(
   match: MatchWithPlayers,
   mode: 'started' | 'completed' | 'cancelled',
   replyMessage: string,
+  options: { ratingPreview?: LobbyRatingPreview } = {},
 ): Promise<void> {
-  await syncLobbyDiscordMessage(interaction.client, match, mode);
+  await syncLobbyDiscordMessage(interaction.client, match, mode, options);
   await interaction.editReply({ content: replyMessage });
 }
 
@@ -239,6 +241,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     if (subcommand === 'quitters') {
       const quitterSlots = parseQuitterSlots(interaction.options.getString('slots'));
+      await interaction.editReply({ content: 'Saving quitters…' });
       const updated = await setQuitters(match.id, quitterSlots);
       await applyMatchMutation(
         interaction,
@@ -253,17 +256,24 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const winner = parseWinner(interaction.options.getString('winner', true));
       const quittersRaw = interaction.options.getString('quitters');
       const quitterSlots = quittersRaw === null ? undefined : parseQuitterSlots(quittersRaw);
+      await interaction.editReply({
+        content: 'Updating ratings and completing the match… This can take a few seconds.',
+      });
       const completed = await completeMatch(match.id, winner, quitterSlots);
       await applyMatchMutation(
         interaction,
-        completed,
+        completed.match,
         'completed',
-        `Match \`${completed.id}\` completed. Winner: **Team ${winner === 1 ? 'A' : 'B'}**.`,
+        `Match \`${completed.match.id}\` completed. Winner: **Team ${winner === 1 ? 'A' : 'B'}**.`,
+        { ratingPreview: completed.ratingPreview },
       );
       return;
     }
 
     if (subcommand === 'cancel') {
+      await interaction.editReply({
+        content: 'Cancelling the match… Applying quitter penalties if any are marked.',
+      });
       const cancelled = await cancelInProgressMatch(match.id);
       await applyMatchMutation(
         interaction,

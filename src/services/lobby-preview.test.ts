@@ -2,22 +2,100 @@ import { describe, expect, it } from 'vitest';
 import {
   buildMatchCompletedEmbed,
   buildMatchReportButtons,
+  formatSignedDelta,
   formatTeamLinesFromPreview,
 } from './lobby-preview.js';
+import { buildCompletedRatingPreview } from './rating-preview.js';
+
+describe('formatSignedDelta', () => {
+  it('formats signed deltas and omits when undefined', () => {
+    expect(formatSignedDelta(undefined)).toBe('');
+    expect(formatSignedDelta(186)).toBe(' (+186)');
+    expect(formatSignedDelta(-50)).toBe(' (-50)');
+    expect(formatSignedDelta(0)).toBe(' (0)');
+  });
+});
 
 describe('formatTeamLinesFromPreview', () => {
   it('appends the quitter marker outside the code span', () => {
     const value = formatTeamLinesFromPreview([
-      { slot: 1, nick: 'goku', globalOrdinal: 11, heroOrdinal: 22, isQuitter: true },
-      { slot: 7, nick: 'vegeta', globalOrdinal: 33, heroOrdinal: 44 },
+      { slot: 1, nick: 'goku', globalOrdinal: 1100, heroOrdinal: 2200, isQuitter: true },
+      { slot: 7, nick: 'vegeta', globalOrdinal: 3300, heroOrdinal: 4400 },
     ]);
     const [firstLine, secondLine] = value.split('\n');
 
     expect(firstLine).toContain('`goku');
     expect(firstLine).toContain('🚪');
-    expect(firstLine).toMatch(/`\s*goku\s+11 \/  22`\s+🚪$/);
+    expect(firstLine).toMatch(/`\s*goku\s+1100 \/ 2200`\s+🚪$/);
     expect(secondLine).toContain('`vegeta');
     expect(secondLine).not.toContain('🚪');
+  });
+
+  it('shows signed ki deltas inline on completed roster lines', () => {
+    const value = formatTeamLinesFromPreview([
+      {
+        slot: 1,
+        nick: 'goku',
+        globalOrdinal: 1186,
+        heroOrdinal: 1200,
+        globalDelta: 186,
+        heroDelta: 200,
+      },
+      {
+        slot: 7,
+        nick: 'vegeta',
+        globalOrdinal: 900,
+        heroOrdinal: 850,
+        globalDelta: -100,
+        heroDelta: -150,
+        isQuitter: true,
+      },
+    ]);
+    const [firstLine, secondLine] = value.split('\n');
+
+    expect(firstLine).toContain('1186 (+186) / 1200 (+200)');
+    expect(secondLine).toContain(' 900 (-100) /  850 (-150)');
+    expect(secondLine).toMatch(/`\s+🚪$/);
+  });
+});
+
+describe('buildCompletedRatingPreview', () => {
+  it('attaches after−before ki deltas per player', () => {
+    const preview = buildCompletedRatingPreview(
+      [
+        { playerId: 'p1', slot: 1, heroId: 1, nick: 'goku', isQuitter: false },
+        { playerId: 'p2', slot: 7, heroId: 7, nick: 'vegeta', isQuitter: true },
+      ],
+      new Map([
+        [1, { global: 1000, hero: 1000 }],
+        [7, { global: 1000, hero: 1000 }],
+      ]),
+      new Map([
+        [1, { global: 1186, hero: 1200 }],
+        [7, { global: 900, hero: 850 }],
+      ]),
+    );
+
+    expect(preview.players).toEqual([
+      {
+        slot: 1,
+        nick: 'goku',
+        globalOrdinal: 1186,
+        heroOrdinal: 1200,
+        globalDelta: 186,
+        heroDelta: 200,
+        isQuitter: false,
+      },
+      {
+        slot: 7,
+        nick: 'vegeta',
+        globalOrdinal: 900,
+        heroOrdinal: 850,
+        globalDelta: -100,
+        heroDelta: -150,
+        isQuitter: true,
+      },
+    ]);
   });
 });
 
@@ -35,7 +113,7 @@ describe('buildMatchReportButtons', () => {
 });
 
 describe('buildMatchCompletedEmbed', () => {
-  it('shows the winner and quitter markers', () => {
+  it('shows the winner, quitter markers, and ki deltas', () => {
     const embed = buildMatchCompletedEmbed(
       'match-123',
       [
@@ -49,15 +127,19 @@ describe('buildMatchCompletedEmbed', () => {
             {
               slot: 1,
               nick: 'goku',
-              globalOrdinal: 11,
-              heroOrdinal: 22,
+              globalOrdinal: 1186,
+              heroOrdinal: 1200,
+              globalDelta: 186,
+              heroDelta: 200,
               isQuitter: true,
             },
             {
               slot: 7,
               nick: 'vegeta',
-              globalOrdinal: 33,
-              heroOrdinal: 44,
+              globalOrdinal: 3300,
+              heroOrdinal: 4400,
+              globalDelta: -50,
+              heroDelta: -80,
             },
           ],
         },
@@ -68,8 +150,11 @@ describe('buildMatchCompletedEmbed', () => {
 
     expect(json.title).toBe('Match Completed');
     expect(json.description).toBe('Team A won the match.');
+    expect(json.fields?.[0]?.value).toContain('1186 (+186) / 1200 (+200)');
     expect(json.fields?.[0]?.value).toContain('🚪');
+    expect(json.fields?.[1]?.value).toContain('3300 (-50) / 4400 (-80)');
     expect(json.fields?.[1]?.value).not.toContain('🚪');
+    expect(json.footer?.text).toBe('Per player: global / hero (ki)');
     expect(json.color).toBe(0xf1c40f);
   });
 });

@@ -28,7 +28,7 @@ const TEAM_A_EMOJI = '🟥';
 const TEAM_B_EMOJI = '🟦';
 
 /** Real Discord embed footer (not a field) — no markdown supported here. */
-const ORDINAL_FOOTER = 'Per player: global / hero (ordinal)';
+const ORDINAL_FOOTER = 'Per player: global / hero (ki)';
 
 /** Win-chance accent: green favored, red underdog, white even. */
 function winChanceEmoji(selfPercent: number, otherPercent: number): string {
@@ -50,8 +50,9 @@ export function formatTeamLines(players: LobbyPlayer[]): string {
 }
 
 /**
- * Format roster lines with global / hero ordinals.
+ * Format roster lines with global / hero display ki (DTO *Ordinal fields).
  * Uses monospace padding so rating columns align and sit clear of the nick.
+ * When deltas are present (completed match), appends signed change inline.
  * Quitter lines get a trailing 🚪 marker outside the code span.
  */
 export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): string {
@@ -60,16 +61,35 @@ export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): st
   }
 
   const nickWidth = Math.max(8, ...players.map((player) => player.nick.length));
+  const ratingWidth = Math.max(
+    4,
+    ...players.flatMap((player) => [
+      String(player.globalOrdinal).length,
+      String(player.heroOrdinal).length,
+    ]),
+  );
 
   return players
     .map((player) => {
       const nick = player.nick.padEnd(nickWidth, ' ');
-      const global = String(player.globalOrdinal).padStart(3, ' ');
-      const hero = String(player.heroOrdinal).padStart(3, ' ');
+      const global = String(player.globalOrdinal).padStart(ratingWidth, ' ');
+      const hero = String(player.heroOrdinal).padStart(ratingWidth, ' ');
+      const globalDelta = formatSignedDelta(player.globalDelta);
+      const heroDelta = formatSignedDelta(player.heroDelta);
       const quitterMark = player.isQuitter ? ' 🚪' : '';
-      return `\`${nick}   ${global} / ${hero}\`${quitterMark}`;
+      return `\`${nick}   ${global}${globalDelta} / ${hero}${heroDelta}\`${quitterMark}`;
     })
     .join('\n');
+}
+
+/** Format optional ki delta as ` (+123)` / ` (-45)`; empty when undefined. */
+export function formatSignedDelta(delta: number | undefined): string {
+  if (delta === undefined) {
+    return '';
+  }
+
+  const sign = delta > 0 ? '+' : '';
+  return ` (${sign}${delta})`;
 }
 
 export function splitLobbyPlayers(players: LobbyPlayer[]): ValidatedLobby {

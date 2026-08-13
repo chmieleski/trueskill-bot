@@ -17,8 +17,14 @@ const DEFAULT_SIGMA = 8.333;
 export interface LobbyRatingPlayerLine {
   slot: number;
   nick: string;
+  /** Display ki (OFFSET + SCALE × ordinal); field name kept for DTO stability. */
   globalOrdinal: number;
+  /** Display ki for the slot’s hero. */
   heroOrdinal: number;
+  /** Completed-match only: ki change for global (after − before). */
+  globalDelta?: number;
+  /** Completed-match only: ki change for hero (after − before). */
+  heroDelta?: number;
   isQuitter?: boolean;
 }
 
@@ -95,10 +101,96 @@ function defaultMuSigma(): { mu: number; sigma: number } {
   return { mu: DEFAULT_MU, sigma: DEFAULT_SIGMA };
 }
 
+export type PlayerKiPair = {
+  global: number;
+  hero: number;
+};
+
 /**
- * Load ordinals + win chance for the current lobby roster.
+ * Load current display ki per slot (global / hero). Used to compute match deltas.
+ */
+export async function loadPlayerKiBySlot(
+  entries: Pick<RatingPreviewRosterEntry, 'playerId' | 'heroId' | 'slot'>[],
+  db: Db = prisma,
+): Promise<Map<number, PlayerKiPair>> {
+  const sorted = [...entries].sort((a, b) => a.slot - b.slot);
+  const result = new Map<number, PlayerKiPair>();
+
+  if (sorted.length === 0) {
+    return result;
+  }
+
+  await ensureHeroesExist();
+  await ensurePlayerRatings(sorted, db);
+
+  const playerIds = sorted.map((entry) => entry.playerId);
+  const [globals, heroes] = await Promise.all([
+    db.playerRating.findMany({
+      where: { playerId: { in: playerIds } },
+    }),
+    db.playerHeroRating.findMany({
+      where: {
+        OR: sorted.map((entry) => ({
+          playerId: entry.playerId,
+          heroId: entry.heroId,
+        })),
+      },
+    }),
+  ]);
+
+  const globalByPlayer = new Map(globals.map((row) => [row.playerId, row]));
+  const heroKey = (playerId: string, heroId: number) => `${playerId}:${heroId}`;
+  const heroByKey = new Map(
+    heroes.map((row) => [heroKey(row.playerId, row.heroId), row]),
+  );
+
+  for (const entry of sorted) {
+    const global = globalByPlayer.get(entry.playerId) ?? defaultMuSigma();
+    const hero =
+      heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultMuSigma();
+    result.set(entry.slot, {
+      global: displayOrdinal(global.mu, global.sigma),
+      hero: displayOrdinal(hero.mu, hero.sigma),
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Build completed-match preview lines with final ki and after−before deltas.
+ */
+export function buildCompletedRatingPreview(
+  entries: RatingPreviewRosterEntry[],
+  beforeBySlot: Map<number, PlayerKiPair>,
+  afterBySlot: Map<number, PlayerKiPair>,
+): LobbyRatingPreview {
+  const players: LobbyRatingPlayerLine[] = [...entries]
+    .sort((a, b) => a.slot - b.slot)
+    .map((entry) => {
+      const after = afterBySlot.get(entry.slot) ?? {
+        global: displayOrdinal(DEFAULT_MU, DEFAULT_SIGMA),
+        hero: displayOrdinal(DEFAULT_MU, DEFAULT_SIGMA),
+      };
+      const before = beforeBySlot.get(entry.slot) ?? after;
+      return {
+        slot: entry.slot,
+        nick: entry.nick,
+        globalOrdinal: after.global,
+        heroOrdinal: after.hero,
+        globalDelta: after.global - before.global,
+        heroDelta: after.hero - before.hero,
+        isQuitter: entry.isQuitter,
+      };
+    });
+
+  return { players };
+}
+
+/**
+ * Load display ki + win chance for the current lobby roster.
  * Read-only prediction: never calls rate().
- * On failure, returns default ordinals and omits winChance.
+ * On failure, returns default ki and omits winChance.
  */
 export async function loadLobbyRatingPreview(
   entries: RatingPreviewRosterEntry[],

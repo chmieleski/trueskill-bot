@@ -34,13 +34,15 @@ Compare Team A vs Team B to get P(win). After the match, OpenSkill updates μ/σ
 - High-σ entities absorb most of the swing; low-σ (veterans / main heroes) move little
 - Never display raw μ on leaderboards / public embeds
 
-## Public ordinal (leaderboard)
+## Public ki (leaderboard / embeds)
+
+Conservative OpenSkill ordinal is `μ − 3σ`. Public **ki** is display-only:
 
 ```text
-Public rating = μ − 3σ
+ki = round(1000 + 200 × (μ − 3σ))
 ```
 
-Use this conservative ordinal everywhere players see a single “rating” number.
+Cold start ≈ 1000; elite (μ≈40, σ≈1.5) ≈ 8000. Never display raw μ. DTO fields may still be named `*Ordinal` but hold display ki.
 
 ## Edge cases
 

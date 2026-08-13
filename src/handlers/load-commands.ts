@@ -22,7 +22,12 @@ function collectCommandFiles(directory: string): string[] {
       continue;
     }
 
-    if (entry.isFile() && (entry.name.endsWith('.ts') || entry.name.endsWith('.js'))) {
+    if (
+      entry.isFile() &&
+      (entry.name.endsWith('.ts') || entry.name.endsWith('.js')) &&
+      !entry.name.endsWith('.test.ts') &&
+      !entry.name.endsWith('.test.js')
+    ) {
       files.push(fullPath);
     }
   }
