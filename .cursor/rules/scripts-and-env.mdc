@@ -26,3 +26,4 @@ alwaysApply: true
 - `GEMINI_API_KEY` — Google Gemini API key for lobby screenshot OCR
 - `LOG_LEVEL` — `fatal` | `error` | `warn` | `info` | `verbose` | `debug` | `trace` (default: `debug` in dev, `info` in production)
 - `MATCH_MOD_ROLE_ID` — optional Discord role that may report/cancel in-progress matches (host always can)
+- `MATCH_CREATE_ROLE_ID` — Discord role required to run `/register_lobby` (empty/unset = creation disabled for everyone)

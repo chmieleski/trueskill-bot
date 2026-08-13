@@ -22,6 +22,8 @@ interface EnvConfig {
   logLevel: string | undefined;
   /** Discord role ID allowed to report/cancel matches like the host. Empty = host-only. */
   matchModRoleId: string | undefined;
+  /** Discord role ID required to create lobbies via /register_lobby. Empty = creation disabled. */
+  matchCreateRoleId: string | undefined;
 }
 
 function parseLogLevel(value: string | undefined): string | undefined {
@@ -69,6 +71,10 @@ export const env: EnvConfig = {
   logLevel: parseLogLevel(process.env.LOG_LEVEL),
   matchModRoleId: (() => {
     const value = process.env.MATCH_MOD_ROLE_ID?.trim();
+    return value && value.length > 0 ? value : undefined;
+  })(),
+  matchCreateRoleId: (() => {
+    const value = process.env.MATCH_CREATE_ROLE_ID?.trim();
     return value && value.length > 0 ? value : undefined;
   })(),
 };
