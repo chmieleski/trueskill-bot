@@ -306,7 +306,7 @@ export async function syncLobbyDiscordMessage(
   if (mode === 'pending') {
     const canStart = canStartLobby(players);
     payload = {
-      embeds: [buildMatchLobbyEmbed(match.id, players, { canStart })],
+      embeds: [buildMatchLobbyEmbed(match.id, players, { canStart, createdAt: match.createdAt })],
       components: buildLobbyButtons({ canStart }),
     };
   } else if (mode === 'started') {

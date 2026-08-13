@@ -3,6 +3,8 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
+  time,
+  TimestampStyles,
 } from 'discord.js';
 import type { LobbyPlayer, ValidatedLobby } from './lobby-ocr.js';
 import { validateLobbyPlayers } from './lobby-ocr.js';
@@ -11,6 +13,9 @@ export const LOBBY_CUSTOM_IDS = {
   start: 'lobby:start',
   fix: 'lobby:fix',
 } as const;
+
+/** Must match stale PENDING cleanup TTL in match-cleanup / match-service. */
+export const LOBBY_PENDING_TTL_MS = 2 * 60 * 60 * 1000;
 
 export function formatTeamLines(players: LobbyPlayer[]): string {
   if (players.length === 0) {
@@ -43,14 +48,17 @@ export function canStartLobby(players: LobbyPlayer[]): boolean {
 export function buildMatchLobbyEmbed(
   matchId: string,
   players: LobbyPlayer[],
-  options: { canStart?: boolean } = {},
+  options: { canStart?: boolean; createdAt?: Date } = {},
 ): EmbedBuilder {
   const { teamA, teamB } = splitLobbyPlayers(players);
   const canStart = options.canStart ?? canStartLobby(players);
+  const createdAt = options.createdAt ?? new Date();
+  const expiresAt = new Date(createdAt.getTime() + LOBBY_PENDING_TTL_MS);
+  const expiresLine = `Lobby expires ${time(expiresAt, TimestampStyles.RelativeTime)}.`;
 
   const description = canStart
-    ? `Match \`${matchId}\`\nReview the lobby, then start when ready.`
-    : `Match \`${matchId}\`\nAdd at least one human player to each team before starting.`;
+    ? `Match \`${matchId}\`\nReview the lobby, then start when ready.\n\n${expiresLine}`
+    : `Match \`${matchId}\`\nAdd at least one human player to each team before starting.\n\n${expiresLine}`;
 
   return new EmbedBuilder()
     .setTitle('Match Lobby')

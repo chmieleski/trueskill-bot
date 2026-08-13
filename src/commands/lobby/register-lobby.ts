@@ -126,7 +126,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     });
 
     await interaction.editReply({
-      embeds: [buildMatchLobbyEmbed(created.matchId, players, { canStart })],
+      embeds: [
+        buildMatchLobbyEmbed(created.matchId, players, {
+          canStart,
+          createdAt: created.createdAt,
+        }),
+      ],
       components: buildLobbyButtons({ canStart }),
     });
 

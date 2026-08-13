@@ -22,6 +22,7 @@ export type MatchWithPlayers = Match & {
 
 export interface CreatedPendingMatch {
   matchId: string;
+  createdAt: Date;
   teamACount: number;
   teamBCount: number;
   playerCount: number;
@@ -152,6 +153,7 @@ export async function createPendingMatch(
 
   return {
     matchId: created.id,
+    createdAt: created.createdAt,
     teamACount,
     teamBCount,
     playerCount: input.players.length,
