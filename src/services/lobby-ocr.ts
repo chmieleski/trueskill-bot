@@ -28,7 +28,7 @@ const LOBBY_OCR_SYSTEM_INSTRUCTION =
 const MIN_SLOT = 1;
 const MAX_SLOT = 12;
 const TEAM_A_MAX_SLOT = 6;
-const GEMINI_MODEL = 'gemini-3.5-flash';
+const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
