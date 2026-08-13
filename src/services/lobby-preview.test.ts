@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildMatchCompletedEmbed,
+  buildMatchInProgressEmbed,
+  buildMatchLobbyEmbed,
   buildMatchReportButtons,
   formatSignedDelta,
   formatTeamLinesFromPreview,
@@ -109,6 +111,58 @@ describe('buildMatchReportButtons', () => {
       'match:quitters',
       'match:cancel',
     ]);
+  });
+});
+
+describe('balance hint on embeds', () => {
+  it('shows Balance hint on Match Lobby when suggestion present', () => {
+    const embed = buildMatchLobbyEmbed('m1', [
+      { nick: 'Alice', slot: 1 },
+      { nick: 'Bob', slot: 7 },
+    ], {
+      ratingPreview: {
+        players: [
+          { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000 },
+          { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000 },
+        ],
+        winChance: { teamAPercent: 70, teamBPercent: 30 },
+        balanceSuggestion: {
+          kind: 'swap',
+          fromSlot: 1,
+          toSlot: 7,
+          fromNick: 'Alice',
+          toNick: 'Bob',
+          resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
+        },
+      },
+    });
+    const fields = embed.data.fields ?? [];
+    const hint = fields.find((f) => f.name === 'Balance hint');
+    expect(hint?.value).toBe('Swap Alice (1) ↔ Bob (7) → ~52% / 48%');
+  });
+
+  it('omits Balance hint on Match In Progress even if DTO has suggestion', () => {
+    const embed = buildMatchInProgressEmbed('m1', [
+      { nick: 'Alice', slot: 1 },
+      { nick: 'Bob', slot: 7 },
+    ], {
+      ratingPreview: {
+        players: [
+          { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000 },
+          { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000 },
+        ],
+        winChance: { teamAPercent: 70, teamBPercent: 30 },
+        balanceSuggestion: {
+          kind: 'move',
+          fromSlot: 7,
+          toSlot: 2,
+          fromNick: 'Bob',
+          resultingWinChance: { teamAPercent: 51, teamBPercent: 49 },
+        },
+      },
+    });
+    const fields = embed.data.fields ?? [];
+    expect(fields.some((f) => f.name === 'Balance hint')).toBe(false);
   });
 });
 

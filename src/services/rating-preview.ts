@@ -8,11 +8,20 @@ import {
   splitRosterByTeam,
   toOpenSkillRatings,
 } from './rating-math.js';
+import {
+  isUnbalancedWinChance,
+  suggestBalanceMove,
+  type BalanceRatingLookup,
+  type BalanceSuggestion,
+} from './lobby-balance.js';
+
+export type { BalanceSuggestion };
 
 const log = createLogger('rating-preview');
 
 const DEFAULT_MU = 25;
 const DEFAULT_SIGMA = 8.333;
+const ALL_HERO_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
 export interface LobbyRatingPlayerLine {
   slot: number;
@@ -35,6 +44,7 @@ export interface LobbyRatingPreview {
     teamAPercent: number;
     teamBPercent: number;
   };
+  balanceSuggestion?: BalanceSuggestion;
 }
 
 export type RatingPreviewRosterEntry = {
@@ -55,9 +65,9 @@ export async function ensureHeroesExist(): Promise<void> {
   if (!heroesEnsurePromise) {
     heroesEnsurePromise = prisma.hero
       .createMany({
-        data: Array.from({ length: 12 }, (_, index) => ({
-          id: index + 1,
-          name: `Hero ${index + 1}`,
+        data: ALL_HERO_IDS.map((heroId) => ({
+          id: heroId,
+          name: `Hero ${heroId}`,
         })),
         skipDuplicates: true,
       })
@@ -206,17 +216,22 @@ export async function loadLobbyRatingPreview(
     await ensurePlayerRatings(sorted);
 
     const playerIds = sorted.map((entry) => entry.playerId);
+    await prisma.playerHeroRating.createMany({
+      data: sorted.flatMap((entry) =>
+        ALL_HERO_IDS.map((heroId) => ({
+          playerId: entry.playerId,
+          heroId,
+        })),
+      ),
+      skipDuplicates: true,
+    });
+
     const [globals, heroes] = await Promise.all([
       prisma.playerRating.findMany({
         where: { playerId: { in: playerIds } },
       }),
       prisma.playerHeroRating.findMany({
-        where: {
-          OR: sorted.map((entry) => ({
-            playerId: entry.playerId,
-            heroId: entry.heroId,
-          })),
-        },
+        where: { playerId: { in: playerIds } },
       }),
     ]);
 
@@ -259,9 +274,40 @@ export async function loadLobbyRatingPreview(
     };
 
     const [pA, pB] = predictWin([teamEntities(teamA), teamEntities(teamB)]);
+    const winChance = roundWinPercents(pA ?? 0.5, pB ?? 0.5);
+    const lookup: BalanceRatingLookup = {
+      global: (playerId) => {
+        const row = globalByPlayer.get(playerId);
+        return row ? { mu: row.mu, sigma: row.sigma } : defaultMuSigma();
+      },
+      hero: (playerId, heroId) => {
+        const row = heroByKey.get(heroKey(playerId, heroId));
+        return row ? { mu: row.mu, sigma: row.sigma } : defaultMuSigma();
+      },
+    };
+
+    let balanceSuggestion: BalanceSuggestion | undefined;
+    if (isUnbalancedWinChance(winChance.teamAPercent)) {
+      try {
+        balanceSuggestion = suggestBalanceMove(
+          sorted.map((entry) => ({
+            playerId: entry.playerId,
+            slot: entry.slot,
+            heroId: entry.heroId,
+            nick: entry.nick,
+          })),
+          lookup,
+          winChance,
+        );
+      } catch (error) {
+        log.warn({ err: error }, 'Failed to compute balance suggestion');
+      }
+    }
+
     return {
       players,
-      winChance: roundWinPercents(pA ?? 0.5, pB ?? 0.5),
+      winChance,
+      balanceSuggestion,
     };
   } catch (error) {
     log.error({ err: error }, 'Failed to load lobby rating preview');

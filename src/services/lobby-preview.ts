@@ -8,6 +8,7 @@ import {
 } from 'discord.js';
 import type { LobbyPlayer, ValidatedLobby } from './lobby-ocr.js';
 import { validateLobbyPlayers } from './lobby-ocr.js';
+import { formatBalanceHint } from './lobby-balance.js';
 import type { LobbyRatingPlayerLine, LobbyRatingPreview } from './rating-preview.js';
 
 export const LOBBY_CUSTOM_IDS = {
@@ -160,6 +161,19 @@ function ratingPreviewFields(preview: LobbyRatingPreview | undefined) {
   ];
 }
 
+function balanceHintFields(preview: LobbyRatingPreview | undefined) {
+  if (!preview?.balanceSuggestion) {
+    return [];
+  }
+  return [
+    {
+      name: 'Balance hint',
+      value: formatBalanceHint(preview.balanceSuggestion),
+      inline: false,
+    },
+  ];
+}
+
 function teamFieldValues(
   players: LobbyPlayer[],
   ratingPreview: LobbyRatingPreview | undefined,
@@ -242,6 +256,7 @@ export function buildMatchLobbyEmbed(
         inline: false,
       },
       ...ratingPreviewFields(options.ratingPreview),
+      ...balanceHintFields(options.ratingPreview),
     )
     .setColor(0x5865f2);
 
