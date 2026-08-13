@@ -112,6 +112,13 @@ function formatQuitterSummary(match: MatchWithPlayers, quitterSlots: number[]): 
   return `Quitters:\n${quitters.map((player) => `- ${formatPlayer(player)}`).join('\n')}`;
 }
 
+/** Slots already flagged as quitters on the match (for select defaults / Continue). */
+function preselectedQuitterSlots(match: MatchWithPlayers): number[] {
+  return sortedPlayers(match)
+    .filter((player) => player.isQuitter)
+    .map((player) => player.slot);
+}
+
 function buildQuitterSelectRow(
   match: MatchWithPlayers,
   customId: string,
@@ -129,6 +136,33 @@ function buildQuitterSelectRow(
       .setMinValues(0)
       .setMaxValues(options.length)
       .addOptions(options),
+  );
+}
+
+/**
+ * Discord does not fire a select interaction when the user leaves defaults unchanged.
+ * When quitters are pre-selected, offer a button that continues with those slots.
+ */
+function buildQuitterContinueRow(
+  matchId: string,
+  kind: 'report' | 'save',
+  quitterSlots: number[],
+): ActionRowBuilder<ButtonBuilder> | null {
+  if (quitterSlots.length === 0) {
+    return null;
+  }
+
+  const slotsCsv = encodeSlots(quitterSlots);
+  const customId =
+    kind === 'report'
+      ? `match:rw:qok:${matchId}:${slotsCsv}`
+      : `match:qok:${matchId}:${slotsCsv}`;
+
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(customId)
+      .setLabel(kind === 'report' ? 'Continue with selected' : 'Save selected')
+      .setStyle(ButtonStyle.Primary),
   );
 }
 
@@ -286,10 +320,22 @@ async function handleReportEntry(interaction: ButtonInteraction): Promise<void> 
     throw new MatchServiceError('This match has no players to report.');
   }
 
-  await replyEphemeral(interaction, 'Select any players who quit, then choose the winner:', [
+  const preselected = preselectedQuitterSlots(match);
+  const components: ComponentRow[] = [
     buildQuitterSelectRow(match, `match:rw:q:${match.id}`),
-    buildReportSkipRow(match.id),
-  ]);
+  ];
+  const continueRow = buildQuitterContinueRow(match.id, 'report', preselected);
+  if (continueRow) {
+    components.push(continueRow);
+  }
+  components.push(buildReportSkipRow(match.id));
+
+  const hint =
+    preselected.length > 0
+      ? 'Select any players who quit (or Continue with selected), then choose the winner:'
+      : 'Select any players who quit, then choose the winner:';
+
+  await replyEphemeral(interaction, hint, components);
 }
 
 async function handleQuittersEntry(interaction: ButtonInteraction): Promise<void> {
@@ -299,9 +345,21 @@ async function handleQuittersEntry(interaction: ButtonInteraction): Promise<void
     throw new MatchServiceError('This match has no players to update.');
   }
 
-  await replyEphemeral(interaction, 'Select players who quit:', [
+  const preselected = preselectedQuitterSlots(match);
+  const components: ComponentRow[] = [
     buildQuitterSelectRow(match, `match:qset:${match.id}`),
-  ]);
+  ];
+  const continueRow = buildQuitterContinueRow(match.id, 'save', preselected);
+  if (continueRow) {
+    components.push(continueRow);
+  }
+
+  const hint =
+    preselected.length > 0
+      ? 'Select players who quit, or Save selected to keep the current flags:'
+      : 'Select players who quit:';
+
+  await replyEphemeral(interaction, hint, components);
 }
 
 async function handleCancelEntry(interaction: ButtonInteraction): Promise<void> {
@@ -320,6 +378,21 @@ async function handleReportQuitters(
 ): Promise<void> {
   const match = await resolveById(interaction, matchId);
   const quitterSlots = interaction.values.map((slot) => Number(slot));
+
+  await updateEphemeral(
+    interaction,
+    `${formatQuitterSummary(match, quitterSlots)}\n\nChoose the winner:`,
+    [buildWinnerRow(matchId, quitterSlots)],
+  );
+}
+
+/** Continue Report Winner with pre-selected quitters (select unchanged). */
+async function handleReportQuittersKeep(
+  interaction: ButtonInteraction,
+  matchId: string,
+  quitterSlots: number[],
+): Promise<void> {
+  const match = await resolveById(interaction, matchId);
 
   await updateEphemeral(
     interaction,
@@ -392,6 +465,23 @@ async function handleQuittersSet(
   });
 }
 
+/** Save pre-selected quitters without changing the select (Discord won't fire it). */
+async function handleQuittersKeep(
+  interaction: ButtonInteraction,
+  matchId: string,
+  quitterSlots: number[],
+): Promise<void> {
+  await resolveById(interaction, matchId);
+  await showWorking(interaction, 'Saving quitters…');
+
+  const updated = await setQuitters(matchId, quitterSlots);
+  await syncLobbyDiscordMessage(interaction.client, updated, 'started');
+  await interaction.editReply({
+    content: `Quitters updated.\n${formatQuitterSummary(updated, quitterSlots)}`,
+    components: [],
+  });
+}
+
 async function handleCancelConfirm(
   interaction: ButtonInteraction,
   matchId: string,
@@ -437,6 +527,16 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
 
     if (parts[1] === 'rw' && parts[2] === 'skip' && parts[3]) {
       await handleReportSkip(interaction, parts[3]);
+      return;
+    }
+
+    if (parts[1] === 'rw' && parts[2] === 'qok' && parts[3] && parts[4]) {
+      await handleReportQuittersKeep(interaction, parts[3], decodeSlots(parts[4]));
+      return;
+    }
+
+    if (parts[1] === 'qok' && parts[2] && parts[3]) {
+      await handleQuittersKeep(interaction, parts[2], decodeSlots(parts[3]));
       return;
     }
 
