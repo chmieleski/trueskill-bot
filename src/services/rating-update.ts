@@ -7,10 +7,13 @@ import { splitRosterByTeam, toOpenSkillRatings } from './rating-math.js';
 
 const DEFAULT_MU = 25;
 const DEFAULT_SIGMA = 8.333;
-const DUMMY_OPPONENT_MU = 40;
-const DUMMY_OPPONENT_SIGMA = 4;
 
-export const QUITTER_SYNTHETIC_LOSSES = 3;
+/**
+ * Peer synthetic losses for quitters.
+ * N=1 vs a mirrored team hits display ki harder than a fair match loss;
+ * N=3 with a peer dummy is far too severe (~−764 ki at cold start).
+ */
+export const QUITTER_SYNTHETIC_LOSSES = 1;
 
 export type RatingRosterEntry = {
   playerId: string;
@@ -29,16 +32,17 @@ function heroKey(playerId: string, heroId: number): string {
   return `${playerId}:${heroId}`;
 }
 
-/** Strong fixed opponent for quitter penalties (not persisted). */
-export function buildDummyOpponentTeam(): Rating[] {
-  return [
-    rating({ mu: DUMMY_OPPONENT_MU, sigma: DUMMY_OPPONENT_SIGMA }),
-    rating({ mu: DUMMY_OPPONENT_MU, sigma: DUMMY_OPPONENT_SIGMA }),
-  ];
+/**
+ * Peer opponent for quitter penalties (not persisted).
+ * Copies the quitter team's μ/σ so each synthetic loss is an even match —
+ * a fixed strong dummy makes the loss "expected" and barely moves public ki.
+ */
+export function buildDummyOpponentTeam(playerTeam: Rating[]): Rating[] {
+  return playerTeam.map((entity) => rating({ mu: entity.mu, sigma: entity.sigma }));
 }
 
 /**
- * Run OpenSkill rate() N times: playerTeam loses to dummy each iteration.
+ * Run OpenSkill rate() N times: playerTeam loses to a peer dummy each iteration.
  * Returns the updated playerTeam ratings (same length/order).
  */
 export function applySyntheticLosses(
@@ -46,9 +50,9 @@ export function applySyntheticLosses(
   losses: number = QUITTER_SYNTHETIC_LOSSES,
 ): Rating[] {
   let current = playerTeam;
-  const dummy = buildDummyOpponentTeam();
 
   for (let i = 0; i < losses; i += 1) {
+    const dummy = buildDummyOpponentTeam(current);
     const [nextPlayerTeam] = rate([current, dummy], { rank: [2, 1] });
     current = nextPlayerTeam ?? current;
   }

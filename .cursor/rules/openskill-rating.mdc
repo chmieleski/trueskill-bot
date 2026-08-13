@@ -50,7 +50,7 @@ Cold start ≈ 1000; elite (μ≈40, σ≈1.5) ≈ 8000. Never display raw μ. D
 |------|------|
 | **Cold start (new hero)** | Missing `PlayerHeroRating` → create defaults (μ 25, σ ≈ 8.333). Global rating still enters the team array, so pairing is not tanked. Wins mostly raise the new hero’s μ; veteran global μ barely moves. |
 | **Asymmetric lobbies** | Fewer humans → lower `Σ μ`. Upset underfill gets maximized reward. Empty slots are absent entities, not zero-μ fillers. |
-| **Quitters** | `MatchPlayer.isQuitter` → N=3 OpenSkill synthetic losses (`rate` vs strong dummy) on global **and** hero; excluded from match Bayesian `rate()`. Host/mod may still complete remaining players or cancel (cancel applies quit penalties if flagged). |
+| **Quitters** | `MatchPlayer.isQuitter` → N=1 OpenSkill synthetic loss (`rate` vs **peer** dummy that mirrors the quitter’s global+hero μ/σ) on global **and** hero; excluded from match Bayesian `rate()`. A strong fixed dummy under-punishes display ki (expected loss). Host/mod may still complete remaining players or cancel (cancel applies quit penalties if flagged). |
 
 ## Agent constraints
 
