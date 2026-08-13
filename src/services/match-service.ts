@@ -252,6 +252,24 @@ export async function findPendingMatchesByHost(
   });
 }
 
+export async function findInProgressMatchesByHost(
+  hostDiscordId: string,
+): Promise<MatchWithPlayers[]> {
+  return prisma.match.findMany({
+    where: {
+      hostDiscordId,
+      status: 'IN_PROGRESS',
+    },
+    include: {
+      players: {
+        include: { player: true },
+        orderBy: { slot: 'asc' },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
 export function matchToLobbyPlayers(match: MatchWithPlayers): LobbyPlayer[] {
   return toLobbyPlayers(match);
 }
