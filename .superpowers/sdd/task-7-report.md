@@ -1,18 +1,23 @@
-### Task 7: Slash `/match` mirrors
+# Task 7: Manual smoke checklist — report
 
-**Branch:** `feature/match-report`  
-**Worktree:** `/home/lesk/www/bot/.worktrees/match-report`
+**Status:** DONE_WITH_CONCERNS (requires human Discord verification)
 
-**Done:**
-- Added `src/commands/match/match.ts` with `/match quitters`, `/match complete`, and `/match cancel` subcommands.
-- Resolved matches by explicit `match_id` first, otherwise by the host’s sole in-progress match, with moderator role handling via `MATCH_MOD_ROLE_ID`.
-- Synced the lobby Discord message after each mutation using `interaction.client`.
-- Added a focused test for quitter-slot parsing and command registration shape.
+Automated agents cannot run Discord slash-command smoke tests in this environment.
 
-**Verification:**
-- `npm test`
-- `npm run build`
-- `ReadLints` on the new command files: clean
+## Operator checklist (run after merge/deploy)
 
-**Concerns:**
-- I did not manually confirm the guild command propagation here, but the command is included in slash-command loading and build checks passed.
+1. Apply migration if not applied: `npm run db:migrate` (or `prisma migrate deploy`) on an environment with DATABASE_URL
+2. Restart bot (`npm run dev`) so `/config` deploys
+3. No GuildConfig row + env create/mod set → `/config view` shows source `env`; create/mod auth works
+4. `/config set create_role @Role` as Manage Guild → success; `view` shows `database` for create
+5. Owner ID `723326675647070218` can `/config` without Manage Guild
+6. Random member without Manage Guild → permission error
+7. Neither DB nor env create → `/register_lobby` → `Match creation is disabled until a create role is configured.`
+8. After DB create role set, member with role can register; without cannot
+9. DM `/config` → server-only message
+
+## Automated verification already done
+
+- Unit tests: match-auth, guild-config (59 tests green in worktree)
+- Code wiring complete on feature/guild-config-roles
+
