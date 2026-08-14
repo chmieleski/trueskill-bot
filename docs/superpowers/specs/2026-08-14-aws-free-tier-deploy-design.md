@@ -21,7 +21,9 @@ Automate hosting the Discord bot on **AWS Free Tier** with repeatable infra: one
 | Boot | `user-data` cloud-init | Node 22, clone, `.env` from SSM, migrate, build, systemd |
 | Process | systemd unit `dbz-bot.service` | Restart on crash/reboot |
 
-Out of scope: RDS, ALB, ECS/Fargate, CI/CD pipeline, multi-region.
+Out of scope: RDS, ALB, ECS/Fargate, multi-region.
+
+CI/CD (test on PR, SSM deploy on `main`): [2026-08-14-github-actions-cicd-design.md](./2026-08-14-github-actions-cicd-design.md)
 
 ## Secrets
 
@@ -45,7 +47,7 @@ Production: `NODE_ENV=production`, `AUTO_DEPLOY_COMMANDS=false`. Slash commands:
 2. Copy `terraform.tfvars.example` → `terraform.tfvars` (gitignored).
 3. `tofu init && tofu apply` (or `terraform`).
 4. SSH with the key; `journalctl -u dbz-bot -f`.
-5. Updates: `git pull` + build + `systemctl restart dbz-bot` (script provided).
+5. Updates: push to `main` (GitHub Actions) or `sudo dbz-bot-update` on the instance.
 
 ## Non-goals
 
