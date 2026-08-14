@@ -18,6 +18,8 @@ export interface ResolvedGuildConfig {
   matchModRoleId: string | undefined;
   matchCreateRoleSource: RoleConfigSource;
   matchModRoleSource: RoleConfigSource;
+  leaderboardChannelId: string | undefined;
+  leaderboardMessageId: string | undefined;
 }
 
 function resolveField(
@@ -46,6 +48,8 @@ export async function resolveGuildConfig(guildId: string): Promise<ResolvedGuild
     matchModRoleId: mod.value,
     matchCreateRoleSource: create.source,
     matchModRoleSource: mod.source,
+    leaderboardChannelId: row?.leaderboardChannelId?.trim() || undefined,
+    leaderboardMessageId: row?.leaderboardMessageId?.trim() || undefined,
   };
 }
 
@@ -62,6 +66,26 @@ export async function setMatchModRole(guildId: string, roleId: string): Promise<
     where: { guildId },
     create: { guildId, matchModRoleId: roleId },
     update: { matchModRoleId: roleId },
+  });
+}
+
+export async function setLeaderboardChannel(
+  guildId: string,
+  channelId: string,
+  messageId: string,
+): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: { guildId, leaderboardChannelId: channelId, leaderboardMessageId: messageId },
+    update: { leaderboardChannelId: channelId, leaderboardMessageId: messageId },
+  });
+}
+
+export async function clearLeaderboardChannel(guildId: string): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: { guildId, leaderboardChannelId: null, leaderboardMessageId: null },
+    update: { leaderboardChannelId: null, leaderboardMessageId: null },
   });
 }
 

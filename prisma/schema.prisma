@@ -115,9 +115,11 @@ enum MatchResult {
 
 // GuildConfig - per-server bot settings (roles first; more keys later)
 model GuildConfig {
-  guildId           String   @id
-  matchCreateRoleId String?
-  matchModRoleId    String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  guildId                String   @id
+  matchCreateRoleId      String?
+  matchModRoleId         String?
+  leaderboardChannelId   String?
+  leaderboardMessageId   String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 }

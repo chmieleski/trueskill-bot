@@ -27,7 +27,9 @@ import {
   BOT_OWNER_DISCORD_ID,
   assertCanConfigureBot,
   canConfigureBot,
+  clearLeaderboardChannel,
   resolveGuildConfig,
+  setLeaderboardChannel,
   setMatchCreateRole,
   setMatchModRole,
 } from './guild-config.js';
@@ -52,6 +54,8 @@ describe('resolveGuildConfig', () => {
       matchModRoleId: 'env-mod',
       matchCreateRoleSource: 'env',
       matchModRoleSource: 'env',
+      leaderboardChannelId: undefined,
+      leaderboardMessageId: undefined,
     });
   });
 
@@ -60,6 +64,8 @@ describe('resolveGuildConfig', () => {
       guildId: 'guild-1',
       matchCreateRoleId: 'db-create',
       matchModRoleId: null,
+      leaderboardChannelId: 'chan-1',
+      leaderboardMessageId: 'msg-1',
     });
     env.matchCreateRoleId = 'env-create';
     env.matchModRoleId = 'env-mod';
@@ -70,6 +76,8 @@ describe('resolveGuildConfig', () => {
     expect(resolved.matchCreateRoleSource).toBe('database');
     expect(resolved.matchModRoleId).toBe('env-mod');
     expect(resolved.matchModRoleSource).toBe('env');
+    expect(resolved.leaderboardChannelId).toBe('chan-1');
+    expect(resolved.leaderboardMessageId).toBe('msg-1');
   });
 
   it('reports unset when neither DB nor env provides a value', async () => {
@@ -80,6 +88,47 @@ describe('resolveGuildConfig', () => {
     expect(resolved.matchCreateRoleId).toBeUndefined();
     expect(resolved.matchCreateRoleSource).toBe('unset');
     expect(resolved.matchModRoleSource).toBe('unset');
+  });
+});
+
+describe('leaderboard channel config', () => {
+  beforeEach(() => {
+    upsert.mockReset();
+    upsert.mockResolvedValue({});
+  });
+
+  it('upserts leaderboard channel and message ids', async () => {
+    await setLeaderboardChannel('guild-1', 'chan-1', 'msg-1');
+
+    expect(upsert).toHaveBeenCalledWith({
+      where: { guildId: 'guild-1' },
+      create: {
+        guildId: 'guild-1',
+        leaderboardChannelId: 'chan-1',
+        leaderboardMessageId: 'msg-1',
+      },
+      update: {
+        leaderboardChannelId: 'chan-1',
+        leaderboardMessageId: 'msg-1',
+      },
+    });
+  });
+
+  it('clears leaderboard ids', async () => {
+    await clearLeaderboardChannel('guild-1');
+
+    expect(upsert).toHaveBeenCalledWith({
+      where: { guildId: 'guild-1' },
+      create: {
+        guildId: 'guild-1',
+        leaderboardChannelId: null,
+        leaderboardMessageId: null,
+      },
+      update: {
+        leaderboardChannelId: null,
+        leaderboardMessageId: null,
+      },
+    });
   });
 });
 
