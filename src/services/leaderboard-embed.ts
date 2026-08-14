@@ -66,11 +66,13 @@ export function buildOverallLeaderboardEmbed(
   const embed = new EmbedBuilder().setColor(RANK_GOLD).setTitle('Global Leaderboard');
 
   if (options?.live) {
-    embed.setDescription(formatOverallTable(page.entries));
+    // Discord parses <t:…> only in description/fields — footers are plain text.
+    let description = formatOverallTable(page.entries);
     if (options.updatedAt) {
       const unix = Math.floor(options.updatedAt.getTime() / 1000);
-      embed.setFooter({ text: `Updated <t:${unix}:R>` });
+      description += `\n\nUpdated <t:${unix}:R>`;
     }
+    embed.setDescription(description);
   } else {
     embed.setDescription(
       `Page ${page.page} of ${page.totalPages} · ${page.totalPlayers} players\n\n${formatOverallTable(page.entries)}`,
@@ -79,6 +81,8 @@ export function buildOverallLeaderboardEmbed(
       embed.setFooter({
         text: 'Use /leaderboard show page:N to jump · Only you can use the buttons',
       });
+    } else if (page.totalPlayers > 0) {
+      embed.setFooter({ text: 'Only you can use the buttons' });
     }
   }
 
@@ -123,22 +127,36 @@ export function buildAllHeroLeaderboardsEmbed(slices: HeroBoardSlice[]): EmbedBu
   return embed;
 }
 
-export function buildLeaderboardPageCustomId(invokerId: string, page: number): string {
-  return `leaderboard:page:${invokerId}:${page}`;
+export function buildLeaderboardPageCustomId(
+  invokerId: string,
+  direction: 'prev' | 'next',
+  currentPage: number,
+): string {
+  return `leaderboard:page:${invokerId}:${direction}:${currentPage}`;
 }
 
 export function parseLeaderboardPageCustomId(
   customId: string,
 ): { invokerId: string; page: number } | null {
   const parts = customId.split(':');
-  if (parts.length !== 4 || parts[0] !== 'leaderboard' || parts[1] !== 'page') {
+  if (parts.length !== 5 || parts[0] !== 'leaderboard' || parts[1] !== 'page') {
     return null;
   }
-  const page = Number.parseInt(parts[3]!, 10);
-  if (!Number.isFinite(page) || page < 1) {
+
+  const direction = parts[3];
+  const currentPage = Number.parseInt(parts[4]!, 10);
+  if (!Number.isFinite(currentPage) || currentPage < 1) {
     return null;
   }
-  return { invokerId: parts[2]!, page };
+
+  if (direction === 'prev') {
+    return { invokerId: parts[2]!, page: currentPage - 1 };
+  }
+  if (direction === 'next') {
+    return { invokerId: parts[2]!, page: currentPage + 1 };
+  }
+
+  return null;
 }
 
 export function buildLeaderboardPageButtons(input: {
@@ -146,21 +164,18 @@ export function buildLeaderboardPageButtons(input: {
   page: number;
   totalPages: number;
 }): ActionRowBuilder<ButtonBuilder>[] {
-  if (input.totalPages <= 1) {
+  if (input.totalPages < 1) {
     return [];
   }
 
-  const prevPage = Math.max(1, input.page - 1);
-  const nextPage = Math.min(input.totalPages, input.page + 1);
-
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(buildLeaderboardPageCustomId(input.invokerId, prevPage))
+      .setCustomId(buildLeaderboardPageCustomId(input.invokerId, 'prev', input.page))
       .setLabel('Previous')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(input.page <= 1),
     new ButtonBuilder()
-      .setCustomId(buildLeaderboardPageCustomId(input.invokerId, nextPage))
+      .setCustomId(buildLeaderboardPageCustomId(input.invokerId, 'next', input.page))
       .setLabel('Next')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(input.page >= input.totalPages),

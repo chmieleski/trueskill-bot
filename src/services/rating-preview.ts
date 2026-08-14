@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { predictWin } from 'openskill';
+import { listCatalogHeroIds } from './hero-catalog.js';
 import { prisma } from '../lib/prisma.js';
 import { createLogger } from '../lib/logger.js';
 import {
@@ -21,7 +22,6 @@ const log = createLogger('rating-preview');
 
 const DEFAULT_MU = 25;
 const DEFAULT_SIGMA = 8.333;
-const ALL_HERO_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
 export interface LobbyRatingPlayerLine {
   slot: number;
@@ -56,30 +56,6 @@ export type RatingPreviewRosterEntry = {
 };
 
 type Db = Prisma.TransactionClient | typeof prisma;
-
-/** Process-lifetime cache so we only seed Hero 1–12 once. */
-let heroesEnsurePromise: Promise<void> | null = null;
-
-/** Ensure Hero rows 1–12 exist (FK for PlayerHeroRating). Cached per process. */
-export async function ensureHeroesExist(): Promise<void> {
-  if (!heroesEnsurePromise) {
-    heroesEnsurePromise = prisma.hero
-      .createMany({
-        data: ALL_HERO_IDS.map((heroId) => ({
-          id: heroId,
-          name: `Hero ${heroId}`,
-        })),
-        skipDuplicates: true,
-      })
-      .then(() => undefined)
-      .catch((error: unknown) => {
-        heroesEnsurePromise = null;
-        throw error;
-      });
-  }
-
-  await heroesEnsurePromise;
-}
 
 /**
  * Batch cold-start for missing global + hero ratings (few round-trips).
@@ -130,7 +106,6 @@ export async function loadPlayerKiBySlot(
     return result;
   }
 
-  await ensureHeroesExist();
   await ensurePlayerRatings(sorted, db);
 
   const playerIds = sorted.map((entry) => entry.playerId);
@@ -212,20 +187,22 @@ export async function loadLobbyRatingPreview(
   }
 
   try {
-    await ensureHeroesExist();
     await ensurePlayerRatings(sorted);
 
-    const playerIds = sorted.map((entry) => entry.playerId);
-    await prisma.playerHeroRating.createMany({
-      data: sorted.flatMap((entry) =>
-        ALL_HERO_IDS.map((heroId) => ({
-          playerId: entry.playerId,
-          heroId,
-        })),
-      ),
-      skipDuplicates: true,
-    });
+    const catalogHeroIds = await listCatalogHeroIds();
+    if (catalogHeroIds.length > 0) {
+      await prisma.playerHeroRating.createMany({
+        data: sorted.flatMap((entry) =>
+          catalogHeroIds.map((heroId) => ({
+            playerId: entry.playerId,
+            heroId,
+          })),
+        ),
+        skipDuplicates: true,
+      });
+    }
 
+    const playerIds = sorted.map((entry) => entry.playerId);
     const [globals, heroes] = await Promise.all([
       prisma.playerRating.findMany({
         where: { playerId: { in: playerIds } },

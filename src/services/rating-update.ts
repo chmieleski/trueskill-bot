@@ -2,7 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { rating, rate, type Rating } from 'openskill';
 import { prisma } from '../lib/prisma.js';
 import { MatchServiceError } from './match-service.js';
-import { ensureHeroesExist, ensurePlayerRatings } from './rating-preview.js';
+import { ensurePlayerRatings } from './rating-preview.js';
 import { splitRosterByTeam, toOpenSkillRatings } from './rating-math.js';
 
 const DEFAULT_MU = 25;
@@ -90,7 +90,6 @@ export async function applyQuitterPenalties(
     return;
   }
 
-  await ensureHeroesExist();
   await ensurePlayerRatings(
     quitters.map((entry) => ({
       playerId: entry.playerId,
@@ -174,7 +173,6 @@ export async function applyMatchRatings(
 
   assertBothTeamsHaveActivePlayers(active);
 
-  await ensureHeroesExist();
   await ensurePlayerRatings(
     active.map((entry) => ({
       playerId: entry.playerId,

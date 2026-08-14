@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma.js';
 import { createLogger } from '../lib/logger.js';
 import { LobbyOcrError, validateLobbyPlayers, type LobbyPlayer } from './lobby-ocr.js';
 import { normalizeNick } from './player-nick.js';
-import { ensureHeroesExist } from './rating-preview.js';
+import { assertHeroCatalogReady, assertHeroExists, HeroCatalogError } from './hero-catalog.js';
 
 const log = createLogger('match');
 
@@ -34,6 +34,13 @@ export interface CreatePendingMatchInput {
   hostDiscordId: string;
   discordChannelId: string;
   players: LobbyPlayer[];
+}
+
+function mapHeroCatalogError(error: unknown): never {
+  if (error instanceof HeroCatalogError) {
+    throw new MatchServiceError(error.message);
+  }
+  throw error;
 }
 
 function withNormalizedNicks(players: LobbyPlayer[]): LobbyPlayer[] {
@@ -161,7 +168,14 @@ export async function createPendingMatch(
   assertValidSlots(players);
   assertUniqueNicks(players);
 
-  await ensureHeroesExist();
+  try {
+    await assertHeroCatalogReady();
+    for (const player of players) {
+      await assertHeroExists(player.slot);
+    }
+  } catch (error) {
+    mapHeroCatalogError(error);
+  }
 
   const created = await prisma.$transaction(async (tx) => {
     const resolved = await resolvePlayersInTx(tx, players);
@@ -297,7 +311,17 @@ export async function replaceMatchRoster(
   assertValidSlots(roster);
   assertUniqueNicks(roster);
 
-  await ensureHeroesExist();
+  try {
+    await assertHeroCatalogReady();
+    for (const player of roster) {
+      await assertHeroExists(player.slot);
+    }
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      throw error;
+    }
+    mapHeroCatalogError(error);
+  }
 
   const updated = await prisma.$transaction(async (tx) => {
     const existing = await tx.match.findUnique({ where: { id: matchId } });

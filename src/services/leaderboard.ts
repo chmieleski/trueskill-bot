@@ -1,6 +1,6 @@
 import { MatchResult, MatchStatus } from '@prisma/client';
+import { loadHeroCatalog } from './hero-catalog.js';
 import { prisma } from '../lib/prisma.js';
-import { ensureHeroesExist } from './rating-preview.js';
 import { displayOrdinal } from './rating-math.js';
 
 export const LEADERBOARD_PAGE_SIZE = 10;
@@ -175,7 +175,6 @@ export async function loadHeroLeaderboard(
   heroId: number,
   limit: number,
 ): Promise<{ heroName: string; entries: HeroLeaderboardEntry[] }> {
-  await ensureHeroesExist();
   const hero = await prisma.hero.findUnique({ where: { id: heroId } });
   if (!hero) {
     throw new LeaderboardServiceError('Unknown hero.');
@@ -190,8 +189,7 @@ export async function loadHeroLeaderboard(
 }
 
 export async function loadAllHeroLeaderboards(): Promise<HeroBoardSlice[]> {
-  await ensureHeroesExist();
-  const heroes = await prisma.hero.findMany({ orderBy: { id: 'asc' } });
+  const heroes = await loadHeroCatalog();
   const slices: HeroBoardSlice[] = [];
 
   for (const hero of heroes) {
@@ -207,22 +205,4 @@ export async function loadAllHeroLeaderboards(): Promise<HeroBoardSlice[]> {
   }
 
   return slices;
-}
-
-export async function resolveHeroByName(
-  name: string,
-): Promise<{ heroId: number; heroName: string } | null> {
-  await ensureHeroesExist();
-  const hero = await prisma.hero.findFirst({
-    where: { name: { equals: name.trim(), mode: 'insensitive' } },
-  });
-  return hero ? { heroId: hero.id, heroName: hero.name } : null;
-}
-
-export async function listHeroNames(): Promise<{ id: number; name: string }[]> {
-  await ensureHeroesExist();
-  return prisma.hero.findMany({
-    orderBy: { id: 'asc' },
-    select: { id: true, name: true },
-  });
 }
