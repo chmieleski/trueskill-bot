@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { MessageFlags, SlashCommandBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import {
@@ -27,17 +27,20 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
-  await interaction.deferReply();
-
   const user = interaction.options.getUser('user');
   const nick = interaction.options.getString('nick');
+  const lookup = parseRankOptions({
+    selfDiscordId: interaction.user.id,
+    userDiscordId: user?.id,
+    nick,
+  });
+
+  // Self-unlinked must stay private; Discord locks visibility on the first response.
+  if (lookup.kind !== 'self') {
+    await interaction.deferReply();
+  }
 
   try {
-    const lookup = parseRankOptions({
-      selfDiscordId: interaction.user.id,
-      userDiscordId: user?.id,
-      nick,
-    });
     const profile = await loadPlayerProfile(lookup);
 
     let avatarUrl: string | null = null;
@@ -56,15 +59,33 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       }
     }
 
-    await interaction.editReply({
-      embeds: [buildRankEmbed(profile, { avatarUrl })],
-    });
+    const payload = { embeds: [buildRankEmbed(profile, { avatarUrl })] };
+    if (interaction.deferred) {
+      await interaction.editReply(payload);
+    } else {
+      await interaction.reply(payload);
+    }
   } catch (error) {
     if (error instanceof PlayerServiceError) {
-      await interaction.editReply({ content: error.message });
+      await replyRankError(interaction, error.message, error.ephemeral);
       return;
     }
     log.error({ err: error }, 'rank command failed');
-    await interaction.editReply({ content: 'Something went wrong loading that rank.' });
+    await replyRankError(interaction, 'Something went wrong loading that rank.', false);
   }
+}
+
+async function replyRankError(
+  interaction: ChatInputCommandInteraction,
+  content: string,
+  ephemeral: boolean,
+) {
+  if (interaction.deferred) {
+    await interaction.editReply({ content });
+    return;
+  }
+  await interaction.reply({
+    content,
+    ...(ephemeral ? { flags: MessageFlags.Ephemeral } : {}),
+  });
 }

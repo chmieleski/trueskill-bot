@@ -10,6 +10,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
+import { normalizeNick } from '../src/services/player-nick.js';
 import { displayOrdinal } from '../src/services/rating-math.js';
 
 /** Group 1 — strong veterans → 4200 ki (μ 31, σ 5). */
@@ -23,7 +24,7 @@ const GROUP_1 = {
     'dragonnpx4',
     'Keltras',
     'alian12',
-    'Cosmos',
+    'cosmos',
     'notverrigod',
     'LotharACR',
     'hi1',
@@ -67,12 +68,22 @@ async function upsertVeteran(
   sigma: number,
   targetKi: number,
 ): Promise<{ username: string; created: boolean; ki: number }> {
-  let player = await db.player.findUnique({ where: { username } });
+  const nick = normalizeNick(username);
+  let player = await db.player.findUnique({ where: { username: nick } });
+
+  if (!player) {
+    const matches = await db.player.findMany({
+      where: { username: { equals: nick, mode: 'insensitive' } },
+      take: 2,
+    });
+    player = matches.length === 1 ? matches[0]! : null;
+  }
+
   let created = false;
 
   if (!player) {
     if (!DRY_RUN) {
-      player = await db.player.create({ data: { username } });
+      player = await db.player.create({ data: { username: nick } });
     }
     created = true;
   }
@@ -86,7 +97,7 @@ async function upsertVeteran(
   }
 
   return {
-    username,
+    username: nick,
     created,
     ki: displayOrdinal(mu, sigma),
   };

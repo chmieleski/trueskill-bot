@@ -43,6 +43,7 @@ describe('buildRankEmbed', () => {
   it('omits WR% when no games', () => {
     const embed = buildRankEmbed({
       ...baseProfile,
+      discordId: null,
       wins: 0,
       losses: 0,
       winRatePercent: null,
@@ -50,5 +51,17 @@ describe('buildRankEmbed', () => {
     const description = embed.toJSON().description ?? '';
     expect(description).toBe('0W · 0L');
     expect(description).not.toContain('WR');
+  });
+
+  it('puts a Discord mention in the description when linked', () => {
+    const data = buildRankEmbed(baseProfile).toJSON();
+    expect(data.description).toContain('Linked · <@d1>');
+    expect(data.footer).toBeUndefined();
+  });
+
+  it('uses a plain footer when not linked', () => {
+    const data = buildRankEmbed({ ...baseProfile, discordId: null }).toJSON();
+    expect(data.description).not.toContain('Linked');
+    expect(data.footer?.text).toBe('Not linked to Discord');
   });
 });

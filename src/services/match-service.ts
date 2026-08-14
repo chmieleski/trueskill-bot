@@ -2,6 +2,7 @@ import type { Match, MatchPlayer, Player, Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { createLogger } from '../lib/logger.js';
 import { LobbyOcrError, validateLobbyPlayers, type LobbyPlayer } from './lobby-ocr.js';
+import { normalizeNick } from './player-nick.js';
 import { ensureHeroesExist } from './rating-preview.js';
 
 const log = createLogger('match');
@@ -35,10 +36,18 @@ export interface CreatePendingMatchInput {
   players: LobbyPlayer[];
 }
 
+function withNormalizedNicks(players: LobbyPlayer[]): LobbyPlayer[] {
+  return players.map((player) => ({ ...player, nick: normalizeNick(player.nick) }));
+}
+
 function assertUniqueNicks(players: LobbyPlayer[]): void {
   const seen = new Set<string>();
 
   for (const player of players) {
+    if (player.nick === '') {
+      throw new MatchServiceError('Nick cannot be empty.');
+    }
+
     if (seen.has(player.nick)) {
       throw new MatchServiceError(`Duplicate nick "${player.nick}" found in the lobby.`);
     }
@@ -67,7 +76,7 @@ function toLobbyPlayers(match: MatchWithPlayers): LobbyPlayer[] {
   return match.players
     .map((entry) => ({
       slot: entry.slot,
-      nick: entry.player.username,
+      nick: normalizeNick(entry.player.username),
     }))
     .sort((a, b) => a.slot - b.slot);
 }
@@ -85,7 +94,7 @@ async function resolvePlayersInTx(
   tx: Prisma.TransactionClient,
   players: LobbyPlayer[],
 ): Promise<{ playerId: string; slot: number; team: number }[]> {
-  const sorted = [...players].sort((a, b) => a.slot - b.slot);
+  const sorted = withNormalizedNicks(players).sort((a, b) => a.slot - b.slot);
 
   if (sorted.length === 0) {
     return [];
@@ -93,9 +102,11 @@ async function resolvePlayersInTx(
 
   const nicks = sorted.map((player) => player.nick);
   const existing = await tx.player.findMany({
-    where: { username: { in: nicks } },
+    where: {
+      OR: nicks.map((nick) => ({ username: { equals: nick, mode: 'insensitive' as const } })),
+    },
   });
-  const byNick = new Map(existing.map((row) => [row.username, row]));
+  const byNick = new Map(existing.map((row) => [normalizeNick(row.username), row]));
 
   const missingNicks = nicks.filter((nick) => !byNick.has(nick));
   if (missingNicks.length > 0) {
@@ -107,7 +118,7 @@ async function resolvePlayersInTx(
       where: { username: { in: missingNicks } },
     });
     for (const row of created) {
-      byNick.set(row.username, row);
+      byNick.set(normalizeNick(row.username), row);
     }
   }
 
@@ -146,13 +157,14 @@ async function resolvePlayersInTx(
 export async function createPendingMatch(
   input: CreatePendingMatchInput,
 ): Promise<CreatedPendingMatch> {
-  assertValidSlots(input.players);
-  assertUniqueNicks(input.players);
+  const players = withNormalizedNicks(input.players);
+  assertValidSlots(players);
+  assertUniqueNicks(players);
 
   await ensureHeroesExist();
 
   const created = await prisma.$transaction(async (tx) => {
-    const resolved = await resolvePlayersInTx(tx, input.players);
+    const resolved = await resolvePlayersInTx(tx, players);
 
     return tx.match.create({
       data: {
@@ -173,13 +185,13 @@ export async function createPendingMatch(
     });
   });
 
-  const { teamACount, teamBCount } = teamCounts(input.players);
+  const { teamACount, teamBCount } = teamCounts(players);
 
   log.info(
     {
       matchId: created.id,
       hostDiscordId: input.hostDiscordId,
-      playerCount: input.players.length,
+      playerCount: players.length,
       teamACount,
       teamBCount,
     },
@@ -191,7 +203,7 @@ export async function createPendingMatch(
     createdAt: created.createdAt,
     teamACount,
     teamBCount,
-    playerCount: input.players.length,
+    playerCount: players.length,
   };
 }
 
@@ -281,8 +293,9 @@ export async function replaceMatchRoster(
   matchId: string,
   players: LobbyPlayer[],
 ): Promise<MatchWithPlayers> {
-  assertValidSlots(players);
-  assertUniqueNicks(players);
+  const roster = withNormalizedNicks(players);
+  assertValidSlots(roster);
+  assertUniqueNicks(roster);
 
   await ensureHeroesExist();
 
@@ -299,7 +312,7 @@ export async function replaceMatchRoster(
 
     await tx.matchPlayer.deleteMany({ where: { matchId } });
 
-    const resolved = await resolvePlayersInTx(tx, players);
+    const resolved = await resolvePlayersInTx(tx, roster);
 
     if (resolved.length > 0) {
       await tx.matchPlayer.createMany({
@@ -327,7 +340,7 @@ export async function replaceMatchRoster(
   });
 
   log.info(
-    { matchId, playerCount: players.length, ...teamCounts(players) },
+    { matchId, playerCount: roster.length, ...teamCounts(roster) },
     'Match roster replaced',
   );
 
