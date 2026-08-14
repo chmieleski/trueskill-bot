@@ -25,7 +25,9 @@ data "aws_iam_policy_document" "bot_ssm" {
       "ssm:GetParameters",
       "ssm:GetParametersByPath",
     ]
+    # GetParametersByPath authorizes the path ARN itself (/prod), not only /prod/*.
     resources = [
+      "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${local.ssm_prefix}",
       "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${local.ssm_prefix}/*",
     ]
   }
