@@ -1,5 +1,6 @@
 import { Attachment, GuildMember, SlashCommandBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
+import { env } from '../../config/env.js';
 import { createLogger } from '../../lib/logger.js';
 import { extractLobbyPlayers, type LobbyPlayer } from '../../services/lobby-ocr.js';
 import {
@@ -8,6 +9,7 @@ import {
   canStartLobby,
 } from '../../services/lobby-preview.js';
 import { resolveGuildConfig } from '../../services/guild-config.js';
+import { nickForDiscordId } from '../../services/lobby-identity.js';
 import { assertCanCreateMatch } from '../../services/match-auth.js';
 import {
   attachDiscordMessage,
@@ -19,7 +21,13 @@ import {
   loadLobbyRatingPreview,
   matchPlayersToRatingEntries,
 } from '../../services/rating-preview.js';
-import { resolveRegisterLobbySource } from '../../services/register-lobby-source.js';
+import {
+  allowsEmptyMatchOnWc3statsFailure,
+  parseWc3statsId,
+  resolveRegisterLobbySource,
+} from '../../services/register-lobby-source.js';
+import { importWc3statsLobby } from '../../services/wc3stats-resolve.js';
+import { loadGuildWc3statsHeroSlotMap } from '../../services/wc3stats-slot-map.js';
 
 const log = createLogger('register_lobby');
 
@@ -114,6 +122,12 @@ export const data = new SlashCommandBuilder()
   .setDescription('Register a DBZ match lobby (up to 6v6). Screenshot is optional.')
   .addAttachmentOption((option) =>
     option.setName('print').setDescription('Lobby screenshot (optional)').setRequired(false),
+  )
+  .addStringOption((option) =>
+    option
+      .setName('wc3stats_id')
+      .setDescription('wc3stats lobby id (optional)')
+      .setRequired(false),
   );
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -143,6 +157,17 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
 
   const attachment = interaction.options.getAttachment('print');
+  let wc3statsId: number | null = null;
+
+  try {
+    wc3statsId = parseWc3statsId(interaction.options.getString('wc3stats_id'));
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await interaction.editReply(error.message);
+      return;
+    }
+    throw error;
+  }
 
   log.info(
     {
@@ -150,6 +175,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       guildId: interaction.guildId,
       channelId: interaction.channelId,
       hasScreenshot: Boolean(attachment),
+      wc3statsId,
+      wc3statsEnabled: env.wc3statsEnabled,
       attachmentName: attachment?.name,
       contentType: attachment?.contentType,
       size: attachment?.size,
@@ -174,12 +201,67 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const source = resolveRegisterLobbySource({
     attachmentUrl: attachment?.url,
     mimeType: attachment ? resolveMimeType(attachment) : null,
+    wc3statsEnabled: env.wc3statsEnabled,
+    wc3statsId,
   });
 
-  const players =
-    source.kind === 'screenshot'
-      ? await tryExtractLobbyPlayers(source.url, source.mimeType)
-      : [];
+  let players: LobbyPlayer[] = [];
+  let wc3statsGameId: string | null = null;
+  let wc3statsUnavailable = false;
+
+  if (source.kind === 'screenshot') {
+    players = await tryExtractLobbyPlayers(source.url, source.mimeType);
+  }
+
+  if (env.wc3statsEnabled && (source.kind === 'wc3stats' || wc3statsId)) {
+    let hostNick: string | null = null;
+    try {
+      hostNick = await nickForDiscordId(interaction.user.id);
+    } catch (error) {
+      if (!(error instanceof MatchServiceError)) {
+        throw error;
+      }
+    }
+
+    const slotMap = interaction.guildId
+      ? await loadGuildWc3statsHeroSlotMap(interaction.guildId)
+      : null;
+
+    let imported;
+    try {
+      imported = await importWc3statsLobby({
+        wc3statsId,
+        hostNick,
+        requireNickInLobby: !wc3statsId,
+        slotMap,
+      });
+    } catch (error) {
+      if (error instanceof MatchServiceError) {
+        await interaction.editReply(error.message);
+        return;
+      }
+      throw error;
+    }
+    if (!imported.ok) {
+      if (!allowsEmptyMatchOnWc3statsFailure(imported.code)) {
+        await interaction.editReply(imported.message);
+        return;
+      }
+      if (imported.code === 'unavailable') {
+        wc3statsUnavailable = true;
+      }
+      log.warn(
+        { code: imported.code, message: imported.message },
+        'wc3stats import skipped; creating Discord lobby',
+      );
+    } else {
+      wc3statsGameId = imported.gameId;
+      if (source.kind !== 'screenshot') {
+        players = imported.roster.usable ? imported.roster.players : [];
+      }
+    }
+  }
+
   const canStart = canStartLobby(players);
 
   try {
@@ -187,6 +269,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       hostDiscordId: interaction.user.id,
       discordChannelId: interaction.channelId,
       players,
+      wc3statsGameId,
     });
 
     const match = await getMatchById(created.matchId);
@@ -200,12 +283,17 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           canStart,
           createdAt: created.createdAt,
           ratingPreview,
+          wc3statsGameId,
+          wc3statsUnavailable,
+          wc3statsLinkAvailable: env.wc3statsEnabled && !wc3statsGameId,
         }),
       ],
       components: buildLobbyButtons({
         canStart,
         playerCount: players.length,
         playerClaimEnabled,
+        wc3statsGameId,
+        wc3statsEnabled: env.wc3statsEnabled,
       }),
     });
 
@@ -220,6 +308,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         ownerId: interaction.user.id,
         playerCount: players.length,
         canStart,
+        wc3statsGameId,
       },
       'Match lobby registered',
     );

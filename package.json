@@ -13,6 +13,10 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:clone": "bash scripts/db-clone-local.sh",
+    "db:clone:heroes": "bash scripts/db-clone-local.sh --heroes-only",
     "seed:veterans": "tsx scripts/seed-veteran-ratings.ts",
     "test": "vitest run",
     "test:watch": "vitest"

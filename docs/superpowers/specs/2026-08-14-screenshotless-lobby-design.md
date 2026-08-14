@@ -225,7 +225,7 @@ Default **on** so screenshotless fill works without extra config. Operators who 
 | Create-role | Unchanged. Every create path (`/register_lobby`, Claim, Refresh-create) asserts it. |
 | Phase 1b player claim | On by default. Guilds can turn it off with `/config set player_claim`. Host `/lobby add user:` is **not** gated (host-only, same trust as typing a nick). |
 | Nick identity | `player.name` (or battleTag with `#NNNN` stripped) → existing `normalizeNick`. Do **not** store `Name#1234` as `Player.username`. |
-| Slot mapping | wc3stats `slots[i]` → bot slot `i + 1` (1–12). Ignore `team` / `teamName`. Skip `isComputer`, `isObserver`, non-occupied. |
+| Slot mapping | Per-guild map: wc3stats `slots[i]` index → hero/slot 1–12 (`GuildWc3statsSlotMap`). Unmapped indices skipped (Referee). Empty guild map → legacy `i + 1` for 0–11. Configure via `/config set wc3stats_slot` / `wc3stats_map` / `wc3stats_map_preset:udbr`. |
 | Empty API roster | If `slotsTaken > 0` and `slots` empty/unusable: **do not** replace an existing non-empty Discord roster. Create/keep PENDING; tell the host to Refresh, screenshot, or add manually. |
 | Ambiguous lobbies | Fail closed. Explicit `wc3stats_id` or exactly one live UDBR candidate after filters. Else ephemeral chooser / error listing candidates. |
 | Duplicate imports | At most one PENDING/IN_PROGRESS match per `wc3statsGameId`. |
@@ -258,7 +258,7 @@ Optional: still attach `print` for OCR as today.
 
 ### Phase 2 — miss / API down
 
-Same as Phase 1, plus an English banner: `Could not read the Warcraft lobby. Add players or attach a screenshot.`
+Create the Discord PENDING lobby anyway (wc3stats is optional). API down adds: `Could not read the Warcraft lobby. Add players or attach a screenshot.` No live UDBR / ambiguous / not UDBR: empty lobby + Refresh so the host can attach later.
 
 ## Architecture (Phase 1b)
 
@@ -286,15 +286,16 @@ Claim / Leave
   → assertCanCreateMatch
   → if print: OCR (existing)
   → else if WC3STATS_ENABLED:
-        resolveLobby (explicit id | unique map+host match)
-        fetchDetail
-        extractPlayers (or [])
-  → createPendingMatch({ players, wc3statsGameId? })
-  → embed + buttons (Refresh if game id stored)
+        try import (explicit id, or host nick seated in a live UDBR lobby)
+        miss / API down → continue empty, no game id
+  → createPendingMatch({ players, wc3statsGameId? }) always
+  → embed + buttons (Refresh if game id stored **or** WC3STATS_ENABLED)
 
-Refresh button
+Refresh button / `/lobby sync`
   → host/mod + PENDING
-  → fetchDetail(match.wc3statsGameId)
+  → if Match.wc3statsGameId: fetchDetail(id)
+  → else: require host Discord `/link`, find that nick as WC3 host or occupied human in a live UDBR lobby, store wc3statsGameId
+  → optional `/lobby sync wc3stats_id:` binds even if the host nick is not in the roster
   → if usable roster: replaceMatchRoster
   → if empty-full: keep roster, ephemeral warning
   → syncLobbyDiscordMessage
@@ -350,7 +351,7 @@ Uniqueness: enforce in application for `status in (PENDING, IN_PROGRESS)`, not a
 |-----|---------|
 | `WC3STATS_ENABLED` | `true` to attempt REST import |
 | `WC3STATS_MAP_PATTERN` | Regex vs `map` filename / `normalizedName` / `path` (default UDBR) |
-| `WC3STATS_MAP_SHA1` | Optional comma-separated allowlist |
+| `WC3STATS_MAP_SHA1` | Comma-separated `map.sha1` allowlist from game detail (not list `hash`). UDBR 2.4f: `19783c6259e86253a8c940ede63a87e18204bd94` |
 | `WC3STATS_TIMEOUT_MS` | Default `4000` |
 
 No new Discord intents.
@@ -378,6 +379,8 @@ No new Discord intents.
 | Refresh too soon | `Wait a few seconds before refreshing again.` |
 | Player claim disabled | `Player slot claim is disabled on this server.` |
 | Unlinked claim / add user | `Your Discord is not linked to an in-game nick. Run /link or ask a moderator.` |
+| Host nick not in live lobby | `No Ultimate Dragon Ball Reborn lobby found with your linked nick. Sit in the Warcraft lobby or pass wc3stats_id.` |
+| Import disabled | `Warcraft lobby import is disabled.` |
 
 ## Testing
 
@@ -396,7 +399,7 @@ Phase 2 (must exist before enabling the flag):
 
 ## Open questions (defaults if unanswered)
 
-1. **Exact UDBR `.w3x` / sha1?** Default: env regex; log `map.path` + sha1 from any rejected “dragon ball” lobby so we can tighten later.  
+1. **Exact UDBR `.w3x` / sha1?** Confirmed live 2026-08-14: `Ultimate Dragonball Reborn V2.4f.w3x`, `map.sha1` `19783c6259e86253a8c940ede63a87e18204bd94`, `normalizedName` `UDBR`. List `hash` is a different field — do not allowlist it.  
 2. **Should Start re-pull?** Default: **no**. Host clicks Refresh if the WC3 lobby changed.  
 3. **Unlinked nicks block Start?** Default: **no** (today they do not). Ghost profiles stay.  
 4. **Who may pass `wc3stats_id` for a lobby they do not host in-game?** Default: anyone with create-role (Discord host ≠ WC3 host, already true).  

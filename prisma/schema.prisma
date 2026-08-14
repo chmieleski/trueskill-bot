@@ -72,6 +72,7 @@ model Match {
   hostDiscordId    String
   discordChannelId String
   discordMessageId String?       @unique
+  wc3statsGameId   String?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   players          MatchPlayer[]
@@ -80,6 +81,7 @@ model Match {
   @@index([createdAt])
   @@index([status, createdAt])
   @@index([hostDiscordId])
+  @@index([wc3statsGameId])
 }
 
 // MatchPlayer - Player participation in a match
@@ -115,12 +117,27 @@ enum MatchResult {
 
 // GuildConfig - per-server bot settings (roles first; more keys later)
 model GuildConfig {
-  guildId                 String   @id
+  guildId                 String                 @id
   matchCreateRoleId       String?
   matchModRoleId          String?
   leaderboardChannelId    String?
   leaderboardMessageId    String?
-  lobbyPlayerClaimEnabled Boolean  @default(true)
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  lobbyPlayerClaimEnabled Boolean                @default(true)
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  wc3statsSlotMaps        GuildWc3statsSlotMap[]
+}
+
+// GuildWc3statsSlotMap - map wc3stats slots[] index → bot hero/slot (1-12)
+// Unmapped indices are skipped (e.g. Referee). Empty guild map → legacy index+1 for 0-11.
+model GuildWc3statsSlotMap {
+  guildId      String
+  wc3statsSlot Int // 0-based index in wc3stats detail.slots
+  heroId       Int // 1-12 (lobby slot / hero id)
+
+  guild GuildConfig @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
+
+  @@id([guildId, wc3statsSlot])
+  @@index([guildId])
+  @@index([guildId, heroId])
 }

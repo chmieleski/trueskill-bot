@@ -15,15 +15,24 @@ alwaysApply: true
 | `npm run db:push` | Push schema without migration |
 | `npm run db:studio` | Prisma Studio |
 | `npm run db:generate` | Regenerate Prisma client |
+| `npm run db:up` | Start local Postgres (Docker Compose, port 5433) |
+| `npm run db:down` | Stop local Postgres (volume kept) |
+| `npm run db:clone` | Dump hosted public data → local Postgres |
+| `npm run db:clone:heroes` | Same clone, `"Hero"` table only |
 
 ## Env vars
 
 - `DISCORD_TOKEN`, `CLIENT_ID`, `GUILD_ID`
-- `DATABASE_URL` — Supabase pooled (6543)
-- `DIRECT_URL` — Supabase direct (5432)
+- `DATABASE_URL` — Supabase pooled (6543), or local `127.0.0.1:5433` when using Docker Compose
+- `DIRECT_URL` — Supabase session/direct (5432), or the same local URL as `DATABASE_URL`
+- `PROD_DIRECT_URL` — hosted session/direct URL (5432) for `npm run db:clone` after `.env` points at local Postgres. Never the 6543 pooler.
 - `NODE_ENV` — `development` | `production`
 - `AUTO_DEPLOY_COMMANDS` — auto-register commands on startup
 - `GEMINI_API_KEY` — Google Gemini API key for lobby screenshot OCR
 - `LOG_LEVEL` — `fatal` | `error` | `warn` | `info` | `verbose` | `debug` | `trace` (default: `debug` in dev, `info` in production)
 - `MATCH_MOD_ROLE_ID` — fallback Discord role that may report/cancel in-progress matches (host always can); overridden per guild after `/config set mod_role`
 - `MATCH_CREATE_ROLE_ID` — fallback Discord role required to run `/register_lobby` (empty/unset = creation disabled); overridden per guild after `/config set create_role`
+- `WC3STATS_ENABLED` — `true` to import live Ultimate Dragon Ball Reborn lobbies from wc3stats (default `false`)
+- `WC3STATS_MAP_PATTERN` — regex vs map filename / path / normalizedName (default `ultimate.?dragon.?ball.?reborn|udbr`)
+- `WC3STATS_MAP_SHA1` — comma-separated `map.sha1` allowlist from `GET /gamelist/{id}` (not the list `hash`). UDBR 2.4f: `19783c6259e86253a8c940ede63a87e18204bd94`
+- `WC3STATS_TIMEOUT_MS` — wc3stats HTTP timeout (default `4000`)

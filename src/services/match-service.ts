@@ -34,6 +34,7 @@ export interface CreatePendingMatchInput {
   hostDiscordId: string;
   discordChannelId: string;
   players: LobbyPlayer[];
+  wc3statsGameId?: string | null;
 }
 
 function mapHeroCatalogError(error: unknown): never {
@@ -157,6 +158,77 @@ async function resolvePlayersInTx(
   return resolved;
 }
 
+export function duplicateWc3statsMatchMessage(matchId: string): string {
+  return `That Warcraft lobby is already registered as match ${matchId}.`;
+}
+
+export async function findActiveMatchByWc3statsGameId(
+  wc3statsGameId: string,
+): Promise<MatchWithPlayers | null> {
+  return prisma.match.findFirst({
+    where: {
+      wc3statsGameId,
+      status: { in: ['PENDING', 'IN_PROGRESS'] },
+    },
+    include: {
+      players: {
+        include: { player: true },
+        orderBy: { slot: 'asc' },
+      },
+    },
+  });
+}
+
+/**
+ * Attach a wc3stats game id to an existing PENDING match.
+ * Rejects when another PENDING/IN_PROGRESS match already uses that id.
+ */
+export async function linkMatchWc3statsGameId(
+  matchId: string,
+  wc3statsGameId: string,
+): Promise<MatchWithPlayers> {
+  const gameId = wc3statsGameId.trim();
+  if (gameId === '') {
+    throw new MatchServiceError('This lobby is not linked to a Warcraft game list entry.');
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.match.findUnique({ where: { id: matchId } });
+
+    if (!existing) {
+      throw new MatchServiceError('This match lobby was not found.');
+    }
+
+    if (existing.status !== 'PENDING') {
+      throw new MatchServiceError('This match can no longer be edited.');
+    }
+
+    const duplicate = await tx.match.findFirst({
+      where: {
+        wc3statsGameId: gameId,
+        status: { in: ['PENDING', 'IN_PROGRESS'] },
+        NOT: { id: matchId },
+      },
+      select: { id: true },
+    });
+
+    if (duplicate) {
+      throw new MatchServiceError(duplicateWc3statsMatchMessage(duplicate.id));
+    }
+
+    return tx.match.update({
+      where: { id: matchId },
+      data: { wc3statsGameId: gameId },
+      include: {
+        players: {
+          include: { player: true },
+          orderBy: { slot: 'asc' },
+        },
+      },
+    });
+  });
+}
+
 /**
  * Create a PENDING match immediately on lobby register.
  * Empty roster is allowed (OCR soft-fail / manual fill).
@@ -177,7 +249,23 @@ export async function createPendingMatch(
     mapHeroCatalogError(error);
   }
 
+  const wc3statsGameId = input.wc3statsGameId?.trim() || null;
+
   const created = await prisma.$transaction(async (tx) => {
+    if (wc3statsGameId) {
+      const existing = await tx.match.findFirst({
+        where: {
+          wc3statsGameId,
+          status: { in: ['PENDING', 'IN_PROGRESS'] },
+        },
+        select: { id: true },
+      });
+
+      if (existing) {
+        throw new MatchServiceError(duplicateWc3statsMatchMessage(existing.id));
+      }
+    }
+
     const resolved = await resolvePlayersInTx(tx, players);
 
     return tx.match.create({
@@ -185,6 +273,7 @@ export async function createPendingMatch(
         status: 'PENDING',
         hostDiscordId: input.hostDiscordId,
         discordChannelId: input.discordChannelId,
+        wc3statsGameId,
         players: {
           create: resolved.map((entry) => ({
             playerId: entry.playerId,

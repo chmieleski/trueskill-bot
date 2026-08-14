@@ -5,7 +5,9 @@ import {
   addLobbyPlayer,
   addLobbyPlayerFromDiscord,
   cancelLobbyMatch,
+  refreshLobbyFromWc3stats,
   removeLobbyPlayer,
+  resolveHostPendingMatch,
   startLobbyMatch,
   swapLobbyPlayers,
 } from '../../services/lobby-actions.js';
@@ -117,6 +119,24 @@ export const data = new SlashCommandBuilder()
           .setDescription('Pending match id (required if you have more than one)')
           .setRequired(false),
       ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('sync')
+      .setDescription('Attach or refresh the live Warcraft lobby from wc3stats')
+      .addIntegerOption((option) =>
+        option
+          .setName('wc3stats_id')
+          .setDescription('Game list id (optional if your linked nick is in the lobby)')
+          .setRequired(false)
+          .setMinValue(1),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('match_id')
+          .setDescription('Pending match id (required if you have more than one)')
+          .setRequired(false),
+      ),
   );
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -220,6 +240,20 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       await interaction.editReply({
         content: `Match \`${result.match.id}\` started.`,
       });
+      return;
+    }
+
+    if (subcommand === 'sync') {
+      const { match } = await resolveHostPendingMatch({ hostDiscordId, matchId });
+      const result = await refreshLobbyFromWc3stats({
+        client: interaction.client,
+        actorDiscordId: hostDiscordId,
+        memberRoleIds: [],
+        matchId: match.id,
+        wc3statsId: interaction.options.getInteger('wc3stats_id'),
+        guildId: interaction.guildId,
+      });
+      await interaction.editReply({ content: result.message });
       return;
     }
 
