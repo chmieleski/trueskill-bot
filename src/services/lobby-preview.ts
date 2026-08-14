@@ -10,6 +10,7 @@ import type { LobbyPlayer, ValidatedLobby } from './lobby-ocr.js';
 import { validateLobbyPlayers } from './lobby-ocr.js';
 import { formatBalanceHint } from './lobby-balance.js';
 import type { LobbyRatingPlayerLine, LobbyRatingPreview } from './rating-preview.js';
+import { teamDisplayName } from './team-names.js';
 
 export const LOBBY_CUSTOM_IDS = {
   start: 'lobby:start',
@@ -155,7 +156,7 @@ function ratingPreviewFields(preview: LobbyRatingPreview | undefined) {
       inline: false,
     },
     {
-      name: `${TEAM_A_EMOJI} Team A win`,
+      name: `${TEAM_A_EMOJI} ${teamDisplayName(1)} win`,
       value: `${winChanceEmoji(teamAPercent, teamBPercent)} **${teamAPercent}%**`,
       inline: true,
     },
@@ -165,7 +166,7 @@ function ratingPreviewFields(preview: LobbyRatingPreview | undefined) {
       inline: true,
     },
     {
-      name: `${TEAM_B_EMOJI} Team B win`,
+      name: `${TEAM_B_EMOJI} ${teamDisplayName(2)} win`,
       value: `${winChanceEmoji(teamBPercent, teamAPercent)} **${teamBPercent}%**`,
       inline: true,
     },
@@ -279,12 +280,12 @@ export function buildMatchLobbyEmbed(
     .setDescription(descriptionLines.join('\n'))
     .addFields(
       {
-        name: `${TEAM_A_EMOJI} Team A (${teamACount})`,
+        name: `${TEAM_A_EMOJI} ${teamDisplayName(1)} (${teamACount})`,
         value: teamAValue,
         inline: false,
       },
       {
-        name: `${TEAM_B_EMOJI} Team B (${teamBCount})`,
+        name: `${TEAM_B_EMOJI} ${teamDisplayName(2)} (${teamBCount})`,
         value: teamBValue,
         inline: false,
       },
@@ -315,12 +316,12 @@ export function buildMatchInProgressEmbed(
     .setDescription('Match has started. Report the result when finished.')
     .addFields(
       {
-        name: `${TEAM_A_EMOJI} Team A (${teamACount})`,
+        name: `${TEAM_A_EMOJI} ${teamDisplayName(1)} (${teamACount})`,
         value: teamAValue,
         inline: false,
       },
       {
-        name: `${TEAM_B_EMOJI} Team B (${teamBCount})`,
+        name: `${TEAM_B_EMOJI} ${teamDisplayName(2)} (${teamBCount})`,
         value: teamBValue,
         inline: false,
       },
@@ -368,7 +369,7 @@ export function buildMatchCompletedEmbed(
     players,
     options.ratingPreview,
   );
-  const winnerLabel = options.winningTeam === 1 ? 'Team A' : 'Team B';
+  const winnerLabel = teamDisplayName(options.winningTeam);
   const color = options.winningTeam === 1 ? 0xf1c40f : 0x57f287;
 
   const embed = new EmbedBuilder()
@@ -376,12 +377,12 @@ export function buildMatchCompletedEmbed(
     .setDescription(`${winnerLabel} won the match.`)
     .addFields(
       {
-        name: `${TEAM_A_EMOJI} Team A (${teamACount})`,
+        name: `${TEAM_A_EMOJI} ${teamDisplayName(1)} (${teamACount})`,
         value: teamAValue,
         inline: false,
       },
       {
-        name: `${TEAM_B_EMOJI} Team B (${teamBCount})`,
+        name: `${TEAM_B_EMOJI} ${teamDisplayName(2)} (${teamBCount})`,
         value: teamBValue,
         inline: false,
       },
