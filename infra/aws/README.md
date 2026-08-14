@@ -79,6 +79,13 @@ Pull requests run `npm test`. A push to `main` runs the same tests, then AWS SSM
    tofu apply
    ```
 
+   **Note:** Only one GitHub OIDC provider (`token.actions.githubusercontent.com`) can exist per AWS account. If `tofu apply` fails with `EntityAlreadyExists`, import the existing provider instead of creating a second one:
+
+   ```bash
+   tofu import aws_iam_openid_connect_provider.github \
+     arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com
+   ```
+
 2. Copy the `github_actions_role_arn` output.
 
 3. In the GitHub repo: **Settings → Secrets and variables → Actions**
