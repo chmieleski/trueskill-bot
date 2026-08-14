@@ -46,7 +46,13 @@ describe('parseRankOptions', () => {
   it('uses nick when only nick set', () => {
     expect(
       parseRankOptions({ selfDiscordId: 'me', userDiscordId: null, nick: 'Tinys' }),
-    ).toEqual({ kind: 'nick', nick: 'Tinys' });
+    ).toEqual({ kind: 'nick', nick: 'tinys' });
+  });
+
+  it('trims and lowercases nick lookups', () => {
+    expect(
+      parseRankOptions({ selfDiscordId: 'me', nick: '  GHOST  ' }),
+    ).toEqual({ kind: 'nick', nick: 'ghost' });
   });
 
   it('defaults to self', () => {

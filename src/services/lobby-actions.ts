@@ -27,6 +27,8 @@ import {
   type LobbyRatingPreview,
 } from './rating-preview.js';
 import { assertCanManageMatch } from './match-auth.js';
+import { normalizeNick } from './player-nick.js';
+
 const log = createLogger('lobby-actions');
 
 const MIN_SLOT = 1;
@@ -49,10 +51,6 @@ export interface LobbyActionResult {
 export interface ResolveHostPendingMatchInput {
   hostDiscordId: string;
   matchId?: string | null;
-}
-
-function normalizeNick(nick: string): string {
-  return nick.trim().toLowerCase();
 }
 
 function assertSlotInRange(slot: number): void {

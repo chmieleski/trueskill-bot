@@ -2,7 +2,7 @@ import { GuildMember, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import { resolveGuildConfig } from '../../services/guild-config.js';
-import { assertHasMatchModRole } from '../../services/match-auth.js';
+import { assertHasMatchModRole, hasMatchModRole } from '../../services/match-auth.js';
 import { MatchServiceError } from '../../services/match-service.js';
 import { linkPlayer } from '../../services/player-link.js';
 import { PlayerServiceError } from '../../services/player-profile.js';
@@ -31,19 +31,23 @@ function memberRoleIds(interaction: { member: unknown }): string[] {
 
 export const data = new SlashCommandBuilder()
   .setName('link')
-  .setDescription('Link an in-game nick to a Discord account (moderators only)')
+  .setDescription('Link an in-game nick to a Discord account')
   .addStringOption((option) =>
     option.setName('nick').setDescription('In-game nick').setRequired(true),
   )
   .addUserOption((option) =>
-    option.setName('user').setDescription('Discord user to bind').setRequired(true),
+    option
+      .setName('user')
+      .setDescription('Discord user to bind (default: you; others require a moderator)')
+      .setRequired(false),
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const nick = interaction.options.getString('nick', true);
-  const user = interaction.options.getUser('user', true);
+  const target = interaction.options.getUser('user') ?? interaction.user;
+  const linkingOther = target.id !== interaction.user.id;
 
   try {
     if (!interaction.guildId) {
@@ -52,12 +56,21 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
     const config = await resolveGuildConfig(interaction.guildId);
-    assertHasMatchModRole({
+    const roleInput = {
       memberRoleIds: memberRoleIds(interaction),
       matchModRoleId: config.matchModRoleId,
-    });
+    };
+    const isMod = hasMatchModRole(roleInput);
 
-    const linked = await linkPlayer({ nick, discordId: user.id });
+    if (linkingOther) {
+      assertHasMatchModRole(roleInput);
+    }
+
+    const linked = await linkPlayer({
+      nick,
+      discordId: target.id,
+      allowRelink: isMod,
+    });
     await interaction.editReply({
       content: `Linked **${linked.username}** to <@${linked.discordId}>.`,
     });

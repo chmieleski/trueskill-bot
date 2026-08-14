@@ -29,20 +29,23 @@ export function buildRankEmbed(
       ? `${profile.wins}W · ${profile.losses}L`
       : `${profile.wins}W · ${profile.losses}L · ${profile.winRatePercent}% WR`;
 
+  // Mentions only resolve in description/fields — Discord footers are plain text.
+  const description = profile.discordId
+    ? `${record}\n\nLinked · <@${profile.discordId}>`
+    : record;
+
   const embed = new EmbedBuilder()
     .setColor(RANK_GOLD)
     .setAuthor({ name: profile.username })
     .setTitle(`Rank #${profile.rankPosition} · ${profile.globalKi} ki`)
-    .setDescription(record)
+    .setDescription(description)
     .addFields({ name: 'Heroes', value: formatHeroTable(profile.heroes) });
 
   if (options?.avatarUrl) {
     embed.setThumbnail(options.avatarUrl);
   }
 
-  if (profile.discordId) {
-    embed.setFooter({ text: `Linked · <@${profile.discordId}>` });
-  } else {
+  if (!profile.discordId) {
     embed.setFooter({ text: 'Not linked to Discord' });
   }
 

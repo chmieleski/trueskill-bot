@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { env } from '../config/env.js';
 import { createLogger } from '../lib/logger.js';
+import { normalizeNick } from './player-nick.js';
 
 const log = createLogger('lobby-ocr');
 
@@ -60,14 +61,16 @@ function parsePlayersPayload(raw: string): LobbyPlayer[] {
     const slot = typeof entry.slot === 'number' ? entry.slot : Number(entry.slot);
     const nick = typeof entry.nick === 'string' ? entry.nick : '';
 
-    if (!Number.isInteger(slot) || nick.trim() === '') {
+    const cleanedNick = normalizeNick(nick);
+
+    if (!Number.isInteger(slot) || cleanedNick === '') {
       log.warn({ slot, nick }, 'OCR player entry invalid');
       throw new LobbyOcrError('Could not parse the lobby screenshot. Please try again with a clearer image.');
     }
 
     players.push({
       slot,
-      nick: nick.trim().toLowerCase(),
+      nick: cleanedNick,
     });
   }
 

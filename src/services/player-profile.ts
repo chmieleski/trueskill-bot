@@ -1,14 +1,18 @@
 import { MatchStatus, MatchResult } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+import { normalizeNick } from './player-nick.js';
 import { displayOrdinal } from './rating-math.js';
 
 const DEFAULT_MU = 25;
 const DEFAULT_SIGMA = 8.333;
 
 export class PlayerServiceError extends Error {
-  constructor(message: string) {
+  readonly ephemeral: boolean;
+
+  constructor(message: string, options?: { ephemeral?: boolean }) {
     super(message);
     this.name = 'PlayerServiceError';
+    this.ephemeral = options?.ephemeral === true;
   }
 }
 
@@ -57,7 +61,7 @@ export function parseRankOptions(input: {
   userDiscordId?: string | null;
   nick?: string | null;
 }): RankLookup {
-  const nick = input.nick?.trim() || null;
+  const nick = input.nick ? normalizeNick(input.nick) || null : null;
   const userDiscordId = input.userDiscordId?.trim() || null;
 
   if (userDiscordId && nick) {
@@ -77,13 +81,15 @@ async function findPlayerByDiscordId(discordId: string) {
 }
 
 async function findPlayerByNick(nick: string) {
-  const exact = await prisma.player.findUnique({ where: { username: nick } });
+  const exact = await prisma.player.findUnique({
+    where: { username: normalizeNick(nick) },
+  });
   if (exact) {
     return exact;
   }
 
   const matches = await prisma.player.findMany({
-    where: { username: { equals: nick, mode: 'insensitive' } },
+    where: { username: { equals: normalizeNick(nick), mode: 'insensitive' } },
     take: 2,
   });
 
@@ -109,7 +115,8 @@ export async function loadPlayerProfile(lookup: RankLookup): Promise<PlayerProfi
   if (!player) {
     if (lookup.kind === 'self') {
       throw new PlayerServiceError(
-        'Your Discord is not linked to an in-game nick. Ask a moderator to run /link.',
+        'Your Discord is not linked to an in-game nick. Use /link to bind it.',
+        { ephemeral: true },
       );
     }
     throw new PlayerServiceError('Player not found.');
