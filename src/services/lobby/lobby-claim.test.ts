@@ -35,7 +35,7 @@ import {
   claimLobbySlot,
   rosterAfterClaim,
   rosterAfterLeave,
-} from './lobby-actions.js';
+} from './index.js';
 
 describe('rosterAfterClaim', () => {
   it('adds the nick to an empty slot', () => {
