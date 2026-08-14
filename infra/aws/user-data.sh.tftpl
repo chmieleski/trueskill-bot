@@ -1,0 +1,155 @@
+#!/bin/bash
+set -euo pipefail
+
+# cloud-init user-data — first boot bootstrap for dbz-wc3-bot
+exec > >(tee /var/log/dbz-bot-bootstrap.log) 2>&1
+
+APP_DIR="${app_dir}"
+REPO_URL="${repo_url}"
+REPO_BRANCH="${repo_branch}"
+SSM_PREFIX="${ssm_prefix}"
+AWS_REGION="${aws_region}"
+DEPLOY_COMMANDS="${deploy_commands_on_boot}"
+LOG_LEVEL="${log_level}"
+MATCH_CREATE_ROLE_ID="${match_create_role_id}"
+MATCH_MOD_ROLE_ID="${match_mod_role_id}"
+
+export DEBIAN_FRONTEND=noninteractive
+export AWS_DEFAULT_REGION="$AWS_REGION"
+
+echo "==> Installing base packages"
+apt-get update -y
+apt-get upgrade -y
+apt-get install -y curl git ca-certificates unzip
+
+echo "==> Installing Node.js 22"
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+apt-get install -y nodejs
+
+echo "==> Installing AWS CLI v2 (if missing)"
+if ! command -v aws >/dev/null 2>&1; then
+  curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+  unzip -q /tmp/awscliv2.zip -d /tmp
+  /tmp/aws/install
+  rm -rf /tmp/aws /tmp/awscliv2.zip
+fi
+
+mkdir -p "$APP_DIR"
+chown ubuntu:ubuntu "$APP_DIR"
+
+install_helper_scripts() {
+  cat > /usr/local/bin/dbz-bot-refresh-env <<EOF
+#!/bin/bash
+set -euo pipefail
+export AWS_DEFAULT_REGION="$AWS_REGION"
+APP_DIR="$APP_DIR"
+SSM_PREFIX="$SSM_PREFIX"
+LOG_LEVEL="$LOG_LEVEL"
+MATCH_CREATE_ROLE_ID="$MATCH_CREATE_ROLE_ID"
+MATCH_MOD_ROLE_ID="$MATCH_MOD_ROLE_ID"
+
+discord_token=\$(aws ssm get-parameter --name "\$SSM_PREFIX/DISCORD_TOKEN" --with-decryption --query Parameter.Value --output text)
+client_id=\$(aws ssm get-parameter --name "\$SSM_PREFIX/CLIENT_ID" --query Parameter.Value --output text)
+guild_id=\$(aws ssm get-parameter --name "\$SSM_PREFIX/GUILD_ID" --query Parameter.Value --output text)
+database_url=\$(aws ssm get-parameter --name "\$SSM_PREFIX/DATABASE_URL" --with-decryption --query Parameter.Value --output text)
+direct_url=\$(aws ssm get-parameter --name "\$SSM_PREFIX/DIRECT_URL" --with-decryption --query Parameter.Value --output text)
+gemini_api_key=\$(aws ssm get-parameter --name "\$SSM_PREFIX/GEMINI_API_KEY" --with-decryption --query Parameter.Value --output text)
+
+umask 077
+cat > "\$APP_DIR/.env" <<ENVEOF
+DISCORD_TOKEN=\$discord_token
+CLIENT_ID=\$client_id
+GUILD_ID=\$guild_id
+DATABASE_URL=\$database_url
+DIRECT_URL=\$direct_url
+GEMINI_API_KEY=\$gemini_api_key
+NODE_ENV=production
+AUTO_DEPLOY_COMMANDS=false
+LOG_LEVEL=\$LOG_LEVEL
+MATCH_CREATE_ROLE_ID=\$MATCH_CREATE_ROLE_ID
+MATCH_MOD_ROLE_ID=\$MATCH_MOD_ROLE_ID
+ENVEOF
+chown ubuntu:ubuntu "\$APP_DIR/.env"
+chmod 600 "\$APP_DIR/.env"
+echo "Wrote \$APP_DIR/.env from SSM"
+EOF
+  chmod 755 /usr/local/bin/dbz-bot-refresh-env
+
+  cat > /usr/local/bin/dbz-bot-update <<EOF
+#!/bin/bash
+set -euo pipefail
+APP_DIR="$APP_DIR"
+REPO_BRANCH="$REPO_BRANCH"
+cd "\$APP_DIR"
+sudo -u ubuntu git fetch --all
+sudo -u ubuntu git checkout "\$REPO_BRANCH"
+sudo -u ubuntu git pull --ff-only origin "\$REPO_BRANCH"
+/usr/local/bin/dbz-bot-refresh-env
+sudo -u ubuntu bash -lc "cd '\$APP_DIR' && npm ci && npx prisma migrate deploy && npm run build"
+systemctl restart dbz-bot
+systemctl --no-pager --full status dbz-bot || true
+EOF
+  chmod 755 /usr/local/bin/dbz-bot-update
+}
+
+install_helper_scripts
+
+echo "==> Cloning repository"
+if [[ ! -d "$APP_DIR/.git" ]]; then
+  sudo -u ubuntu git clone --branch "$REPO_BRANCH" "$REPO_URL" "$APP_DIR"
+else
+  sudo -u ubuntu git -C "$APP_DIR" fetch --all
+  sudo -u ubuntu git -C "$APP_DIR" checkout "$REPO_BRANCH"
+  sudo -u ubuntu git -C "$APP_DIR" pull --ff-only origin "$REPO_BRANCH"
+fi
+
+echo "==> Waiting for instance profile credentials"
+for _ in $(seq 1 30); do
+  if aws sts get-caller-identity >/dev/null 2>&1; then
+    break
+  fi
+  sleep 2
+done
+
+echo "==> Writing .env from SSM"
+/usr/local/bin/dbz-bot-refresh-env
+
+echo "==> Installing dependencies and building"
+sudo -u ubuntu bash -lc "cd '$APP_DIR' && npm ci && npx prisma migrate deploy && npm run build"
+
+if [[ "$DEPLOY_COMMANDS" == "true" ]]; then
+  echo "==> Deploying slash commands"
+  sudo -u ubuntu bash -lc "cd '$APP_DIR' && npm run deploy-commands"
+fi
+
+echo "==> Installing systemd unit"
+if [[ -f "$APP_DIR/deploy/aws/dbz-bot.service" ]]; then
+  # Keep WorkingDirectory in sync with APP_DIR
+  sed "s|WorkingDirectory=.*|WorkingDirectory=$APP_DIR|" \
+    "$APP_DIR/deploy/aws/dbz-bot.service" > /etc/systemd/system/dbz-bot.service
+else
+  cat > /etc/systemd/system/dbz-bot.service <<EOF
+[Unit]
+Description=DBZ WC3 Discord Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=$APP_DIR
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+EOF
+fi
+
+systemctl daemon-reload
+systemctl enable --now dbz-bot
+
+echo "==> Bootstrap complete"
+systemctl --no-pager --full status dbz-bot || true

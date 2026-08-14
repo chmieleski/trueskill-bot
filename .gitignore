@@ -20,3 +20,9 @@ ruvector.db
 .superpowers/
 
 .worktrees/
+
+# Terraform / OpenTofu (also ignored under infra/aws/.gitignore)
+**/.terraform/
+**/terraform.tfvars
+**/*.tfstate
+**/*.tfstate.*
