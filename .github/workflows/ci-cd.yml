@@ -19,6 +19,7 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      - run: npx prisma generate
       - run: npm test
         env:
           DISCORD_TOKEN: ci
