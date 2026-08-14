@@ -266,7 +266,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         interaction,
         completed.match,
         'completed',
-        `Match \`${completed.match.id}\` completed. Winner: **Team ${winner === 1 ? 'A' : 'B'}**.`,
+        `Match \`${completed.match.id}\` completed. Winner: **${teamDisplayName(winner)}**.`,
         { ratingPreview: completed.ratingPreview },
       );
       return;
