@@ -1,22 +1,20 @@
 import { MatchServiceError } from './match-service.js';
-import { env } from '../config/env.js';
 
 const FORBIDDEN = 'Only the match host or a match moderator can do that.';
-const CREATE_DISABLED =
-  'Match creation is disabled until MATCH_CREATE_ROLE_ID is configured.';
-const CREATE_FORBIDDEN =
-  'Only members with the match creator role can register a lobby.';
+const CREATE_DISABLED = 'Match creation is disabled until a create role is configured.';
+const CREATE_FORBIDDEN = 'Only members with the match creator role can register a lobby.';
 
 export function canManageMatch(input: {
   hostDiscordId: string;
   actorDiscordId: string;
   memberRoleIds: string[];
+  matchModRoleId?: string;
 }): boolean {
   if (input.actorDiscordId === input.hostDiscordId) {
     return true;
   }
 
-  const modRoleId = env.matchModRoleId;
+  const modRoleId = input.matchModRoleId;
   if (!modRoleId) {
     return false;
   }
@@ -28,14 +26,18 @@ export function assertCanManageMatch(input: {
   hostDiscordId: string;
   actorDiscordId: string;
   memberRoleIds: string[];
+  matchModRoleId?: string;
 }): void {
   if (!canManageMatch(input)) {
     throw new MatchServiceError(FORBIDDEN);
   }
 }
 
-export function canCreateMatch(input: { memberRoleIds: string[] }): boolean {
-  const createRoleId = env.matchCreateRoleId;
+export function canCreateMatch(input: {
+  memberRoleIds: string[];
+  matchCreateRoleId?: string;
+}): boolean {
+  const createRoleId = input.matchCreateRoleId;
   if (!createRoleId) {
     return false;
   }
@@ -43,12 +45,15 @@ export function canCreateMatch(input: { memberRoleIds: string[] }): boolean {
   return input.memberRoleIds.includes(createRoleId);
 }
 
-export function assertCanCreateMatch(input: { memberRoleIds: string[] }): void {
+export function assertCanCreateMatch(input: {
+  memberRoleIds: string[];
+  matchCreateRoleId?: string;
+}): void {
   if (canCreateMatch(input)) {
     return;
   }
 
-  if (!env.matchCreateRoleId) {
+  if (!input.matchCreateRoleId) {
     throw new MatchServiceError(CREATE_DISABLED);
   }
 
