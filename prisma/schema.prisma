@@ -36,7 +36,7 @@ model PlayerRating {
   player        Player            @relation(fields: [playerId], references: [id], onDelete: Cascade)
 }
 
-// Hero - 12 unique heroes tied to lobby slots (1-12)
+// Hero - 12 unique heroes tied to lobby slots (1-12). Managed in the database (no app seed).
 model Hero {
   id            Int               @id // 1-12, matches slot number
   name          String            @unique

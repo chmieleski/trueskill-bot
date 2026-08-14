@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildAllHeroLeaderboardsEmbed,
   buildHeroLeaderboardEmbed,
+  buildLeaderboardPageButtons,
   buildOverallLeaderboardEmbed,
   formatRankPrefix,
   parseLeaderboardPageCustomId,
@@ -40,13 +41,16 @@ describe('buildOverallLeaderboardEmbed', () => {
     expect(data.description).toContain('Tinys');
   });
 
-  it('omits page line for live mode', () => {
+  it('omits page line for live mode and renders timestamp in description', () => {
+    const updatedAt = new Date('2026-08-14T10:00:00Z');
     const embed = buildOverallLeaderboardEmbed(
       { entries: [], page: 1, totalPages: 1, totalPlayers: 0 },
-      { live: true, updatedAt: new Date('2026-08-14T10:00:00Z') },
+      { live: true, updatedAt },
     );
+    const unix = Math.floor(updatedAt.getTime() / 1000);
     expect(embed.data.description).not.toContain('Page');
-    expect(embed.data.footer?.text).toContain('Updated');
+    expect(embed.data.description).toContain(`Updated <t:${unix}:R>`);
+    expect(embed.data.footer).toBeUndefined();
   });
 });
 
@@ -79,11 +83,30 @@ describe('buildAllHeroLeaderboardsEmbed', () => {
   });
 });
 
-describe('parseLeaderboardPageCustomId', () => {
-  it('parses valid custom id', () => {
-    expect(parseLeaderboardPageCustomId('leaderboard:page:user1:2')).toEqual({
+describe('buildLeaderboardPageButtons', () => {
+  it('shows disabled prev/next on a single-page leaderboard', () => {
+    const rows = buildLeaderboardPageButtons({
       invokerId: 'user1',
-      page: 2,
+      page: 1,
+      totalPages: 1,
+    });
+    expect(rows).toHaveLength(1);
+    const buttons = rows[0]!.components;
+    expect(buttons[0]?.data.disabled).toBe(true);
+    expect(buttons[1]?.data.disabled).toBe(true);
+    expect(buttons[0]?.data.custom_id).not.toBe(buttons[1]?.data.custom_id);
+  });
+});
+
+describe('parseLeaderboardPageCustomId', () => {
+  it('parses prev and next ids into target pages', () => {
+    expect(parseLeaderboardPageCustomId('leaderboard:page:user1:prev:2')).toEqual({
+      invokerId: 'user1',
+      page: 1,
+    });
+    expect(parseLeaderboardPageCustomId('leaderboard:page:user1:next:2')).toEqual({
+      invokerId: 'user1',
+      page: 3,
     });
   });
 

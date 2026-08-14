@@ -1,8 +1,6 @@
 import {
   GuildMember,
   MessageFlags,
-  PermissionFlagsBits,
-  PermissionsBitField,
   SlashCommandBuilder,
 } from 'discord.js';
 import type {
@@ -12,14 +10,13 @@ import type {
 import { createLogger } from '../../lib/logger.js';
 import { assertCanConfigureBot } from '../../services/guild-config.js';
 import { setupLiveLeaderboard } from '../../services/leaderboard-channel.js';
+import { HeroCatalogError, listHeroNames, resolveHeroByName } from '../../services/hero-catalog.js';
 import {
   HERO_SINGLE_TOP,
   LeaderboardServiceError,
   loadAllHeroLeaderboards,
   loadHeroLeaderboard,
   loadOverallLeaderboardPage,
-  listHeroNames,
-  resolveHeroByName,
 } from '../../services/leaderboard.js';
 import {
   buildAllHeroLeaderboardsEmbed,
@@ -51,30 +48,30 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName('show')
-      .setDescription('Show overall or hero leaderboards')
-      .addStringOption((option) =>
-        option
-          .setName('type')
-          .setDescription('Leaderboard type')
-          .setRequired(false)
-          .addChoices(
-            { name: 'Overall', value: 'overall' },
-            { name: 'Hero', value: 'hero' },
-          ),
-      )
-      .addStringOption((option) =>
-        option
-          .setName('hero')
-          .setDescription('Hero name (top 10); omit for all heroes')
-          .setRequired(false)
-          .setAutocomplete(true),
-      )
+      .setDescription('Global overall leaderboard (top 10 per page)')
       .addIntegerOption((option) =>
         option
           .setName('page')
-          .setDescription('Page number (overall only)')
+          .setDescription('Page number')
           .setRequired(false)
           .setMinValue(1),
+      ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('heroes')
+      .setDescription('Top 3 players for each configured hero'),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('hero')
+      .setDescription('Top 10 players for one hero')
+      .addStringOption((option) =>
+        option
+          .setName('name')
+          .setDescription('Hero name (e.g. Goku)')
+          .setRequired(true)
+          .setAutocomplete(true),
       ),
   )
   .addSubcommand((subcommand) =>
@@ -84,8 +81,13 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
+  if (interaction.options.getSubcommand() !== 'hero') {
+    await interaction.respond([]);
+    return;
+  }
+
   const focused = interaction.options.getFocused(true);
-  if (focused.name !== 'hero') {
+  if (focused.name !== 'name') {
     await interaction.respond([]);
     return;
   }
@@ -109,7 +111,23 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
 
   await interaction.deferReply();
-  await handleShow(interaction);
+
+  if (subcommand === 'show') {
+    await handleShowOverall(interaction);
+    return;
+  }
+
+  if (subcommand === 'heroes') {
+    await handleShowAllHeroes(interaction);
+    return;
+  }
+
+  if (subcommand === 'hero') {
+    await handleShowSingleHero(interaction);
+    return;
+  }
+
+  await interaction.editReply({ content: 'Unknown leaderboard subcommand.' });
 }
 
 async function handleSetup(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -149,31 +167,10 @@ async function handleSetup(interaction: ChatInputCommandInteraction): Promise<vo
   }
 }
 
-async function handleShow(interaction: ChatInputCommandInteraction): Promise<void> {
-  const type = interaction.options.getString('type') ?? 'overall';
-  const heroName = interaction.options.getString('hero');
+async function handleShowOverall(interaction: ChatInputCommandInteraction): Promise<void> {
   const requestedPage = interaction.options.getInteger('page') ?? 1;
 
   try {
-    if (type === 'hero') {
-      if (heroName) {
-        const resolved = await resolveHeroByName(heroName);
-        if (!resolved) {
-          await interaction.editReply({ content: 'Unknown hero.' });
-          return;
-        }
-        const board = await loadHeroLeaderboard(resolved.heroId, HERO_SINGLE_TOP);
-        await interaction.editReply({
-          embeds: [buildHeroLeaderboardEmbed(board.heroName, board.entries)],
-        });
-        return;
-      }
-
-      const slices = await loadAllHeroLeaderboards();
-      await interaction.editReply({ embeds: [buildAllHeroLeaderboardsEmbed(slices)] });
-      return;
-    }
-
     const firstPage = await loadOverallLeaderboardPage(1);
     if (requestedPage > firstPage.totalPages) {
       await interaction.editReply({
@@ -193,11 +190,51 @@ async function handleShow(interaction: ChatInputCommandInteraction): Promise<voi
 
     await interaction.editReply({ embeds: [embed], components });
   } catch (error) {
+    log.error({ err: error }, 'leaderboard show failed');
+    await interaction.editReply({ content: 'Something went wrong loading the leaderboard.' });
+  }
+}
+
+async function handleShowAllHeroes(interaction: ChatInputCommandInteraction): Promise<void> {
+  try {
+    const slices = await loadAllHeroLeaderboards();
+    if (slices.length === 0) {
+      await interaction.editReply({
+        content: 'No heroes are configured for this server. Add a hero roster in the database first.',
+      });
+      return;
+    }
+    await interaction.editReply({ embeds: [buildAllHeroLeaderboardsEmbed(slices)] });
+  } catch (error) {
+    log.error({ err: error }, 'leaderboard heroes failed');
+    await interaction.editReply({ content: 'Something went wrong loading hero leaderboards.' });
+  }
+}
+
+async function handleShowSingleHero(interaction: ChatInputCommandInteraction): Promise<void> {
+  const heroName = interaction.options.getString('name', true);
+
+  try {
+    const resolved = await resolveHeroByName(heroName);
+    if (!resolved) {
+      await interaction.editReply({ content: 'Unknown hero.' });
+      return;
+    }
+
+    const board = await loadHeroLeaderboard(resolved.heroId, HERO_SINGLE_TOP);
+    await interaction.editReply({
+      embeds: [buildHeroLeaderboardEmbed(board.heroName, board.entries)],
+    });
+  } catch (error) {
+    if (error instanceof HeroCatalogError) {
+      await interaction.editReply({ content: error.message });
+      return;
+    }
     if (error instanceof LeaderboardServiceError) {
       await interaction.editReply({ content: error.message });
       return;
     }
-    log.error({ err: error }, 'leaderboard show failed');
-    await interaction.editReply({ content: 'Something went wrong loading the leaderboard.' });
+    log.error({ err: error, heroName }, 'leaderboard hero failed');
+    await interaction.editReply({ content: 'Something went wrong loading that hero leaderboard.' });
   }
 }
