@@ -49,6 +49,8 @@ sudo journalctl -u dbz-bot -f
 
 First boot takes several minutes (apt, Node, `npm ci`, migrate, build).
 
+`t3.micro` has ~1 GiB RAM. Bootstrap and `host-update.sh` create a **2 GiB swapfile** (`/swapfile`) so `npm ci` / `tsc` do not OOM the host or starve the SSM agent. CI waits for SSM `Online` and `/var/lib/dbz-bot/ready` before deploying (avoids racing first-boot).
+
 ## Update the bot later
 
 Preferred: merge to `main` (see **CI/CD** below).

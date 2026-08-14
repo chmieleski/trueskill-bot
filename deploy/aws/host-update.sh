@@ -12,13 +12,34 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="${APP_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
 BRANCH="${BRANCH:-main}"
 APP_USER="${APP_USER:-ubuntu}"
+LOCK_FILE="${LOCK_FILE:-/var/lock/dbz-bot-update.lock}"
+READY_FILE="${READY_FILE:-/var/lib/dbz-bot/ready}"
+
+# Serialize deploys (CI + manual + overlapping cloud-init repair).
+exec 9>"${LOCK_FILE}"
+if ! flock -n 9; then
+  echo "Another host-update is already running (lock ${LOCK_FILE})" >&2
+  exit 1
+fi
 
 cd "${APP_DIR}"
+
+echo "==> Ensuring swap (t3.micro has 1GiB RAM; npm ci needs headroom)"
+if [[ -f "${APP_DIR}/deploy/aws/ensure-swap.sh" ]]; then
+  bash "${APP_DIR}/deploy/aws/ensure-swap.sh"
+else
+  echo "WARN: ensure-swap.sh missing; continuing without swap setup" >&2
+fi
 
 echo "==> Updating ${APP_DIR} from origin/${BRANCH}"
 sudo -u "${APP_USER}" git fetch --all
 sudo -u "${APP_USER}" git checkout "${BRANCH}"
 sudo -u "${APP_USER}" git pull --ff-only origin "${BRANCH}"
+
+# After pull, prefer the latest ensure-swap from the new tree (first boot / old hosts).
+if [[ -f "${APP_DIR}/deploy/aws/ensure-swap.sh" ]]; then
+  bash "${APP_DIR}/deploy/aws/ensure-swap.sh"
+fi
 
 echo "==> Refreshing .env from SSM"
 # Prefer repo script (picks up new SSM keys on deploy). Needs SSM_PREFIX via
@@ -42,11 +63,20 @@ else
   exit 1
 fi
 
+# Stop before npm ci deletes node_modules — otherwise the running bot crash-loops
+# and competes with the install for RAM/CPU on t3.micro.
+echo "==> Stopping dbz-bot for install/build"
+systemctl stop dbz-bot || true
+
 echo "==> Installing, migrating, building, registering commands"
 sudo -u "${APP_USER}" bash -lc "cd '${APP_DIR}' && npm ci && npx prisma migrate deploy && npm run build && npm run deploy-commands"
 
 echo "==> Restarting dbz-bot"
-systemctl restart dbz-bot
+systemctl start dbz-bot
 systemctl --no-pager --full status dbz-bot || true
+
+# Keep ready marker set so a failed mid-deploy does not block the next CI wait.
+mkdir -p "$(dirname "${READY_FILE}")"
+touch "${READY_FILE}"
 
 echo "==> Update complete ($(sudo -u "${APP_USER}" git -C "${APP_DIR}" rev-parse --short HEAD))"

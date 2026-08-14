@@ -19,6 +19,26 @@ apt-get update -y
 apt-get upgrade -y
 apt-get install -y curl git ca-certificates unzip python3
 
+mkdir -p /var/lib/dbz-bot
+rm -f /var/lib/dbz-bot/ready
+
+echo "==> Ensuring swap (t3.micro; npm ci needs headroom)"
+# Inline copy so first boot works before the repo clone exists.
+SWAP_FILE=/swapfile
+SWAP_SIZE_MB=2048
+if ! swapon --show --noheadings 2>/dev/null | grep -q .; then
+  if [[ ! -f "$SWAP_FILE" ]]; then
+    fallocate -l "${SWAP_SIZE_MB}M" "$SWAP_FILE" || dd if=/dev/zero of="$SWAP_FILE" bs=1M count="$SWAP_SIZE_MB"
+  fi
+  chmod 600 "$SWAP_FILE"
+  mkswap "$SWAP_FILE"
+  swapon "$SWAP_FILE"
+  grep -qE "^${SWAP_FILE}\\s" /etc/fstab || echo "$SWAP_FILE none swap sw 0 0" >> /etc/fstab
+  sysctl -w vm.swappiness=30 >/dev/null
+  grep -q '^vm.swappiness=' /etc/sysctl.conf 2>/dev/null || echo 'vm.swappiness=30' >> /etc/sysctl.conf
+fi
+swapon --show || true
+
 echo "==> Ensuring Amazon SSM Agent (Session Manager)"
 if ! systemctl is-active --quiet snap.amazon-ssm-agent.amazon-ssm-agent.service \
   && ! systemctl is-active --quiet amazon-ssm-agent; then
@@ -130,6 +150,9 @@ fi
 
 systemctl daemon-reload
 systemctl enable --now dbz-bot
+
+# Signal CI that first-boot install finished (see .github/workflows/ci-cd.yml).
+touch /var/lib/dbz-bot/ready
 
 echo "==> Bootstrap complete"
 systemctl --no-pager --full status dbz-bot || true
