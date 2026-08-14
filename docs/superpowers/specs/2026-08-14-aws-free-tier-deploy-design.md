@@ -14,7 +14,7 @@ Automate hosting the Discord bot on **AWS Free Tier** with repeatable infra: one
 |----------|--------|-----|
 | Compute | `t3.micro` (or `t2.micro`) Ubuntu 24.04 | Free Tier eligible, enough for this bot |
 | Network | Default VPC + security group | Minimal cost/complexity |
-| Inbound | SSH (22) from `ssh_cidr` only | No HTTP needed for Discord gateway |
+| Inbound | None by default (Session Manager); optional SSH | Dynamic home IPs don't need a fixed CIDR |
 | Outbound | All | Discord, Supabase, Gemini |
 | Public IP | Elastic IP | Stable SSH / ops after stop-start |
 | Secrets | SSM Parameter Store `SecureString` | Free-tier friendly; not baked into AMI |
