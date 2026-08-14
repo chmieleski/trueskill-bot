@@ -47,7 +47,7 @@ const GROUP_2 = {
     'biobenji',
     'ПуховикКруг', // mouse (WC3 Cyrillic nick)
     'sapphirez',
-    'kamex',
+    'kamexa',
     'biggamer',
   ],
 } as const;
