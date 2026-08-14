@@ -1,19 +1,16 @@
 export type { LobbyPlayer } from './lobby-ocr.js';
 export { extractLobbyPlayers } from './lobby-ocr.js';
+export { addPlayer, editPlayerNick, movePlayer, removePlayer } from './roster.js';
 export {
   addLobbyPlayer,
   addLobbyPlayerFromDiscord,
-  addPlayer,
   applyRosterUpdateForMessage,
   assertLobbyPlayerClaimEnabled,
   cancelLobbyMatch,
   claimLobbySlot,
-  editPlayerNick,
   leaveLobbySlot,
-  movePlayer,
   refreshLobbyFromWc3stats,
   removeLobbyPlayer,
-  removePlayer,
   resolveHostPendingMatch,
   resolveInProgressMatchByMessageId,
   resolvePendingMatchByMessageId,
