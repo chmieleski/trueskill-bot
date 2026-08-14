@@ -201,6 +201,41 @@ describe('buildLobbyButtons', () => {
     expect(ids).not.toContain(LOBBY_CUSTOM_IDS.claim);
     expect(ids).toContain(LOBBY_CUSTOM_IDS.leave);
   });
+
+  it('adds Refresh on the start row when a wc3stats game id is set', () => {
+    const rows = buildLobbyButtons({
+      canStart: true,
+      playerCount: 2,
+      playerClaimEnabled: false,
+      wc3statsGameId: '42',
+    });
+    const startIds = rows[0]?.toJSON().components.map((button) => button.custom_id);
+
+    expect(startIds).toEqual([LOBBY_CUSTOM_IDS.start, LOBBY_CUSTOM_IDS.refresh]);
+  });
+
+  it('adds Refresh on its own row when Start is hidden', () => {
+    const rows = buildLobbyButtons({
+      playerCount: 0,
+      playerClaimEnabled: false,
+      wc3statsGameId: '42',
+    });
+    const ids = rows.flatMap((row) => row.toJSON().components.map((button) => button.custom_id));
+
+    expect(ids).toContain(LOBBY_CUSTOM_IDS.refresh);
+    expect(ids).not.toContain(LOBBY_CUSTOM_IDS.start);
+  });
+
+  it('adds Refresh when wc3stats is enabled even without a stored game id', () => {
+    const rows = buildLobbyButtons({
+      playerCount: 0,
+      playerClaimEnabled: false,
+      wc3statsEnabled: true,
+    });
+    const ids = rows.flatMap((row) => row.toJSON().components.map((button) => button.custom_id));
+
+    expect(ids).toContain(LOBBY_CUSTOM_IDS.refresh);
+  });
 });
 
 describe('claimSlotSelectOptions', () => {
@@ -284,6 +319,32 @@ describe('buildMatchLobbyEmbed', () => {
     expect(fields[1]?.value).toBe('**8.** Bob');
     expect(fields[0]?.value).not.toContain('_empty_');
     expect(fields[1]?.value).not.toContain('_empty_');
+  });
+
+  it('appends wc3stats source when a game id is linked and the roster is filled', () => {
+    const embed = buildMatchLobbyEmbed(
+      'm1',
+      [
+        { nick: 'Alice', slot: 1 },
+        { nick: 'Bob', slot: 7 },
+      ],
+      { wc3statsGameId: '42' },
+    );
+    expect(embed.data.description).toContain('Source: wc3stats');
+  });
+
+  it('explains unpublished wc3stats roster when linked and empty', () => {
+    const embed = buildMatchLobbyEmbed('m1', [], { wc3statsGameId: '42' });
+    expect(embed.data.description).toContain(
+      'wc3stats has not published the player list yet. Use Refresh, a screenshot, or add players.',
+    );
+  });
+
+  it('explains how to attach wc3stats after create when import is enabled', () => {
+    const embed = buildMatchLobbyEmbed('m1', [], { wc3statsLinkAvailable: true });
+    expect(embed.data.description).toContain(
+      'Use Refresh to attach the live Warcraft lobby. The host Discord must be linked with /link and seated in that lobby.',
+    );
   });
 });
 

@@ -412,7 +412,7 @@ if screenshot: players = OCR
 else if env.wc3statsEnabled:
   try import
     on client error → players = [], no game id, log warn
-    on not_udbr / not_found / ambiguous → editReply message and return (do not create)
+    on not_udbr / not_found / ambiguous / unavailable → create empty Discord lobby (no game id); Refresh can attach later
     on usable roster → players = result.players
     on unusable roster → players = [], keep game id
 else: players = []
@@ -420,7 +420,7 @@ createPendingMatch({ ..., wc3statsGameId })
 embed; if unusable, description already covers add-players; add footer "Source: wc3stats (roster pending)"
 ```
 
-Ambiguous/not_found should **not** create a match (host likely mistyped). Client down **should** create empty (Phase 1 behavior).
+A live wc3stats lobby is **not** required to create a Discord match. Ambiguous/not_found/not_udbr/client-down all create empty PENDING. Auto-import without `wc3stats_id` only attaches when the host's linked nick is in a live UDBR lobby.
 
 - [ ] **Step 3: Deploy commands on next bot restart**
 

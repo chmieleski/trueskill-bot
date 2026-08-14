@@ -19,6 +19,7 @@ export const LOBBY_CUSTOM_IDS = {
   add: 'lobby:add',
   claim: 'lobby:claim',
   leave: 'lobby:leave',
+  refresh: 'lobby:refresh',
   reportWinner: 'match:report',
   quitters: 'match:quitters',
   cancelInProgress: 'match:cancel',
@@ -236,6 +237,9 @@ export function buildMatchLobbyEmbed(
     canStart?: boolean;
     createdAt?: Date;
     ratingPreview?: LobbyRatingPreview;
+    wc3statsGameId?: string | null;
+    wc3statsUnavailable?: boolean;
+    wc3statsLinkAvailable?: boolean;
   } = {},
 ): EmbedBuilder {
   const canStart = options.canStart ?? canStartLobby(players);
@@ -247,13 +251,32 @@ export function buildMatchLobbyEmbed(
     options.ratingPreview,
   );
 
-  const description = canStart
-    ? `Review the lobby, then start when ready.\n${expiresLine}`
-    : `Add at least one human player to each team before starting.\n${expiresLine}`;
+  const descriptionLines = [
+    canStart
+      ? 'Review the lobby, then start when ready.'
+      : 'Add at least one human player to each team before starting.',
+    expiresLine,
+  ];
+
+  if (options.wc3statsUnavailable) {
+    descriptionLines.push(
+      'Could not read the Warcraft lobby. Add players or attach a screenshot.',
+    );
+  } else if (options.wc3statsGameId) {
+    descriptionLines.push(
+      players.length === 0
+        ? 'wc3stats has not published the player list yet. Use Refresh, a screenshot, or add players.'
+        : 'Source: wc3stats',
+    );
+  } else if (options.wc3statsLinkAvailable) {
+    descriptionLines.push(
+      'Use Refresh to attach the live Warcraft lobby. The host Discord must be linked with /link and seated in that lobby.',
+    );
+  }
 
   const embed = new EmbedBuilder()
     .setTitle('Match Lobby')
-    .setDescription(description)
+    .setDescription(descriptionLines.join('\n'))
     .addFields(
       {
         name: `${TEAM_A_EMOJI} Team A (${teamACount})`,
@@ -419,6 +442,8 @@ export function buildLobbyButtons(
     locked?: boolean;
     playerCount?: number;
     playerClaimEnabled?: boolean;
+    wc3statsGameId?: string | null;
+    wc3statsEnabled?: boolean;
   } = {},
 ): ActionRowBuilder<ButtonBuilder>[] {
   if (options.locked) {
@@ -429,17 +454,28 @@ export function buildLobbyButtons(
   const playerClaimEnabled = options.playerClaimEnabled ?? true;
   const playerCount = options.playerCount ?? 0;
   const canAdd = playerCount < MAX_LOBBY_HUMANS;
+  const showRefresh = Boolean(options.wc3statsGameId) || Boolean(options.wc3statsEnabled);
+
+  const refreshButton = new ButtonBuilder()
+    .setCustomId(LOBBY_CUSTOM_IDS.refresh)
+    .setLabel('Refresh')
+    .setEmoji('🔄')
+    .setStyle(ButtonStyle.Secondary);
 
   if (options.canStart) {
-    rows.push(
-      new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setCustomId(LOBBY_CUSTOM_IDS.start)
-          .setLabel('Start Match')
-          .setEmoji('▶️')
-          .setStyle(ButtonStyle.Success),
-      ),
+    const startRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(LOBBY_CUSTOM_IDS.start)
+        .setLabel('Start Match')
+        .setEmoji('▶️')
+        .setStyle(ButtonStyle.Success),
     );
+    if (showRefresh) {
+      startRow.addComponents(refreshButton);
+    }
+    rows.push(startRow);
+  } else if (showRefresh) {
+    rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(refreshButton));
   }
 
   // Icon-only roster controls (emoji is enough for Discord buttons).

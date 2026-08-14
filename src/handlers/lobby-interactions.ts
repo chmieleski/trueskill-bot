@@ -2,6 +2,7 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  GuildMember,
   MessageFlags,
   ModalBuilder,
   StringSelectMenuBuilder,
@@ -25,6 +26,7 @@ import {
   editPlayerNick,
   leaveLobbySlot,
   movePlayer,
+  refreshLobbyFromWc3stats,
   removePlayer,
   resolvePendingMatchByMessageId,
   startLobbyMatchByMessageId,
@@ -32,6 +34,7 @@ import {
 import { claimSlotSelectOptions, LOBBY_CUSTOM_IDS } from '../services/lobby-preview.js';
 import { loadHeroCatalog } from '../services/hero-catalog.js';
 import { nickForDiscordId } from '../services/lobby-identity.js';
+import { resolveGuildConfig } from '../services/guild-config.js';
 import { MatchServiceError } from '../services/match-service.js';
 
 const log = createLogger('lobby');
@@ -40,6 +43,31 @@ const MIN_SLOT = 1;
 const MAX_SLOT = 12;
 
 const UPDATED_MESSAGE = 'Lobby updated.';
+
+function memberRoleIds(interaction: { member: unknown }): string[] {
+  const member = interaction.member;
+
+  if (member instanceof GuildMember) {
+    return [...member.roles.cache.keys()];
+  }
+
+  if (member && typeof member === 'object' && 'roles' in member) {
+    const roles = (member as { roles: unknown }).roles;
+
+    if (Array.isArray(roles)) {
+      return roles;
+    }
+
+    if (roles && typeof roles === 'object' && 'cache' in roles) {
+      const cache = (roles as { cache?: Map<string, unknown> }).cache;
+      if (cache instanceof Map) {
+        return [...cache.keys()];
+      }
+    }
+  }
+
+  return [];
+}
 
 function parseCustomId(customId: string): string[] {
   return customId.split(':');
@@ -472,6 +500,51 @@ async function handleLeave(interaction: ButtonInteraction): Promise<void> {
   }
 }
 
+async function handleRefresh(interaction: ButtonInteraction): Promise<void> {
+  const guildId = requireGuildId(interaction);
+
+  if (!guildId) {
+    await replyEphemeral(interaction, 'This command can only be used in a server.');
+    return;
+  }
+
+  await interaction.deferUpdate();
+
+  try {
+    const config = await resolveGuildConfig(guildId);
+    const result = await refreshLobbyFromWc3stats({
+      client: interaction.client,
+      actorDiscordId: interaction.user.id,
+      memberRoleIds: memberRoleIds(interaction),
+      matchModRoleId: config.matchModRoleId,
+      messageId: interaction.message.id,
+      guildId,
+    });
+
+    await interaction.followUp({
+      content: result.message,
+      flags: MessageFlags.Ephemeral,
+    });
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await interaction.followUp({
+        content: error.message,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    log.error(
+      { err: error, messageId: interaction.message.id, userId: interaction.user.id },
+      'Failed to refresh lobby from wc3stats',
+    );
+    await interaction.followUp({
+      content: 'Could not update the lobby. Please try again.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+}
+
 async function handleSelectClaim(
   interaction: StringSelectMenuInteraction,
   messageId: string,
@@ -747,6 +820,11 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
 
   if (customId === LOBBY_CUSTOM_IDS.leave) {
     await handleLeave(interaction);
+    return;
+  }
+
+  if (customId === LOBBY_CUSTOM_IDS.refresh) {
+    await handleRefresh(interaction);
     return;
   }
 

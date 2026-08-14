@@ -1,0 +1,32 @@
+# Local Postgres for the Discord bot. Does not touch hosted Supabase.
+#
+#   docker compose up -d
+#   npm run db:clone          # optional: copy prod public data into this instance
+#
+# App URLs (put these in .env when developing against local):
+#   postgresql://postgres:postgres@127.0.0.1:5433/dbzbot?schema=public
+
+name: dbz-bot
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: dbz-bot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: dbzbot
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - dbz-bot-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dbzbot"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  dbz-bot-pgdata:

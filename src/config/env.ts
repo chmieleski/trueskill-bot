@@ -24,6 +24,13 @@ interface EnvConfig {
   matchModRoleId: string | undefined;
   /** Discord role ID required to create lobbies via /register_lobby. Empty = creation disabled. */
   matchCreateRoleId: string | undefined;
+  /** Attempt wc3stats REST import when /register_lobby has no screenshot. Default false. */
+  wc3statsEnabled: boolean;
+  /** Regex vs map filename / path / normalizedName. */
+  wc3statsMapPattern: string;
+  /** Optional comma-separated sha1 allowlist (lowercase). */
+  wc3statsMapSha1: string[];
+  wc3statsTimeoutMs: number;
 }
 
 function parseLogLevel(value: string | undefined): string | undefined {
@@ -77,4 +84,12 @@ export const env: EnvConfig = {
     const value = process.env.MATCH_CREATE_ROLE_ID?.trim();
     return value && value.length > 0 ? value : undefined;
   })(),
+  wc3statsEnabled: parseBoolean(process.env.WC3STATS_ENABLED, false),
+  wc3statsMapPattern:
+    process.env.WC3STATS_MAP_PATTERN?.trim() || 'ultimate.?dragon.?ball.?reborn|udbr',
+  wc3statsMapSha1: (process.env.WC3STATS_MAP_SHA1 ?? '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean),
+  wc3statsTimeoutMs: Number.parseInt(process.env.WC3STATS_TIMEOUT_MS ?? '4000', 10) || 4000,
 };
