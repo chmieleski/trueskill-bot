@@ -12,10 +12,10 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { displayOrdinal } from '../src/services/rating-math.js';
 
-/** Group 1 — strong veterans → 4000 ki (μ 30, σ 5). */
+/** Group 1 — strong veterans → 4200 ki (μ 31, σ 5). */
 const GROUP_1 = {
-  targetKi: 4000,
-  mu: 30,
+  targetKi: 4200,
+  mu: 31,
   sigma: 5,
   usernames: [
     'Tinys',
@@ -30,6 +30,7 @@ const GROUP_1 = {
     'jafar2700',
     'Ghorderis',
     'B0jan',
+    'reron'
   ],
 } as const;
 
@@ -108,7 +109,7 @@ async function main(): Promise<void> {
 
   try {
     const tiers = [
-      { label: 'Group 1 (4000 ki)', ...GROUP_1 },
+      { label: 'Group 1 (4200 ki)', ...GROUP_1 },
       { label: 'Group 2 (3000 ki)', ...GROUP_2 },
     ];
 
