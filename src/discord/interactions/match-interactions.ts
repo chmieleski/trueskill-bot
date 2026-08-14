@@ -14,26 +14,26 @@ import type {
 import {
   sendReplacingEphemeral,
   touchEphemeralSession,
-} from '../lib/ephemeral-reply.js';
-import { createLogger } from '../lib/logger.js';
+} from '../../lib/ephemeral-reply.js';
+import { createLogger } from '../../lib/logger.js';
 import {
   resolveInProgressMatchByMessageId,
   syncLobbyDiscordMessage,
-} from '../services/lobby/index.js';
-import { refreshAllLeaderboardChannels } from '../services/leaderboard/index.js';
+} from '../../services/lobby/index.js';
+import { refreshAllLeaderboardChannels } from '../../services/leaderboard/index.js';
 import {
   cancelInProgressMatch,
   completeMatch,
   setQuitters,
-} from '../services/match/index.js';
+} from '../../services/match/index.js';
 import {
   getMatchById,
   MatchServiceError,
   type MatchWithPlayers,
-} from '../services/match/index.js';
-import { assertCanManageMatch } from '../services/match/index.js';
-import { resolveGuildConfig } from '../services/guild/index.js';
-import { teamDisplayName } from '../services/guild/index.js';
+} from '../../services/match/index.js';
+import { assertCanManageMatch } from '../../services/match/index.js';
+import { resolveGuildConfig } from '../../services/guild/index.js';
+import { teamDisplayName } from '../../services/guild/index.js';
 
 const log = createLogger('match-interactions');
 

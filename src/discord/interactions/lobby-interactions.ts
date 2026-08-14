@@ -16,16 +16,16 @@ import type {
   ModalSubmitInteraction,
   StringSelectMenuInteraction,
 } from 'discord.js';
-import { createLogger } from '../lib/logger.js';
+import { createLogger } from '../../lib/logger.js';
 import {
   sendReplacingEphemeral,
   touchEphemeralSession,
-} from '../lib/ephemeral-reply.js';
+} from '../../lib/ephemeral-reply.js';
 import {
   deletePreviousEphemeral,
   rememberEphemeral,
-} from '../lib/ephemeral-session.js';
-import type { LobbyPlayer } from '../services/lobby/index.js';
+} from '../../lib/ephemeral-session.js';
+import type { LobbyPlayer } from '../../services/lobby/index.js';
 import {
   addPlayer,
   applyRosterUpdateForMessage,
@@ -38,13 +38,13 @@ import {
   removePlayer,
   resolvePendingMatchByMessageId,
   startLobbyMatchByMessageId,
-} from '../services/lobby/index.js';
-import { claimSlotSelectOptions, LOBBY_CUSTOM_IDS } from '../services/lobby/index.js';
-import { loadHeroCatalog } from '../services/guild/index.js';
-import { nickForDiscordId } from '../services/lobby/index.js';
-import { resolveGuildConfig } from '../services/guild/index.js';
-import { MatchServiceError } from '../services/match/index.js';
-import { teamDisplayNameForSlot } from '../services/guild/index.js';
+} from '../../services/lobby/index.js';
+import { claimSlotSelectOptions, LOBBY_CUSTOM_IDS } from '../../services/lobby/index.js';
+import { loadHeroCatalog } from '../../services/guild/index.js';
+import { nickForDiscordId } from '../../services/lobby/index.js';
+import { resolveGuildConfig } from '../../services/guild/index.js';
+import { MatchServiceError } from '../../services/match/index.js';
+import { teamDisplayNameForSlot } from '../../services/guild/index.js';
 
 const log = createLogger('lobby');
 
