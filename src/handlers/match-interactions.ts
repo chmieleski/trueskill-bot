@@ -3,7 +3,6 @@ import {
   ButtonBuilder,
   ButtonStyle,
   GuildMember,
-  MessageFlags,
   StringSelectMenuBuilder,
 } from 'discord.js';
 import type {
@@ -12,6 +11,10 @@ import type {
   MessageComponentInteraction,
   StringSelectMenuInteraction,
 } from 'discord.js';
+import {
+  sendReplacingEphemeral,
+  touchEphemeralSession,
+} from '../lib/ephemeral-reply.js';
 import { createLogger } from '../lib/logger.js';
 import {
   resolveInProgressMatchByMessageId,
@@ -220,12 +223,7 @@ async function replyEphemeral(
   content: string,
   components: ComponentRow[] = [],
 ): Promise<void> {
-  if (interaction.deferred || interaction.replied) {
-    await interaction.followUp({ content, components, flags: MessageFlags.Ephemeral });
-    return;
-  }
-
-  await interaction.reply({ content, components, flags: MessageFlags.Ephemeral });
+  await sendReplacingEphemeral(interaction, { content, components });
 }
 
 async function updateEphemeral(
@@ -235,10 +233,12 @@ async function updateEphemeral(
 ): Promise<void> {
   if (interaction.deferred || interaction.replied) {
     await interaction.editReply({ content, components });
+    touchEphemeralSession(interaction);
     return;
   }
 
   await interaction.update({ content, components });
+  touchEphemeralSession(interaction);
 }
 
 async function resolveByMessage(
