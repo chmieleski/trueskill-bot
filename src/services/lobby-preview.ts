@@ -29,7 +29,12 @@ const TEAM_A_EMOJI = '🟥';
 const TEAM_B_EMOJI = '🟦';
 
 /** Real Discord embed footer (not a field) — no markdown supported here. */
-const ORDINAL_FOOTER = 'Per player: global / hero (ki)';
+const ORDINAL_FOOTER = 'Per player: slot  nick  global / hero (ki)';
+
+/** Pad slot 1–12 so columns stay aligned in monospace roster lines. */
+function formatSlotLabel(slot: number): string {
+  return String(slot).padStart(2, ' ');
+}
 
 /** Win-chance accent: green favored, red underdog, white even. */
 function winChanceEmoji(selfPercent: number, otherPercent: number): string {
@@ -42,19 +47,21 @@ function winChanceEmoji(selfPercent: number, otherPercent: number): string {
   return '⚪';
 }
 
+/** Occupied nicks prefixed with lobby slot number. */
 export function formatTeamLines(players: LobbyPlayer[]): string {
   if (players.length === 0) {
     return '_Empty_';
   }
 
-  return players.map((player) => `**${player.nick}**`).join('\n');
+  return players.map((player) => `**${player.slot}.** ${player.nick}`).join('\n');
 }
 
 /**
  * Format roster lines with global / hero display ki (DTO *Ordinal fields).
- * Uses monospace padding so rating columns align and sit clear of the nick.
- * When deltas are present (completed match), appends signed change inline.
- * Quitter lines get a trailing 🚪 marker outside the code span.
+ * Prefixes each occupied line with the lobby slot (1–12) so hosts can add/move
+ * by number. Uses monospace padding so rating columns align. When deltas are
+ * present (completed match), appends signed change inline. Quitter lines get a
+ * trailing 🚪 marker outside the code span.
  */
 export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): string {
   if (players.length === 0) {
@@ -72,13 +79,14 @@ export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): st
 
   return players
     .map((player) => {
+      const slotLabel = formatSlotLabel(player.slot);
       const nick = player.nick.padEnd(nickWidth, ' ');
       const global = String(player.globalOrdinal).padStart(ratingWidth, ' ');
       const hero = String(player.heroOrdinal).padStart(ratingWidth, ' ');
       const globalDelta = formatSignedDelta(player.globalDelta);
       const heroDelta = formatSignedDelta(player.heroDelta);
       const quitterMark = player.isQuitter ? ' 🚪' : '';
-      return `\`${nick}   ${global}${globalDelta} / ${hero}${heroDelta}\`${quitterMark}`;
+      return `\`${slotLabel}  ${nick}   ${global}${globalDelta} / ${hero}${heroDelta}\`${quitterMark}`;
     })
     .join('\n');
 }

@@ -6,6 +6,7 @@ import {
   buildMatchLobbyEmbed,
   buildMatchReportButtons,
   formatSignedDelta,
+  formatTeamLines,
   formatTeamLinesFromPreview,
   LOBBY_CUSTOM_IDS,
 } from './lobby-preview.js';
@@ -20,45 +21,77 @@ describe('formatSignedDelta', () => {
   });
 });
 
+describe('formatTeamLines', () => {
+  it('prefixes each occupied nick with its slot', () => {
+    const value = formatTeamLines([
+      { slot: 1, nick: 'goku' },
+      { slot: 4, nick: 'gohan' },
+    ]);
+
+    expect(value).toBe('**1.** goku\n**4.** gohan');
+  });
+
+  it('shows Empty when the team has no players', () => {
+    expect(formatTeamLines([])).toBe('_Empty_');
+  });
+});
+
 describe('formatTeamLinesFromPreview', () => {
+  it('prefixes occupied lines with slot numbers', () => {
+    const value = formatTeamLinesFromPreview([
+      { slot: 1, nick: 'goku', globalOrdinal: 1100, heroOrdinal: 2200 },
+      { slot: 4, nick: 'gohan', globalOrdinal: 900, heroOrdinal: 950 },
+    ]);
+    const lines = value.split('\n');
+
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toMatch(/^`\s*1\s+goku\s+1100 \/ 2200`$/);
+    expect(lines[1]).toMatch(/^`\s*4\s+gohan\s+ 900 \/  950`$/);
+    expect(value).not.toContain('—');
+  });
+
   it('appends the quitter marker outside the code span', () => {
     const value = formatTeamLinesFromPreview([
       { slot: 1, nick: 'goku', globalOrdinal: 1100, heroOrdinal: 2200, isQuitter: true },
-      { slot: 7, nick: 'vegeta', globalOrdinal: 3300, heroOrdinal: 4400 },
+      { slot: 2, nick: 'vegeta', globalOrdinal: 3300, heroOrdinal: 4400 },
     ]);
     const [firstLine, secondLine] = value.split('\n');
 
-    expect(firstLine).toContain('`goku');
+    expect(firstLine).toContain('goku');
     expect(firstLine).toContain('🚪');
-    expect(firstLine).toMatch(/`\s*goku\s+1100 \/ 2200`\s+🚪$/);
-    expect(secondLine).toContain('`vegeta');
+    expect(firstLine).toMatch(/`\s*1\s+goku\s+1100 \/ 2200`\s+🚪$/);
+    expect(secondLine).toContain('vegeta');
     expect(secondLine).not.toContain('🚪');
   });
 
   it('shows signed ki deltas inline on completed roster lines', () => {
-    const value = formatTeamLinesFromPreview([
-      {
-        slot: 1,
-        nick: 'goku',
-        globalOrdinal: 1186,
-        heroOrdinal: 1200,
-        globalDelta: 186,
-        heroDelta: 200,
-      },
-      {
-        slot: 7,
-        nick: 'vegeta',
-        globalOrdinal: 900,
-        heroOrdinal: 850,
-        globalDelta: -100,
-        heroDelta: -150,
-        isQuitter: true,
-      },
-    ]);
+    const value = formatTeamLinesFromPreview(
+      [
+        {
+          slot: 1,
+          nick: 'goku',
+          globalOrdinal: 1186,
+          heroOrdinal: 1200,
+          globalDelta: 186,
+          heroDelta: 200,
+        },
+        {
+          slot: 7,
+          nick: 'vegeta',
+          globalOrdinal: 900,
+          heroOrdinal: 850,
+          globalDelta: -100,
+          heroDelta: -150,
+          isQuitter: true,
+        },
+      ],
+    );
     const [firstLine, secondLine] = value.split('\n');
 
     expect(firstLine).toContain('1186 (+186) / 1200 (+200)');
+    expect(firstLine).toMatch(/`\s*1\s+goku/);
     expect(secondLine).toContain(' 900 (-100) /  850 (-150)');
+    expect(secondLine).toMatch(/`\s*7\s+vegeta/);
     expect(secondLine).toMatch(/`\s+🚪$/);
   });
 });
@@ -189,6 +222,21 @@ describe('balance hint on embeds', () => {
   });
 });
 
+describe('buildMatchLobbyEmbed', () => {
+  it('shows slot numbers on occupied players without empty placeholders', () => {
+    const embed = buildMatchLobbyEmbed('m1', [
+      { nick: 'Alice', slot: 1 },
+      { nick: 'Bob', slot: 8 },
+    ]);
+    const fields = embed.data.fields ?? [];
+
+    expect(fields[0]?.value).toBe('**1.** Alice');
+    expect(fields[1]?.value).toBe('**8.** Bob');
+    expect(fields[0]?.value).not.toContain('_empty_');
+    expect(fields[1]?.value).not.toContain('_empty_');
+  });
+});
+
 describe('buildMatchCompletedEmbed', () => {
   it('shows the winner, quitter markers, and ki deltas', () => {
     const embed = buildMatchCompletedEmbed(
@@ -227,11 +275,13 @@ describe('buildMatchCompletedEmbed', () => {
 
     expect(json.title).toBe('Match Completed');
     expect(json.description).toBe('Team A won the match.');
+    expect(json.fields?.[0]?.value).toMatch(/`\s*1\s+goku/);
     expect(json.fields?.[0]?.value).toContain('1186 (+186) / 1200 (+200)');
     expect(json.fields?.[0]?.value).toContain('🚪');
+    expect(json.fields?.[1]?.value).toMatch(/`\s*7\s+vegeta/);
     expect(json.fields?.[1]?.value).toContain('3300 (-50) / 4400 (-80)');
     expect(json.fields?.[1]?.value).not.toContain('🚪');
-    expect(json.footer?.text).toBe('Per player: global / hero (ki)');
+    expect(json.footer?.text).toBe('Per player: slot  nick  global / hero (ki)');
     expect(json.color).toBe(0xf1c40f);
   });
 });
