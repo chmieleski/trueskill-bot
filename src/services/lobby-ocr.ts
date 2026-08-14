@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import { env } from '../config/env.js';
 import { createLogger } from '../lib/logger.js';
 import { normalizeNick } from './player-nick.js';
+import { teamDisplayName } from './team-names.js';
 
 const log = createLogger('lobby-ocr');
 
@@ -184,7 +185,9 @@ export function validateLobbyPlayers(players: LobbyPlayer[]): ValidatedLobby {
 
   if (teamA.length === 0 || teamB.length === 0) {
     log.warn({ teamA: teamA.length, teamB: teamB.length }, 'Lobby missing a team');
-    throw new LobbyOcrError('Both Team A and Team B need at least one human player.');
+    throw new LobbyOcrError(
+      `Both ${teamDisplayName(1)} and ${teamDisplayName(2)} need at least one human player.`,
+    );
   }
 
   log.debug({ teamA: teamA.length, teamB: teamB.length }, 'Lobby validation passed');
