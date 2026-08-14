@@ -89,16 +89,7 @@ EOF
   cat > /usr/local/bin/dbz-bot-update <<EOF
 #!/bin/bash
 set -euo pipefail
-APP_DIR="$APP_DIR"
-REPO_BRANCH="$REPO_BRANCH"
-cd "\$APP_DIR"
-sudo -u ubuntu git fetch --all
-sudo -u ubuntu git checkout "\$REPO_BRANCH"
-sudo -u ubuntu git pull --ff-only origin "\$REPO_BRANCH"
-/usr/local/bin/dbz-bot-refresh-env
-sudo -u ubuntu bash -lc "cd '\$APP_DIR' && npm ci && npx prisma migrate deploy && npm run build"
-systemctl restart dbz-bot
-systemctl --no-pager --full status dbz-bot || true
+exec bash "$APP_DIR/deploy/aws/host-update.sh"
 EOF
   chmod 755 /usr/local/bin/dbz-bot-update
 }
