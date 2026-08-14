@@ -20,6 +20,8 @@ key_pair_name = "dbz-bot"
 # https://<token>@github.com/org/dbz-wc3-bot.git
 repo_url    = "https://github.com/YOUR_USER/YOUR_REPO.git"
 repo_branch = "main"
+# GitHub repo allowed to assume the deploy IAM role via OIDC (push to main only)
+github_repository = "chmieleski/trueskill-bot"
 app_dir     = "/home/ubuntu/bot"
 
 deploy_commands_on_boot = true

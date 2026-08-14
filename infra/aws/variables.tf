@@ -130,3 +130,9 @@ variable "log_level" {
   type    = string
   default = "info"
 }
+
+variable "github_repository" {
+  description = "GitHub org/repo allowed to assume the Actions deploy role (OIDC sub on main only)"
+  type        = string
+  default     = "chmieleski/trueskill-bot"
+}

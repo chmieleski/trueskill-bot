@@ -26,3 +26,8 @@ output "ssm_prefix" {
 output "journal_follow" {
   value = "sudo journalctl -u dbz-bot -f"
 }
+
+output "github_actions_role_arn" {
+  description = "IAM role ARN for GitHub Actions OIDC (set as repo secret AWS_ROLE_ARN)"
+  value       = aws_iam_role.gha.arn
+}
