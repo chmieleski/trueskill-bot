@@ -385,7 +385,7 @@ describe('buildMatchCompletedEmbed', () => {
     const json = embed.toJSON();
 
     expect(json.title).toBe('Match Completed');
-    expect(json.description).toBe('Team A won the match.');
+    expect(json.description).toBe('Z Fighters won the match.');
     expect(json.fields?.[0]?.value).toMatch(/`\s*1\s+goku/);
     expect(json.fields?.[0]?.value).toContain('1186 (+186) / 1200 (+200)');
     expect(json.fields?.[0]?.value).toContain('🚪');
