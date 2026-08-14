@@ -4,6 +4,7 @@ import { createLogger } from '../../lib/logger.js';
 import { syncLobbyDiscordMessage } from '../../services/lobby-actions.js';
 import { resolveGuildConfig } from '../../services/guild-config.js';
 import { assertCanManageMatch } from '../../services/match-auth.js';
+import { refreshAllLeaderboardChannels } from '../../services/leaderboard-channel.js';
 import {
   cancelInProgressMatch,
   completeMatch,
@@ -259,6 +260,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         content: 'Updating ratings and completing the match… This can take a few seconds.',
       });
       const completed = await completeMatch(match.id, winner, quitterSlots);
+      void refreshAllLeaderboardChannels(interaction.client).catch(() => undefined);
       await applyMatchMutation(
         interaction,
         completed.match,

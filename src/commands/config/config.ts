@@ -1,4 +1,4 @@
-import { GuildMember, MessageFlags, SlashCommandBuilder } from 'discord.js';
+import { ChannelType, GuildMember, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import {
@@ -8,6 +8,10 @@ import {
   setMatchModRole,
   type RoleConfigSource,
 } from '../../services/guild-config.js';
+import {
+  clearLiveLeaderboard,
+  setupLiveLeaderboard,
+} from '../../services/leaderboard-channel.js';
 import { MatchServiceError } from '../../services/match-service.js';
 
 const log = createLogger('config_cmd');
@@ -33,6 +37,16 @@ function formatRoleLine(
 ): string {
   const value = roleId ? `<@&${roleId}> (\`${roleId}\`)` : '`unset`';
   return `**${label}:** ${value} — source: \`${source}\``;
+}
+
+function formatLeaderboardLine(
+  channelId: string | undefined,
+  messageId: string | undefined,
+): string {
+  if (!channelId || !messageId) {
+    return '**Live leaderboard:** `unset`';
+  }
+  return `**Live leaderboard:** <#${channelId}> · message \`${messageId}\``;
 }
 
 export const data = new SlashCommandBuilder()
@@ -66,6 +80,27 @@ export const data = new SlashCommandBuilder()
               .setDescription('Discord role for match moderators')
               .setRequired(true),
           ),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('leaderboard_channel')
+          .setDescription('Set the channel for the live overall leaderboard message')
+          .addChannelOption((option) =>
+            option
+              .setName('channel')
+              .setDescription('Channel where the live leaderboard message is posted')
+              .setRequired(true),
+          ),
+      ),
+  )
+  .addSubcommandGroup((group) =>
+    group
+      .setName('clear')
+      .setDescription('Clear a bot configuration value')
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('leaderboard_channel')
+          .setDescription('Remove the live overall leaderboard message binding'),
       ),
   );
 
@@ -108,6 +143,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           resolved.matchCreateRoleSource,
         ),
         formatRoleLine('Mod role', resolved.matchModRoleId, resolved.matchModRoleSource),
+        formatLeaderboardLine(
+          resolved.leaderboardChannelId,
+          resolved.leaderboardMessageId,
+        ),
       ].join('\n'),
       flags: MessageFlags.Ephemeral,
     });
@@ -115,9 +154,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
 
   if (subcommandGroup === 'set') {
-    const role = interaction.options.getRole('role', true);
-
     if (subcommand === 'create_role') {
+      const role = interaction.options.getRole('role', true);
       await setMatchCreateRole(interaction.guildId, role.id);
       log.info(
         { guildId: interaction.guildId, roleId: role.id, userId: interaction.user.id },
@@ -131,6 +169,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     if (subcommand === 'mod_role') {
+      const role = interaction.options.getRole('role', true);
       await setMatchModRole(interaction.guildId, role.id);
       log.info(
         { guildId: interaction.guildId, roleId: role.id, userId: interaction.user.id },
@@ -138,6 +177,48 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       );
       await interaction.reply({
         content: `Mod role set to <@&${role.id}>.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (subcommand === 'leaderboard_channel') {
+      const channel = interaction.options.getChannel('channel', true);
+      const allowedTypes = new Set([
+        ChannelType.GuildText,
+        ChannelType.GuildAnnouncement,
+        ChannelType.GuildForum,
+      ]);
+      if (!allowedTypes.has(channel.type)) {
+        await interaction.reply({
+          content: 'Choose a server text channel for the live leaderboard.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      await setupLiveLeaderboard(interaction.client, interaction.guildId, channel.id);
+      log.info(
+        { guildId: interaction.guildId, channelId: channel.id, userId: interaction.user.id },
+        'Live leaderboard channel updated',
+      );
+      await interaction.reply({
+        content: `Live overall leaderboard set in <#${channel.id}>. Keep only that message there.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+  }
+
+  if (subcommandGroup === 'clear') {
+    if (subcommand === 'leaderboard_channel') {
+      await clearLiveLeaderboard(interaction.client, interaction.guildId);
+      log.info(
+        { guildId: interaction.guildId, userId: interaction.user.id },
+        'Live leaderboard channel cleared',
+      );
+      await interaction.reply({
+        content: 'Live overall leaderboard cleared.',
         flags: MessageFlags.Ephemeral,
       });
       return;

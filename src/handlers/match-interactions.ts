@@ -17,6 +17,7 @@ import {
   resolveInProgressMatchByMessageId,
   syncLobbyDiscordMessage,
 } from '../services/lobby-actions.js';
+import { refreshAllLeaderboardChannels } from '../services/leaderboard-channel.js';
 import {
   cancelInProgressMatch,
   completeMatch,
@@ -455,6 +456,7 @@ async function handleConfirmResult(
   );
 
   const completed = await completeMatch(matchId, winningTeam, quitterSlots);
+  void refreshAllLeaderboardChannels(interaction.client).catch(() => undefined);
   await syncLobbyDiscordMessage(interaction.client, completed.match, 'completed', {
     ratingPreview: completed.ratingPreview,
   });

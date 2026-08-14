@@ -6,6 +6,7 @@ import { loadEvents } from './handlers/load-events.js';
 import { registerCommands } from './handlers/register-commands.js';
 import { createLogger } from './lib/logger.js';
 import { stopMatchCleanupScheduler } from './services/match-cleanup.js';
+import { stopLeaderboardRefreshScheduler } from './services/leaderboard-channel.js';
 
 const log = createLogger('bootstrap');
 
@@ -39,6 +40,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   log.info({ signal }, 'Shutting down bot');
 
   stopMatchCleanupScheduler();
+  stopLeaderboardRefreshScheduler();
 
   if (client) {
     client.destroy();
