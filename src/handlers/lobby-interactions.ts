@@ -17,6 +17,14 @@ import type {
   StringSelectMenuInteraction,
 } from 'discord.js';
 import { createLogger } from '../lib/logger.js';
+import {
+  sendReplacingEphemeral,
+  touchEphemeralSession,
+} from '../lib/ephemeral-reply.js';
+import {
+  deletePreviousEphemeral,
+  rememberEphemeral,
+} from '../lib/ephemeral-session.js';
 import type { LobbyPlayer } from '../services/lobby-ocr.js';
 import {
   addPlayer,
@@ -39,6 +47,10 @@ import { MatchServiceError } from '../services/match-service.js';
 import { teamDisplayNameForSlot } from '../services/team-names.js';
 
 const log = createLogger('lobby');
+
+type ComponentRow =
+  | ActionRowBuilder<ButtonBuilder>
+  | ActionRowBuilder<StringSelectMenuBuilder>;
 
 const MIN_SLOT = 1;
 const MAX_SLOT = 12;
@@ -136,36 +148,24 @@ function destinationSlotSelectOptions(players: LobbyPlayer[], fromSlot: number) 
 async function replyEphemeral(
   interaction: MessageComponentInteraction | ModalSubmitInteraction,
   content: string,
+  components: ComponentRow[] = [],
 ): Promise<void> {
-  if (interaction.deferred || interaction.replied) {
-    // Modal deferReply → edit the ephemeral; component deferUpdate → followUp so we
-    // do not overwrite the public lobby message.
-    if (interaction.isModalSubmit()) {
-      await interaction.editReply({ content });
-      return;
-    }
-
-    await interaction.followUp({ content, flags: MessageFlags.Ephemeral });
-    return;
-  }
-
-  await interaction.reply({ content, flags: MessageFlags.Ephemeral });
+  await sendReplacingEphemeral(interaction, { content, components });
 }
 
 async function updateEphemeral(
   interaction: MessageComponentInteraction,
   content: string,
-  components: (
-    | ActionRowBuilder<ButtonBuilder>
-    | ActionRowBuilder<StringSelectMenuBuilder>
-  )[] = [],
+  components: ComponentRow[] = [],
 ): Promise<void> {
   if (interaction.deferred || interaction.replied) {
     await interaction.editReply({ content, components });
+    touchEphemeralSession(interaction);
     return;
   }
 
   await interaction.update({ content, components });
+  touchEphemeralSession(interaction);
 }
 
 async function requirePendingMatch(messageId: string) {
@@ -237,25 +237,19 @@ async function handleStart(interaction: ButtonInteraction): Promise<void> {
       'Match started from lobby',
     );
 
-    await interaction.followUp({
-      content: `Match \`${started.match.id}\` started.`,
-      flags: MessageFlags.Ephemeral,
-    });
+    await replyEphemeral(interaction, `Match \`${started.match.id}\` started.`);
   } catch (error) {
     if (error instanceof MatchServiceError) {
       log.warn({ messageId, userId, err: error }, 'Start match rejected');
-      await interaction.followUp({
-        content: error.message,
-        flags: MessageFlags.Ephemeral,
-      });
+      await replyEphemeral(interaction, error.message);
       return;
     }
 
     log.error({ messageId, userId, err: error }, 'Failed to start match');
-    await interaction.followUp({
-      content: 'Failed to start the match. Please try again.',
-      flags: MessageFlags.Ephemeral,
-    });
+    await replyEphemeral(
+      interaction,
+      'Failed to start the match. Please try again.',
+    );
   }
 }
 
@@ -282,11 +276,11 @@ async function handleEditNick(interaction: ButtonInteraction): Promise<void> {
       .addOptions(options),
   );
 
-  await interaction.reply({
-    content: 'Select a player to edit their nick:',
-    components: [row],
-    flags: MessageFlags.Ephemeral,
-  });
+  await replyEphemeral(
+    interaction,
+    'Select a player to edit their nick:',
+    [row],
+  );
 }
 
 async function handleMove(interaction: ButtonInteraction): Promise<void> {
@@ -312,11 +306,11 @@ async function handleMove(interaction: ButtonInteraction): Promise<void> {
       .addOptions(options),
   );
 
-  await interaction.reply({
-    content: 'Select a player to change their slot (empty = move, occupied = swap):',
-    components: [row],
-    flags: MessageFlags.Ephemeral,
-  });
+  await replyEphemeral(
+    interaction,
+    'Select a player to change their slot (empty = move, occupied = swap):',
+    [row],
+  );
 }
 
 async function handleRemove(interaction: ButtonInteraction): Promise<void> {
@@ -342,11 +336,7 @@ async function handleRemove(interaction: ButtonInteraction): Promise<void> {
       .addOptions(options),
   );
 
-  await interaction.reply({
-    content: 'Select a player to remove:',
-    components: [row],
-    flags: MessageFlags.Ephemeral,
-  });
+  await replyEphemeral(interaction, 'Select a player to remove:', [row]);
 }
 
 async function handleAdd(interaction: ButtonInteraction): Promise<void> {
@@ -452,11 +442,7 @@ async function handleClaim(interaction: ButtonInteraction): Promise<void> {
       .addOptions(options),
   );
 
-  await interaction.reply({
-    content: 'Select a slot to claim:',
-    components: [row],
-    flags: MessageFlags.Ephemeral,
-  });
+  await replyEphemeral(interaction, 'Select a slot to claim:', [row]);
 }
 
 async function handleLeave(interaction: ButtonInteraction): Promise<void> {
@@ -477,16 +463,10 @@ async function handleLeave(interaction: ButtonInteraction): Promise<void> {
       guildId,
     });
 
-    await interaction.followUp({
-      content: 'You left the lobby.',
-      flags: MessageFlags.Ephemeral,
-    });
+    await replyEphemeral(interaction, 'You left the lobby.');
   } catch (error) {
     if (error instanceof MatchServiceError) {
-      await interaction.followUp({
-        content: error.message,
-        flags: MessageFlags.Ephemeral,
-      });
+      await replyEphemeral(interaction, error.message);
       return;
     }
 
@@ -494,10 +474,10 @@ async function handleLeave(interaction: ButtonInteraction): Promise<void> {
       { err: error, messageId: interaction.message.id, userId: interaction.user.id },
       'Failed to leave lobby',
     );
-    await interaction.followUp({
-      content: 'Could not update the lobby. Please try again.',
-      flags: MessageFlags.Ephemeral,
-    });
+    await replyEphemeral(
+      interaction,
+      'Could not update the lobby. Please try again.',
+    );
   }
 }
 
@@ -522,16 +502,10 @@ async function handleRefresh(interaction: ButtonInteraction): Promise<void> {
       guildId,
     });
 
-    await interaction.followUp({
-      content: result.message,
-      flags: MessageFlags.Ephemeral,
-    });
+    await replyEphemeral(interaction, result.message);
   } catch (error) {
     if (error instanceof MatchServiceError) {
-      await interaction.followUp({
-        content: error.message,
-        flags: MessageFlags.Ephemeral,
-      });
+      await replyEphemeral(interaction, error.message);
       return;
     }
 
@@ -539,10 +513,10 @@ async function handleRefresh(interaction: ButtonInteraction): Promise<void> {
       { err: error, messageId: interaction.message.id, userId: interaction.user.id },
       'Failed to refresh lobby from wc3stats',
     );
-    await interaction.followUp({
-      content: 'Could not update the lobby. Please try again.',
-      flags: MessageFlags.Ephemeral,
-    });
+    await replyEphemeral(
+      interaction,
+      'Could not update the lobby. Please try again.',
+    );
   }
 }
 
@@ -715,7 +689,23 @@ async function handleModalEditNick(
   messageId: string,
   slot: number,
 ): Promise<void> {
+  if (interaction.channelId) {
+    await deletePreviousEphemeral(
+      interaction.client,
+      interaction.user.id,
+      interaction.channelId,
+    );
+  }
+
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  if (interaction.channelId) {
+    rememberEphemeral(interaction.user.id, interaction.channelId, {
+      applicationId: interaction.applicationId,
+      token: interaction.token,
+      messageId: '@original',
+    });
+  }
 
   const result = await requirePendingMatch(messageId);
 
@@ -747,7 +737,23 @@ async function handleModalAdd(
   interaction: ModalSubmitInteraction,
   messageId: string,
 ): Promise<void> {
+  if (interaction.channelId) {
+    await deletePreviousEphemeral(
+      interaction.client,
+      interaction.user.id,
+      interaction.channelId,
+    );
+  }
+
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  if (interaction.channelId) {
+    rememberEphemeral(interaction.user.id, interaction.channelId, {
+      applicationId: interaction.applicationId,
+      token: interaction.token,
+      messageId: '@original',
+    });
+  }
 
   const result = await requirePendingMatch(messageId);
 
