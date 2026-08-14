@@ -30,6 +30,7 @@ import {
 } from '../services/match-service.js';
 import { assertCanManageMatch } from '../services/match-auth.js';
 import { resolveGuildConfig } from '../services/guild-config.js';
+import { teamDisplayName } from '../services/team-names.js';
 
 const log = createLogger('match-interactions');
 
@@ -85,10 +86,6 @@ function decodeSlots(slotsCsv: string | undefined): number[] {
 
 function sortedPlayers(match: MatchWithPlayers): MatchPlayer[] {
   return [...match.players].sort((a, b) => a.slot - b.slot);
-}
-
-function teamLabel(team: 1 | 2): string {
-  return team === 1 ? 'Team A' : 'Team B';
 }
 
 function decodeTeam(teamRaw: string | undefined): 1 | 2 {
@@ -183,11 +180,11 @@ function buildWinnerRow(matchId: string, quitterSlots: number[]): ActionRowBuild
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`match:rw:win:${matchId}:1:${slotsCsv}`)
-      .setLabel('Team A Won')
+      .setLabel(`${teamDisplayName(1)} Won`)
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(`match:rw:win:${matchId}:2:${slotsCsv}`)
-      .setLabel('Team B Won')
+      .setLabel(`${teamDisplayName(2)} Won`)
       .setStyle(ButtonStyle.Primary),
   );
 }
@@ -432,7 +429,7 @@ async function handleWinnerChoice(
 ): Promise<void> {
   const match = await resolveById(interaction, matchId);
   const content = [
-    `Winner: **${teamLabel(winningTeam)}**`,
+    `Winner: **${teamDisplayName(winningTeam)}**`,
     formatQuitterSummary(match, quitterSlots),
     '',
     'Confirm to complete the match and apply ratings.',
@@ -461,7 +458,7 @@ async function handleConfirmResult(
     ratingPreview: completed.ratingPreview,
   });
   await interaction.editReply({
-    content: `Match \`${matchId}\` completed. Winner: **${teamLabel(winningTeam)}**.`,
+    content: `Match \`${matchId}\` completed. Winner: **${teamDisplayName(winningTeam)}**.`,
     components: [],
   });
 }
