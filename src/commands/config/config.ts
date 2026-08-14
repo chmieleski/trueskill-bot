@@ -8,7 +8,7 @@ import {
   setMatchCreateRole,
   setMatchModRole,
   type RoleConfigSource,
-} from '../../services/guild-config.js';
+} from '../../services/guild/index.js';
 import {
   clearAllGuildWc3statsSlotMaps,
   clearGuildWc3statsSlotMap,
@@ -18,12 +18,12 @@ import {
   replaceGuildWc3statsSlotMaps,
   setGuildWc3statsSlotMap,
   UDBR_WC3STATS_SLOT_MAP,
-} from '../../services/wc3stats-slot-map.js';
+} from '../../services/wc3stats/index.js';
 import {
   clearLiveLeaderboard,
   setupLiveLeaderboard,
-} from '../../services/leaderboard-channel.js';
-import { MatchServiceError } from '../../services/match-service.js';
+} from '../../services/leaderboard/index.js';
+import { MatchServiceError } from '../../services/match/index.js';
 
 const log = createLogger('config_cmd');
 

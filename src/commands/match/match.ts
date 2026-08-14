@@ -1,23 +1,23 @@
 import { GuildMember, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
-import { syncLobbyDiscordMessage } from '../../services/lobby-actions.js';
-import { resolveGuildConfig } from '../../services/guild-config.js';
-import { assertCanManageMatch } from '../../services/match-auth.js';
-import { refreshAllLeaderboardChannels } from '../../services/leaderboard-channel.js';
+import { syncLobbyDiscordMessage } from '../../services/lobby/index.js';
+import { resolveGuildConfig } from '../../services/guild/index.js';
+import { assertCanManageMatch } from '../../services/match/index.js';
+import { refreshAllLeaderboardChannels } from '../../services/leaderboard/index.js';
 import {
   cancelInProgressMatch,
   completeMatch,
   setQuitters,
-} from '../../services/match-report.js';
+} from '../../services/match/index.js';
 import {
   findInProgressMatchesByHost,
   getMatchById,
   MatchServiceError,
   type MatchWithPlayers,
-} from '../../services/match-service.js';
-import type { LobbyRatingPreview } from '../../services/rating-preview.js';
-import { teamDisplayName } from '../../services/team-names.js';
+} from '../../services/match/index.js';
+import type { LobbyRatingPreview } from '../../services/rating/index.js';
+import { teamDisplayName } from '../../services/guild/index.js';
 
 const log = createLogger('match_cmd');
 

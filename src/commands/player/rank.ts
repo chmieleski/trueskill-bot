@@ -5,8 +5,8 @@ import {
   loadPlayerProfile,
   parseRankOptions,
   PlayerServiceError,
-} from '../../services/player-profile.js';
-import { buildRankEmbed } from '../../services/rank-embed.js';
+} from '../../services/player/index.js';
+import { buildRankEmbed } from '../../services/player/index.js';
 
 const log = createLogger('rank_cmd');
 

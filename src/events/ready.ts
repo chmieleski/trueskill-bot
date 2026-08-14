@@ -1,11 +1,11 @@
 import type { Client } from 'discord.js';
 import { Events } from 'discord.js';
 import { createLogger } from '../lib/logger.js';
-import { startMatchCleanupScheduler } from '../services/match-cleanup.js';
+import { startMatchCleanupScheduler } from '../services/match/index.js';
 import {
   refreshAllLeaderboardChannels,
   scheduleLeaderboardRefresh,
-} from '../services/leaderboard-channel.js';
+} from '../services/leaderboard/index.js';
 
 const log = createLogger('ready');
 

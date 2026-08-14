@@ -5,8 +5,8 @@ import { loadCommands } from './handlers/load-commands.js';
 import { loadEvents } from './handlers/load-events.js';
 import { registerCommands } from './handlers/register-commands.js';
 import { createLogger } from './lib/logger.js';
-import { stopMatchCleanupScheduler } from './services/match-cleanup.js';
-import { stopLeaderboardRefreshScheduler } from './services/leaderboard-channel.js';
+import { stopMatchCleanupScheduler } from './services/match/index.js';
+import { stopLeaderboardRefreshScheduler } from './services/leaderboard/index.js';
 
 const log = createLogger('bootstrap');
 

@@ -19,21 +19,21 @@ import { createLogger } from '../lib/logger.js';
 import {
   resolveInProgressMatchByMessageId,
   syncLobbyDiscordMessage,
-} from '../services/lobby-actions.js';
-import { refreshAllLeaderboardChannels } from '../services/leaderboard-channel.js';
+} from '../services/lobby/index.js';
+import { refreshAllLeaderboardChannels } from '../services/leaderboard/index.js';
 import {
   cancelInProgressMatch,
   completeMatch,
   setQuitters,
-} from '../services/match-report.js';
+} from '../services/match/index.js';
 import {
   getMatchById,
   MatchServiceError,
   type MatchWithPlayers,
-} from '../services/match-service.js';
-import { assertCanManageMatch } from '../services/match-auth.js';
-import { resolveGuildConfig } from '../services/guild-config.js';
-import { teamDisplayName } from '../services/team-names.js';
+} from '../services/match/index.js';
+import { assertCanManageMatch } from '../services/match/index.js';
+import { resolveGuildConfig } from '../services/guild/index.js';
+import { teamDisplayName } from '../services/guild/index.js';
 
 const log = createLogger('match-interactions');
 

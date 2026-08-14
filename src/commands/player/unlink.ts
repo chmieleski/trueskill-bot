@@ -1,11 +1,11 @@
 import { GuildMember, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
-import { resolveGuildConfig } from '../../services/guild-config.js';
-import { assertHasMatchModRole } from '../../services/match-auth.js';
-import { MatchServiceError } from '../../services/match-service.js';
-import { unlinkByDiscordId } from '../../services/player-link.js';
-import { PlayerServiceError } from '../../services/player-profile.js';
+import { resolveGuildConfig } from '../../services/guild/index.js';
+import { assertHasMatchModRole } from '../../services/match/index.js';
+import { MatchServiceError } from '../../services/match/index.js';
+import { unlinkByDiscordId } from '../../services/player/index.js';
+import { PlayerServiceError } from '../../services/player/index.js';
 
 const log = createLogger('unlink_cmd');
 

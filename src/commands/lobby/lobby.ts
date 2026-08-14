@@ -10,8 +10,8 @@ import {
   resolveHostPendingMatch,
   startLobbyMatch,
   swapLobbyPlayers,
-} from '../../services/lobby-actions.js';
-import { MatchServiceError } from '../../services/match-service.js';
+} from '../../services/lobby/index.js';
+import { MatchServiceError } from '../../services/match/index.js';
 
 const log = createLogger('lobby_cmd');
 

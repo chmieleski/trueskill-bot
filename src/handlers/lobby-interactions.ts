@@ -25,7 +25,7 @@ import {
   deletePreviousEphemeral,
   rememberEphemeral,
 } from '../lib/ephemeral-session.js';
-import type { LobbyPlayer } from '../services/lobby-ocr.js';
+import type { LobbyPlayer } from '../services/lobby/index.js';
 import {
   addPlayer,
   applyRosterUpdateForMessage,
@@ -38,13 +38,13 @@ import {
   removePlayer,
   resolvePendingMatchByMessageId,
   startLobbyMatchByMessageId,
-} from '../services/lobby-actions.js';
-import { claimSlotSelectOptions, LOBBY_CUSTOM_IDS } from '../services/lobby-preview.js';
-import { loadHeroCatalog } from '../services/hero-catalog.js';
-import { nickForDiscordId } from '../services/lobby-identity.js';
-import { resolveGuildConfig } from '../services/guild-config.js';
-import { MatchServiceError } from '../services/match-service.js';
-import { teamDisplayNameForSlot } from '../services/team-names.js';
+} from '../services/lobby/index.js';
+import { claimSlotSelectOptions, LOBBY_CUSTOM_IDS } from '../services/lobby/index.js';
+import { loadHeroCatalog } from '../services/guild/index.js';
+import { nickForDiscordId } from '../services/lobby/index.js';
+import { resolveGuildConfig } from '../services/guild/index.js';
+import { MatchServiceError } from '../services/match/index.js';
+import { teamDisplayNameForSlot } from '../services/guild/index.js';
 
 const log = createLogger('lobby');
 
