@@ -106,3 +106,45 @@ Exit code: **0**
 ### Commit
 
 (see git log — appended after commit)
+
+---
+
+## Team Display Names — `/match complete` reply fix
+
+Date: 2026-08-14  
+Branch: `feature/team-name`  
+Worktree: `/home/lesk/www/bot`
+
+### Change
+
+Replaced hardcoded `Team A` / `Team B` in `/match complete` success message with `teamDisplayName(winner)` in `src/commands/match/match.ts`.
+
+Grep for `Team ${`, `'Team A'`, `"Team A"`, `Team B` under `src/`: no other user-facing leftovers (only JSDoc in `rating-math.ts` and `lobby-ocr.ts` — left unchanged).
+
+### Verification
+
+```bash
+cd /home/lesk/www/bot
+npm test -- src/commands/match/match.test.ts
+npm test
+```
+
+Output:
+
+```text
+# match.test.ts
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Duration  1.84s
+
+# full suite
+ Test Files  27 passed (27)
+      Tests  184 passed (184)
+   Duration  997ms
+```
+
+Exit code: **0**
+
+### Commit
+
+`b27747b6ff96a3835685696eb6a4cc2c643f639c` — fix: use themed team name on /match complete reply
