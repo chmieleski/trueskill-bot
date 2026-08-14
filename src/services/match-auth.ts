@@ -3,6 +3,8 @@ import { MatchServiceError } from './match-service.js';
 const FORBIDDEN = 'Only the match host or a match moderator can do that.';
 const CREATE_DISABLED = 'Match creation is disabled until a create role is configured.';
 const CREATE_FORBIDDEN = 'Only members with the match creator role can register a lobby.';
+const MOD_NOT_CONFIGURED = 'Match moderator role is not configured.';
+const MOD_FORBIDDEN = 'Only match moderators can do that.';
 
 export function canManageMatch(input: {
   hostDiscordId: string;
@@ -58,4 +60,27 @@ export function assertCanCreateMatch(input: {
   }
 
   throw new MatchServiceError(CREATE_FORBIDDEN);
+}
+
+export function hasMatchModRole(input: {
+  memberRoleIds: string[];
+  matchModRoleId?: string;
+}): boolean {
+  const modRoleId = input.matchModRoleId;
+  if (!modRoleId) {
+    return false;
+  }
+  return input.memberRoleIds.includes(modRoleId);
+}
+
+export function assertHasMatchModRole(input: {
+  memberRoleIds: string[];
+  matchModRoleId?: string;
+}): void {
+  if (!input.matchModRoleId) {
+    throw new MatchServiceError(MOD_NOT_CONFIGURED);
+  }
+  if (!hasMatchModRole(input)) {
+    throw new MatchServiceError(MOD_FORBIDDEN);
+  }
 }
