@@ -10,11 +10,11 @@ When the same host/lobby/match action is reachable from **buttons, modals, selec
 
 ## Rules
 
-1. **Extract use-cases** into `src/services/` (or a focused module under services) — e.g. add/remove/swap roster, start match, cancel match. Pure roster transforms and auth/status checks live there, not in command files.
+1. **Extract use-cases** into `src/services/<domain>/` — e.g. add/remove/swap roster, start match, cancel match. Pure roster transforms and auth/status checks live there, not in command files.
 2. **One implementation path** — buttons and slash commands call the same functions. Do not copy-paste roster math, host checks, or message refresh into a second file.
 3. **Thin adapters** — handlers/commands: resolve match + host, call shared function, map result to reply/embed update. No divergent validation rules between UI paths.
 4. **Shared Discord side effects** — lobby message refresh / embed rebuild after a roster change belongs in one helper used by every entry point.
-5. **Extend, don't fork** — new QoL commands for an existing button action must refactor toward shared code first if logic is still buried in `lobby-interactions.ts`.
+5. **Extend, don't fork** — new QoL commands for an existing button action must refactor toward shared code first if logic is still buried in `discord/interactions/`.
 
 ## Example
 

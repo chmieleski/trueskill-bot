@@ -1,8 +1,8 @@
 import { Events, MessageFlags } from 'discord.js';
 import type { Interaction } from 'discord.js';
-import { handleLeaderboardInteraction } from '../handlers/leaderboard-interactions.js';
-import { handleLobbyInteraction } from '../handlers/lobby-interactions.js';
-import { handleMatchInteraction } from '../handlers/match-interactions.js';
+import { handleLeaderboardInteraction } from '../discord/interactions/leaderboard-interactions.js';
+import { handleLobbyInteraction } from '../discord/interactions/lobby-interactions.js';
+import { handleMatchInteraction } from '../discord/interactions/match-interactions.js';
 import { createLogger } from '../lib/logger.js';
 
 const log = createLogger('interaction');

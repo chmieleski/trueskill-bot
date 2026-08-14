@@ -8,17 +8,15 @@ alwaysApply: false
 
 ```
 src/
-├── index.ts              # load commands → deploy → load events → login
-├── deploy-commands.ts    # Standalone deploy (CI/manual)
-├── config/env.ts         # Validated env vars
-├── lib/prisma.ts         # Prisma client singleton
+├── index.ts
+├── deploy-commands.ts
+├── config/env.ts
+├── lib/prisma.ts
 ├── client/create-client.ts
-├── types/command.ts      # Command interface { data, execute }
-├── handlers/
-│   ├── load-commands.ts  # Recursive auto-load from src/commands/**
-│   ├── load-events.ts    # Auto-load from src/events/**
-│   └── register-commands.ts
-├── commands/             # One file per command, grouped by domain
-├── events/               # ready.ts, interaction-create.ts
-└── services/             # Domain logic: match-report, match-service, rating-update, lobby-preview, lobby-ocr, …
+├── types/command.ts
+├── handlers/                 # load-commands, load-events, register-commands
+├── discord/interactions/     # lobby, match, leaderboard button/modal adapters
+├── commands/                 # slash commands by domain
+├── events/
+└── services/                 # domain folders: lobby, match, rating, player, leaderboard, wc3stats, guild
 ```

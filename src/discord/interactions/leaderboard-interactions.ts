@@ -1,10 +1,10 @@
 import { MessageFlags, type Interaction } from 'discord.js';
-import { loadOverallLeaderboardPage } from '../services/leaderboard/index.js';
+import { loadOverallLeaderboardPage } from '../../services/leaderboard/index.js';
 import {
   buildLeaderboardPageButtons,
   buildOverallLeaderboardEmbed,
   parseLeaderboardPageCustomId,
-} from '../services/leaderboard/index.js';
+} from '../../services/leaderboard/index.js';
 
 const NOT_YOUR_PAGE = 'Only the person who ran /leaderboard can change pages.';
 
