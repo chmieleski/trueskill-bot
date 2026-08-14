@@ -4,6 +4,7 @@ import { createLogger } from '../../lib/logger.js';
 import {
   assertCanConfigureBot,
   resolveGuildConfig,
+  setLobbyPlayerClaimEnabled,
   setMatchCreateRole,
   setMatchModRole,
   type RoleConfigSource,
@@ -39,6 +40,10 @@ function formatRoleLine(
   return `**${label}:** ${value} — source: \`${source}\``;
 }
 
+function formatPlayerClaimLine(enabled: boolean): string {
+  return `**Player claim:** \`${enabled ? 'on' : 'off'}\``;
+}
+
 function formatLeaderboardLine(
   channelId: string | undefined,
   messageId: string | undefined,
@@ -53,7 +58,7 @@ export const data = new SlashCommandBuilder()
   .setName('config')
   .setDescription('View or set bot configuration for this server')
   .addSubcommand((subcommand) =>
-    subcommand.setName('view').setDescription('Show match create/mod role settings'),
+    subcommand.setName('view').setDescription('Show bot settings for this server'),
   )
   .addSubcommandGroup((group) =>
     group
@@ -89,6 +94,17 @@ export const data = new SlashCommandBuilder()
             option
               .setName('channel')
               .setDescription('Channel where the live leaderboard message is posted')
+              .setRequired(true),
+          ),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('player_claim')
+          .setDescription('Allow linked players to claim a lobby slot')
+          .addBooleanOption((option) =>
+            option
+              .setName('enabled')
+              .setDescription('On: players can claim/leave slots. Off: host seats only.')
               .setRequired(true),
           ),
       ),
@@ -147,6 +163,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           resolved.leaderboardChannelId,
           resolved.leaderboardMessageId,
         ),
+        formatPlayerClaimLine(resolved.lobbyPlayerClaimEnabled),
       ].join('\n'),
       flags: MessageFlags.Ephemeral,
     });
@@ -177,6 +194,22 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       );
       await interaction.reply({
         content: `Mod role set to <@&${role.id}>.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (subcommand === 'player_claim') {
+      const enabled = interaction.options.getBoolean('enabled', true);
+      await setLobbyPlayerClaimEnabled(interaction.guildId, enabled);
+      log.info(
+        { guildId: interaction.guildId, enabled, userId: interaction.user.id },
+        'Lobby player claim setting updated',
+      );
+      await interaction.reply({
+        content: enabled
+          ? 'Player slot claim enabled.'
+          : 'Player slot claim disabled. Hosts can still add players by nick or Discord user.',
         flags: MessageFlags.Ephemeral,
       });
       return;

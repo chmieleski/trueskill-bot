@@ -5,6 +5,7 @@ import {
   buildMatchInProgressEmbed,
   buildMatchLobbyEmbed,
   buildMatchReportButtons,
+  claimSlotSelectOptions,
   formatSignedDelta,
   formatTeamLines,
   formatTeamLinesFromPreview,
@@ -151,14 +152,22 @@ describe('buildMatchReportButtons', () => {
 
 describe('buildLobbyButtons', () => {
   it('includes Add when the lobby is not full', () => {
-    const rows = buildLobbyButtons({ canStart: true, playerCount: 11 });
+    const rows = buildLobbyButtons({
+      canStart: true,
+      playerCount: 11,
+      playerClaimEnabled: false,
+    });
     const rosterIds = rows.at(-1)?.toJSON().components.map((button) => button.custom_id);
 
     expect(rosterIds).toContain(LOBBY_CUSTOM_IDS.add);
   });
 
   it('omits Add when all 12 slots are filled', () => {
-    const rows = buildLobbyButtons({ canStart: true, playerCount: 12 });
+    const rows = buildLobbyButtons({
+      canStart: true,
+      playerCount: 12,
+      playerClaimEnabled: false,
+    });
     const rosterIds = rows.at(-1)?.toJSON().components.map((button) => button.custom_id);
 
     expect(rosterIds).not.toContain(LOBBY_CUSTOM_IDS.add);
@@ -167,6 +176,47 @@ describe('buildLobbyButtons', () => {
       LOBBY_CUSTOM_IDS.move,
       LOBBY_CUSTOM_IDS.remove,
     ]);
+  });
+
+  it('adds Claim slot and Leave when player claim is enabled', () => {
+    const rows = buildLobbyButtons({ playerCount: 2, playerClaimEnabled: true });
+    const ids = rows.flatMap((row) => row.toJSON().components.map((button) => button.custom_id));
+
+    expect(ids).toContain(LOBBY_CUSTOM_IDS.claim);
+    expect(ids).toContain(LOBBY_CUSTOM_IDS.leave);
+  });
+
+  it('omits Claim and Leave when player claim is disabled', () => {
+    const rows = buildLobbyButtons({ playerCount: 2, playerClaimEnabled: false });
+    const ids = rows.flatMap((row) => row.toJSON().components.map((button) => button.custom_id));
+
+    expect(ids).not.toContain(LOBBY_CUSTOM_IDS.claim);
+    expect(ids).not.toContain(LOBBY_CUSTOM_IDS.leave);
+  });
+
+  it('omits Claim when the lobby is full but still shows Leave', () => {
+    const rows = buildLobbyButtons({ playerCount: 12, playerClaimEnabled: true });
+    const ids = rows.flatMap((row) => row.toJSON().components.map((button) => button.custom_id));
+
+    expect(ids).not.toContain(LOBBY_CUSTOM_IDS.claim);
+    expect(ids).toContain(LOBBY_CUSTOM_IDS.leave);
+  });
+});
+
+describe('claimSlotSelectOptions', () => {
+  it('labels empty slots with hero names and skips occupied slots', () => {
+    const options = claimSlotSelectOptions(
+      [
+        { slot: 1, nick: 'goku' },
+        { slot: 7, nick: 'vegeta' },
+      ],
+      (slot) => (slot === 2 ? 'Piccolo' : `Hero ${slot}`),
+    );
+
+    expect(options).toHaveLength(10);
+    expect(options[0]).toEqual({ label: 'Slot 2 · Piccolo', value: '2' });
+    expect(options.map((option) => option.value)).not.toContain('1');
+    expect(options.map((option) => option.value)).not.toContain('7');
   });
 });
 

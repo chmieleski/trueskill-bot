@@ -19,6 +19,7 @@ import {
   loadLobbyRatingPreview,
   matchPlayersToRatingEntries,
 } from '../../services/rating-preview.js';
+import { resolveRegisterLobbySource } from '../../services/register-lobby-source.js';
 
 const log = createLogger('register_lobby');
 
@@ -110,13 +111,15 @@ async function tryExtractLobbyPlayers(
 
 export const data = new SlashCommandBuilder()
   .setName('register_lobby')
-  .setDescription('Register a DBZ match lobby (up to 6v6) from a screenshot')
+  .setDescription('Register a DBZ match lobby (up to 6v6). Screenshot is optional.')
   .addAttachmentOption((option) =>
-    option.setName('print').setDescription('Lobby screenshot').setRequired(true),
+    option.setName('print').setDescription('Lobby screenshot (optional)').setRequired(false),
   );
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
+
+  let playerClaimEnabled = true;
 
   try {
     if (!interaction.guildId) {
@@ -124,6 +127,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     const config = await resolveGuildConfig(interaction.guildId);
+    playerClaimEnabled = config.lobbyPlayerClaimEnabled;
     assertCanCreateMatch({
       memberRoleIds: memberRoleIds(interaction),
       matchCreateRoleId: config.matchCreateRoleId,
@@ -138,21 +142,22 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     throw error;
   }
 
-  const attachment = interaction.options.getAttachment('print', true);
+  const attachment = interaction.options.getAttachment('print');
 
   log.info(
     {
       userId: interaction.user.id,
       guildId: interaction.guildId,
       channelId: interaction.channelId,
-      attachmentName: attachment.name,
-      contentType: attachment.contentType,
-      size: attachment.size,
+      hasScreenshot: Boolean(attachment),
+      attachmentName: attachment?.name,
+      contentType: attachment?.contentType,
+      size: attachment?.size,
     },
     'Register lobby started',
   );
 
-  if (!isImageAttachment(attachment)) {
+  if (attachment && !isImageAttachment(attachment)) {
     log.warn(
       { userId: interaction.user.id, contentType: attachment.contentType, name: attachment.name },
       'Rejected non-image attachment',
@@ -166,8 +171,15 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
-  const mimeType = resolveMimeType(attachment);
-  const players = await tryExtractLobbyPlayers(attachment.url, mimeType);
+  const source = resolveRegisterLobbySource({
+    attachmentUrl: attachment?.url,
+    mimeType: attachment ? resolveMimeType(attachment) : null,
+  });
+
+  const players =
+    source.kind === 'screenshot'
+      ? await tryExtractLobbyPlayers(source.url, source.mimeType)
+      : [];
   const canStart = canStartLobby(players);
 
   try {
@@ -190,7 +202,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           ratingPreview,
         }),
       ],
-      components: buildLobbyButtons({ canStart, playerCount: players.length }),
+      components: buildLobbyButtons({
+        canStart,
+        playerCount: players.length,
+        playerClaimEnabled,
+      }),
     });
 
     const previewMessage = await interaction.fetchReply();

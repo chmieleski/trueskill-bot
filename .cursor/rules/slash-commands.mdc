@@ -15,7 +15,7 @@ alwaysApply: false
 ```typescript
 export const data = new SlashCommandBuilder()
   .setName('register_lobby')
-  .setDescription('Register a DBZ match lobby (up to 6v6) from a screenshot');
+  .setDescription('Register a DBZ match lobby (up to 6v6). Screenshot is optional.');
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();

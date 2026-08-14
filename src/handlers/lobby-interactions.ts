@@ -20,13 +20,18 @@ import type { LobbyPlayer } from '../services/lobby-ocr.js';
 import {
   addPlayer,
   applyRosterUpdateForMessage,
+  assertLobbyPlayerClaimEnabled,
+  claimLobbySlot,
   editPlayerNick,
+  leaveLobbySlot,
   movePlayer,
   removePlayer,
   resolvePendingMatchByMessageId,
   startLobbyMatchByMessageId,
 } from '../services/lobby-actions.js';
-import { LOBBY_CUSTOM_IDS } from '../services/lobby-preview.js';
+import { claimSlotSelectOptions, LOBBY_CUSTOM_IDS } from '../services/lobby-preview.js';
+import { loadHeroCatalog } from '../services/hero-catalog.js';
+import { nickForDiscordId } from '../services/lobby-identity.js';
 import { MatchServiceError } from '../services/match-service.js';
 
 const log = createLogger('lobby');
@@ -356,6 +361,149 @@ async function handleAdd(interaction: ButtonInteraction): Promise<void> {
   await interaction.showModal(modal);
 }
 
+function requireGuildId(
+  interaction: MessageComponentInteraction,
+): string | null {
+  return interaction.guildId;
+}
+
+async function handleClaim(interaction: ButtonInteraction): Promise<void> {
+  const guildId = requireGuildId(interaction);
+
+  if (!guildId) {
+    await replyEphemeral(interaction, 'This command can only be used in a server.');
+    return;
+  }
+
+  const messageId = interaction.message.id;
+  const result = await requirePendingMatch(messageId);
+
+  if ('error' in result) {
+    await replyEphemeral(interaction, result.error);
+    return;
+  }
+
+  try {
+    await assertLobbyPlayerClaimEnabled(guildId);
+    const nick = await nickForDiscordId(interaction.user.id);
+    const existing = result.players.find((player) => player.nick === nick);
+
+    if (existing) {
+      await replyEphemeral(
+        interaction,
+        `You are already in slot ${existing.slot}. Leave first.`,
+      );
+      return;
+    }
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await replyEphemeral(interaction, error.message);
+      return;
+    }
+
+    throw error;
+  }
+
+  const catalog = await loadHeroCatalog();
+  const heroNameById = new Map(catalog.map((hero) => [hero.id, hero.name]));
+  const options = claimSlotSelectOptions(
+    result.players,
+    (slot) => heroNameById.get(slot) ?? `Hero ${slot}`,
+  );
+
+  if (options.length === 0) {
+    await replyEphemeral(interaction, 'No empty slots available.');
+    return;
+  }
+
+  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`lobby:select:claim:${messageId}`)
+      .setPlaceholder('Select a slot to claim')
+      .addOptions(options),
+  );
+
+  await interaction.reply({
+    content: 'Select a slot to claim:',
+    components: [row],
+    flags: MessageFlags.Ephemeral,
+  });
+}
+
+async function handleLeave(interaction: ButtonInteraction): Promise<void> {
+  const guildId = requireGuildId(interaction);
+
+  if (!guildId) {
+    await replyEphemeral(interaction, 'This command can only be used in a server.');
+    return;
+  }
+
+  await interaction.deferUpdate();
+
+  try {
+    await leaveLobbySlot({
+      client: interaction.client,
+      messageId: interaction.message.id,
+      discordId: interaction.user.id,
+      guildId,
+    });
+
+    await interaction.followUp({
+      content: 'You left the lobby.',
+      flags: MessageFlags.Ephemeral,
+    });
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await interaction.followUp({
+        content: error.message,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    log.error(
+      { err: error, messageId: interaction.message.id, userId: interaction.user.id },
+      'Failed to leave lobby',
+    );
+    await interaction.followUp({
+      content: 'Could not update the lobby. Please try again.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+}
+
+async function handleSelectClaim(
+  interaction: StringSelectMenuInteraction,
+  messageId: string,
+): Promise<void> {
+  const guildId = requireGuildId(interaction);
+
+  if (!guildId) {
+    await replyEphemeral(interaction, 'This command can only be used in a server.');
+    return;
+  }
+
+  const slot = Number(interaction.values[0]);
+
+  try {
+    await claimLobbySlot({
+      client: interaction.client,
+      messageId,
+      discordId: interaction.user.id,
+      guildId,
+      slot,
+    });
+    await updateEphemeral(interaction, `Claimed slot ${slot}.`);
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await replyEphemeral(interaction, error.message);
+      return;
+    }
+
+    throw error;
+  }
+}
+
 async function handleSelectEditNick(
   interaction: StringSelectMenuInteraction,
   messageId: string,
@@ -592,6 +740,16 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
     return;
   }
 
+  if (customId === LOBBY_CUSTOM_IDS.claim) {
+    await handleClaim(interaction);
+    return;
+  }
+
+  if (customId === LOBBY_CUSTOM_IDS.leave) {
+    await handleLeave(interaction);
+    return;
+  }
+
   log.warn({ customId }, 'Unhandled lobby button');
 }
 
@@ -626,6 +784,11 @@ async function handleSelect(interaction: StringSelectMenuInteraction): Promise<v
 
   if (kind === 'remove') {
     await handleSelectRemove(interaction, messageId);
+    return;
+  }
+
+  if (kind === 'claim') {
+    await handleSelectClaim(interaction, messageId);
     return;
   }
 

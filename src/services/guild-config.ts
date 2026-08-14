@@ -20,6 +20,7 @@ export interface ResolvedGuildConfig {
   matchModRoleSource: RoleConfigSource;
   leaderboardChannelId: string | undefined;
   leaderboardMessageId: string | undefined;
+  lobbyPlayerClaimEnabled: boolean;
 }
 
 function resolveField(
@@ -50,6 +51,7 @@ export async function resolveGuildConfig(guildId: string): Promise<ResolvedGuild
     matchModRoleSource: mod.source,
     leaderboardChannelId: row?.leaderboardChannelId?.trim() || undefined,
     leaderboardMessageId: row?.leaderboardMessageId?.trim() || undefined,
+    lobbyPlayerClaimEnabled: row?.lobbyPlayerClaimEnabled !== false,
   };
 }
 
@@ -66,6 +68,17 @@ export async function setMatchModRole(guildId: string, roleId: string): Promise<
     where: { guildId },
     create: { guildId, matchModRoleId: roleId },
     update: { matchModRoleId: roleId },
+  });
+}
+
+export async function setLobbyPlayerClaimEnabled(
+  guildId: string,
+  enabled: boolean,
+): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: { guildId, lobbyPlayerClaimEnabled: enabled },
+    update: { lobbyPlayerClaimEnabled: enabled },
   });
 }
 
