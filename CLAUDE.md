@@ -8,6 +8,7 @@ Project guidance for AI agents lives in **Cursor rules** (single source of truth
 |------|-----------------|
 | `project-overview.mdc` | Always — product, stack, English-only UI |
 | `scripts-and-env.mdc` | Always — npm scripts and env vars |
+| `env-aws-sync.mdc` | Env / infra / deploy — new production env vars must update SSM + refresh-env |
 | `project-structure.mdc` | `src/**/*.ts` |
 | `database-domain.mdc` | Prisma / domain TypeScript |
 | `openskill-rating.mdc` | `src/**/*.ts`, Prisma — OpenSkill μ/σ, dual ratings, ordinal, quitters |

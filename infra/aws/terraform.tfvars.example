@@ -35,7 +35,13 @@ database_url   = "postgresql://..."
 direct_url     = "postgresql://..."
 gemini_api_key = "your_gemini_api_key"
 
-# Optional env fallbacks (empty string = unset)
+# Optional env fallbacks (empty string = unset / disabled)
 match_create_role_id = ""
 match_mod_role_id    = ""
 log_level            = "info"
+
+# wc3stats lobby import (leave enabled=false until ready in prod)
+wc3stats_enabled     = "false"
+wc3stats_map_pattern = "ultimate.?dragon.?ball.?reborn|udbr"
+wc3stats_map_sha1    = "19783c6259e86253a8c940ede63a87e18204bd94"
+wc3stats_timeout_ms  = "4000"

@@ -10,9 +10,6 @@ REPO_BRANCH="${repo_branch}"
 SSM_PREFIX="${ssm_prefix}"
 AWS_REGION="${aws_region}"
 DEPLOY_COMMANDS="${deploy_commands_on_boot}"
-LOG_LEVEL="${log_level}"
-MATCH_CREATE_ROLE_ID="${match_create_role_id}"
-MATCH_MOD_ROLE_ID="${match_mod_role_id}"
 
 export DEBIAN_FRONTEND=noninteractive
 export AWS_DEFAULT_REGION="$AWS_REGION"
@@ -20,7 +17,7 @@ export AWS_DEFAULT_REGION="$AWS_REGION"
 echo "==> Installing base packages"
 apt-get update -y
 apt-get upgrade -y
-apt-get install -y curl git ca-certificates unzip
+apt-get install -y curl git ca-certificates unzip python3
 
 echo "==> Ensuring Amazon SSM Agent (Session Manager)"
 if ! systemctl is-active --quiet snap.amazon-ssm-agent.amazon-ssm-agent.service \
@@ -45,44 +42,25 @@ if ! command -v aws >/dev/null 2>&1; then
   rm -rf /tmp/aws /tmp/awscliv2.zip
 fi
 
-mkdir -p "$APP_DIR"
+mkdir -p "$APP_DIR" /etc/dbz-bot
 chown ubuntu:ubuntu "$APP_DIR"
+
+cat > /etc/dbz-bot/ssm.env <<EOF
+export APP_DIR="$APP_DIR"
+export SSM_PREFIX="$SSM_PREFIX"
+export AWS_DEFAULT_REGION="$AWS_REGION"
+export AWS_REGION="$AWS_REGION"
+export APP_USER="ubuntu"
+EOF
+chmod 644 /etc/dbz-bot/ssm.env
 
 install_helper_scripts() {
   cat > /usr/local/bin/dbz-bot-refresh-env <<EOF
 #!/bin/bash
 set -euo pipefail
-export AWS_DEFAULT_REGION="$AWS_REGION"
-APP_DIR="$APP_DIR"
-SSM_PREFIX="$SSM_PREFIX"
-LOG_LEVEL="$LOG_LEVEL"
-MATCH_CREATE_ROLE_ID="$MATCH_CREATE_ROLE_ID"
-MATCH_MOD_ROLE_ID="$MATCH_MOD_ROLE_ID"
-
-discord_token=\$(aws ssm get-parameter --name "\$SSM_PREFIX/DISCORD_TOKEN" --with-decryption --query Parameter.Value --output text)
-client_id=\$(aws ssm get-parameter --name "\$SSM_PREFIX/CLIENT_ID" --query Parameter.Value --output text)
-guild_id=\$(aws ssm get-parameter --name "\$SSM_PREFIX/GUILD_ID" --query Parameter.Value --output text)
-database_url=\$(aws ssm get-parameter --name "\$SSM_PREFIX/DATABASE_URL" --with-decryption --query Parameter.Value --output text)
-direct_url=\$(aws ssm get-parameter --name "\$SSM_PREFIX/DIRECT_URL" --with-decryption --query Parameter.Value --output text)
-gemini_api_key=\$(aws ssm get-parameter --name "\$SSM_PREFIX/GEMINI_API_KEY" --with-decryption --query Parameter.Value --output text)
-
-umask 077
-cat > "\$APP_DIR/.env" <<ENVEOF
-DISCORD_TOKEN=\$discord_token
-CLIENT_ID=\$client_id
-GUILD_ID=\$guild_id
-DATABASE_URL=\$database_url
-DIRECT_URL=\$direct_url
-GEMINI_API_KEY=\$gemini_api_key
-NODE_ENV=production
-AUTO_DEPLOY_COMMANDS=false
-LOG_LEVEL=\$LOG_LEVEL
-MATCH_CREATE_ROLE_ID=\$MATCH_CREATE_ROLE_ID
-MATCH_MOD_ROLE_ID=\$MATCH_MOD_ROLE_ID
-ENVEOF
-chown ubuntu:ubuntu "\$APP_DIR/.env"
-chmod 600 "\$APP_DIR/.env"
-echo "Wrote \$APP_DIR/.env from SSM"
+# shellcheck disable=SC1091
+source /etc/dbz-bot/ssm.env
+exec bash "\$APP_DIR/deploy/aws/refresh-env.sh"
 EOF
   chmod 755 /usr/local/bin/dbz-bot-refresh-env
 

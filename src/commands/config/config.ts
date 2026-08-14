@@ -385,7 +385,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         );
         await interaction.reply({
           content: [
-            'Applied UDBR preset (Z Fighters 1–6, Evils 7–12; Referee unmapped):',
+            'Applied UDBR preset (colors `1 2 3 4 6 7 | 5 8 9 10 11 12` → heroes 1–12; Referee unmapped):',
             ...formatWc3statsSlotMapLines(UDBR_WC3STATS_SLOT_MAP).map(
               (line) => `• ${line}`,
             ),
