@@ -40,7 +40,7 @@ export function takePreviousEphemeral(
  * Ignores missing sessions and Discord errors (expired token, unknown message).
  */
 export async function deletePreviousEphemeral(
-  client: Client,
+  client: Client<true>,
   userId: string,
   channelId: string,
 ): Promise<void> {
