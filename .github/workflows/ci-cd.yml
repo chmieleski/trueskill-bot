@@ -12,6 +12,13 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    env:
+      DISCORD_TOKEN: ci
+      CLIENT_ID: "0"
+      GUILD_ID: "0"
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      GEMINI_API_KEY: ci
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,12 +28,6 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npm test
-        env:
-          DISCORD_TOKEN: ci
-          CLIENT_ID: "0"
-          GUILD_ID: "0"
-          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
-          GEMINI_API_KEY: ci
 
   deploy:
     name: Deploy
