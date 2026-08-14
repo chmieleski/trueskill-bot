@@ -9,6 +9,12 @@ resource "aws_iam_openid_connect_provider" "github" {
   tags = local.common_tags
 }
 
+locals {
+  github_owner = split("/", var.github_repository)[0]
+  github_repo  = split("/", var.github_repository)[1]
+  github_ref   = "refs/heads/${var.repo_branch}"
+}
+
 data "aws_iam_policy_document" "gha_assume" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -24,11 +30,15 @@ data "aws_iam_policy_document" "gha_assume" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # StringLike: GitHub may emit ref:refs/heads/main or workflow-specific subs for the same repo.
+    # AWS requires a scoped sub (or job_workflow_ref) condition. New repos use
+    # immutable IDs: repo:owner@123/repo@456:ref:refs/heads/main.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:*"]
+      values = [
+        "repo:${var.github_repository}:ref:${local.github_ref}",
+        "repo:${local.github_owner}@*/${local.github_repo}@*:ref:${local.github_ref}",
+      ]
     }
   }
 }
