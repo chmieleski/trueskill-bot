@@ -1,24 +1,42 @@
 export type { LobbyPlayer } from './lobby-ocr.js';
 export { extractLobbyPlayers } from './lobby-ocr.js';
-export { addPlayer, editPlayerNick, movePlayer, removePlayer } from './roster.js';
+export type { ResolveHostPendingMatchInput } from './resolve.js';
+export type { LobbySyncMode, LobbyActionResult } from './discord-sync.js';
+export type { RefreshLobbyResult } from './wc3stats-refresh.js';
 export {
-  addLobbyPlayer,
-  addLobbyPlayerFromDiscord,
-  applyRosterUpdateForMessage,
-  assertLobbyPlayerClaimEnabled,
-  cancelLobbyMatch,
-  claimLobbySlot,
-  leaveLobbySlot,
-  refreshLobbyFromWc3stats,
-  removeLobbyPlayer,
+  addPlayer,
+  editPlayerNick,
+  movePlayer,
+  removePlayer,
+  rosterAfterClaim,
+  rosterAfterLeave,
+  swapPlayers,
+} from './roster.js';
+export {
   resolveHostPendingMatch,
-  resolveInProgressMatchByMessageId,
   resolvePendingMatchByMessageId,
+  resolveInProgressMatchByMessageId,
+  resolveHostPendingMatchByMessageId,
+} from './resolve.js';
+export { syncLobbyDiscordMessage } from './discord-sync.js';
+export {
   startLobbyMatch,
   startLobbyMatchByMessageId,
+  cancelLobbyMatch,
+} from './lifecycle.js';
+export { refreshLobbyFromWc3stats } from './wc3stats-refresh.js';
+export {
+  assertLobbyPlayerClaimEnabled,
+  addLobbyPlayer,
+  addLobbyPlayerFromDiscord,
+  claimLobbySlot,
+  leaveLobbySlot,
+  removeLobbyPlayer,
+  moveLobbyPlayer,
   swapLobbyPlayers,
-  syncLobbyDiscordMessage,
-} from './lobby-actions.js';
+  editLobbyPlayerNick,
+  applyRosterUpdateForMessage,
+} from './actions.js';
 export {
   buildLobbyButtons,
   buildMatchCancelledEmbed,
