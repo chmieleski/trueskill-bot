@@ -8,23 +8,23 @@ import type {
   ChatInputCommandInteraction,
 } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
-import { assertCanConfigureBot } from '../../services/guild-config.js';
-import { setupLiveLeaderboard } from '../../services/leaderboard-channel.js';
-import { HeroCatalogError, listHeroNames, resolveHeroByName } from '../../services/hero-catalog.js';
+import { assertCanConfigureBot } from '../../services/guild/index.js';
+import { setupLiveLeaderboard } from '../../services/leaderboard/index.js';
+import { HeroCatalogError, listHeroNames, resolveHeroByName } from '../../services/guild/index.js';
 import {
   HERO_SINGLE_TOP,
   LeaderboardServiceError,
   loadAllHeroLeaderboards,
   loadHeroLeaderboard,
   loadOverallLeaderboardPage,
-} from '../../services/leaderboard.js';
+} from '../../services/leaderboard/index.js';
 import {
   buildAllHeroLeaderboardsEmbed,
   buildHeroLeaderboardEmbed,
   buildLeaderboardPageButtons,
   buildOverallLeaderboardEmbed,
-} from '../../services/leaderboard-embed.js';
-import { MatchServiceError } from '../../services/match-service.js';
+} from '../../services/leaderboard/index.js';
+import { MatchServiceError } from '../../services/match/index.js';
 
 const log = createLogger('leaderboard_cmd');
 

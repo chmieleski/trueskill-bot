@@ -2,32 +2,32 @@ import { Attachment, GuildMember, SlashCommandBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { env } from '../../config/env.js';
 import { createLogger } from '../../lib/logger.js';
-import { extractLobbyPlayers, type LobbyPlayer } from '../../services/lobby-ocr.js';
+import { extractLobbyPlayers, type LobbyPlayer } from '../../services/lobby/index.js';
 import {
   buildLobbyButtons,
   buildMatchLobbyEmbed,
   canStartLobby,
-} from '../../services/lobby-preview.js';
-import { resolveGuildConfig } from '../../services/guild-config.js';
-import { nickForDiscordId } from '../../services/lobby-identity.js';
-import { assertCanCreateMatch } from '../../services/match-auth.js';
+} from '../../services/lobby/index.js';
+import { resolveGuildConfig } from '../../services/guild/index.js';
+import { nickForDiscordId } from '../../services/lobby/index.js';
+import { assertCanCreateMatch } from '../../services/match/index.js';
 import {
   attachDiscordMessage,
   createPendingMatch,
   getMatchById,
   MatchServiceError,
-} from '../../services/match-service.js';
+} from '../../services/match/index.js';
 import {
   loadLobbyRatingPreview,
   matchPlayersToRatingEntries,
-} from '../../services/rating-preview.js';
+} from '../../services/rating/index.js';
 import {
   allowsEmptyMatchOnWc3statsFailure,
   parseWc3statsId,
   resolveRegisterLobbySource,
-} from '../../services/register-lobby-source.js';
-import { importWc3statsLobby } from '../../services/wc3stats-resolve.js';
-import { loadGuildWc3statsHeroSlotMap } from '../../services/wc3stats-slot-map.js';
+} from '../../services/lobby/index.js';
+import { importWc3statsLobby } from '../../services/wc3stats/index.js';
+import { loadGuildWc3statsHeroSlotMap } from '../../services/wc3stats/index.js';
 
 const log = createLogger('register_lobby');
 
