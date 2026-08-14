@@ -24,10 +24,11 @@ data "aws_iam_policy_document" "gha_assume" {
       values   = ["sts.amazonaws.com"]
     }
 
+    # StringLike: GitHub may emit ref:refs/heads/main or workflow-specific subs for the same repo.
     condition {
-      test     = "StringEquals"
+      test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:ref:refs/heads/main"]
+      values   = ["repo:${var.github_repository}:*"]
     }
   }
 }

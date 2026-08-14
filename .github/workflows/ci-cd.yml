@@ -5,13 +5,12 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: read
-
 jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       DISCORD_TOKEN: ci
       CLIENT_ID: "0"
@@ -41,15 +40,39 @@ jobs:
       group: deploy-prod
       cancel-in-progress: false
     env:
-      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
-      EC2_NAME_TAG: ${{ vars.EC2_NAME_TAG || 'dbz-bot-prod' }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'eu-central-1' }}
+      EC2_NAME_TAG: ${{ vars.EC2_NAME_TAG || 'punch-machine-prod' }}
       APP_DIR: /home/ubuntu/bot
     steps:
+      - name: Verify AWS_ROLE_ARN secret
+        env:
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${AWS_ROLE_ARN}" ]]; then
+            echo "::error::AWS_ROLE_ARN secret is empty. Set it to: arn:aws:iam::094032936258:role/punch-machine-prod-gha" >&2
+            exit 1
+          fi
+          if [[ "${AWS_ROLE_ARN}" != arn:aws:iam::094032936258:role/punch-machine-prod-gha ]]; then
+            echo "::error::AWS_ROLE_ARN must be exactly arn:aws:iam::094032936258:role/punch-machine-prod-gha (got suffix: ${AWS_ROLE_ARN##*/})" >&2
+            exit 1
+          fi
+
+      - name: Debug OIDC token claims
+        run: |
+          set -euo pipefail
+          TOKEN="$(curl -fsSL \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" \
+            | jq -r .value)"
+          echo "$TOKEN" | awk -F. '{print $2}' | base64 -d 2>/dev/null | jq '{sub,aud,iss,repository,ref}'
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-deploy
 
       - name: Deploy via SSM
         run: |

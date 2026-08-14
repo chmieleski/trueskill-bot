@@ -90,8 +90,8 @@ Pull requests run `npm test`. A push to `main` runs the same tests, then AWS SSM
 
 3. In the GitHub repo: **Settings → Secrets and variables → Actions**
    - Secret `AWS_ROLE_ARN` = that ARN
-   - Optional variable `AWS_REGION` (default `us-east-1`)
-   - Optional variable `EC2_NAME_TAG` (default `dbz-bot-prod`)
+   - Optional variable `AWS_REGION` (default in workflow: `eu-central-1`)
+   - Optional variable `EC2_NAME_TAG` (default: `punch-machine-prod`)
 
 Do **not** put `DISCORD_TOKEN`, `DATABASE_URL`, or `GEMINI_API_KEY` in GitHub. The instance already reads those from SSM.
 
