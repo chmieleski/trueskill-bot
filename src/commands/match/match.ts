@@ -1,9 +1,9 @@
 import { GuildMember, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
-import { env } from '../../config/env.js';
 import { createLogger } from '../../lib/logger.js';
 import { syncLobbyDiscordMessage } from '../../services/lobby-actions.js';
-import { assertCanManageMatch, canManageMatch } from '../../services/match-auth.js';
+import { resolveGuildConfig } from '../../services/guild-config.js';
+import { assertCanManageMatch } from '../../services/match-auth.js';
 import {
   cancelInProgressMatch,
   completeMatch,
@@ -47,14 +47,15 @@ function memberRoleIds(interaction: { member: unknown }): string[] {
   return [];
 }
 
-function hasMatchModeratorRole(interaction: { member: unknown }): boolean {
-  const modRoleId = env.matchModRoleId;
-
-  if (!modRoleId) {
+function hasMatchModeratorRole(
+  interaction: { member: unknown },
+  matchModRoleId: string | undefined,
+): boolean {
+  if (!matchModRoleId) {
     return false;
   }
 
-  return memberRoleIds(interaction).includes(modRoleId);
+  return memberRoleIds(interaction).includes(matchModRoleId);
 }
 
 export function parseQuitterSlots(slotsRaw: string | null | undefined): number[] {
@@ -103,6 +104,11 @@ async function resolveMatchForCommand(
   interaction: ChatInputCommandInteraction,
   matchId: string | null,
 ): Promise<MatchWithPlayers> {
+  if (!interaction.guildId) {
+    throw new MatchServiceError('This command can only be used in a server.');
+  }
+
+  const config = await resolveGuildConfig(interaction.guildId);
   const roles = memberRoleIds(interaction);
 
   if (matchId) {
@@ -116,19 +122,12 @@ async function resolveMatchForCommand(
       throw new MatchServiceError('This match is not in progress.');
     }
 
-    const canAct = canManageMatch({
+    assertCanManageMatch({
       hostDiscordId: match.hostDiscordId,
       actorDiscordId: interaction.user.id,
       memberRoleIds: roles,
+      matchModRoleId: config.matchModRoleId,
     });
-
-    if (!canAct) {
-      assertCanManageMatch({
-        hostDiscordId: match.hostDiscordId,
-        actorDiscordId: interaction.user.id,
-        memberRoleIds: roles,
-      });
-    }
 
     return match;
   }
@@ -143,7 +142,7 @@ async function resolveMatchForCommand(
     throw new MatchServiceError('You have more than one in-progress match. Pass match_id to choose one.');
   }
 
-  if (hasMatchModeratorRole(interaction)) {
+  if (hasMatchModeratorRole(interaction, config.matchModRoleId)) {
     throw new MatchServiceError('Provide match_id when using the match moderator role.');
   }
 

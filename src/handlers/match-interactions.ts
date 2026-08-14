@@ -28,6 +28,7 @@ import {
   type MatchWithPlayers,
 } from '../services/match-service.js';
 import { assertCanManageMatch } from '../services/match-auth.js';
+import { resolveGuildConfig } from '../services/guild-config.js';
 
 const log = createLogger('match-interactions');
 
@@ -245,10 +246,17 @@ async function updateEphemeral(
 async function resolveByMessage(
   interaction: MessageComponentInteraction,
 ): Promise<MatchWithPlayers> {
+  if (!interaction.guildId) {
+    throw new MatchServiceError('This action can only be used in a server.');
+  }
+
+  const config = await resolveGuildConfig(interaction.guildId);
+
   return resolveInProgressMatchByMessageId({
     messageId: interaction.message.id,
     actorDiscordId: interaction.user.id,
     memberRoleIds: memberRoleIds(interaction),
+    matchModRoleId: config.matchModRoleId,
   });
 }
 
@@ -266,10 +274,17 @@ async function resolveById(
     throw new MatchServiceError('This match is not in progress.');
   }
 
+  if (!interaction.guildId) {
+    throw new MatchServiceError('This action can only be used in a server.');
+  }
+
+  const config = await resolveGuildConfig(interaction.guildId);
+
   assertCanManageMatch({
     hostDiscordId: match.hostDiscordId,
     actorDiscordId: interaction.user.id,
     memberRoleIds: memberRoleIds(interaction),
+    matchModRoleId: config.matchModRoleId,
   });
 
   return match;

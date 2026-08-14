@@ -143,6 +143,7 @@ export async function resolveInProgressMatchByMessageId(input: {
   messageId: string;
   actorDiscordId: string;
   memberRoleIds: string[];
+  matchModRoleId?: string;
 }): Promise<MatchWithPlayers> {
   const match = await getMatchByDiscordMessageId(input.messageId);
 
@@ -158,6 +159,7 @@ export async function resolveInProgressMatchByMessageId(input: {
     hostDiscordId: match.hostDiscordId,
     actorDiscordId: input.actorDiscordId,
     memberRoleIds: input.memberRoleIds,
+    matchModRoleId: input.matchModRoleId,
   });
 
   return match;

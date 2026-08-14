@@ -7,6 +7,7 @@ import {
   buildMatchLobbyEmbed,
   canStartLobby,
 } from '../../services/lobby-preview.js';
+import { resolveGuildConfig } from '../../services/guild-config.js';
 import { assertCanCreateMatch } from '../../services/match-auth.js';
 import {
   attachDiscordMessage,
@@ -118,7 +119,15 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   await interaction.deferReply();
 
   try {
-    assertCanCreateMatch({ memberRoleIds: memberRoleIds(interaction) });
+    if (!interaction.guildId) {
+      throw new MatchServiceError('This command can only be used in a server.');
+    }
+
+    const config = await resolveGuildConfig(interaction.guildId);
+    assertCanCreateMatch({
+      memberRoleIds: memberRoleIds(interaction),
+      matchCreateRoleId: config.matchCreateRoleId,
+    });
   } catch (error) {
     if (error instanceof MatchServiceError) {
       log.warn({ err: error, userId: interaction.user.id }, 'Match lobby creation forbidden');
