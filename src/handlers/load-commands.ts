@@ -51,12 +51,17 @@ export async function loadCommands(client: Client): Promise<void> {
       default?: Command;
       data?: Command['data'];
       execute?: Command['execute'];
+      autocomplete?: Command['autocomplete'];
     };
 
     const command: Command | undefined =
       commandModule.default ??
       (commandModule.data && commandModule.execute
-        ? { data: commandModule.data, execute: commandModule.execute }
+        ? {
+            data: commandModule.data,
+            execute: commandModule.execute,
+            autocomplete: commandModule.autocomplete,
+          }
         : undefined);
 
     if (!command?.data || !command.execute) {
@@ -86,12 +91,17 @@ export async function getCommandPayloads(): Promise<ReturnType<Command['data']['
       default?: Command;
       data?: Command['data'];
       execute?: Command['execute'];
+      autocomplete?: Command['autocomplete'];
     };
 
     const command: Command | undefined =
       commandModule.default ??
       (commandModule.data && commandModule.execute
-        ? { data: commandModule.data, execute: commandModule.execute }
+        ? {
+            data: commandModule.data,
+            execute: commandModule.execute,
+            autocomplete: commandModule.autocomplete,
+          }
         : undefined);
 
     if (!command?.data || !command.execute) {

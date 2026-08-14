@@ -1,5 +1,6 @@
 import { Events, MessageFlags } from 'discord.js';
 import type { Interaction } from 'discord.js';
+import { handleLeaderboardInteraction } from '../handlers/leaderboard-interactions.js';
 import { handleLobbyInteraction } from '../handlers/lobby-interactions.js';
 import { handleMatchInteraction } from '../handlers/match-interactions.js';
 import { createLogger } from '../lib/logger.js';
@@ -20,6 +21,11 @@ export async function execute(interaction: Interaction): Promise<void> {
   );
 
   try {
+    if (await handleLeaderboardInteraction(interaction)) {
+      log.debug({ userId: interaction.user.id }, 'Leaderboard interaction handled');
+      return;
+    }
+
     if (await handleMatchInteraction(interaction)) {
       log.debug({ userId: interaction.user.id }, 'Match interaction handled');
       return;
@@ -53,6 +59,21 @@ export async function execute(interaction: Interaction): Promise<void> {
       await interaction.reply({ content, flags: MessageFlags.Ephemeral });
     }
 
+    return;
+  }
+
+  if (interaction.isAutocomplete()) {
+    const command = interaction.client.commands.get(interaction.commandName);
+    if (command?.autocomplete) {
+      try {
+        await command.autocomplete(interaction);
+      } catch (error) {
+        log.error(
+          { err: error, command: interaction.commandName, userId: interaction.user.id },
+          'Failed to handle autocomplete',
+        );
+      }
+    }
     return;
   }
 
