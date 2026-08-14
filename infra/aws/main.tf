@@ -35,6 +35,8 @@ resource "aws_key_pair" "bot" {
 
 resource "aws_security_group" "bot" {
   name        = "${local.name_prefix}-sg"
+  # description is immutable in AWS — changing it forces destroy/recreate and
+  # hangs while the SG is still attached to the instance ENI. Do not edit.
   description = "Optional SSH; all egress for Discord / Supabase / Gemini / SSM"
   vpc_id      = data.aws_vpc.default.id
 
@@ -77,9 +79,6 @@ resource "aws_instance" "bot" {
     ssm_prefix              = local.ssm_prefix
     aws_region              = var.aws_region
     deploy_commands_on_boot = var.deploy_commands_on_boot
-    log_level               = var.log_level
-    match_create_role_id    = var.match_create_role_id
-    match_mod_role_id       = var.match_mod_role_id
   })
 
   root_block_device {
@@ -105,6 +104,13 @@ resource "aws_instance" "bot" {
     aws_ssm_parameter.gemini_api_key,
     aws_ssm_parameter.client_id,
     aws_ssm_parameter.guild_id,
+    aws_ssm_parameter.log_level,
+    aws_ssm_parameter.match_create_role_id,
+    aws_ssm_parameter.match_mod_role_id,
+    aws_ssm_parameter.wc3stats_enabled,
+    aws_ssm_parameter.wc3stats_map_pattern,
+    aws_ssm_parameter.wc3stats_map_sha1,
+    aws_ssm_parameter.wc3stats_timeout_ms,
   ]
 }
 

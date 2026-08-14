@@ -1,0 +1,33 @@
+---
+description: When adding env vars, sync AWS SSM, Terraform, and refresh-env
+alwaysApply: true
+---
+
+# Env vars → AWS production sync
+
+Production `.env` is **fully rewritten** on every deploy from SSM (`deploy/aws/refresh-env.sh`). Hand-editing the host `.env` does not survive the next CI/update.
+
+## When this applies
+
+Any new or renamed variable that the **running bot** reads in production (`src/config/env.ts`, `process.env`, Prisma URLs, feature flags).
+
+Skip for **local-only** keys (e.g. `PROD_DIRECT_URL` for `db:clone`).
+
+## Checklist (plan, then implement — do not ship half)
+
+1. **App** — parse in `src/config/env.ts` with a safe default when optional.
+2. **Docs** — `.env.example` + `.cursor/rules/scripts-and-env.mdc`.
+3. **Terraform**
+   - `infra/aws/variables.tf` (+ default)
+   - `infra/aws/ssm.tf` — `SecureString` for secrets, `String` for config
+   - Empty optional strings → sentinel `__EMPTY__` (SSM rejects `""`); `refresh-env.sh` maps back to empty
+   - `infra/aws/terraform.tfvars.example`
+   - `main.tf` `depends_on` if the instance must wait on the new parameter
+4. **Host writer** — add an explicit `echo KEY=...` line in `deploy/aws/refresh-env.sh` (keep the “extra SSM keys” loop; still list known keys for stable ordering/defaults).
+5. **Ops** — remind to set real `terraform.tfvars`, run `tofu apply`, ensure `/etc/dbz-bot/ssm.env` exists on the host, then `refresh-env` / next deploy.
+
+## Do not
+
+- Put production secrets in GitHub Actions secrets (instance reads SSM).
+- Assume user-data alone updates an **existing** EC2 box — repo `refresh-env.sh` + SSM is the path; user-data is first boot.
+- Add a key only to `.env.example` and call production done.

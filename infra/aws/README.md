@@ -59,11 +59,44 @@ On the instance (break-glass):
 sudo dbz-bot-update
 ```
 
-After changing secrets in `terraform.tfvars`, run `tofu apply` (updates SSM), then on the host:
+After changing secrets **or non-secret config** in `terraform.tfvars`, run `tofu apply` (updates SSM), then on the host:
 
 ```bash
+sudo dbz-bot-refresh-env   # or: sudo bash deploy/aws/host-update.sh
+sudo systemctl restart dbz-bot
+```
+
+`deploy/aws/refresh-env.sh` pulls **all** parameters under the SSM prefix (plus fixed `NODE_ENV` / `AUTO_DEPLOY_COMMANDS`). New keys only need a Terraform SSM parameter + a line in that script (see `.cursor/rules/env-aws-sync.mdc`).
+
+### Existing hosts (before re-create)
+
+Cloud-init writes `/etc/dbz-bot/ssm.env`. If the instance was created before that file existed, create it once (values from `tofu output ssm_prefix` / your tfvars):
+
+```bash
+sudo mkdir -p /etc/dbz-bot
+sudo tee /etc/dbz-bot/ssm.env <<'EOF'
+export APP_DIR="/home/ubuntu/bot"
+export SSM_PREFIX="/punch-machine/prod"
+export AWS_DEFAULT_REGION="eu-central-1"
+export AWS_REGION="eu-central-1"
+export APP_USER="ubuntu"
+EOF
+# Adjust SSM_PREFIX / region to match your stack
+sudo chmod 644 /etc/dbz-bot/ssm.env
 sudo dbz-bot-refresh-env
 sudo systemctl restart dbz-bot
+```
+
+Also replace the legacy helper so it calls the repo script:
+
+```bash
+sudo tee /usr/local/bin/dbz-bot-refresh-env <<'EOF'
+#!/bin/bash
+set -euo pipefail
+source /etc/dbz-bot/ssm.env
+exec bash "$APP_DIR/deploy/aws/refresh-env.sh"
+EOF
+sudo chmod 755 /usr/local/bin/dbz-bot-refresh-env
 ```
 
 ## CI/CD (push to `main`)

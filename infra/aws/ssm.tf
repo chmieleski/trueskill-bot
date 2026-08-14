@@ -1,3 +1,13 @@
+# SSM Parameter Store keys under /{project}/{env}/ENV_VAR_NAME.
+# Secrets: SecureString. Non-secrets: String.
+# Empty optional strings use sentinel __EMPTY__ (SSM disallows blank values);
+# deploy/aws/refresh-env.sh maps __EMPTY__ → "".
+
+locals {
+  # Sentinel for optional empty env values (SSM Parameter Store rejects "").
+  ssm_empty = "__EMPTY__"
+}
+
 resource "aws_ssm_parameter" "discord_token" {
   name        = "${local.ssm_prefix}/DISCORD_TOKEN"
   description = "Discord bot token"
@@ -43,5 +53,61 @@ resource "aws_ssm_parameter" "gemini_api_key" {
   description = "Google Gemini API key"
   type        = "SecureString"
   value       = var.gemini_api_key
+  tags        = local.common_tags
+}
+
+resource "aws_ssm_parameter" "log_level" {
+  name        = "${local.ssm_prefix}/LOG_LEVEL"
+  description = "Application LOG_LEVEL"
+  type        = "String"
+  value       = var.log_level
+  tags        = local.common_tags
+}
+
+resource "aws_ssm_parameter" "match_create_role_id" {
+  name        = "${local.ssm_prefix}/MATCH_CREATE_ROLE_ID"
+  description = "Fallback Discord role required to create lobbies"
+  type        = "String"
+  value       = var.match_create_role_id == "" ? local.ssm_empty : var.match_create_role_id
+  tags        = local.common_tags
+}
+
+resource "aws_ssm_parameter" "match_mod_role_id" {
+  name        = "${local.ssm_prefix}/MATCH_MOD_ROLE_ID"
+  description = "Fallback Discord role allowed to report/cancel like the host"
+  type        = "String"
+  value       = var.match_mod_role_id == "" ? local.ssm_empty : var.match_mod_role_id
+  tags        = local.common_tags
+}
+
+resource "aws_ssm_parameter" "wc3stats_enabled" {
+  name        = "${local.ssm_prefix}/WC3STATS_ENABLED"
+  description = "Enable wc3stats lobby import"
+  type        = "String"
+  value       = var.wc3stats_enabled
+  tags        = local.common_tags
+}
+
+resource "aws_ssm_parameter" "wc3stats_map_pattern" {
+  name        = "${local.ssm_prefix}/WC3STATS_MAP_PATTERN"
+  description = "Regex allowlist for UDBR map names"
+  type        = "String"
+  value       = var.wc3stats_map_pattern == "" ? local.ssm_empty : var.wc3stats_map_pattern
+  tags        = local.common_tags
+}
+
+resource "aws_ssm_parameter" "wc3stats_map_sha1" {
+  name        = "${local.ssm_prefix}/WC3STATS_MAP_SHA1"
+  description = "Comma-separated map.sha1 allowlist from gamelist/{id}"
+  type        = "String"
+  value       = var.wc3stats_map_sha1 == "" ? local.ssm_empty : var.wc3stats_map_sha1
+  tags        = local.common_tags
+}
+
+resource "aws_ssm_parameter" "wc3stats_timeout_ms" {
+  name        = "${local.ssm_prefix}/WC3STATS_TIMEOUT_MS"
+  description = "wc3stats HTTP timeout in milliseconds"
+  type        = "String"
+  value       = var.wc3stats_timeout_ms
   tags        = local.common_tags
 }

@@ -15,18 +15,19 @@ export type GuildWc3statsSlotMapping = {
 export type Wc3statsHeroSlotMap = ReadonlyMap<number, number>;
 
 /**
- * Classic UDBR color-order indices → hero slots.
- * Z Fighters: red/blue/teal/purple/orange/green → 1–6
- * Evils: yellow/pink/gray/light_blue/dark_green/brown → 7–12
- * Referee (12–15) left unmapped.
+ * Classic UDBR color indices (1-based in lobby UI): `1 2 3 4 6 7 | 5 8 9 10 11 12`
+ * → heroes 1–6 (Z Fighters) and 7–12 (Evils). Referee colors 13–16 unmapped.
+ * Stored as 0-based wc3stats `slots[]` indices.
  */
 export const UDBR_WC3STATS_SLOT_MAP: ReadonlyArray<GuildWc3statsSlotMapping> = [
+  // Z Fighters: colors 1,2,3,4,6,7 → heroes 1–6
   { wc3statsSlot: 0, heroId: 1 },
   { wc3statsSlot: 1, heroId: 2 },
   { wc3statsSlot: 2, heroId: 3 },
   { wc3statsSlot: 3, heroId: 4 },
   { wc3statsSlot: 5, heroId: 5 },
   { wc3statsSlot: 6, heroId: 6 },
+  // Evils: colors 5,8,9,10,11,12 → heroes 7–12
   { wc3statsSlot: 4, heroId: 7 },
   { wc3statsSlot: 7, heroId: 8 },
   { wc3statsSlot: 8, heroId: 9 },
