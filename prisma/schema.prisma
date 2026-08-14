@@ -112,3 +112,12 @@ enum MatchResult {
   LOSS
   DRAW          // Not used in game mechanics, kept for future flexibility
 }
+
+// GuildConfig - per-server bot settings (roles first; more keys later)
+model GuildConfig {
+  guildId           String   @id
+  matchCreateRoleId String?
+  matchModRoleId    String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
