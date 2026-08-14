@@ -17,6 +17,8 @@ export const LOBBY_CUSTOM_IDS = {
   move: 'lobby:move',
   remove: 'lobby:remove',
   add: 'lobby:add',
+  claim: 'lobby:claim',
+  leave: 'lobby:leave',
   reportWinner: 'match:report',
   quitters: 'match:quitters',
   cancelInProgress: 'match:cancel',
@@ -384,15 +386,49 @@ export function buildMatchCancelledEmbed(
 
 /** Full 6v6 lobby: all slots 1–12 occupied. */
 const MAX_LOBBY_HUMANS = 12;
+const MIN_SLOT = 1;
+const MAX_SLOT = 12;
+
+/**
+ * Empty-slot options for player claim. Labels include the hero (slot = hero).
+ */
+export function claimSlotSelectOptions(
+  players: LobbyPlayer[],
+  heroNameForSlot: (slot: number) => string,
+): { label: string; value: string }[] {
+  const occupied = new Set(players.map((player) => player.slot));
+  const options: { label: string; value: string }[] = [];
+
+  for (let slot = MIN_SLOT; slot <= MAX_SLOT; slot += 1) {
+    if (occupied.has(slot)) {
+      continue;
+    }
+
+    options.push({
+      label: `Slot ${slot} · ${heroNameForSlot(slot)}`.slice(0, 100),
+      value: String(slot),
+    });
+  }
+
+  return options;
+}
 
 export function buildLobbyButtons(
-  options: { canStart?: boolean; locked?: boolean; playerCount?: number } = {},
+  options: {
+    canStart?: boolean;
+    locked?: boolean;
+    playerCount?: number;
+    playerClaimEnabled?: boolean;
+  } = {},
 ): ActionRowBuilder<ButtonBuilder>[] {
   if (options.locked) {
     return [];
   }
 
   const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+  const playerClaimEnabled = options.playerClaimEnabled ?? true;
+  const playerCount = options.playerCount ?? 0;
+  const canAdd = playerCount < MAX_LOBBY_HUMANS;
 
   if (options.canStart) {
     rows.push(
@@ -405,8 +441,6 @@ export function buildLobbyButtons(
       ),
     );
   }
-
-  const canAdd = (options.playerCount ?? 0) < MAX_LOBBY_HUMANS;
 
   // Icon-only roster controls (emoji is enough for Discord buttons).
   const rosterControls = [
@@ -434,6 +468,28 @@ export function buildLobbyButtons(
   }
 
   rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...rosterControls));
+
+  if (playerClaimEnabled) {
+    const claimRow = new ActionRowBuilder<ButtonBuilder>();
+
+    if (canAdd) {
+      claimRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId(LOBBY_CUSTOM_IDS.claim)
+          .setLabel('Claim slot')
+          .setStyle(ButtonStyle.Primary),
+      );
+    }
+
+    claimRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId(LOBBY_CUSTOM_IDS.leave)
+        .setLabel('Leave')
+        .setStyle(ButtonStyle.Secondary),
+    );
+
+    rows.push(claimRow);
+  }
 
   return rows;
 }

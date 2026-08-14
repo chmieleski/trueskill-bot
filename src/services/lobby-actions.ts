@@ -28,6 +28,8 @@ import {
 } from './rating-preview.js';
 import { assertCanManageMatch } from './match-auth.js';
 import { normalizeNick } from './player-nick.js';
+import { resolveGuildConfig } from './guild-config.js';
+import { nickForDiscordId } from './lobby-identity.js';
 
 const log = createLogger('lobby-actions');
 
@@ -40,6 +42,10 @@ const NOT_EDITABLE_MESSAGE = 'This match can no longer be edited.';
 const NO_PENDING_MESSAGE = 'You have no pending match lobby. Run /register_lobby first.';
 const AMBIGUOUS_PENDING_MESSAGE =
   'You have more than one pending lobby. Pass match_id to choose which one.';
+const PLAYER_CLAIM_DISABLED_MESSAGE = 'Player slot claim is disabled on this server.';
+const ALREADY_IN_LOBBY_LEAVE_FIRST = (slot: number) =>
+  `You are already in slot ${slot}. Leave first.`;
+const NOT_IN_LOBBY_MESSAGE = 'You are not in this lobby.';
 
 export type LobbySyncMode = 'pending' | 'started' | 'cancelled' | 'completed';
 
@@ -321,6 +327,80 @@ export function editPlayerNick(
   return players.map((player) => (player.slot === slot ? { ...player, nick } : player));
 }
 
+/**
+ * Reject player claim/leave when the guild has turned the feature off.
+ * Call before any roster mutation.
+ */
+export async function assertLobbyPlayerClaimEnabled(guildId: string): Promise<void> {
+  const config = await resolveGuildConfig(guildId);
+
+  if (!config.lobbyPlayerClaimEnabled) {
+    throw new MatchServiceError(PLAYER_CLAIM_DISABLED_MESSAGE);
+  }
+}
+
+/**
+ * Seat a linked nick in an empty slot. Rejects occupied slots and nicks already in the lobby.
+ */
+export function rosterAfterClaim(
+  players: LobbyPlayer[],
+  nickRaw: string,
+  slot: number,
+): LobbyPlayer[] {
+  const nick = normalizeNick(nickRaw);
+  const existing = players.find((player) => player.nick === nick);
+
+  if (existing) {
+    if (existing.slot === slot) {
+      throw new MatchServiceError(`You are already in slot ${slot}.`);
+    }
+
+    throw new MatchServiceError(ALREADY_IN_LOBBY_LEAVE_FIRST(existing.slot));
+  }
+
+  const occupant = players.find((player) => player.slot === slot);
+
+  if (occupant) {
+    throw new MatchServiceError(`Slot ${slot} is already occupied by "${occupant.nick}".`);
+  }
+
+  return addPlayer(players, nickRaw, slot);
+}
+
+/**
+ * Remove the linked nick from the lobby (self-leave).
+ */
+export function rosterAfterLeave(players: LobbyPlayer[], nickRaw: string): LobbyPlayer[] {
+  const nick = normalizeNick(nickRaw);
+  const existing = players.find((player) => player.nick === nick);
+
+  if (!existing) {
+    throw new MatchServiceError(NOT_IN_LOBBY_MESSAGE);
+  }
+
+  return removePlayer(players, { nick });
+}
+
+function guildIdFromChannel(channel: object): string | undefined {
+  if (!('guildId' in channel) || typeof channel.guildId !== 'string') {
+    return undefined;
+  }
+
+  const guildId = channel.guildId.trim();
+  return guildId || undefined;
+}
+
+async function resolvePlayerClaimEnabledForChannel(channel: object): Promise<boolean> {
+  const guildId = guildIdFromChannel(channel);
+
+  if (!guildId) {
+    return true;
+  }
+
+  const config = await resolveGuildConfig(guildId);
+  return config.lobbyPlayerClaimEnabled;
+}
+
 export async function syncLobbyDiscordMessage(
   client: Client,
   match: MatchWithPlayers,
@@ -330,6 +410,12 @@ export async function syncLobbyDiscordMessage(
   if (!match.discordMessageId || !match.discordChannelId) {
     log.warn({ matchId: match.id, mode }, 'Match has no Discord message to sync');
     return;
+  }
+
+  const channel = await client.channels.fetch(match.discordChannelId);
+
+  if (!channel || !('messages' in channel)) {
+    throw new Error('Missing channel for lobby message update');
   }
 
   const players = matchToLobbyPlayers(match);
@@ -343,6 +429,7 @@ export async function syncLobbyDiscordMessage(
     const ratingPreview = await loadLobbyRatingPreview(
       matchPlayersToRatingEntries(match.players),
     );
+    const playerClaimEnabled = await resolvePlayerClaimEnabledForChannel(channel);
     payload = {
       embeds: [
         buildMatchLobbyEmbed(match.id, players, {
@@ -351,7 +438,11 @@ export async function syncLobbyDiscordMessage(
           ratingPreview,
         }),
       ],
-      components: buildLobbyButtons({ canStart, playerCount: players.length }),
+      components: buildLobbyButtons({
+        canStart,
+        playerCount: players.length,
+        playerClaimEnabled,
+      }),
     };
   } else if (mode === 'started') {
     const ratingPreview = await loadLobbyRatingPreview(
@@ -379,12 +470,6 @@ export async function syncLobbyDiscordMessage(
       embeds: [buildMatchCancelledEmbed(match.id, 'by the host')],
       components: [],
     };
-  }
-
-  const channel = await client.channels.fetch(match.discordChannelId);
-
-  if (!channel || !('messages' in channel)) {
-    throw new Error('Missing channel for lobby message update');
   }
 
   await channel.messages.edit(match.discordMessageId, payload);
@@ -416,6 +501,63 @@ export async function addLobbyPlayer(input: {
     matchId: input.matchId,
   });
   const next = addPlayer(players, input.nick, input.slot);
+  return applyRosterAndSync(input.client, match.id, next);
+}
+
+/**
+ * Host seats a linked Discord member. Not gated by player claim.
+ */
+export async function addLobbyPlayerFromDiscord(input: {
+  client: Client;
+  hostDiscordId: string;
+  matchId?: string | null;
+  discordId: string;
+  slot: number;
+}): Promise<LobbyActionResult> {
+  const nick = await nickForDiscordId(input.discordId);
+  return addLobbyPlayer({
+    client: input.client,
+    hostDiscordId: input.hostDiscordId,
+    matchId: input.matchId,
+    nick,
+    slot: input.slot,
+  });
+}
+
+/**
+ * Linked player claims an empty PENDING slot. Gated by guild player-claim flag.
+ */
+export async function claimLobbySlot(input: {
+  client: Client;
+  messageId: string;
+  discordId: string;
+  guildId: string;
+  slot: number;
+}): Promise<LobbyActionResult> {
+  await assertLobbyPlayerClaimEnabled(input.guildId);
+  const nick = await nickForDiscordId(input.discordId);
+  const { match, players } = await resolvePendingMatchByMessageId({
+    messageId: input.messageId,
+  });
+  const next = rosterAfterClaim(players, nick, input.slot);
+  return applyRosterAndSync(input.client, match.id, next);
+}
+
+/**
+ * Linked player leaves the PENDING lobby. Gated by guild player-claim flag.
+ */
+export async function leaveLobbySlot(input: {
+  client: Client;
+  messageId: string;
+  discordId: string;
+  guildId: string;
+}): Promise<LobbyActionResult> {
+  await assertLobbyPlayerClaimEnabled(input.guildId);
+  const nick = await nickForDiscordId(input.discordId);
+  const { match, players } = await resolvePendingMatchByMessageId({
+    messageId: input.messageId,
+  });
+  const next = rosterAfterLeave(players, nick);
   return applyRosterAndSync(input.client, match.id, next);
 }
 

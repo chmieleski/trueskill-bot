@@ -3,6 +3,7 @@ import type { ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import {
   addLobbyPlayer,
+  addLobbyPlayerFromDiscord,
   cancelLobbyMatch,
   removeLobbyPlayer,
   startLobbyMatch,
@@ -22,9 +23,6 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('add')
       .setDescription('Add a player to your lobby')
-      .addStringOption((option) =>
-        option.setName('nick').setDescription('In-game nick').setRequired(true),
-      )
       .addIntegerOption((option) =>
         option
           .setName('slot')
@@ -32,6 +30,15 @@ export const data = new SlashCommandBuilder()
           .setRequired(true)
           .setMinValue(MIN_SLOT)
           .setMaxValue(MAX_SLOT),
+      )
+      .addStringOption((option) =>
+        option.setName('nick').setDescription('In-game nick').setRequired(false),
+      )
+      .addUserOption((option) =>
+        option
+          .setName('user')
+          .setDescription('Linked Discord member (instead of nick)')
+          .setRequired(false),
       )
       .addStringOption((option) =>
         option
@@ -126,17 +133,36 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   try {
     if (subcommand === 'add') {
-      const nick = interaction.options.getString('nick', true);
+      const nickRaw = interaction.options.getString('nick')?.trim() || null;
+      const user = interaction.options.getUser('user');
       const slot = interaction.options.getInteger('slot', true);
-      const result = await addLobbyPlayer({
-        client: interaction.client,
-        hostDiscordId,
-        matchId,
-        nick,
-        slot,
-      });
+
+      if (nickRaw && user) {
+        throw new MatchServiceError('Provide either a nick or a Discord user, not both.');
+      }
+
+      if (!nickRaw && !user) {
+        throw new MatchServiceError('Provide a nick or a Discord user.');
+      }
+
+      const result = user
+        ? await addLobbyPlayerFromDiscord({
+            client: interaction.client,
+            hostDiscordId,
+            matchId,
+            discordId: user.id,
+            slot,
+          })
+        : await addLobbyPlayer({
+            client: interaction.client,
+            hostDiscordId,
+            matchId,
+            nick: nickRaw!,
+            slot,
+          });
+      const seatedNick = result.players.find((player) => player.slot === slot)?.nick ?? nickRaw;
       await interaction.editReply({
-        content: `Added **${result.players.find((p) => p.slot === slot)?.nick ?? nick}** to slot ${slot} in match \`${result.match.id}\`.`,
+        content: `Added **${seatedNick}** to slot ${slot} in match \`${result.match.id}\`.`,
       });
       return;
     }

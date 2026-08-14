@@ -6,20 +6,20 @@ generator client {
 }
 
 datasource db {
-  provider     = "postgresql"
+  provider = "postgresql"
 }
 
 // Player - Identified by username (Ghost Profile pattern)
 // Discord linking is optional - players can exist without Discord
 model Player {
-  id            String            @id @default(uuid())
-  username      String            @unique // Battletag/nick in-game (PRIMARY identifier)
-  discordId     String?           @unique // Optional - for account linking
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  matches       MatchPlayer[]
-  ratings       PlayerRating[]
-  heroRatings   PlayerHeroRating[]
+  id          String             @id @default(uuid())
+  username    String             @unique // Battletag/nick in-game (PRIMARY identifier)
+  discordId   String?            @unique // Optional - for account linking
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  matches     MatchPlayer[]
+  ratings     PlayerRating[]
+  heroRatings PlayerHeroRating[]
 
   @@index([username])
   @@index([discordId])
@@ -28,20 +28,20 @@ model Player {
 // PlayerRating - Global skill rating (OpenSkill μ/σ)
 // Separated for SRP - handles global rating only
 model PlayerRating {
-  playerId      String            @id
-  mu            Float             @default(25.0) // Skill estimate
-  sigma         Float             @default(8.333) // Uncertainty
-  updatedAt     DateTime          @updatedAt
+  playerId  String   @id
+  mu        Float    @default(25.0) // Skill estimate
+  sigma     Float    @default(8.333) // Uncertainty
+  updatedAt DateTime @updatedAt
 
-  player        Player            @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
 }
 
 // Hero - 12 unique heroes tied to lobby slots (1-12). Managed in the database (no app seed).
 model Hero {
-  id            Int               @id // 1-12, matches slot number
-  name          String            @unique
-  color         String?           // Lobby color name (e.g., "Red", "Blue")
-  heroRatings   PlayerHeroRating[]
+  id          Int                @id // 1-12, matches slot number
+  name        String             @unique
+  color       String? // Lobby color name (e.g., "Red", "Blue")
+  heroRatings PlayerHeroRating[]
 
   @@index([name])
 }
@@ -51,14 +51,14 @@ model Hero {
 model PlayerHeroRating {
   playerId      String
   heroId        Int
-  mu            Float             @default(25.0) // Hero-specific skill (μ)
-  sigma         Float             @default(8.333) // Hero-specific uncertainty (σ)
-  matchesPlayed Int               @default(0)
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  mu            Float    @default(25.0) // Hero-specific skill (μ)
+  sigma         Float    @default(8.333) // Hero-specific uncertainty (σ)
+  matchesPlayed Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  player        Player            @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  hero          Hero              @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  hero   Hero   @relation(fields: [heroId], references: [id], onDelete: Cascade)
 
   @@id([playerId, heroId])
   @@index([playerId])
@@ -67,14 +67,14 @@ model PlayerHeroRating {
 
 // Match - up to 6v6 game session (unbalanced human fills allowed)
 model Match {
-  id                String        @id @default(cuid())
-  status            MatchStatus   @default(PENDING)
-  hostDiscordId     String
-  discordChannelId  String
-  discordMessageId  String?       @unique
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  players           MatchPlayer[]
+  id               String        @id @default(cuid())
+  status           MatchStatus   @default(PENDING)
+  hostDiscordId    String
+  discordChannelId String
+  discordMessageId String?       @unique
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  players          MatchPlayer[]
 
   @@index([status])
   @@index([createdAt])
@@ -84,16 +84,16 @@ model Match {
 
 // MatchPlayer - Player participation in a match
 model MatchPlayer {
-  matchId       String
-  playerId      String
-  team          Int           // 1 or 2 (1-6 = Team A, 7-12 = Team B)
-  slot          Int           // 1-12 (Absolute position - determines team + hero)
-  heroId        Int           // 1-12 (DBZ heroes mapped to slots)
-  result        MatchResult?  // Null until match ends
-  isQuitter     Boolean       @default(false) // Quitter penalty flag
+  matchId   String
+  playerId  String
+  team      Int // 1 or 2 (1-6 = Team A, 7-12 = Team B)
+  slot      Int // 1-12 (Absolute position - determines team + hero)
+  heroId    Int // 1-12 (DBZ heroes mapped to slots)
+  result    MatchResult? // Null until match ends
+  isQuitter Boolean      @default(false) // Quitter penalty flag
 
-  match         Match         @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  player        Player        @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  match  Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@id([matchId, playerId])
   @@index([matchId])
@@ -101,25 +101,26 @@ model MatchPlayer {
 }
 
 enum MatchStatus {
-  PENDING       // Lobby created, waiting for players
-  IN_PROGRESS   // Match started
-  COMPLETED     // Match finished with results
-  CANCELLED     // Match cancelled before completion
+  PENDING // Lobby created, waiting for players
+  IN_PROGRESS // Match started
+  COMPLETED // Match finished with results
+  CANCELLED // Match cancelled before completion
 }
 
 enum MatchResult {
   WIN
   LOSS
-  DRAW          // Not used in game mechanics, kept for future flexibility
+  DRAW // Not used in game mechanics, kept for future flexibility
 }
 
 // GuildConfig - per-server bot settings (roles first; more keys later)
 model GuildConfig {
-  guildId                String   @id
-  matchCreateRoleId      String?
-  matchModRoleId         String?
-  leaderboardChannelId   String?
-  leaderboardMessageId   String?
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  guildId                 String   @id
+  matchCreateRoleId       String?
+  matchModRoleId          String?
+  leaderboardChannelId    String?
+  leaderboardMessageId    String?
+  lobbyPlayerClaimEnabled Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 }

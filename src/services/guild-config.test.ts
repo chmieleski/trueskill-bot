@@ -30,6 +30,7 @@ import {
   clearLeaderboardChannel,
   resolveGuildConfig,
   setLeaderboardChannel,
+  setLobbyPlayerClaimEnabled,
   setMatchCreateRole,
   setMatchModRole,
 } from './guild-config.js';
@@ -56,7 +57,27 @@ describe('resolveGuildConfig', () => {
       matchModRoleSource: 'env',
       leaderboardChannelId: undefined,
       leaderboardMessageId: undefined,
+      lobbyPlayerClaimEnabled: true,
     });
+  });
+
+  it('defaults player claim to on when no guild row exists', async () => {
+    findUnique.mockResolvedValue(null);
+    const resolved = await resolveGuildConfig('guild-1');
+    expect(resolved.lobbyPlayerClaimEnabled).toBe(true);
+  });
+
+  it('returns false when the guild disabled player claim', async () => {
+    findUnique.mockResolvedValue({
+      guildId: 'guild-1',
+      matchCreateRoleId: null,
+      matchModRoleId: null,
+      leaderboardChannelId: null,
+      leaderboardMessageId: null,
+      lobbyPlayerClaimEnabled: false,
+    });
+    const resolved = await resolveGuildConfig('guild-1');
+    expect(resolved.lobbyPlayerClaimEnabled).toBe(false);
   });
 
   it('uses database when fields are set and ignores env for those fields', async () => {
@@ -78,6 +99,7 @@ describe('resolveGuildConfig', () => {
     expect(resolved.matchModRoleSource).toBe('env');
     expect(resolved.leaderboardChannelId).toBe('chan-1');
     expect(resolved.leaderboardMessageId).toBe('msg-1');
+    expect(resolved.lobbyPlayerClaimEnabled).toBe(true);
   });
 
   it('reports unset when neither DB nor env provides a value', async () => {
@@ -128,6 +150,23 @@ describe('leaderboard channel config', () => {
         leaderboardChannelId: null,
         leaderboardMessageId: null,
       },
+    });
+  });
+});
+
+describe('setLobbyPlayerClaimEnabled', () => {
+  beforeEach(() => {
+    upsert.mockReset();
+    upsert.mockResolvedValue({});
+  });
+
+  it('upserts the player claim flag without clearing other fields', async () => {
+    await setLobbyPlayerClaimEnabled('guild-1', false);
+
+    expect(upsert).toHaveBeenCalledWith({
+      where: { guildId: 'guild-1' },
+      create: { guildId: 'guild-1', lobbyPlayerClaimEnabled: false },
+      update: { lobbyPlayerClaimEnabled: false },
     });
   });
 });
