@@ -22,20 +22,39 @@ variable "instance_type" {
   default     = "t3.micro"
 }
 
+variable "enable_ssh" {
+  description = "Open TCP/22. Prefer false with dynamic ISP IPs — use Session Manager instead."
+  type        = bool
+  default     = false
+}
+
 variable "ssh_cidr" {
-  description = "CIDR allowed to SSH (your public IP /32)"
+  description = "CIDR allowed to SSH when enable_ssh=true (e.g. YOUR_IP/32). Ignored when SSH is disabled."
   type        = string
+  default     = null
+  nullable    = true
 }
 
 variable "ssh_public_key" {
-  description = "SSH public key material (creates an EC2 key pair)"
+  description = "SSH public key (creates an EC2 key pair). Optional if enable_ssh=false (Session Manager only)."
   type        = string
+  default     = null
+  nullable    = true
 }
 
 variable "key_pair_name" {
-  description = "Name for the AWS key pair resource"
+  description = "Name for the AWS key pair resource (only used when ssh_public_key is set)"
   type        = string
   default     = "dbz-bot"
+}
+
+check "ssh_requires_cidr_and_key" {
+  assert {
+    condition = !var.enable_ssh || (
+      try(length(var.ssh_cidr) > 0, false) && try(length(var.ssh_public_key) > 0, false)
+    )
+    error_message = "When enable_ssh=true you must set ssh_cidr (e.g. x.x.x.x/32) and ssh_public_key."
+  }
 }
 
 variable "repo_url" {

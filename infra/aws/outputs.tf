@@ -3,12 +3,20 @@ output "instance_id" {
 }
 
 output "public_ip" {
-  description = "SSH target (Elastic IP when allocate_eip=true)"
+  description = "Public IP (Elastic IP when allocate_eip=true)"
   value       = var.allocate_eip ? aws_eip.bot[0].public_ip : aws_instance.bot.public_ip
 }
 
 output "ssh_command" {
-  value = "ssh -i <your-private-key.pem> ubuntu@${var.allocate_eip ? aws_eip.bot[0].public_ip : aws_instance.bot.public_ip}"
+  description = "Only useful when enable_ssh=true and a key pair was created"
+  value = var.enable_ssh && length(aws_key_pair.bot) > 0 ? (
+    "ssh -i <your-private-key> ubuntu@${var.allocate_eip ? aws_eip.bot[0].public_ip : aws_instance.bot.public_ip}"
+  ) : "SSH disabled — use session_manager_command"
+}
+
+output "session_manager_command" {
+  description = "Shell without inbound SSH (works with dynamic home ISP IPs)"
+  value       = "aws ssm start-session --target ${aws_instance.bot.id} --region ${var.aws_region}"
 }
 
 output "ssm_prefix" {

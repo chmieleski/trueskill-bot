@@ -25,6 +25,8 @@ data "aws_subnets" "default" {
 }
 
 resource "aws_key_pair" "bot" {
+  count = var.ssh_public_key != null && var.ssh_public_key != "" ? 1 : 0
+
   key_name   = var.key_pair_name
   public_key = var.ssh_public_key
 
@@ -33,15 +35,18 @@ resource "aws_key_pair" "bot" {
 
 resource "aws_security_group" "bot" {
   name        = "${local.name_prefix}-sg"
-  description = "SSH in; all egress for Discord / Supabase / Gemini"
+  description = "Optional SSH; all egress for Discord / Supabase / Gemini / SSM"
   vpc_id      = data.aws_vpc.default.id
 
-  ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [var.ssh_cidr]
+  dynamic "ingress" {
+    for_each = var.enable_ssh ? [1] : []
+    content {
+      description = "SSH"
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_blocks = [var.ssh_cidr]
+    }
   }
 
   egress {
@@ -60,7 +65,7 @@ resource "aws_security_group" "bot" {
 resource "aws_instance" "bot" {
   ami                    = data.aws_ssm_parameter.ubuntu_ami.value
   instance_type          = var.instance_type
-  key_name               = aws_key_pair.bot.key_name
+  key_name               = length(aws_key_pair.bot) > 0 ? aws_key_pair.bot[0].key_name : null
   subnet_id              = data.aws_subnets.default.ids[0]
   vpc_security_group_ids = [aws_security_group.bot.id]
   iam_instance_profile   = aws_iam_instance_profile.bot.name

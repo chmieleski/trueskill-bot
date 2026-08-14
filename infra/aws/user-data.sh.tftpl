@@ -22,6 +22,17 @@ apt-get update -y
 apt-get upgrade -y
 apt-get install -y curl git ca-certificates unzip
 
+echo "==> Ensuring Amazon SSM Agent (Session Manager)"
+if ! systemctl is-active --quiet snap.amazon-ssm-agent.amazon-ssm-agent.service \
+  && ! systemctl is-active --quiet amazon-ssm-agent; then
+  if command -v snap >/dev/null 2>&1; then
+    snap install amazon-ssm-agent --classic || true
+    systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service || true
+  fi
+  apt-get install -y amazon-ssm-agent 2>/dev/null || true
+  systemctl enable --now amazon-ssm-agent 2>/dev/null || true
+fi
+
 echo "==> Installing Node.js 22"
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y nodejs

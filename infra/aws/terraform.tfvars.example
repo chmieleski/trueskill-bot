@@ -7,9 +7,14 @@ project_name = "dbz-bot"
 environment  = "prod"
 
 instance_type = "t3.micro" # or "t2.micro" if t3.micro is unavailable in the AZ
-ssh_cidr      = "YOUR.PUBLIC.IP.ADDRESS/32"
-ssh_public_key = "ssh-ed25519 AAAA... your@email"
-key_pair_name  = "dbz-bot"
+
+# Dynamic home IP? Keep SSH off and use Session Manager (recommended):
+#   aws ssm start-session --target <instance_id>
+enable_ssh = false
+# ssh_cidr and ssh_public_key only needed if enable_ssh = true
+# ssh_cidr      = "203.0.113.45/32"
+# ssh_public_key = "ssh-ed25519 AAAA... comment"
+key_pair_name = "dbz-bot"
 
 # Public HTTPS clone URL, or private with PAT:
 # https://<token>@github.com/org/dbz-wc3-bot.git

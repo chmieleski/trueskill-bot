@@ -49,6 +49,12 @@ resource "aws_iam_role_policy" "bot_ssm" {
   policy = data.aws_iam_policy_document.bot_ssm.json
 }
 
+# Session Manager shell without inbound SSH (works with dynamic home IPs)
+resource "aws_iam_role_policy_attachment" "bot_ssm_core" {
+  role       = aws_iam_role.bot.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
 resource "aws_iam_instance_profile" "bot" {
   name = "${local.name_prefix}-ec2"
   role = aws_iam_role.bot.name
