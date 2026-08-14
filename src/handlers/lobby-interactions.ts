@@ -36,6 +36,7 @@ import { loadHeroCatalog } from '../services/hero-catalog.js';
 import { nickForDiscordId } from '../services/lobby-identity.js';
 import { resolveGuildConfig } from '../services/guild-config.js';
 import { MatchServiceError } from '../services/match-service.js';
+import { teamDisplayNameForSlot } from '../services/team-names.js';
 
 const log = createLogger('lobby');
 
@@ -91,7 +92,7 @@ function emptySlotSelectOptions(players: LobbyPlayer[]) {
       continue;
     }
 
-    const team = slot <= 6 ? 'Team A' : 'Team B';
+    const team = teamDisplayNameForSlot(slot);
     options.push({
       label: `Slot ${slot} (${team})`,
       value: String(slot),
@@ -111,7 +112,7 @@ function destinationSlotSelectOptions(players: LobbyPlayer[], fromSlot: number) 
       continue;
     }
 
-    const team = slot <= 6 ? 'Team A' : 'Team B';
+    const team = teamDisplayNameForSlot(slot);
     const occupant = bySlot.get(slot);
 
     if (occupant) {

@@ -17,6 +17,7 @@ import {
   type MatchWithPlayers,
 } from '../../services/match-service.js';
 import type { LobbyRatingPreview } from '../../services/rating-preview.js';
+import { teamDisplayName } from '../../services/team-names.js';
 
 const log = createLogger('match_cmd');
 
@@ -191,8 +192,8 @@ export const data = new SlashCommandBuilder()
           .setDescription('Winning team')
           .setRequired(true)
           .addChoices(
-            { name: 'Team A', value: 'A' },
-            { name: 'Team B', value: 'B' },
+            { name: teamDisplayName(1), value: 'A' },
+            { name: teamDisplayName(2), value: 'B' },
           ),
       )
       .addStringOption((option) =>
