@@ -51,7 +51,9 @@ First boot takes several minutes (apt, Node, `npm ci`, migrate, build).
 
 ## Update the bot later
 
-On the instance:
+Preferred: merge to `main` (see **CI/CD** below).
+
+On the instance (break-glass):
 
 ```bash
 sudo dbz-bot-update
@@ -63,6 +65,38 @@ After changing secrets in `terraform.tfvars`, run `tofu apply` (updates SSM), th
 sudo dbz-bot-refresh-env
 sudo systemctl restart dbz-bot
 ```
+
+## CI/CD (push to `main`)
+
+Pull requests run `npm test`. A push to `main` runs the same tests, then AWS SSM runs `deploy/aws/host-update.sh` on the EC2 host (pull, migrate, build, register slash commands, restart).
+
+### One-time setup
+
+1. Apply this stack so the GitHub OIDC role exists:
+
+   ```bash
+   cd infra/aws
+   tofu apply
+   ```
+
+2. Copy the `github_actions_role_arn` output.
+
+3. In the GitHub repo: **Settings → Secrets and variables → Actions**
+   - Secret `AWS_ROLE_ARN` = that ARN
+   - Optional variable `AWS_REGION` (default `us-east-1`)
+   - Optional variable `EC2_NAME_TAG` (default `dbz-bot-prod`)
+
+Do **not** put `DISCORD_TOKEN`, `DATABASE_URL`, or `GEMINI_API_KEY` in GitHub. The instance already reads those from SSM.
+
+Until `AWS_ROLE_ARN` is set, the Test job still runs; Deploy fails at OIDC.
+
+### Manual update (unchanged)
+
+```bash
+sudo dbz-bot-update
+```
+
+New instances use the repo script via that wrapper. The existing host keeps the old baked wrapper until recreate; GitHub Actions does not call it — it `git pull`s and runs `deploy/aws/host-update.sh` directly.
 
 ## Destroy
 
