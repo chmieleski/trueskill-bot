@@ -27,6 +27,8 @@ model League {
   leaderboardMessageId    String?
   leaderboardSize         Int      @default(10)
   lobbyPlayerClaimEnabled Boolean  @default(true)
+  rankResetEnabled        Boolean  @default(false)
+  rankResetCooldownDays   Int      @default(30)
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
@@ -35,6 +37,7 @@ model League {
   matches           Match[]
   ratings           PlayerRating[]
   heroRatings       PlayerHeroRating[]
+  rankResets        PlayerRankReset[]
   wc3statsSlotMaps  LeagueWc3statsSlotMap[]
 
   @@unique([guildId, gameId, name])
@@ -83,6 +86,7 @@ model Player {
   matches     MatchPlayer[]
   ratings     PlayerRating[]
   heroRatings PlayerHeroRating[]
+  rankResets  PlayerRankReset[]
 
   @@index([username])
   @@index([discordId])
@@ -133,6 +137,22 @@ model PlayerHeroRating {
   @@id([leagueId, playerId, heroId])
   @@index([leagueId, playerId])
   @@index([leagueId, heroId])
+}
+
+model PlayerRankReset {
+  id              String   @id @default(cuid())
+  leagueId        String
+  playerId        String
+  actorDiscordId  String
+  targetDiscordId String?
+  staffOverride   Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([leagueId, playerId, createdAt])
+  @@index([leagueId, createdAt])
 }
 
 // Match - up to 6v6 game session (unbalanced human fills allowed)
