@@ -4,9 +4,22 @@ import {
   buildHeroLeaderboardEmbed,
   buildLeaderboardPageButtons,
   buildOverallLeaderboardEmbed,
+  buildOverallLiveLeaderboardEmbeds,
   formatRankPrefix,
   parseLeaderboardPageCustomId,
 } from './leaderboard-embed.js';
+import type { OverallLeaderboardEntry } from './leaderboard.js';
+
+function fakeEntry(rank: number): OverallLeaderboardEntry {
+  return {
+    rank,
+    playerId: `p${rank}`,
+    username: `Player${rank}`,
+    ki: 1000 + rank,
+    games: rank,
+    discordId: null,
+  };
+}
 
 describe('formatRankPrefix', () => {
   it('uses medals for top 3', () => {
@@ -96,6 +109,50 @@ describe('buildLeaderboardPageButtons', () => {
     expect(buttons[0]?.data.disabled).toBe(true);
     expect(buttons[1]?.data.disabled).toBe(true);
     expect(buttons[0]?.data.custom_id).not.toBe(buttons[1]?.data.custom_id);
+  });
+});
+
+describe('buildOverallLiveLeaderboardEmbeds', () => {
+  const updatedAt = new Date('2026-08-15T12:00:00Z');
+  const unix = Math.floor(updatedAt.getTime() / 1000);
+
+  it('returns one embed for empty ladder with timestamp', () => {
+    const embeds = buildOverallLiveLeaderboardEmbeds([], updatedAt);
+    expect(embeds).toHaveLength(1);
+    expect(embeds[0]!.data.title).toBe('Global Leaderboard');
+    expect(embeds[0]!.data.description).toContain('No ranked players yet');
+    expect(embeds[0]!.data.description).toContain(`Updated <t:${unix}:R>`);
+  });
+
+  it('returns one embed for 25 or fewer entries', () => {
+    const embeds = buildOverallLiveLeaderboardEmbeds(
+      Array.from({ length: 10 }, (_, i) => fakeEntry(i + 1)),
+      updatedAt,
+    );
+    expect(embeds).toHaveLength(1);
+    expect(embeds[0]!.data.title).toBe('Global Leaderboard');
+    expect(embeds[0]!.data.description).toContain(`Updated <t:${unix}:R>`);
+  });
+
+  it('splits at 26 into two embeds; timestamp only on last', () => {
+    const embeds = buildOverallLiveLeaderboardEmbeds(
+      Array.from({ length: 26 }, (_, i) => fakeEntry(i + 1)),
+      updatedAt,
+    );
+    expect(embeds).toHaveLength(2);
+    expect(embeds[0]!.data.title).toBe('Global Leaderboard');
+    expect(embeds[1]!.data.title).toBe('Global Leaderboard (continued)');
+    expect(embeds[0]!.data.description).not.toContain('Updated <t:');
+    expect(embeds[1]!.data.description).toContain(`Updated <t:${unix}:R>`);
+  });
+
+  it('uses four embeds for 100 entries', () => {
+    const embeds = buildOverallLiveLeaderboardEmbeds(
+      Array.from({ length: 100 }, (_, i) => fakeEntry(i + 1)),
+      updatedAt,
+    );
+    expect(embeds).toHaveLength(4);
+    expect(embeds[3]!.data.description).toContain(`Updated <t:${unix}:R>`);
   });
 });
 
