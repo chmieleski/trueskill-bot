@@ -131,7 +131,10 @@ describe('handleMatchCorrectionInteraction', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     resolveGuildConfig.mockResolvedValue({ matchModRoleId: 'mod-role' });
-    flipCompletedMatch.mockResolvedValue({ id: 'match-1', leagueId: 'league-1', players: [] });
+    flipCompletedMatch.mockResolvedValue({
+      match: { id: 'match-1', leagueId: 'league-1', players: [] },
+      ratingPreview: { players: [] },
+    });
     voidCompletedMatch.mockResolvedValue({ id: 'match-1', leagueId: 'league-1', players: [] });
     parseMatchCorrectionButtonCustomId.mockImplementation((customId: string) => {
       if (!customId.startsWith('matchcorr:')) return null;
@@ -214,14 +217,12 @@ describe('handleMatchCorrectionInteraction', () => {
       memberRoleIds: ['mod-role'],
       matchModRoleId: 'mod-role',
     });
-    expect(flipCompletedMatch).toHaveBeenCalledWith('match-1', {
-      winningTeam: 1,
-      quitterSlots: [],
-    });
+    expect(flipCompletedMatch).toHaveBeenCalledWith('match-1', 1, []);
     expect(syncLobbyDiscordMessage).toHaveBeenCalledWith(
       interaction.client,
       { id: 'match-1', leagueId: 'league-1', players: [] },
       'completed',
+      { ratingPreview: { players: [] } },
     );
     expect(refreshLeagueLeaderboard).toHaveBeenCalledWith(interaction.client, 'league-1');
     expect(interaction.editReply).toHaveBeenCalledWith({

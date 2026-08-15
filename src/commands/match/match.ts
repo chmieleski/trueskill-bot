@@ -315,6 +315,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const match = await resolveCompletedMatchForModCorrection(interaction);
       const preview = await previewMatchCorrection(match.id);
 
+      if (!preview.canCorrect) {
+        await interaction.editReply({
+          content: preview.correctionBlockReason ?? 'This match cannot be corrected.',
+        });
+        return;
+      }
+
       const lines: string[] = [];
 
       if (subcommand === 'flip') {
@@ -331,7 +338,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         );
         if (preview.hasNewerMatches) {
           lines.push(
-            'Warning: some players have completed ranked matches since this one. Those later results will not be recalculated.',
+            'Warning: some players have completed ranked matches since this one. Restoring ratings will overwrite their current ki; those later matches will not be re-applied.',
           );
         }
         lines.push('This can only be done within 24 hours of completion.');
@@ -352,7 +359,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         );
         if (preview.hasNewerMatches) {
           lines.push(
-            'Warning: some players have completed ranked matches since this one. Those later results will not be recalculated.',
+            'Warning: some players have completed ranked matches since this one. Restoring ratings will overwrite their current ki; those later matches will not be re-applied.',
           );
         }
         lines.push('This can only be done within 24 hours of completion.');
