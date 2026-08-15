@@ -455,6 +455,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
       if (subcommand === 'wc3stats') {
         await clearGuildWc3statsPackage(interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, userId: interaction.user.id },
+          'wc3stats package cleared',
+        );
         await interaction.reply({
           content:
             'wc3stats import disabled. Map filter and slot mappings cleared for this server.',
