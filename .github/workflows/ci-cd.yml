@@ -82,20 +82,58 @@ jobs:
           INSTANCE_ID="${INSTANCE_IDS}"
           echo "Target instance: ${INSTANCE_ID}"
 
-          echo "==> Waiting for SSM agent Online"
+          echo "==> Waiting for SSM agent to accept commands"
+          SSM_OK=0
           for _ in $(seq 1 60); do
             PING="$(aws ssm describe-instance-information \
               --filters "Key=InstanceIds,Values=${INSTANCE_ID}" \
               --query 'InstanceInformationList[0].PingStatus' \
-              --output text 2>/dev/null || echo None)"
-            echo "SSM PingStatus=${PING}"
+              --output text 2>/dev/null || true)"
             if [[ "${PING}" == "Online" ]]; then
+              echo "SSM PingStatus=Online"
+              SSM_OK=1
               break
+            fi
+
+            # Fallback when DescribeInstanceInformation is denied / empty:
+            # a tiny RunShellScript proves the agent is reachable.
+            PROBE_ID="$(aws ssm send-command \
+              --instance-ids "${INSTANCE_ID}" \
+              --document-name AWS-RunShellScript \
+              --comment "dbz-bot ssm-probe ${GITHUB_SHA}" \
+              --timeout-seconds 30 \
+              --parameters commands='["echo ok"]' \
+              --query 'Command.CommandId' \
+              --output text 2>/dev/null || true)"
+            if [[ -n "${PROBE_ID}" && "${PROBE_ID}" != "None" ]]; then
+              for __ in $(seq 1 15); do
+                PSTATUS="$(aws ssm get-command-invocation \
+                  --command-id "${PROBE_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query 'Status' \
+                  --output text 2>/dev/null || echo Pending)"
+                case "${PSTATUS}" in
+                  Success)
+                    echo "SSM probe Success (PingStatus=${PING:-unknown})"
+                    SSM_OK=1
+                    break 2
+                    ;;
+                  Failed|Cancelled|TimedOut|Undeliverable)
+                    echo "SSM probe ${PSTATUS} (PingStatus=${PING:-unknown})"
+                    break
+                    ;;
+                  *)
+                    sleep 2
+                    ;;
+                esac
+              done
+            else
+              echo "SSM not ready yet (PingStatus=${PING:-unknown})"
             fi
             sleep 5
           done
-          if [[ "${PING}" != "Online" ]]; then
-            echo "SSM agent not Online for ${INSTANCE_ID}" >&2
+          if [[ "${SSM_OK}" -ne 1 ]]; then
+            echo "SSM agent not accepting commands for ${INSTANCE_ID}" >&2
             exit 1
           fi
 

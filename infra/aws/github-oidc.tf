@@ -77,6 +77,12 @@ data "aws_iam_policy_document" "gha_deploy" {
   }
 
   statement {
+    sid       = "DescribeInstanceInformation"
+    actions   = ["ssm:DescribeInstanceInformation"]
+    resources = ["*"]
+  }
+
+  statement {
     sid       = "DescribeInstancesForTagTarget"
     actions   = ["ec2:DescribeInstances"]
     resources = ["*"]
