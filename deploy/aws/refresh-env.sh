@@ -99,8 +99,9 @@ tmp="$(mktemp)"
 
 # Append any extra SSM keys not already written (forward-compat for new params).
 known=' DISCORD_TOKEN CLIENT_ID GUILD_ID DATABASE_URL DIRECT_URL GEMINI_API_KEY LOG_LEVEL MATCH_CREATE_ROLE_ID MATCH_MOD_ROLE_ID WC3STATS_TIMEOUT_MS '
+deprecated=' WC3STATS_ENABLED WC3STATS_MAP_PATTERN WC3STATS_MAP_SHA1 '
 for key in "${!PARAMS[@]}"; do
-  if [[ "$known" != *" $key "* ]]; then
+  if [[ "$known" != *" $key "* ]] && [[ "$deprecated" != *" $key "* ]]; then
     echo "${key}=${PARAMS[$key]}" >> "$tmp"
   fi
 done

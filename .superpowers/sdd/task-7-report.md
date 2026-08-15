@@ -42,3 +42,13 @@ Diff is scoped to deleting process-wide wc3stats env/SSM configuration and updat
 
 After Terraform apply, the removed SSM parameters may need manual cleanup if Terraform state no longer manages them. If still in state, `tofu apply` should destroy the removed `aws_ssm_parameter` resources.
 
+## Review fix: skip deprecated keys in forward-compat loop
+
+**Finding:** After removing `WC3STATS_ENABLED`, `WC3STATS_MAP_PATTERN`, and `WC3STATS_MAP_SHA1` from the `known` list, stale SSM parameters with those names would still be appended into host `.env` by the extra-key loop.
+
+**Change:** Added a `deprecated` space-padded list in `deploy/aws/refresh-env.sh`; the forward-compat loop skips keys present in either `known` or `deprecated`. `WC3STATS_TIMEOUT_MS` remains in `known` and is still written explicitly.
+
+**Verification:**
+- Read script — deprecated keys excluded from append loop; `WC3STATS_TIMEOUT_MS` unchanged
+- `bash -n deploy/aws/refresh-env.sh` — exit 0
+
