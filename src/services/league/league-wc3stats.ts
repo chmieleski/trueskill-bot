@@ -11,6 +11,7 @@ import {
   LIVE_LEADERBOARD_DEFAULT_SIZE,
   assertLiveLeaderboardSize,
 } from '../leaderboard/leaderboard.js';
+import { assertRankResetCooldownDays } from '../rating/rank-reset.js';
 
 /** All IHL settings stored on the League row. */
 export interface ResolvedLeagueConfig {
@@ -23,6 +24,8 @@ export interface ResolvedLeagueConfig {
   lobbyPlayerClaimEnabled: boolean;
   wc3statsHostPromptEnabled: boolean;
   wc3statsHostPromptChannelId: string | undefined;
+  rankResetEnabled: boolean;
+  rankResetCooldownDays: number;
 }
 
 /**
@@ -44,6 +47,9 @@ export async function resolveLeagueConfig(leagueId: string): Promise<ResolvedLea
     lobbyPlayerClaimEnabled: row?.lobbyPlayerClaimEnabled !== false,
     wc3statsHostPromptEnabled: row?.wc3statsHostPromptEnabled === true,
     wc3statsHostPromptChannelId: row?.wc3statsHostPromptChannelId?.trim() || undefined,
+    rankResetEnabled: row?.rankResetEnabled === true,
+    rankResetCooldownDays:
+      row?.rankResetCooldownDays != null ? row.rankResetCooldownDays : 30,
   };
 }
 
@@ -201,4 +207,35 @@ export async function setLeagueWc3statsHostPrompt(
  */
 export async function clearLeagueWc3statsHostPrompt(leagueId: string): Promise<void> {
   await setLeagueWc3statsHostPrompt(leagueId, { enabled: false });
+}
+
+/**
+ * Enable or disable rank reset for a league; optionally set cooldown days in the same update.
+ */
+export async function setLeagueRankResetEnabled(
+  leagueId: string,
+  enabled: boolean,
+  cooldownDays?: number,
+): Promise<void> {
+  const data: { rankResetEnabled: boolean; rankResetCooldownDays?: number } = {
+    rankResetEnabled: enabled,
+  };
+  if (cooldownDays !== undefined) {
+    data.rankResetCooldownDays = assertRankResetCooldownDays(cooldownDays);
+  }
+  await prisma.league.update({ where: { id: leagueId }, data });
+}
+
+/**
+ * Store the rank-reset cooldown (days) on the league.
+ */
+export async function setLeagueRankResetCooldownDays(
+  leagueId: string,
+  days: number,
+): Promise<void> {
+  const safe = assertRankResetCooldownDays(days);
+  await prisma.league.update({
+    where: { id: leagueId },
+    data: { rankResetCooldownDays: safe },
+  });
 }

@@ -12,6 +12,7 @@
 • `/config set leaderboard_channel` / `/leaderboard setup`
 • `/config clear leaderboard_channel`
 • `/config set leaderboard_size` / `/config clear leaderboard_size`
+• `/config set rank_reset` (optional `cooldown_days`) / `/config set rank_reset_cooldown`
 • `/config set wc3stats_map_preset` (UDBR)
 • `/config clear wc3stats`
 • `/config set|clear wc3stats_slot` / `wc3stats_map`
@@ -21,6 +22,7 @@
 • `/match complete|quitters|cancel` (+ `match_id`)
 • `/link nick: user:@…` (others + relink)
 • `/unlink user:@…`
+• `/rank_reset user:@…` (force reset another linked player; bypasses cooldown)
 
 **Create role**
 • `/register_lobby`

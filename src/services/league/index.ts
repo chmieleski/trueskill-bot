@@ -43,6 +43,8 @@ export {
   setLeagueLeaderboardChannel,
   setLeagueLeaderboardSize,
   setLeagueLobbyPlayerClaimEnabled,
+  setLeagueRankResetCooldownDays,
+  setLeagueRankResetEnabled,
   setLeagueWc3statsHostPrompt,
   type ResolvedLeagueConfig,
 } from './league-wc3stats.js';

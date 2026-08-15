@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import { MatchResult, MatchStatus } from '@prisma/client';
 import { predictWin } from 'openskill';
 import { listCatalogHeroIds } from '../guild/hero-catalog.js';
 import { prisma } from '../../lib/prisma.js';
@@ -26,7 +27,7 @@ const DEFAULT_SIGMA = 8.333;
 export interface LobbyRatingPlayerLine {
   slot: number;
   nick: string;
-  /** Display ki (OFFSET + SCALE × ordinal); field name kept for DTO stability. */
+  /** Display ki (OFFSET + SCALE × (μ − z·σ)); field name kept for DTO stability. */
   globalOrdinal: number;
   /** Display ki for the slot's hero. */
   heroOrdinal: number;
@@ -112,7 +113,7 @@ export async function loadPlayerKiBySlot(
   await ensurePlayerRatings(leagueId, sorted, db);
 
   const playerIds = sorted.map((entry) => entry.playerId);
-  const [globals, heroes] = await Promise.all([
+  const [globals, heroes, gameCounts] = await Promise.all([
     db.playerRating.findMany({
       where: { leagueId, playerId: { in: playerIds } },
     }),
@@ -125,9 +126,21 @@ export async function loadPlayerKiBySlot(
         })),
       },
     }),
+    db.matchPlayer.groupBy({
+      by: ['playerId'],
+      where: {
+        playerId: { in: playerIds },
+        match: { leagueId, status: MatchStatus.COMPLETED },
+        result: { in: [MatchResult.WIN, MatchResult.LOSS] },
+      },
+      _count: { _all: true },
+    }),
   ]);
 
   const globalByPlayer = new Map(globals.map((row) => [row.playerId, row]));
+  const gamesByPlayer = new Map(
+    gameCounts.map((row) => [row.playerId, row._count._all]),
+  );
   const heroKey = (playerId: string, heroId: number) => `${playerId}:${heroId}`;
   const heroByKey = new Map(
     heroes.map((row) => [heroKey(row.playerId, row.heroId), row]),
@@ -135,11 +148,13 @@ export async function loadPlayerKiBySlot(
 
   for (const entry of sorted) {
     const global = globalByPlayer.get(entry.playerId) ?? defaultMuSigma();
-    const hero =
-      heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultMuSigma();
+    const heroRow = heroByKey.get(heroKey(entry.playerId, entry.heroId));
+    const hero = heroRow ?? defaultMuSigma();
+    const globalGames = gamesByPlayer.get(entry.playerId) ?? 0;
+    const heroGames = heroRow?.matchesPlayed ?? 0;
     result.set(entry.slot, {
-      global: displayOrdinal(global.mu, global.sigma),
-      hero: displayOrdinal(hero.mu, hero.sigma),
+      global: displayOrdinal(global.mu, global.sigma, globalGames),
+      hero: displayOrdinal(hero.mu, hero.sigma, heroGames),
     });
   }
 
@@ -209,16 +224,28 @@ export async function loadLobbyRatingPreview(
     }
 
     const playerIds = sorted.map((entry) => entry.playerId);
-    const [globals, heroes] = await Promise.all([
+    const [globals, heroes, gameCounts] = await Promise.all([
       prisma.playerRating.findMany({
         where: { leagueId, playerId: { in: playerIds } },
       }),
       prisma.playerHeroRating.findMany({
         where: { leagueId, playerId: { in: playerIds } },
       }),
+      prisma.matchPlayer.groupBy({
+        by: ['playerId'],
+        where: {
+          playerId: { in: playerIds },
+          match: { leagueId, status: MatchStatus.COMPLETED },
+          result: { in: [MatchResult.WIN, MatchResult.LOSS] },
+        },
+        _count: { _all: true },
+      }),
     ]);
 
     const globalByPlayer = new Map(globals.map((row) => [row.playerId, row]));
+    const gamesByPlayer = new Map(
+      gameCounts.map((row) => [row.playerId, row._count._all]),
+    );
     const heroKey = (playerId: string, heroId: number) => `${playerId}:${heroId}`;
     const heroByKey = new Map(
       heroes.map((row) => [heroKey(row.playerId, row.heroId), row]),
@@ -226,13 +253,15 @@ export async function loadLobbyRatingPreview(
 
     const players: LobbyRatingPlayerLine[] = sorted.map((entry) => {
       const global = globalByPlayer.get(entry.playerId) ?? defaultMuSigma();
-      const hero =
-        heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultMuSigma();
+      const heroRow = heroByKey.get(heroKey(entry.playerId, entry.heroId));
+      const hero = heroRow ?? defaultMuSigma();
+      const globalGames = gamesByPlayer.get(entry.playerId) ?? 0;
+      const heroGames = heroRow?.matchesPlayed ?? 0;
       return {
         slot: entry.slot,
         nick: entry.nick,
-        globalOrdinal: displayOrdinal(global.mu, global.sigma),
-        heroOrdinal: displayOrdinal(hero.mu, hero.sigma),
+        globalOrdinal: displayOrdinal(global.mu, global.sigma, globalGames),
+        heroOrdinal: displayOrdinal(hero.mu, hero.sigma, heroGames),
         isQuitter: entry.isQuitter,
       };
     });

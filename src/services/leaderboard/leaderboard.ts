@@ -145,13 +145,16 @@ async function loadEligibleOverallRows(leagueId: string): Promise<OverallLeaderb
   );
 
   const sorted = ratings
-    .map((row) => ({
-      playerId: row.playerId,
-      username: row.player.username,
-      discordId: row.player.discordId,
-      ki: displayOrdinal(row.mu, row.sigma),
-      games: gamesByPlayer.get(row.playerId) ?? 0,
-    }))
+    .map((row) => {
+      const games = gamesByPlayer.get(row.playerId) ?? 0;
+      return {
+        playerId: row.playerId,
+        username: row.player.username,
+        discordId: row.player.discordId,
+        ki: displayOrdinal(row.mu, row.sigma, games),
+        games,
+      };
+    })
     .filter((row) => row.games >= 1)
     .sort((a, b) => b.ki - a.ki || a.username.localeCompare(b.username));
 
@@ -196,7 +199,7 @@ function mapHeroRatings(
     .map((row) => ({
       playerId: row.playerId,
       username: row.player.username,
-      ki: displayOrdinal(row.mu, row.sigma),
+      ki: displayOrdinal(row.mu, row.sigma, row.matchesPlayed),
       matchesPlayed: row.matchesPlayed,
     }))
     .sort((a, b) => b.ki - a.ki || a.username.localeCompare(b.username))

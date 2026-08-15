@@ -38,13 +38,21 @@ Compare Team A vs Team B to get P(win). After the match, OpenSkill updates μ/σ
 
 ## Public ki (leaderboard / embeds)
 
-Conservative OpenSkill ordinal is `μ − 3σ`. Public **ki** is display-only:
+Public **ki** is display-only (does not change OpenSkill `rate()`):
 
 ```text
-ki = round(1000 + 200 × (μ − 3σ))
+ki = round(1000 + 200 × (μ − z·σ))
 ```
 
-Cold start ≈ 1000; elite (μ≈40, σ≈1.5) ≈ 8000. Never display raw μ. DTO fields may still be named `*Ordinal` but hold display ki.
+Conservatism **z** blends over completed games for that rating entity (league-global = completed W/L count; hero = `matchesPlayed`):
+
+| Games | z |
+|------:|--:|
+| 0 | 3.0 |
+| 1…4 | linear 3 → 2.5 |
+| ≥5 | 2.5 |
+
+Cold start (0 games, z=3) ≈ 1000; after 5+ games the board is slightly less harsh (z=2.5). Elite (μ≈40, σ≈1.5, z=2.5) ≈ 8300. Never display raw μ. DTO fields may still be named `*Ordinal` but hold display ki.
 
 ## Edge cases
 
@@ -52,7 +60,8 @@ Cold start ≈ 1000; elite (μ≈40, σ≈1.5) ≈ 8000. Never display raw μ. D
 |------|------|
 | **Cold start (new hero)** | Missing `PlayerHeroRating` for `(leagueId, playerId, heroId)` → create defaults (μ 25, σ ≈ 8.333). League-global rating still enters the team array, so pairing is not tanked. Wins mostly raise the new hero’s μ; veteran league-global μ barely moves. |
 | **Asymmetric lobbies** | Fewer humans → lower `Σ μ`. Upset underfill gets maximized reward. Empty slots are absent entities, not zero-μ fillers. |
-| **Quitters** | `MatchPlayer.isQuitter` → N=1 OpenSkill synthetic loss (`rate` vs **peer** dummy that mirrors the quitter’s league-global+hero μ/σ) on both tables; excluded from match Bayesian `rate()`. A strong fixed dummy under-punishes display ki (expected loss). Host/mod may still complete remaining players or cancel (cancel applies quit penalties if flagged). |
+| **Quitters** | `MatchPlayer.isQuitter` → N=1 OpenSkill synthetic loss (`rate` vs **peer** dummy that mirrors the quitter’s league-global+hero μ/σ) on both tables; excluded from match Bayesian `rate()`. Hero `matchesPlayed` is **not** incremented (so hero display **z** may lag global after a quit LOSS). A strong fixed dummy under-punishes display ki (expected loss). Host/mod may still complete remaining players or cancel (cancel applies quit penalties if flagged). |
+| **Soft early ki (display z)** | See Public ki above. Global g = completed W/L count; hero g = `matchesPlayed`. Spec: `docs/superpowers/specs/2026-08-15-soft-early-ki-design.md`. |
 | **Multi-league same player** | Same `playerId` in league A and B — ratings are independent; always pass `leagueId` into `applyMatchRatings`, `ensurePlayerRatings`, leaderboard loaders, and rank profile. |
 
 ## Agent constraints

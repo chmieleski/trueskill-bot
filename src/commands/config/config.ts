@@ -16,6 +16,8 @@ import {
   resolveLeagueConfig,
   setLeagueLeaderboardSize,
   setLeagueLobbyPlayerClaimEnabled,
+  setLeagueRankResetCooldownDays,
+  setLeagueRankResetEnabled,
   setLeagueWc3statsHostPrompt,
 } from '../../services/league/league-wc3stats.js';
 import {
@@ -42,6 +44,7 @@ import {
   setupLiveLeaderboard,
 } from '../../services/leaderboard/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
+import { RankResetServiceError } from '../../services/rating/index.js';
 
 const log = createLogger('config_cmd');
 
@@ -70,6 +73,10 @@ function formatRoleLine(
 
 function formatPlayerClaimLine(enabled: boolean): string {
   return `**Player claim:** \`${enabled ? 'on' : 'off'}\``;
+}
+
+function formatRankResetLine(enabled: boolean, cooldownDays: number): string {
+  return `**Rank reset:** \`${enabled ? 'on' : 'off'}\` · cooldown \`${cooldownDays}d\``;
 }
 
 function formatWc3statsHostPromptLine(
@@ -189,6 +196,42 @@ export const data = new SlashCommandBuilder()
                 .setName('enabled')
                 .setDescription('On: players can claim/leave slots. Off: host seats only.')
                 .setRequired(true),
+            ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('rank_reset')
+            .setDescription('Enable or disable player rank reset for this league')
+            .addBooleanOption((option) =>
+              option
+                .setName('enabled')
+                .setDescription('On: linked players may use /rank_reset. Off: command rejected.')
+                .setRequired(true),
+            )
+            .addIntegerOption((option) =>
+              option
+                .setName('cooldown_days')
+                .setDescription('Days between self-resets (1–365); optional when toggling')
+                .setRequired(false)
+                .setMinValue(1)
+                .setMaxValue(365),
+            ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('rank_reset_cooldown')
+            .setDescription('Set the cooldown between player self rank resets')
+            .addIntegerOption((option) =>
+              option
+                .setName('days')
+                .setDescription('Days between self-resets (1–365)')
+                .setRequired(true)
+                .setMinValue(1)
+                .setMaxValue(365),
             ),
         ),
       )
@@ -399,6 +442,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
             leagueConfig.leaderboardSize,
           ),
           formatPlayerClaimLine(leagueConfig.lobbyPlayerClaimEnabled),
+          formatRankResetLine(
+            leagueConfig.rankResetEnabled,
+            leagueConfig.rankResetCooldownDays,
+          ),
           formatWc3statsEnabledLine(leagueConfig.wc3statsEnabled),
           ...formatWc3statsFilterLines(
             leagueConfig.wc3statsMapPattern,
@@ -458,6 +505,79 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           content: enabled
             ? 'Player slot claim enabled.'
             : 'Player slot claim disabled. Hosts can still add players by nick or Discord user.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'rank_reset') {
+        const leagueId = await requireLeagueId(interaction);
+        if (!leagueId) return;
+
+        const enabled = interaction.options.getBoolean('enabled', true);
+        const cooldownDays = interaction.options.getInteger('cooldown_days');
+        try {
+          await setLeagueRankResetEnabled(
+            leagueId,
+            enabled,
+            cooldownDays ?? undefined,
+          );
+        } catch (error) {
+          if (error instanceof RankResetServiceError) {
+            await interaction.reply({
+              content: error.message,
+              flags: MessageFlags.Ephemeral,
+            });
+            return;
+          }
+          throw error;
+        }
+
+        log.info(
+          {
+            guildId: interaction.guildId,
+            leagueId,
+            enabled,
+            cooldownDays,
+            userId: interaction.user.id,
+          },
+          'Rank reset setting updated',
+        );
+        const cooldownNote =
+          cooldownDays != null ? ` Cooldown set to \`${cooldownDays}\` days.` : '';
+        await interaction.reply({
+          content: enabled
+            ? `Rank reset enabled.${cooldownNote}`
+            : 'Rank reset disabled.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'rank_reset_cooldown') {
+        const leagueId = await requireLeagueId(interaction);
+        if (!leagueId) return;
+
+        const days = interaction.options.getInteger('days', true);
+        try {
+          await setLeagueRankResetCooldownDays(leagueId, days);
+        } catch (error) {
+          if (error instanceof RankResetServiceError) {
+            await interaction.reply({
+              content: error.message,
+              flags: MessageFlags.Ephemeral,
+            });
+            return;
+          }
+          throw error;
+        }
+
+        log.info(
+          { guildId: interaction.guildId, leagueId, days, userId: interaction.user.id },
+          'Rank reset cooldown updated',
+        );
+        await interaction.reply({
+          content: `Rank reset cooldown set to \`${days}\` days.`,
           flags: MessageFlags.Ephemeral,
         });
         return;
