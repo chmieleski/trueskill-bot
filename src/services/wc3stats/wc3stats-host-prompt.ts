@@ -113,13 +113,13 @@ export function buildHostPromptMessageContent(input: {
 }
 
 /**
- * Short public copy after the host dismisses the prompt.
+ * Ephemeral tip after the host dismisses (deletes) a prompt message.
  */
-export function buildHostPromptDismissedContent(input: {
-  lobbyName: string;
-  wc3statsId: number;
-}): string {
-  return `Host prompt for **${input.lobbyName}** (\`${input.wc3statsId}\`) dismissed.`;
+export function buildHostPromptDismissEphemeral(): string {
+  return (
+    'Prompt dismissed. To stop receiving these pings, run ' +
+    '`/settings set host_prompt_pings enabled:False`.'
+  );
 }
 
 /**

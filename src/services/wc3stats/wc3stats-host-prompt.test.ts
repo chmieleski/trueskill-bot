@@ -5,7 +5,7 @@ import { compileWc3statsMapConfig } from './wc3stats-map.js';
 import {
   buildHostPromptButtons,
   buildHostPromptCustomId,
-  buildHostPromptDismissedContent,
+  buildHostPromptDismissEphemeral,
   buildHostPromptMessageContent,
   filterGamelistForHostPrompt,
   parseHostPromptCustomId,
@@ -203,9 +203,9 @@ describe('host prompt message builders', () => {
     ]);
   });
 
-  it('builds a short dismissed state', () => {
-    expect(buildHostPromptDismissedContent({ lobbyName: 'X', wc3statsId: 9 })).toBe(
-      'Host prompt for **X** (`9`) dismissed.',
+  it('builds dismiss ephemeral tip', () => {
+    expect(buildHostPromptDismissEphemeral()).toContain(
+      '/settings set host_prompt_pings enabled:False',
     );
   });
 });

@@ -16,7 +16,7 @@ export {
 export {
   buildHostPromptButtons,
   buildHostPromptCustomId,
-  buildHostPromptDismissedContent,
+  buildHostPromptDismissEphemeral,
   buildHostPromptMessageContent,
   filterGamelistForHostPrompt,
   hostPromptDedupeKey,
