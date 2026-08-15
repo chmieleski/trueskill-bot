@@ -20,6 +20,8 @@ describe('match command data', () => {
       'quitters',
       'complete',
       'cancel',
+      'flip',
+      'void',
     ]);
   });
 });
