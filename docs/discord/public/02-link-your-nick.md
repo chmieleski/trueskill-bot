@@ -23,5 +23,12 @@ That’s it. Now Discord ↔ your WC3 nick are friends.
 • You can **Claim slot** / **Leave** (if the server allows it)
 • `/rank` finds you easily
 • Hosts can add you with your Discord user, not only your nick
+• Optional: servers may ping you when wc3stats finds your Warcraft lobby — turn that off with `/settings set host_prompt_pings`
+
+**Personal settings**
+```
+/settings view
+/settings set host_prompt_pings enabled:False
+```
 
 Tip: use the **exact** nick you use in Warcraft.

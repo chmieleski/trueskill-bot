@@ -13,3 +13,19 @@ export {
   UDBR_MAP_SHA1,
   UDBR_WC3STATS_SLOT_MAP,
 } from './wc3stats-slot-map.js';
+export {
+  buildHostPromptButtons,
+  buildHostPromptCustomId,
+  buildHostPromptDismissedContent,
+  buildHostPromptMessageContent,
+  filterGamelistForHostPrompt,
+  hostPromptDedupeKey,
+  parseHostPromptCustomId,
+} from './wc3stats-host-prompt.js';
+export {
+  clearHostPromptDedupeForTests,
+  rememberHostPromptKey,
+  runWc3statsHostPromptTick,
+  startWc3statsHostPromptScheduler,
+  stopWc3statsHostPromptScheduler,
+} from './wc3stats-host-prompt-poller.js';

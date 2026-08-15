@@ -7,6 +7,7 @@ import { registerCommands } from './handlers/register-commands.js';
 import { createLogger } from './lib/logger.js';
 import { stopMatchCleanupScheduler } from './services/match/index.js';
 import { stopLeaderboardRefreshScheduler } from './services/leaderboard/index.js';
+import { stopWc3statsHostPromptScheduler } from './services/wc3stats/index.js';
 
 const log = createLogger('bootstrap');
 
@@ -41,6 +42,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
 
   stopMatchCleanupScheduler();
   stopLeaderboardRefreshScheduler();
+  stopWc3statsHostPromptScheduler();
 
   if (client) {
     client.destroy();

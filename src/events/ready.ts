@@ -6,6 +6,7 @@ import {
   refreshAllLeaderboardChannels,
   scheduleLeaderboardRefresh,
 } from '../services/leaderboard/index.js';
+import { startWc3statsHostPromptScheduler } from '../services/wc3stats/index.js';
 
 const log = createLogger('ready');
 
@@ -20,4 +21,5 @@ export async function execute(client: Client<true>): Promise<void> {
     log.warn({ err: error }, 'Initial leaderboard refresh failed');
   });
   scheduleLeaderboardRefresh(client);
+  startWc3statsHostPromptScheduler(client);
 }

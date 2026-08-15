@@ -25,12 +25,14 @@ model League {
   wc3statsMapSha1         String?
   leaderboardChannelId    String?
   leaderboardMessageId    String?
-  leaderboardSize         Int      @default(10)
-  lobbyPlayerClaimEnabled Boolean  @default(true)
-  rankResetEnabled        Boolean  @default(false)
-  rankResetCooldownDays   Int      @default(30)
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  leaderboardSize               Int      @default(10)
+  lobbyPlayerClaimEnabled       Boolean  @default(true)
+  wc3statsHostPromptEnabled     Boolean  @default(false)
+  wc3statsHostPromptChannelId   String?
+  rankResetEnabled              Boolean  @default(false)
+  rankResetCooldownDays         Int      @default(30)
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
 
   game              Game                    @relation(fields: [gameId], references: [id])
   channelBindings   LeagueChannelBinding[]
@@ -78,15 +80,16 @@ enum LeagueBindingKind {
 // Player - Identified by username (Ghost Profile pattern)
 // Discord linking is optional - players can exist without Discord
 model Player {
-  id          String             @id @default(uuid())
-  username    String             @unique // Battletag/nick in-game (PRIMARY identifier)
-  discordId   String?            @unique // Optional - for account linking
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  matches     MatchPlayer[]
-  ratings     PlayerRating[]
-  heroRatings PlayerHeroRating[]
-  rankResets  PlayerRankReset[]
+  id                             String             @id @default(uuid())
+  username                       String             @unique // Battletag/nick in-game (PRIMARY identifier)
+  discordId                      String?            @unique // Optional - for account linking
+  wc3statsHostPromptPingsEnabled Boolean            @default(true)
+  createdAt                      DateTime           @default(now())
+  updatedAt                      DateTime           @updatedAt
+  matches                        MatchPlayer[]
+  ratings                        PlayerRating[]
+  heroRatings                    PlayerHeroRating[]
+  rankResets                     PlayerRankReset[]
 
   @@index([username])
   @@index([discordId])

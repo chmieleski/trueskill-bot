@@ -35,7 +35,9 @@ export {
   applyUdbrWc3statsPreset,
   clearLeagueLeaderboardChannel,
   clearLeagueLeaderboardSize,
+  clearLeagueWc3statsHostPrompt,
   clearLeagueWc3statsPackage,
+  isLeagueWc3statsHostPromptReady,
   isLeagueWc3statsImportReady,
   resolveLeagueConfig,
   setLeagueLeaderboardChannel,
@@ -43,5 +45,6 @@ export {
   setLeagueLobbyPlayerClaimEnabled,
   setLeagueRankResetCooldownDays,
   setLeagueRankResetEnabled,
+  setLeagueWc3statsHostPrompt,
   type ResolvedLeagueConfig,
 } from './league-wc3stats.js';

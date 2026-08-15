@@ -4,6 +4,8 @@
 • `/link nick:` — connect your WC3 nick
 • `/unlink` — disconnect yourself
 • `/rank` — your ki / look someone up
+• `/settings view` — personal prefs (e.g. host lobby pings)
+• `/settings set host_prompt_pings` — on/off pings when wc3stats finds your lobby
 
 **Lobby (create role)**
 • `/register_lobby` — open a lobby
