@@ -93,6 +93,13 @@ export function parseQuitterSlots(slotsRaw: string | null | undefined): number[]
   return [...slots].sort((a, b) => a - b);
 }
 
+/** Collect quitter slot numbers from a completed match roster. */
+export function quitterSlotsFromPlayers(
+  players: Array<{ slot: number; isQuitter: boolean }>,
+): number[] {
+  return players.filter((p) => p.isQuitter).map((p) => p.slot);
+}
+
 function parseWinner(winner: string): 1 | 2 {
   if (winner === 'A') {
     return 1;
@@ -336,7 +343,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
             matchId: match.id,
             actorDiscordId: interaction.user.id,
             winningTeam: winner,
-            quitterSlots: quitterSlots ?? match.players.filter((p) => p.result === 'QUIT').map((p) => p.slot),
+            quitterSlots: quitterSlots ?? quitterSlotsFromPlayers(match.players),
           }),
         });
       } else {

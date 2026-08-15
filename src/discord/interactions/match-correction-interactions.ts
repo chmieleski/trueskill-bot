@@ -11,7 +11,6 @@ import { refreshLeagueLeaderboard } from '../../services/leaderboard/index.js';
 import {
   assertHasMatchModRole,
   flipCompletedMatch,
-  getMatchById,
   MatchServiceError,
   parseMatchCorrectionButtonCustomId,
   buildMatchCorrectionConfirmCustomId,
