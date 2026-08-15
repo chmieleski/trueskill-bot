@@ -24,4 +24,10 @@ Your strength is shown as **ki**.
 
 Some servers also have a **live leaderboard** message that updates after matches.
 
+Some leagues offer a full rank reset when staff enable it:
+```
+/rank_reset
+```
+Resets your overall and hero ki for that league. A cooldown applies between self-resets. You cannot reset while you are in an active lobby or match.
+
 Remember: ki is a score, not a trophy case. Play, learn, climb.
