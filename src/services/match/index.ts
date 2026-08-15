@@ -10,6 +10,7 @@ export {
   cancelInProgressMatch,
   completeMatch,
   setQuitters,
+  type CompleteMatchResult,
 } from './match-report.js';
 export {
   assertCanCreateMatch,
@@ -18,3 +19,21 @@ export {
   hasMatchModRole,
 } from './match-auth.js';
 export { startMatchCleanupScheduler, stopMatchCleanupScheduler } from './match-cleanup.js';
+export {
+  CORRECTION_WINDOW_MS,
+  GLOBAL_SNAPSHOT_HERO_ID,
+  isWithinCorrectionWindow,
+  assertMatchCorrectable,
+  assertSnapshotsComplete,
+  hasNewerCompletedMatches,
+  restoreMatchRatingSnapshots,
+  previewMatchCorrection,
+  flipCompletedMatch,
+  voidCompletedMatch,
+  buildMatchCorrectionConfirmCustomId,
+  buildMatchCorrectionCancelCustomId,
+  parseMatchCorrectionButtonCustomId,
+  type MatchCorrectionPreview,
+  type MatchCorrectionConfirmInput,
+  type MatchCorrectionButtonParsed,
+} from './match-correction.js';
