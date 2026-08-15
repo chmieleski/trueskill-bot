@@ -25,6 +25,7 @@ This loads the built-in Z Fighters / Evil layout (referee unmapped).
 ```
 /config clear wc3stats_slot wc3_slot:0
 /config clear wc3stats_map
+/config clear wc3stats
 ```
 
 **Check**
@@ -33,4 +34,6 @@ This loads the built-in Z Fighters / Evil layout (referee unmapped).
 ```
 
 Hosts can also `/lobby sync` (or Refresh) to pull the live WC3 lobby when the feature is enabled.
-If imports keep failing, confirm wc3stats is enabled in the bot environment — that’s an ops setting, not `/config`.
+- Enable (and load UDBR defaults): `/config set wc3stats_map_preset preset:UDBR`
+- Full reset: `/config clear wc3stats`
+- Layout-only clear commands unchanged

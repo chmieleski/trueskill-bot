@@ -2,7 +2,9 @@ import { ChannelType, GuildMember, MessageFlags, SlashCommandBuilder } from 'dis
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import {
+  applyUdbrWc3statsPreset,
   assertCanConfigureBot,
+  clearGuildWc3statsPackage,
   resolveGuildConfig,
   setLobbyPlayerClaimEnabled,
   setMatchCreateRole,
@@ -17,7 +19,6 @@ import {
   parseWc3statsSlotMapEntries,
   replaceGuildWc3statsSlotMaps,
   setGuildWc3statsSlotMap,
-  UDBR_WC3STATS_SLOT_MAP,
 } from '../../services/wc3stats/index.js';
 import {
   clearLiveLeaderboard,
@@ -52,6 +53,22 @@ function formatRoleLine(
 
 function formatPlayerClaimLine(enabled: boolean): string {
   return `**Player claim:** \`${enabled ? 'on' : 'off'}\``;
+}
+
+function formatWc3statsEnabledLine(enabled: boolean): string {
+  return `**wc3stats import:** \`${enabled ? 'on' : 'off'}\``;
+}
+
+function formatWc3statsFilterLines(
+  pattern: string | undefined,
+  sha1: string[],
+): string[] {
+  return [
+    `**wc3stats map pattern:** ${pattern ? `\`${pattern}\`` : '`unset`'}`,
+    `**wc3stats map sha1:** ${
+      sha1.length > 0 ? sha1.map((s) => `\`${s}\``).join(', ') : '`unset`'
+    }`,
+  ];
 }
 
 function formatWc3statsMapSection(lines: string[]): string {
@@ -193,6 +210,11 @@ export const data = new SlashCommandBuilder()
         subcommand
           .setName('wc3stats_map')
           .setDescription('Remove all wc3stats→hero mappings for this server'),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('wc3stats')
+          .setDescription('Disable wc3stats import and clear filter + slot map for this server'),
       ),
   );
 
@@ -242,6 +264,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
             resolved.leaderboardMessageId,
           ),
           formatPlayerClaimLine(resolved.lobbyPlayerClaimEnabled),
+          formatWc3statsEnabledLine(resolved.wc3statsEnabled),
+          ...formatWc3statsFilterLines(
+            resolved.wc3statsMapPattern,
+            resolved.wc3statsMapSha1,
+          ),
           formatWc3statsMapSection(formatWc3statsSlotMapLines(slotMaps)),
         ].join('\n'),
         flags: MessageFlags.Ephemeral,
@@ -378,18 +405,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           return;
         }
 
-        await replaceGuildWc3statsSlotMaps(interaction.guildId, [...UDBR_WC3STATS_SLOT_MAP]);
+        await applyUdbrWc3statsPreset(interaction.guildId);
         log.info(
           { guildId: interaction.guildId, preset, userId: interaction.user.id },
-          'wc3stats slot map preset applied',
+          'wc3stats package preset applied',
         );
         await interaction.reply({
-          content: [
-            'Applied UDBR preset (colors `1 2 3 4 6 7 | 5 8 9 10 11 12` → heroes 1–12; Referee unmapped):',
-            ...formatWc3statsSlotMapLines(UDBR_WC3STATS_SLOT_MAP).map(
-              (line) => `• ${line}`,
-            ),
-          ].join('\n'),
+          content: 'Applied UDBR preset: import enabled, map filter set, slot layout applied.',
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -426,6 +448,16 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           content: removed
             ? `Cleared mapping for wc3stats slot \`${wc3Slot}\`.`
             : `No mapping found for wc3stats slot \`${wc3Slot}\`.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'wc3stats') {
+        await clearGuildWc3statsPackage(interaction.guildId);
+        await interaction.reply({
+          content:
+            'wc3stats import disabled. Map filter and slot mappings cleared for this server.',
           flags: MessageFlags.Ephemeral,
         });
         return;
