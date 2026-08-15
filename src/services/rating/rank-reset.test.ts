@@ -133,7 +133,7 @@ describe('rank-reset button custom IDs', () => {
       'discord-actor',
     );
 
-    expect(customId).toBe('rank_reset:confirm:league-1:player-1:discord-actor');
+    expect(customId).toBe('rr:c:league-1:player-1:discord-actor');
     expect(parseRankResetButtonCustomId(customId)).toEqual({
       action: 'confirm',
       leagueId: 'league-1',
@@ -149,7 +149,7 @@ describe('rank-reset button custom IDs', () => {
       'discord-actor',
     );
 
-    expect(customId).toBe('rank_reset:cancel:league-1:player-1:discord-actor');
+    expect(customId).toBe('rr:x:league-1:player-1:discord-actor');
     expect(parseRankResetButtonCustomId(customId)).toEqual({
       action: 'cancel',
       leagueId: 'league-1',
@@ -159,10 +159,12 @@ describe('rank-reset button custom IDs', () => {
   });
 
   it.each([
-    'rank_reset:approve:league-1:player-1:discord-actor',
-    'rank_reset:confirm:league-1:player-1',
-    'other:confirm:league-1:player-1:discord-actor',
-    'rank_reset:confirm::player-1:discord-actor',
+    'rr:approve:league-1:player-1:discord-actor',
+    'rr:c:league-1:player-1',
+    'other:c:league-1:player-1:discord-actor',
+    'rr:c::player-1:discord-actor',
+    'rank_reset:confirm:league-1:player-1:discord-actor',
+    'rank_reset:cancel:league-1:player-1:discord-actor',
   ])('returns null for invalid custom ID %s', (customId) => {
     expect(parseRankResetButtonCustomId(customId)).toBeNull();
   });

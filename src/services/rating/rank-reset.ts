@@ -6,7 +6,9 @@ export const RANK_RESET_COOLDOWN_MAX_DAYS = 365;
 export const RANK_RESET_COOLDOWN_DEFAULT_DAYS = 30;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const RANK_RESET_CUSTOM_ID_PREFIX = 'rank_reset';
+const RANK_RESET_CUSTOM_ID_PREFIX = 'rr';
+const RANK_RESET_CONFIRM_ACTION = 'c';
+const RANK_RESET_CANCEL_ACTION = 'x';
 
 export class RankResetServiceError extends Error {
   constructor(message: string) {
@@ -81,6 +83,24 @@ export function isRankResetCooldownElapsed(
   return now.getTime() >= nextRankResetAt(lastResetAt, cooldownDays).getTime();
 }
 
+function rankResetActionCode(action: RankResetButtonAction): string {
+  return action === 'confirm'
+    ? RANK_RESET_CONFIRM_ACTION
+    : RANK_RESET_CANCEL_ACTION;
+}
+
+function parseRankResetActionCode(
+  actionCode: string,
+): RankResetButtonAction | null {
+  if (actionCode === RANK_RESET_CONFIRM_ACTION) {
+    return 'confirm';
+  }
+  if (actionCode === RANK_RESET_CANCEL_ACTION) {
+    return 'cancel';
+  }
+  return null;
+}
+
 function buildRankResetButtonCustomId(
   action: RankResetButtonAction,
   leagueId: string,
@@ -89,7 +109,7 @@ function buildRankResetButtonCustomId(
 ): string {
   return [
     RANK_RESET_CUSTOM_ID_PREFIX,
-    action,
+    rankResetActionCode(action),
     leagueId,
     playerId,
     actorDiscordId,
@@ -123,11 +143,12 @@ export function buildRankResetCancelCustomId(
 export function parseRankResetButtonCustomId(
   customId: string,
 ): ParsedRankResetButtonCustomId | null {
-  const [prefix, action, leagueId, playerId, actorDiscordId, extra] =
+  const [prefix, actionCode, leagueId, playerId, actorDiscordId, extra] =
     customId.split(':');
+  const action = parseRankResetActionCode(actionCode ?? '');
   if (
     prefix !== RANK_RESET_CUSTOM_ID_PREFIX ||
-    (action !== 'confirm' && action !== 'cancel') ||
+    action === null ||
     !leagueId ||
     !playerId ||
     !actorDiscordId ||
