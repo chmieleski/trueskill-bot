@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { data, parseQuitterSlots } from './match.js';
+import { data, parseQuitterSlots, quitterSlotsFromPlayers } from './match.js';
 
 describe('parseQuitterSlots', () => {
   it('parses comma-separated slots and removes duplicates', () => {
@@ -8,6 +8,18 @@ describe('parseQuitterSlots', () => {
 
   it('returns an empty list for blank input', () => {
     expect(parseQuitterSlots('   ')).toEqual([]);
+  });
+});
+
+describe('quitterSlotsFromPlayers', () => {
+  it('preserves quitters via isQuitter when the option is omitted', () => {
+    expect(
+      quitterSlotsFromPlayers([
+        { slot: 1, isQuitter: true },
+        { slot: 3, isQuitter: false },
+        { slot: 7, isQuitter: true },
+      ]),
+    ).toEqual([1, 7]);
   });
 });
 
