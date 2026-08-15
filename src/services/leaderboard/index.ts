@@ -22,6 +22,7 @@ export {
 export {
   clearLiveLeaderboard,
   refreshAllLeaderboardChannels,
+  refreshLeagueLeaderboard,
   scheduleLeaderboardRefresh,
   setupLiveLeaderboard,
   stopLeaderboardRefreshScheduler,

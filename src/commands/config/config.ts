@@ -10,8 +10,10 @@ import {
 } from '../../services/guild/index.js';
 import {
   applyUdbrWc3statsPreset,
+  clearLeagueLeaderboardSize,
   clearLeagueWc3statsPackage,
   resolveLeagueConfig,
+  setLeagueLeaderboardSize,
   setLeagueLobbyPlayerClaimEnabled,
 } from '../../services/league/league-wc3stats.js';
 import {
@@ -33,6 +35,8 @@ import {
 } from '../../services/wc3stats/index.js';
 import {
   clearLiveLeaderboard,
+  LeaderboardServiceError,
+  refreshLeagueLeaderboard,
   setupLiveLeaderboard,
 } from '../../services/leaderboard/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
@@ -89,11 +93,12 @@ function formatWc3statsMapSection(lines: string[]): string {
 function formatLeaderboardLine(
   channelId: string | undefined,
   messageId: string | undefined,
+  size: number,
 ): string {
   if (!channelId || !messageId) {
-    return '**Live leaderboard:** `unset`';
+    return `**Live leaderboard:** \`unset\` · size \`${size}\``;
   }
-  return `**Live leaderboard:** <#${channelId}> · message \`${messageId}\``;
+  return `**Live leaderboard:** <#${channelId}> · message \`${messageId}\` · size \`${size}\``;
 }
 
 function formatLeagueLine(name: string | undefined): string {
@@ -144,6 +149,21 @@ export const data = new SlashCommandBuilder()
                 .setName('channel')
                 .setDescription('Channel where the live leaderboard message is posted')
                 .setRequired(true),
+            ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('leaderboard_size')
+            .setDescription('How many players appear on the live overall leaderboard')
+            .addIntegerOption((option) =>
+              option
+                .setName('size')
+                .setDescription('Number of ranks to show (10–100)')
+                .setRequired(true)
+                .setMinValue(10)
+                .setMaxValue(100),
             ),
         ),
       )
@@ -220,6 +240,13 @@ export const data = new SlashCommandBuilder()
           subcommand
             .setName('leaderboard_channel')
             .setDescription('Remove the live overall leaderboard message binding'),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('leaderboard_size')
+            .setDescription('Reset live leaderboard size to 10'),
         ),
       )
       .addSubcommand((subcommand) =>
@@ -331,6 +358,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           formatLeaderboardLine(
             leagueConfig.leaderboardChannelId,
             leagueConfig.leaderboardMessageId,
+            leagueConfig.leaderboardSize,
           ),
           formatPlayerClaimLine(leagueConfig.lobbyPlayerClaimEnabled),
           formatWc3statsEnabledLine(leagueConfig.wc3statsEnabled),
@@ -428,6 +456,36 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         return;
       }
 
+      if (subcommand === 'leaderboard_size') {
+        const leagueId = await requireLeagueId(interaction);
+        if (!leagueId) return;
+
+        const size = interaction.options.getInteger('size', true);
+        try {
+          await setLeagueLeaderboardSize(leagueId, size);
+        } catch (error) {
+          if (error instanceof LeaderboardServiceError) {
+            await interaction.reply({
+              content: error.message,
+              flags: MessageFlags.Ephemeral,
+            });
+            return;
+          }
+          throw error;
+        }
+
+        await refreshLeagueLeaderboard(interaction.client, leagueId);
+        log.info(
+          { guildId: interaction.guildId, leagueId, size, userId: interaction.user.id },
+          'Live leaderboard size updated',
+        );
+        await interaction.reply({
+          content: `Live leaderboard size set to \`${size}\`.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
       if (subcommand === 'wc3stats_slot') {
         const leagueId = await requireLeagueId(interaction);
         if (!leagueId) return;
@@ -506,6 +564,23 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         );
         await interaction.reply({
           content: 'Live overall leaderboard cleared.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'leaderboard_size') {
+        const leagueId = await requireLeagueId(interaction);
+        if (!leagueId) return;
+
+        await clearLeagueLeaderboardSize(leagueId);
+        await refreshLeagueLeaderboard(interaction.client, leagueId);
+        log.info(
+          { guildId: interaction.guildId, leagueId, userId: interaction.user.id },
+          'Live leaderboard size cleared',
+        );
+        await interaction.reply({
+          content: 'Live leaderboard size reset to `10`.',
           flags: MessageFlags.Ephemeral,
         });
         return;

@@ -40,6 +40,12 @@ or in the channel:
 ```
 Keep **only** that bot message in that channel.
 
+Optional size (default 10, max 100; Discord splits every 25 ranks into another embed):
+```
+/config set leaderboard_size size:50
+```
+Reset: `/config clear leaderboard_size`
+
 **See everything**
 ```
 /config view
