@@ -142,6 +142,17 @@ sudo dbz-bot-update
 
 New instances use the repo script via that wrapper. The existing host keeps the old baked wrapper until recreate; GitHub Actions does not call it — it `git pull`s and runs `deploy/aws/host-update.sh` directly.
 
+### After guild wc3stats config release
+
+wc3stats lobby import is **per Discord server** (`GuildConfig`), not process env. After merging/deploying that release:
+
+1. **Deploy app + run migration** — CI `host-update.sh` runs migrate on push to `main`; break-glass: `sudo dbz-bot-update`.
+2. **Enable import per guild** — in each server that needs wc3stats: `/config set wc3stats_map_preset preset:UDBR` (staff with Manage Guild). Default after deploy is **off** until this runs.
+3. **Drop legacy SSM keys** — remove `wc3stats_enabled`, `wc3stats_map_pattern`, and `wc3stats_map_sha1` from `terraform.tfvars` (if still present), then `tofu apply` so the three parameters leave state/SSM. Keep `wc3stats_timeout_ms`.
+4. **Refresh host env** — `sudo dbz-bot-refresh-env` (or the next deploy); `refresh-env.sh` no longer writes the removed keys. `WC3STATS_TIMEOUT_MS` stays.
+
+**Deferred (Part 2):** fat map presets (team names, hero catalogs, extra presets beyond UDBR) are out of scope for this slice — see `docs/superpowers/specs/2026-08-15-guild-wc3stats-config-design.md` (**Deferred — Part 2**).
+
 ## Destroy
 
 ```bash
