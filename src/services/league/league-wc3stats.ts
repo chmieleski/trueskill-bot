@@ -11,14 +11,7 @@ import {
   LIVE_LEADERBOARD_DEFAULT_SIZE,
   assertLiveLeaderboardSize,
 } from '../leaderboard/leaderboard.js';
-
-/** Task 2 replaces this with import from ../rating/rank-reset.js */
-function assertRankResetCooldownDays(days: number): number {
-  if (!Number.isInteger(days) || days < 1 || days > 365) {
-    throw new Error('Rank reset cooldown must be between 1 and 365 days.');
-  }
-  return days;
-}
+import { assertRankResetCooldownDays } from '../rating/rank-reset.js';
 
 /** All IHL settings stored on the League row. */
 export interface ResolvedLeagueConfig {
