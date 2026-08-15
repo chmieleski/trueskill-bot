@@ -80,30 +80,6 @@ resource "aws_ssm_parameter" "match_mod_role_id" {
   tags        = local.common_tags
 }
 
-resource "aws_ssm_parameter" "wc3stats_enabled" {
-  name        = "${local.ssm_prefix}/WC3STATS_ENABLED"
-  description = "Enable wc3stats lobby import"
-  type        = "String"
-  value       = var.wc3stats_enabled
-  tags        = local.common_tags
-}
-
-resource "aws_ssm_parameter" "wc3stats_map_pattern" {
-  name        = "${local.ssm_prefix}/WC3STATS_MAP_PATTERN"
-  description = "Regex allowlist for UDBR map names"
-  type        = "String"
-  value       = var.wc3stats_map_pattern == "" ? local.ssm_empty : var.wc3stats_map_pattern
-  tags        = local.common_tags
-}
-
-resource "aws_ssm_parameter" "wc3stats_map_sha1" {
-  name        = "${local.ssm_prefix}/WC3STATS_MAP_SHA1"
-  description = "Comma-separated map.sha1 allowlist from gamelist/{id}"
-  type        = "String"
-  value       = var.wc3stats_map_sha1 == "" ? local.ssm_empty : var.wc3stats_map_sha1
-  tags        = local.common_tags
-}
-
 resource "aws_ssm_parameter" "wc3stats_timeout_ms" {
   name        = "${local.ssm_prefix}/WC3STATS_TIMEOUT_MS"
   description = "wc3stats HTTP timeout in milliseconds"

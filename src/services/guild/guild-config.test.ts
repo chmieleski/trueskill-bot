@@ -53,8 +53,8 @@ import {
 } from './guild-config.js';
 import { MatchServiceError } from '../match/match-service.js';
 import {
-  UDBR_WC3STATS_MAP_PATTERN,
-  UDBR_WC3STATS_MAP_SHA1,
+  UDBR_MAP_PATTERN,
+  UDBR_MAP_SHA1,
   UDBR_WC3STATS_SLOT_MAP,
 } from '../wc3stats/wc3stats-slot-map.js';
 
@@ -202,13 +202,13 @@ describe('guild wc3stats package', () => {
       create: {
         guildId: 'guild-1',
         wc3statsEnabled: true,
-        wc3statsMapPattern: UDBR_WC3STATS_MAP_PATTERN,
-        wc3statsMapSha1: UDBR_WC3STATS_MAP_SHA1,
+        wc3statsMapPattern: UDBR_MAP_PATTERN,
+        wc3statsMapSha1: UDBR_MAP_SHA1,
       },
       update: {
         wc3statsEnabled: true,
-        wc3statsMapPattern: UDBR_WC3STATS_MAP_PATTERN,
-        wc3statsMapSha1: UDBR_WC3STATS_MAP_SHA1,
+        wc3statsMapPattern: UDBR_MAP_PATTERN,
+        wc3statsMapSha1: UDBR_MAP_SHA1,
       },
     });
     expect(replaceGuildWc3statsSlotMaps).toHaveBeenCalledWith('guild-1', [

@@ -10,8 +10,8 @@ import {
   clearAllGuildWc3statsSlotMaps,
   parseWc3statsMapSha1,
   replaceGuildWc3statsSlotMaps,
-  UDBR_WC3STATS_MAP_PATTERN,
-  UDBR_WC3STATS_MAP_SHA1,
+  UDBR_MAP_PATTERN,
+  UDBR_MAP_SHA1,
   UDBR_WC3STATS_SLOT_MAP,
 } from '../wc3stats/wc3stats-slot-map.js';
 
@@ -81,13 +81,13 @@ export async function applyUdbrWc3statsPreset(guildId: string): Promise<void> {
     create: {
       guildId,
       wc3statsEnabled: true,
-      wc3statsMapPattern: UDBR_WC3STATS_MAP_PATTERN,
-      wc3statsMapSha1: UDBR_WC3STATS_MAP_SHA1,
+      wc3statsMapPattern: UDBR_MAP_PATTERN,
+      wc3statsMapSha1: UDBR_MAP_SHA1,
     },
     update: {
       wc3statsEnabled: true,
-      wc3statsMapPattern: UDBR_WC3STATS_MAP_PATTERN,
-      wc3statsMapSha1: UDBR_WC3STATS_MAP_SHA1,
+      wc3statsMapPattern: UDBR_MAP_PATTERN,
+      wc3statsMapSha1: UDBR_MAP_SHA1,
     },
   });
   await replaceGuildWc3statsSlotMaps(guildId, [...UDBR_WC3STATS_SLOT_MAP]);

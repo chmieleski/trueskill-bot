@@ -37,11 +37,10 @@ export const UDBR_WC3STATS_SLOT_MAP: ReadonlyArray<GuildWc3statsSlotMapping> = [
 ];
 
 /** Regex source copied into GuildConfig by the UDBR preset (not a process env default). */
-export const UDBR_WC3STATS_MAP_PATTERN = 'ultimate.?dragon.?ball.?reborn|udbr';
+export const UDBR_MAP_PATTERN = 'ultimate.?dragon.?ball.?reborn|udbr';
 
 /** Comma-separated map.sha1 allowlist for UDBR 2.4f (gamelist detail, not list hash). */
-export const UDBR_WC3STATS_MAP_SHA1 =
-  '19783c6259e86253a8c940ede63a87e18204bd94';
+export const UDBR_MAP_SHA1 = '19783c6259e86253a8c940ede63a87e18204bd94';
 
 export function parseWc3statsMapSha1(raw: string | null | undefined): string[] {
   return (raw ?? '')

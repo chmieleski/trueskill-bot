@@ -6,8 +6,8 @@ import {
   parseWc3statsMapSha1,
   parseWc3statsSlotMapEntries,
   toWc3statsHeroSlotMap,
-  UDBR_WC3STATS_MAP_PATTERN,
-  UDBR_WC3STATS_MAP_SHA1,
+  UDBR_MAP_PATTERN,
+  UDBR_MAP_SHA1,
   UDBR_WC3STATS_SLOT_MAP,
 } from './wc3stats-slot-map.js';
 
@@ -68,9 +68,7 @@ describe('parseWc3statsMapSha1', () => {
 
 describe('UDBR filter constants', () => {
   it('matches the historical env defaults', () => {
-    expect(UDBR_WC3STATS_MAP_PATTERN).toBe('ultimate.?dragon.?ball.?reborn|udbr');
-    expect(UDBR_WC3STATS_MAP_SHA1).toBe(
-      '19783c6259e86253a8c940ede63a87e18204bd94',
-    );
+    expect(UDBR_MAP_PATTERN).toBe('ultimate.?dragon.?ball.?reborn|udbr');
+    expect(UDBR_MAP_SHA1).toBe('19783c6259e86253a8c940ede63a87e18204bd94');
   });
 });
