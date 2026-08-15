@@ -9,6 +9,68 @@ datasource db {
   provider = "postgresql"
 }
 
+model Game {
+  id          String   @id // e.g. "warcraft3_udbr"
+  displayName String
+  leagues     League[]
+}
+
+model League {
+  id                      String   @id @default(cuid())
+  guildId                 String
+  gameId                  String
+  name                    String
+  wc3statsEnabled         Boolean  @default(false)
+  wc3statsMapPattern      String?
+  wc3statsMapSha1         String?
+  leaderboardChannelId    String?
+  leaderboardMessageId    String?
+  lobbyPlayerClaimEnabled Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  game              Game                    @relation(fields: [gameId], references: [id])
+  channelBindings   LeagueChannelBinding[]
+  matches           Match[]
+  ratings           PlayerRating[]
+  heroRatings       PlayerHeroRating[]
+  wc3statsSlotMaps  LeagueWc3statsSlotMap[]
+
+  @@unique([guildId, gameId, name])
+  @@index([guildId])
+  @@index([gameId])
+}
+
+// LeagueWc3statsSlotMap - map wc3stats slots[] index → bot hero/slot (1-12) per league
+// Unmapped indices are skipped (e.g. Referee). Empty league map → legacy index+1 for 0-11.
+model LeagueWc3statsSlotMap {
+  leagueId     String
+  wc3statsSlot Int // 0-based index in wc3stats detail.slots
+  heroId       Int // 1-12 (lobby slot / hero id)
+
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+
+  @@id([leagueId, wc3statsSlot])
+  @@index([leagueId])
+  @@index([leagueId, heroId])
+}
+
+model LeagueChannelBinding {
+  leagueId  String
+  discordId String
+  kind      LeagueBindingKind
+
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+
+  @@id([discordId])
+  @@index([leagueId])
+}
+
+enum LeagueBindingKind {
+  CHANNEL
+  CATEGORY
+}
+
 // Player - Identified by username (Ghost Profile pattern)
 // Discord linking is optional - players can exist without Discord
 model Player {
@@ -25,15 +87,20 @@ model Player {
   @@index([discordId])
 }
 
-// PlayerRating - Global skill rating (OpenSkill μ/σ)
-// Separated for SRP - handles global rating only
+// PlayerRating - League-scoped skill rating (OpenSkill μ/σ)
+// PK is (leagueId, playerId) — ratings are isolated per league
 model PlayerRating {
-  playerId  String   @id
-  mu        Float    @default(25.0) // Skill estimate
-  sigma     Float    @default(8.333) // Uncertainty
+  leagueId  String
+  playerId  String
+  mu        Float    @default(25.0)
+  sigma     Float    @default(8.333)
   updatedAt DateTime @updatedAt
 
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@id([leagueId, playerId])
+  @@index([leagueId])
 }
 
 // Hero - 12 unique heroes tied to lobby slots (1-12). Managed in the database (no app seed).
@@ -46,23 +113,25 @@ model Hero {
   @@index([name])
 }
 
-// PlayerHeroRating - Hero-specific skill tracking (Cold Start solution)
-// Separated for SRP - handles hero-specific ratings only
+// PlayerHeroRating - League-scoped hero-specific skill tracking (Cold Start solution)
+// PK is (leagueId, playerId, heroId) — ratings are isolated per league
 model PlayerHeroRating {
+  leagueId      String
   playerId      String
   heroId        Int
-  mu            Float    @default(25.0) // Hero-specific skill (μ)
-  sigma         Float    @default(8.333) // Hero-specific uncertainty (σ)
+  mu            Float    @default(25.0)
+  sigma         Float    @default(8.333)
   matchesPlayed Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
   hero   Hero   @relation(fields: [heroId], references: [id], onDelete: Cascade)
 
-  @@id([playerId, heroId])
-  @@index([playerId])
-  @@index([heroId])
+  @@id([leagueId, playerId, heroId])
+  @@index([leagueId, playerId])
+  @@index([leagueId, heroId])
 }
 
 // Match - up to 6v6 game session (unbalanced human fills allowed)
@@ -73,8 +142,10 @@ model Match {
   discordChannelId String
   discordMessageId String?       @unique
   wc3statsGameId   String?
+  leagueId         String
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
+  league           League        @relation(fields: [leagueId], references: [id], onDelete: Restrict)
   players          MatchPlayer[]
 
   @@index([status])
@@ -82,6 +153,8 @@ model Match {
   @@index([status, createdAt])
   @@index([hostDiscordId])
   @@index([wc3statsGameId])
+  @@index([leagueId, status])
+  @@index([leagueId, wc3statsGameId])
 }
 
 // MatchPlayer - Player participation in a match
@@ -115,32 +188,11 @@ enum MatchResult {
   DRAW // Not used in game mechanics, kept for future flexibility
 }
 
-// GuildConfig - per-server bot settings (roles first; more keys later)
+// GuildConfig - per-server bot settings (role overrides only; IHL fields moved to League)
 model GuildConfig {
-  guildId                 String                 @id
-  matchCreateRoleId       String?
-  matchModRoleId          String?
-  leaderboardChannelId    String?
-  leaderboardMessageId    String?
-  lobbyPlayerClaimEnabled Boolean                @default(true)
-  wc3statsEnabled         Boolean                @default(false)
-  wc3statsMapPattern      String?
-  wc3statsMapSha1         String?
-  createdAt               DateTime               @default(now())
-  updatedAt               DateTime               @updatedAt
-  wc3statsSlotMaps        GuildWc3statsSlotMap[]
-}
-
-// GuildWc3statsSlotMap - map wc3stats slots[] index → bot hero/slot (1-12)
-// Unmapped indices are skipped (e.g. Referee). Empty guild map → legacy index+1 for 0-11.
-model GuildWc3statsSlotMap {
-  guildId      String
-  wc3statsSlot Int // 0-based index in wc3stats detail.slots
-  heroId       Int // 1-12 (lobby slot / hero id)
-
-  guild GuildConfig @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
-
-  @@id([guildId, wc3statsSlot])
-  @@index([guildId])
-  @@index([guildId, heroId])
+  guildId           String   @id
+  matchCreateRoleId String?
+  matchModRoleId    String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }

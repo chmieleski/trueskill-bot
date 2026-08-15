@@ -1,9 +1,9 @@
 import type { Client } from 'discord.js';
 import {
-  isGuildWc3statsImportReady,
-  resolveGuildConfig,
-  type ResolvedGuildConfig,
-} from '../guild/guild-config.js';
+  isLeagueWc3statsImportReady,
+  resolveLeagueConfig,
+  type ResolvedLeagueConfig,
+} from '../league/league-wc3stats.js';
 import { assertCanManageMatch } from '../match/match-auth.js';
 import {
   getMatchByDiscordMessageId,
@@ -19,8 +19,8 @@ import {
   type ImportWc3statsLobbyResult,
 } from '../wc3stats/wc3stats-resolve.js';
 import { applyWc3statsRefresh } from '../wc3stats/wc3stats-roster.js';
-import { loadGuildWc3statsHeroSlotMap } from '../wc3stats/wc3stats-slot-map.js';
-import { guildIdFromChannel, syncLobbyDiscordMessage, type LobbyActionResult } from './discord-sync.js';
+import { loadLeagueWc3statsHeroSlotMap } from '../wc3stats/wc3stats-slot-map.js';
+import { syncLobbyDiscordMessage, type LobbyActionResult } from './discord-sync.js';
 import { nickForDiscordId } from './lobby-identity.js';
 
 const NOT_FOUND_MESSAGE = 'This match lobby was not found. Run /register_lobby again.';
@@ -59,14 +59,9 @@ function refreshResultMessage(input: {
 
 type SuccessfulWc3statsImport = Extract<ImportWc3statsLobbyResult, { ok: true }>;
 
-async function assertWc3statsImportReady(
-  guildId: string | null | undefined,
-): Promise<ResolvedGuildConfig> {
-  if (!guildId) {
-    throw new MatchServiceError(WC3STATS_IMPORT_DISABLED_MESSAGE);
-  }
-  const resolved = await resolveGuildConfig(guildId);
-  if (!isGuildWc3statsImportReady(resolved)) {
+async function assertWc3statsImportReady(leagueId: string): Promise<ResolvedLeagueConfig> {
+  const resolved = await resolveLeagueConfig(leagueId);
+  if (!isLeagueWc3statsImportReady(resolved)) {
     throw new MatchServiceError(WC3STATS_IMPORT_DISABLED_MESSAGE);
   }
   return resolved;
@@ -75,21 +70,20 @@ async function assertWc3statsImportReady(
 async function importAndMaybeLinkWc3stats(input: {
   match: MatchWithPlayers;
   wc3statsId?: number | null;
-  guildId?: string | null;
-  guildConfig: ResolvedGuildConfig;
+  leagueConfig: ResolvedLeagueConfig;
 }): Promise<{ match: MatchWithPlayers; imported: SuccessfulWc3statsImport; boundNow: boolean }> {
   const explicitId = input.wc3statsId ?? null;
   const storedId = input.match.wc3statsGameId?.trim() || null;
   let boundNow = false;
   let working = input.match;
-  const slotMap = input.guildId ? await loadGuildWc3statsHeroSlotMap(input.guildId) : null;
+  const slotMap = await loadLeagueWc3statsHeroSlotMap(input.match.leagueId);
 
   if (explicitId) {
     const imported = await importWc3statsLobby({
       wc3statsId: explicitId,
       slotMap,
-      mapPattern: input.guildConfig.wc3statsMapPattern!,
-      mapSha1: input.guildConfig.wc3statsMapSha1,
+      mapPattern: input.leagueConfig.wc3statsMapPattern!,
+      mapSha1: input.leagueConfig.wc3statsMapSha1,
     });
     if (!imported.ok) {
       throw new MatchServiceError(imported.message);
@@ -112,8 +106,8 @@ async function importAndMaybeLinkWc3stats(input: {
     const imported = await importWc3statsLobby({
       wc3statsId,
       slotMap,
-      mapPattern: input.guildConfig.wc3statsMapPattern!,
-      mapSha1: input.guildConfig.wc3statsMapSha1,
+      mapPattern: input.leagueConfig.wc3statsMapPattern!,
+      mapSha1: input.leagueConfig.wc3statsMapSha1,
     });
     if (!imported.ok) {
       throw new MatchServiceError(imported.message);
@@ -127,8 +121,8 @@ async function importAndMaybeLinkWc3stats(input: {
     hostNick,
     requireNickInLobby: true,
     slotMap,
-    mapPattern: input.guildConfig.wc3statsMapPattern!,
-    mapSha1: input.guildConfig.wc3statsMapSha1,
+    mapPattern: input.leagueConfig.wc3statsMapPattern!,
+    mapSha1: input.leagueConfig.wc3statsMapSha1,
   });
   if (!imported.ok) {
     throw new MatchServiceError(imported.message);
@@ -175,16 +169,8 @@ export async function refreshLobbyFromWc3stats(input: {
 
   const explicitId = input.wc3statsId ?? null;
   const storedId = match.wc3statsGameId?.trim() || null;
-  let guildId = input.guildId?.trim() || null;
-  if (!guildId && match.discordChannelId) {
-    try {
-      const channel = await input.client.channels.fetch(match.discordChannelId);
-      guildId = guildIdFromChannel(channel ?? {}) ?? null;
-    } catch {
-      guildId = null;
-    }
-  }
-  const guildConfig = await assertWc3statsImportReady(guildId);
+
+  const leagueConfig = await assertWc3statsImportReady(match.leagueId);
 
   if (!explicitId && !storedId) {
     await nickForDiscordId(match.hostDiscordId);
@@ -199,8 +185,7 @@ export async function refreshLobbyFromWc3stats(input: {
   const { match: linked, imported, boundNow } = await importAndMaybeLinkWc3stats({
     match,
     wc3statsId: input.wc3statsId,
-    guildId,
-    guildConfig,
+    leagueConfig,
   });
 
   const current = matchToLobbyPlayers(linked);

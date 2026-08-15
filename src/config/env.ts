@@ -13,7 +13,8 @@ const LOG_LEVELS = new Set([
 interface EnvConfig {
   discordToken: string;
   clientId: string;
-  guildId: string;
+  /** Discord guild ID for guild-scoped command deploy. Empty = global deploy. */
+  guildId: string | undefined;
   isDev: boolean;
   autoDeployCommands: boolean;
   databaseUrl: string;
@@ -64,7 +65,7 @@ function requireEnv(name: string): string {
 export const env: EnvConfig = {
   discordToken: requireEnv('DISCORD_TOKEN'),
   clientId: requireEnv('CLIENT_ID'),
-  guildId: requireEnv('GUILD_ID'),
+  guildId: process.env.GUILD_ID?.trim() || undefined,
   isDev: process.env.NODE_ENV !== 'production',
   autoDeployCommands: parseBoolean(process.env.AUTO_DEPLOY_COMMANDS, process.env.NODE_ENV !== 'production'),
   databaseUrl: requireEnv('DATABASE_URL'),

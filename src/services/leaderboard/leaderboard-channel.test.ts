@@ -1,20 +1,22 @@
 import { describe, expect, it, vi } from 'vitest';
 
-const { findUnique, findMany, upsert } = vi.hoisted(() => ({
-  findUnique: vi.fn(),
-  findMany: vi.fn(),
-  upsert: vi.fn(),
+const { leagueFindUnique, leagueFindMany } = vi.hoisted(() => ({
+  leagueFindUnique: vi.fn(),
+  leagueFindMany: vi.fn(),
 }));
 
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
-    guildConfig: { findUnique, findMany, upsert },
+    league: {
+      findUnique: leagueFindUnique,
+      findMany: leagueFindMany,
+    },
   },
 }));
 
-vi.mock('../guild/guild-config.js', () => ({
-  setLeaderboardChannel: vi.fn(),
-  clearLeaderboardChannel: vi.fn(),
+vi.mock('../league/league-wc3stats.js', () => ({
+  setLeagueLeaderboardChannel: vi.fn(),
+  clearLeagueLeaderboardChannel: vi.fn(),
 }));
 
 vi.mock('./leaderboard.js', () => ({
@@ -22,13 +24,23 @@ vi.mock('./leaderboard.js', () => ({
   LIVE_LEADERBOARD_SIZE: 10,
 }));
 
-import { refreshGuildLeaderboard } from './leaderboard-channel.js';
+import { refreshLeagueLeaderboard } from './leaderboard-channel.js';
 
-describe('refreshGuildLeaderboard', () => {
-  it('skips when config is incomplete', async () => {
-    findUnique.mockResolvedValue({ guildId: 'g1', leaderboardChannelId: null });
+describe('refreshLeagueLeaderboard', () => {
+  it('skips when league has no leaderboard channel', async () => {
+    leagueFindUnique.mockResolvedValue({ leaderboardChannelId: null, leaderboardMessageId: null });
     const client = { channels: { fetch: vi.fn() } } as never;
-    await refreshGuildLeaderboard(client, 'g1');
+    await refreshLeagueLeaderboard(client, 'league-1');
+    expect(client.channels.fetch).not.toHaveBeenCalled();
+  });
+
+  it('skips channel fetch when message id is missing', async () => {
+    leagueFindUnique.mockResolvedValue({
+      leaderboardChannelId: 'channel-1',
+      leaderboardMessageId: null,
+    });
+    const client = { channels: { fetch: vi.fn() } } as never;
+    await refreshLeagueLeaderboard(client, 'league-1');
     expect(client.channels.fetch).not.toHaveBeenCalled();
   });
 });

@@ -131,29 +131,31 @@ export function buildLeaderboardPageCustomId(
   invokerId: string,
   direction: 'prev' | 'next',
   currentPage: number,
+  leagueId: string,
 ): string {
-  return `leaderboard:page:${invokerId}:${direction}:${currentPage}`;
+  return `leaderboard:page:${invokerId}:${direction}:${currentPage}:${leagueId}`;
 }
 
 export function parseLeaderboardPageCustomId(
   customId: string,
-): { invokerId: string; page: number } | null {
+): { invokerId: string; page: number; leagueId: string } | null {
   const parts = customId.split(':');
-  if (parts.length !== 5 || parts[0] !== 'leaderboard' || parts[1] !== 'page') {
+  if (parts.length !== 6 || parts[0] !== 'leaderboard' || parts[1] !== 'page') {
     return null;
   }
 
   const direction = parts[3];
   const currentPage = Number.parseInt(parts[4]!, 10);
-  if (!Number.isFinite(currentPage) || currentPage < 1) {
+  const leagueId = parts[5]!;
+  if (!Number.isFinite(currentPage) || currentPage < 1 || !leagueId) {
     return null;
   }
 
   if (direction === 'prev') {
-    return { invokerId: parts[2]!, page: currentPage - 1 };
+    return { invokerId: parts[2]!, page: currentPage - 1, leagueId };
   }
   if (direction === 'next') {
-    return { invokerId: parts[2]!, page: currentPage + 1 };
+    return { invokerId: parts[2]!, page: currentPage + 1, leagueId };
   }
 
   return null;
@@ -161,6 +163,7 @@ export function parseLeaderboardPageCustomId(
 
 export function buildLeaderboardPageButtons(input: {
   invokerId: string;
+  leagueId: string;
   page: number;
   totalPages: number;
 }): ActionRowBuilder<ButtonBuilder>[] {
@@ -170,12 +173,12 @@ export function buildLeaderboardPageButtons(input: {
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(buildLeaderboardPageCustomId(input.invokerId, 'prev', input.page))
+      .setCustomId(buildLeaderboardPageCustomId(input.invokerId, 'prev', input.page, input.leagueId))
       .setLabel('Previous')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(input.page <= 1),
     new ButtonBuilder()
-      .setCustomId(buildLeaderboardPageCustomId(input.invokerId, 'next', input.page))
+      .setCustomId(buildLeaderboardPageCustomId(input.invokerId, 'next', input.page, input.leagueId))
       .setLabel('Next')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(input.page >= input.totalPages),

@@ -403,7 +403,7 @@ async function handleClaim(interaction: ButtonInteraction): Promise<void> {
   }
 
   try {
-    await assertLobbyPlayerClaimEnabled(guildId);
+    await assertLobbyPlayerClaimEnabled(result.match.leagueId);
     const nick = await nickForDiscordId(interaction.user.id);
     const existing = result.players.find((player) => player.nick === nick);
 

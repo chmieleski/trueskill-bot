@@ -1,24 +1,35 @@
 import { ChannelType, GuildMember, MessageFlags, SlashCommandBuilder } from 'discord.js';
-import type { ChatInputCommandInteraction } from 'discord.js';
+import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import {
-  applyUdbrWc3statsPreset,
   assertCanConfigureBot,
-  clearGuildWc3statsPackage,
   resolveGuildConfig,
-  setLobbyPlayerClaimEnabled,
   setMatchCreateRole,
   setMatchModRole,
   type RoleConfigSource,
 } from '../../services/guild/index.js';
 import {
-  clearAllGuildWc3statsSlotMaps,
-  clearGuildWc3statsSlotMap,
+  applyUdbrWc3statsPreset,
+  clearLeagueWc3statsPackage,
+  resolveLeagueConfig,
+  setLeagueLobbyPlayerClaimEnabled,
+} from '../../services/league/league-wc3stats.js';
+import {
+  getLeagueOption,
+  leagueResolveFailureMessage,
+  resolveLeagueFromInteraction,
+  resolveLeagueIdFromInteraction,
+  respondLeagueAutocomplete,
+  withSubcommandLeagueOption,
+} from '../../services/league/index.js';
+import {
+  clearAllLeagueWc3statsSlotMaps,
+  clearLeagueWc3statsSlotMap,
   formatWc3statsSlotMapLines,
-  listGuildWc3statsSlotMaps,
+  listLeagueWc3statsSlotMaps,
   parseWc3statsSlotMapEntries,
-  replaceGuildWc3statsSlotMaps,
-  setGuildWc3statsSlotMap,
+  replaceLeagueWc3statsSlotMaps,
+  setLeagueWc3statsSlotMap,
 } from '../../services/wc3stats/index.js';
 import {
   clearLiveLeaderboard,
@@ -85,11 +96,17 @@ function formatLeaderboardLine(
   return `**Live leaderboard:** <#${channelId}> · message \`${messageId}\``;
 }
 
+function formatLeagueLine(name: string | undefined): string {
+  return `**League:** ${name ? `\`${name}\`` : '`unset`'}`;
+}
+
 export const data = new SlashCommandBuilder()
   .setName('config')
   .setDescription('View or set bot configuration for this server')
   .addSubcommand((subcommand) =>
-    subcommand.setName('view').setDescription('Show bot settings for this server'),
+    withSubcommandLeagueOption(
+      subcommand.setName('view').setDescription('Show bot settings for this server'),
+    ),
   )
   .addSubcommandGroup((group) =>
     group
@@ -118,70 +135,80 @@ export const data = new SlashCommandBuilder()
           ),
       )
       .addSubcommand((subcommand) =>
-        subcommand
-          .setName('leaderboard_channel')
-          .setDescription('Set the channel for the live overall leaderboard message')
-          .addChannelOption((option) =>
-            option
-              .setName('channel')
-              .setDescription('Channel where the live leaderboard message is posted')
-              .setRequired(true),
-          ),
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('leaderboard_channel')
+            .setDescription('Set the channel for the live overall leaderboard message')
+            .addChannelOption((option) =>
+              option
+                .setName('channel')
+                .setDescription('Channel where the live leaderboard message is posted')
+                .setRequired(true),
+            ),
+        ),
       )
       .addSubcommand((subcommand) =>
-        subcommand
-          .setName('player_claim')
-          .setDescription('Allow linked players to claim a lobby slot')
-          .addBooleanOption((option) =>
-            option
-              .setName('enabled')
-              .setDescription('On: players can claim/leave slots. Off: host seats only.')
-              .setRequired(true),
-          ),
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('player_claim')
+            .setDescription('Allow linked players to claim a lobby slot')
+            .addBooleanOption((option) =>
+              option
+                .setName('enabled')
+                .setDescription('On: players can claim/leave slots. Off: host seats only.')
+                .setRequired(true),
+            ),
+        ),
       )
       .addSubcommand((subcommand) =>
-        subcommand
-          .setName('wc3stats_slot')
-          .setDescription('Map one wc3stats slot index to a hero/lobby slot')
-          .addIntegerOption((option) =>
-            option
-              .setName('wc3_slot')
-              .setDescription('0-based index in wc3stats slots[] (classic color order)')
-              .setRequired(true)
-              .setMinValue(0)
-              .setMaxValue(23),
-          )
-          .addIntegerOption((option) =>
-            option
-              .setName('hero_slot')
-              .setDescription('Bot hero/lobby slot (1-12)')
-              .setRequired(true)
-              .setMinValue(1)
-              .setMaxValue(12),
-          ),
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('wc3stats_slot')
+            .setDescription('Map one wc3stats slot index to a hero/lobby slot')
+            .addIntegerOption((option) =>
+              option
+                .setName('wc3_slot')
+                .setDescription('0-based index in wc3stats slots[] (classic color order)')
+                .setRequired(true)
+                .setMinValue(0)
+                .setMaxValue(23),
+            )
+            .addIntegerOption((option) =>
+              option
+                .setName('hero_slot')
+                .setDescription('Bot hero/lobby slot (1-12)')
+                .setRequired(true)
+                .setMinValue(1)
+                .setMaxValue(12),
+            ),
+        ),
       )
       .addSubcommand((subcommand) =>
-        subcommand
-          .setName('wc3stats_map')
-          .setDescription('Replace all wc3stats→hero mappings (bulk)')
-          .addStringOption((option) =>
-            option
-              .setName('entries')
-              .setDescription('Pairs like 0=1,1=2,4=7 (wc3_slot=hero_slot)')
-              .setRequired(true),
-          ),
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('wc3stats_map')
+            .setDescription('Replace all wc3stats→hero mappings (bulk)')
+            .addStringOption((option) =>
+              option
+                .setName('entries')
+                .setDescription('Pairs like 0=1,1=2,4=7 (wc3_slot=hero_slot)')
+                .setRequired(true),
+            ),
+        ),
       )
       .addSubcommand((subcommand) =>
-        subcommand
-          .setName('wc3stats_map_preset')
-          .setDescription('Load a built-in wc3stats→hero map for this server')
-          .addStringOption((option) =>
-            option
-              .setName('preset')
-              .setDescription('Built-in layout')
-              .setRequired(true)
-              .addChoices({ name: 'UDBR (Z Fighters / Evils)', value: 'udbr' }),
-          ),
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('wc3stats_map_preset')
+            .setDescription('Load a built-in wc3stats→hero map for this server')
+            .addStringOption((option) =>
+              option
+                .setName('preset')
+                .setDescription('Built-in layout')
+                .setRequired(true)
+                .addChoices({ name: 'UDBR (Z Fighters / Evils)', value: 'udbr' }),
+            ),
+        ),
       ),
   )
   .addSubcommandGroup((group) =>
@@ -189,34 +216,60 @@ export const data = new SlashCommandBuilder()
       .setName('clear')
       .setDescription('Clear a bot configuration value')
       .addSubcommand((subcommand) =>
-        subcommand
-          .setName('leaderboard_channel')
-          .setDescription('Remove the live overall leaderboard message binding'),
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('leaderboard_channel')
+            .setDescription('Remove the live overall leaderboard message binding'),
+        ),
       )
       .addSubcommand((subcommand) =>
-        subcommand
-          .setName('wc3stats_slot')
-          .setDescription('Remove one wc3stats→hero mapping')
-          .addIntegerOption((option) =>
-            option
-              .setName('wc3_slot')
-              .setDescription('0-based wc3stats slots[] index to unmap')
-              .setRequired(true)
-              .setMinValue(0)
-              .setMaxValue(23),
-          ),
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('wc3stats_slot')
+            .setDescription('Remove one wc3stats→hero mapping')
+            .addIntegerOption((option) =>
+              option
+                .setName('wc3_slot')
+                .setDescription('0-based wc3stats slots[] index to unmap')
+                .setRequired(true)
+                .setMinValue(0)
+                .setMaxValue(23),
+            ),
+        ),
       )
       .addSubcommand((subcommand) =>
-        subcommand
-          .setName('wc3stats_map')
-          .setDescription('Remove all wc3stats→hero mappings for this server'),
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('wc3stats_map')
+            .setDescription('Remove all wc3stats→hero mappings for this server'),
+        ),
       )
       .addSubcommand((subcommand) =>
-        subcommand
-          .setName('wc3stats')
-          .setDescription('Disable wc3stats import and clear filter + slot map for this server'),
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('wc3stats')
+            .setDescription('Disable wc3stats import and clear filter + slot map for this server'),
+        ),
       ),
   );
+
+/** Resolve league from interaction; reply ephemeral on failure. */
+async function requireLeagueId(
+  interaction: ChatInputCommandInteraction,
+): Promise<string | null> {
+  const resolved = await resolveLeagueIdFromInteraction(interaction, getLeagueOption(interaction));
+  if (!resolved.ok) {
+    await interaction.reply({
+      content: resolved.message,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+  return resolved.ok ? resolved.leagueId : null;
+}
+
+export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
+  await respondLeagueAutocomplete(interaction);
+}
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!interaction.guildId) {
@@ -249,10 +302,26 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   try {
     if (subcommand === 'view') {
       const resolved = await resolveGuildConfig(interaction.guildId);
-      const slotMaps = await listGuildWc3statsSlotMaps(interaction.guildId);
+      const leagueContext = await resolveLeagueFromInteraction(
+        interaction,
+        getLeagueOption(interaction),
+      );
+      if (!leagueContext.ok) {
+        await interaction.reply({
+          content: leagueResolveFailureMessage(leagueContext.reason),
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const leagueId = leagueContext.league.id;
+      const leagueConfig = await resolveLeagueConfig(leagueId);
+      const slotMaps = await listLeagueWc3statsSlotMaps(leagueId);
+
       await interaction.reply({
         content: [
           'Bot configuration for this server:',
+          formatLeagueLine(leagueContext.league.name),
           formatRoleLine(
             'Create role',
             resolved.matchCreateRoleId,
@@ -260,14 +329,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           ),
           formatRoleLine('Mod role', resolved.matchModRoleId, resolved.matchModRoleSource),
           formatLeaderboardLine(
-            resolved.leaderboardChannelId,
-            resolved.leaderboardMessageId,
+            leagueConfig.leaderboardChannelId,
+            leagueConfig.leaderboardMessageId,
           ),
-          formatPlayerClaimLine(resolved.lobbyPlayerClaimEnabled),
-          formatWc3statsEnabledLine(resolved.wc3statsEnabled),
+          formatPlayerClaimLine(leagueConfig.lobbyPlayerClaimEnabled),
+          formatWc3statsEnabledLine(leagueConfig.wc3statsEnabled),
           ...formatWc3statsFilterLines(
-            resolved.wc3statsMapPattern,
-            resolved.wc3statsMapSha1,
+            leagueConfig.wc3statsMapPattern,
+            leagueConfig.wc3statsMapSha1 ?? [],
           ),
           formatWc3statsMapSection(formatWc3statsSlotMapLines(slotMaps)),
         ].join('\n'),
@@ -306,10 +375,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       if (subcommand === 'player_claim') {
+        const leagueId = await requireLeagueId(interaction);
+        if (!leagueId) return;
+
         const enabled = interaction.options.getBoolean('enabled', true);
-        await setLobbyPlayerClaimEnabled(interaction.guildId, enabled);
+        await setLeagueLobbyPlayerClaimEnabled(leagueId, enabled);
         log.info(
-          { guildId: interaction.guildId, enabled, userId: interaction.user.id },
+          { guildId: interaction.guildId, leagueId, enabled, userId: interaction.user.id },
           'Lobby player claim setting updated',
         );
         await interaction.reply({
@@ -322,6 +394,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       if (subcommand === 'leaderboard_channel') {
+        const leagueId = await requireLeagueId(interaction);
+        if (!leagueId) return;
+
         const channel = interaction.options.getChannel('channel', true);
         const allowedTypes = new Set([
           ChannelType.GuildText,
@@ -336,10 +411,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           return;
         }
 
-        await setupLiveLeaderboard(interaction.client, interaction.guildId, channel.id);
+        await setupLiveLeaderboard(interaction.client, leagueId, channel.id);
         log.info(
           {
             guildId: interaction.guildId,
+            leagueId,
             channelId: channel.id,
             userId: interaction.user.id,
           },
@@ -353,16 +429,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       if (subcommand === 'wc3stats_slot') {
+        const leagueId = await requireLeagueId(interaction);
+        if (!leagueId) return;
+
         const wc3Slot = interaction.options.getInteger('wc3_slot', true);
         const heroSlot = interaction.options.getInteger('hero_slot', true);
-        await setGuildWc3statsSlotMap(interaction.guildId, wc3Slot, heroSlot);
+        await setLeagueWc3statsSlotMap(leagueId, wc3Slot, heroSlot);
         log.info(
-          {
-            guildId: interaction.guildId,
-            wc3Slot,
-            heroSlot,
-            userId: interaction.user.id,
-          },
+          { guildId: interaction.guildId, leagueId, wc3Slot, heroSlot, userId: interaction.user.id },
           'wc3stats slot map entry updated',
         );
         await interaction.reply({
@@ -373,16 +447,15 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       if (subcommand === 'wc3stats_map') {
+        const leagueId = await requireLeagueId(interaction);
+        if (!leagueId) return;
+
         const entries = parseWc3statsSlotMapEntries(
           interaction.options.getString('entries', true),
         );
-        await replaceGuildWc3statsSlotMaps(interaction.guildId, entries);
+        await replaceLeagueWc3statsSlotMaps(leagueId, entries);
         log.info(
-          {
-            guildId: interaction.guildId,
-            count: entries.length,
-            userId: interaction.user.id,
-          },
+          { guildId: interaction.guildId, leagueId, count: entries.length, userId: interaction.user.id },
           'wc3stats slot map replaced',
         );
         await interaction.reply({
@@ -396,6 +469,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       if (subcommand === 'wc3stats_map_preset') {
+        const leagueId = await requireLeagueId(interaction);
+        if (!leagueId) return;
+
         const preset = interaction.options.getString('preset', true);
         if (preset !== 'udbr') {
           await interaction.reply({
@@ -405,9 +481,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           return;
         }
 
-        await applyUdbrWc3statsPreset(interaction.guildId);
+        await applyUdbrWc3statsPreset(leagueId);
         log.info(
-          { guildId: interaction.guildId, preset, userId: interaction.user.id },
+          { guildId: interaction.guildId, leagueId, preset, userId: interaction.user.id },
           'wc3stats package preset applied',
         );
         await interaction.reply({
@@ -420,9 +496,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     if (subcommandGroup === 'clear') {
       if (subcommand === 'leaderboard_channel') {
-        await clearLiveLeaderboard(interaction.client, interaction.guildId);
+        const leagueId = await requireLeagueId(interaction);
+        if (!leagueId) return;
+
+        await clearLiveLeaderboard(interaction.client, leagueId);
         log.info(
-          { guildId: interaction.guildId, userId: interaction.user.id },
+          { guildId: interaction.guildId, leagueId, userId: interaction.user.id },
           'Live leaderboard channel cleared',
         );
         await interaction.reply({
@@ -433,15 +512,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       if (subcommand === 'wc3stats_slot') {
+        const leagueId = await requireLeagueId(interaction);
+        if (!leagueId) return;
+
         const wc3Slot = interaction.options.getInteger('wc3_slot', true);
-        const removed = await clearGuildWc3statsSlotMap(interaction.guildId, wc3Slot);
+        const removed = await clearLeagueWc3statsSlotMap(leagueId, wc3Slot);
         log.info(
-          {
-            guildId: interaction.guildId,
-            wc3Slot,
-            removed,
-            userId: interaction.user.id,
-          },
+          { guildId: interaction.guildId, leagueId, wc3Slot, removed, userId: interaction.user.id },
           'wc3stats slot map entry cleared',
         );
         await interaction.reply({
@@ -454,9 +531,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       if (subcommand === 'wc3stats') {
-        await clearGuildWc3statsPackage(interaction.guildId);
+        const leagueId = await requireLeagueId(interaction);
+        if (!leagueId) return;
+
+        await clearLeagueWc3statsPackage(leagueId);
         log.info(
-          { guildId: interaction.guildId, userId: interaction.user.id },
+          { guildId: interaction.guildId, leagueId, userId: interaction.user.id },
           'wc3stats package cleared',
         );
         await interaction.reply({
@@ -468,9 +548,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       if (subcommand === 'wc3stats_map') {
-        const removed = await clearAllGuildWc3statsSlotMaps(interaction.guildId);
+        const leagueId = await requireLeagueId(interaction);
+        if (!leagueId) return;
+
+        const removed = await clearAllLeagueWc3statsSlotMaps(leagueId);
         log.info(
-          { guildId: interaction.guildId, removed, userId: interaction.user.id },
+          { guildId: interaction.guildId, leagueId, removed, userId: interaction.user.id },
           'wc3stats slot map cleared',
         );
         await interaction.reply({

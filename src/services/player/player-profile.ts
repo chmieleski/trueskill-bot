@@ -100,7 +100,10 @@ async function findPlayerByNick(nick: string) {
   return null;
 }
 
-export async function loadPlayerProfile(lookup: RankLookup): Promise<PlayerProfile> {
+export async function loadPlayerProfile(
+  leagueId: string,
+  lookup: RankLookup,
+): Promise<PlayerProfile> {
   if (lookup.kind === 'both') {
     throw new PlayerServiceError(
       'Provide either a Discord user or a nick, not both.',
@@ -123,18 +126,23 @@ export async function loadPlayerProfile(lookup: RankLookup): Promise<PlayerProfi
   }
 
   const [rating, allRatings, matchPlayers, heroRatings] = await Promise.all([
-    prisma.playerRating.findUnique({ where: { playerId: player.id } }),
-    prisma.playerRating.findMany({ select: { playerId: true, mu: true, sigma: true } }),
+    prisma.playerRating.findUnique({
+      where: { leagueId_playerId: { leagueId, playerId: player.id } },
+    }),
+    prisma.playerRating.findMany({
+      where: { leagueId },
+      select: { playerId: true, mu: true, sigma: true },
+    }),
     prisma.matchPlayer.findMany({
       where: {
         playerId: player.id,
-        match: { status: MatchStatus.COMPLETED },
+        match: { leagueId, status: MatchStatus.COMPLETED },
         result: { in: [MatchResult.WIN, MatchResult.LOSS] },
       },
       select: { result: true },
     }),
     prisma.playerHeroRating.findMany({
-      where: { playerId: player.id, matchesPlayed: { gt: 0 } },
+      where: { leagueId, playerId: player.id, matchesPlayed: { gt: 0 } },
       include: { hero: true },
     }),
   ]);

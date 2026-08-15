@@ -30,7 +30,8 @@ allocate_eip            = true
 # Secrets → SSM Parameter Store (also stored in Terraform state — keep state private)
 discord_token  = "your_discord_bot_token"
 client_id      = "your_discord_application_id"
-guild_id       = "your_discord_guild_id"
+# Empty = global slash command deploy (recommended for production multi-guild)
+guild_id       = ""
 database_url   = "postgresql://..."
 direct_url     = "postgresql://..."
 gemini_api_key = "your_gemini_api_key"

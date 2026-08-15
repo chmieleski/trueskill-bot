@@ -1,10 +1,7 @@
 export {
-  applyUdbrWc3statsPreset,
   assertCanConfigureBot,
-  clearGuildWc3statsPackage,
-  isGuildWc3statsImportReady,
+  canConfigureBot,
   resolveGuildConfig,
-  setLobbyPlayerClaimEnabled,
   setMatchCreateRole,
   setMatchModRole,
   type ResolvedGuildConfig,
