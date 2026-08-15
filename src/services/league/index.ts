@@ -34,10 +34,12 @@ export {
 export {
   applyUdbrWc3statsPreset,
   clearLeagueLeaderboardChannel,
+  clearLeagueLeaderboardSize,
   clearLeagueWc3statsPackage,
   isLeagueWc3statsImportReady,
   resolveLeagueConfig,
   setLeagueLeaderboardChannel,
+  setLeagueLeaderboardSize,
   setLeagueLobbyPlayerClaimEnabled,
   type ResolvedLeagueConfig,
 } from './league-wc3stats.js';

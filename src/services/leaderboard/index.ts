@@ -1,6 +1,12 @@
 export {
+  assertLiveLeaderboardSize,
+  chunkLeaderboardEntries,
   HERO_SINGLE_TOP,
   LeaderboardServiceError,
+  LIVE_LEADERBOARD_CHUNK_SIZE,
+  LIVE_LEADERBOARD_DEFAULT_SIZE,
+  LIVE_LEADERBOARD_MAX_SIZE,
+  LIVE_LEADERBOARD_MIN_SIZE,
   loadAllHeroLeaderboards,
   loadHeroLeaderboard,
   loadOverallLeaderboardPage,
