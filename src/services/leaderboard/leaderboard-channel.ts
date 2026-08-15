@@ -1,12 +1,15 @@
-import type { Client, TextChannel } from 'discord.js';
+import type { Client, EmbedBuilder, TextChannel } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   clearLeagueLeaderboardChannel,
   setLeagueLeaderboardChannel,
 } from '../league/league-wc3stats.js';
-import { LIVE_LEADERBOARD_SIZE, loadOverallLeaderboardTop } from './leaderboard.js';
-import { buildOverallLeaderboardEmbed } from './leaderboard-embed.js';
+import {
+  LIVE_LEADERBOARD_DEFAULT_SIZE,
+  loadOverallLeaderboardTop,
+} from './leaderboard.js';
+import { buildOverallLiveLeaderboardEmbeds } from './leaderboard-embed.js';
 
 const log = createLogger('leaderboard_channel');
 const REFRESH_INTERVAL_MS = 15 * 60 * 1000;
@@ -34,17 +37,20 @@ async function deleteMessageBestEffort(
   }
 }
 
-async function buildLiveOverallEmbed(leagueId: string) {
-  const entries = await loadOverallLeaderboardTop(leagueId, LIVE_LEADERBOARD_SIZE);
-  return buildOverallLeaderboardEmbed(
-    {
-      entries,
-      page: 1,
-      totalPages: 1,
-      totalPlayers: entries.length,
-    },
-    { live: true, updatedAt: new Date() },
-  );
+async function buildLiveOverallEmbeds(
+  leagueId: string,
+  size?: number,
+): Promise<EmbedBuilder[]> {
+  let resolvedSize = size;
+  if (resolvedSize === undefined) {
+    const row = await prisma.league.findUnique({
+      where: { id: leagueId },
+      select: { leaderboardSize: true },
+    });
+    resolvedSize = row?.leaderboardSize ?? LIVE_LEADERBOARD_DEFAULT_SIZE;
+  }
+  const entries = await loadOverallLeaderboardTop(leagueId, resolvedSize);
+  return buildOverallLiveLeaderboardEmbeds(entries, new Date());
 }
 
 export async function setupLiveLeaderboard(
@@ -64,9 +70,9 @@ export async function setupLiveLeaderboard(
     );
   }
 
-  const embed = await buildLiveOverallEmbed(leagueId);
+  const embeds = await buildLiveOverallEmbeds(leagueId);
   const channel = await fetchTextChannel(client, channelId);
-  const message = await channel.send({ embeds: [embed] });
+  const message = await channel.send({ embeds });
 
   await setLeagueLeaderboardChannel(leagueId, channelId, message.id);
 
@@ -91,22 +97,29 @@ export async function refreshLeagueLeaderboard(
 ): Promise<void> {
   const row = await prisma.league.findUnique({
     where: { id: leagueId },
-    select: { leaderboardChannelId: true, leaderboardMessageId: true },
+    select: {
+      leaderboardChannelId: true,
+      leaderboardMessageId: true,
+      leaderboardSize: true,
+    },
   });
   if (!row?.leaderboardChannelId || !row.leaderboardMessageId) {
     return;
   }
 
-  const embed = await buildLiveOverallEmbed(leagueId);
+  const embeds = await buildLiveOverallEmbeds(
+    leagueId,
+    row.leaderboardSize ?? LIVE_LEADERBOARD_DEFAULT_SIZE,
+  );
 
   try {
     const channel = await fetchTextChannel(client, row.leaderboardChannelId);
-    await channel.messages.edit(row.leaderboardMessageId, { embeds: [embed] });
+    await channel.messages.edit(row.leaderboardMessageId, { embeds });
   } catch (error) {
     log.warn({ err: error, leagueId }, 'Leaderboard edit failed; reposting');
     try {
       const channel = await fetchTextChannel(client, row.leaderboardChannelId);
-      const message = await channel.send({ embeds: [embed] });
+      const message = await channel.send({ embeds });
       await setLeagueLeaderboardChannel(leagueId, row.leaderboardChannelId, message.id);
     } catch (repostError) {
       log.warn({ err: repostError, leagueId }, 'Leaderboard repost failed');
