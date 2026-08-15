@@ -1,0 +1,21 @@
+---
+description: Default Cursor model for implementation vs reviews
+alwaysApply: true
+---
+
+# Model selection
+
+As of **2026-06-23**:
+
+| Work | Model |
+|------|--------|
+| Default implementation (features, fixes, refactors, scripts) | **Cursor Auto** |
+| Architecture reviews, design critiques, multi-option trade-offs | **Grok 4.6** (temporary preference) |
+| Fast / lightweight reviews (quick sanity check, small diff) | A **faster** model (e.g. Auto or a light reasoning model) |
+
+## Notes
+
+- Use Auto unless the user asks for a specific model or the task is an architecture/design review.
+- For deep reviews, prefer **Grok 4.6** over the strongest available reasoning model until this preference is changed.
+- If the user only needs a **fast review**, use a faster model instead of Grok 4.6.
+- If the user names a model in the chat, that override wins for that turn.
