@@ -54,6 +54,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       }
       const config = await resolveGuildConfig(interaction.guildId);
       assertHasMatchModRole({
+        actorDiscordId: interaction.user.id,
         memberRoleIds: memberRoleIds(interaction),
         matchModRoleId: config.matchModRoleId,
       });

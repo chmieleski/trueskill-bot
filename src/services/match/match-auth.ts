@@ -1,3 +1,4 @@
+import { BOT_OWNER_DISCORD_ID } from '../guild/guild-config.js';
 import { MatchServiceError } from './match-service.js';
 
 const FORBIDDEN = 'Only the match host or a match moderator can do that.';
@@ -6,6 +7,11 @@ const CREATE_FORBIDDEN = 'Only members with the match creator role can register 
 const MOD_NOT_CONFIGURED = 'Match moderator role is not configured.';
 const MOD_FORBIDDEN = 'Only match moderators can do that.';
 
+/** Bot owner always counts as a match moderator (no Discord role required). */
+function isBotOwner(actorDiscordId: string): boolean {
+  return actorDiscordId === BOT_OWNER_DISCORD_ID;
+}
+
 export function canManageMatch(input: {
   hostDiscordId: string;
   actorDiscordId: string;
@@ -13,6 +19,10 @@ export function canManageMatch(input: {
   matchModRoleId?: string;
 }): boolean {
   if (input.actorDiscordId === input.hostDiscordId) {
+    return true;
+  }
+
+  if (isBotOwner(input.actorDiscordId)) {
     return true;
   }
 
@@ -63,9 +73,14 @@ export function assertCanCreateMatch(input: {
 }
 
 export function hasMatchModRole(input: {
+  actorDiscordId: string;
   memberRoleIds: string[];
   matchModRoleId?: string;
 }): boolean {
+  if (isBotOwner(input.actorDiscordId)) {
+    return true;
+  }
+
   const modRoleId = input.matchModRoleId;
   if (!modRoleId) {
     return false;
@@ -74,9 +89,13 @@ export function hasMatchModRole(input: {
 }
 
 export function assertHasMatchModRole(input: {
+  actorDiscordId: string;
   memberRoleIds: string[];
   matchModRoleId?: string;
 }): void {
+  if (isBotOwner(input.actorDiscordId)) {
+    return;
+  }
   if (!input.matchModRoleId) {
     throw new MatchServiceError(MOD_NOT_CONFIGURED);
   }

@@ -214,6 +214,7 @@ describe('handleMatchCorrectionInteraction', () => {
 
     expect(interaction.deferUpdate).toHaveBeenCalledOnce();
     expect(assertHasMatchModRole).toHaveBeenCalledWith({
+      actorDiscordId: 'actor-1',
       memberRoleIds: ['mod-role'],
       matchModRoleId: 'mod-role',
     });
@@ -238,6 +239,7 @@ describe('handleMatchCorrectionInteraction', () => {
 
     expect(interaction.deferUpdate).toHaveBeenCalledOnce();
     expect(assertHasMatchModRole).toHaveBeenCalledWith({
+      actorDiscordId: 'actor-1',
       memberRoleIds: ['mod-role'],
       matchModRoleId: 'mod-role',
     });

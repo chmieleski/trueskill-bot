@@ -57,6 +57,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     const config = await resolveGuildConfig(interaction.guildId);
     const roleInput = {
+      actorDiscordId: interaction.user.id,
       memberRoleIds: memberRoleIds(interaction),
       matchModRoleId: config.matchModRoleId,
     };

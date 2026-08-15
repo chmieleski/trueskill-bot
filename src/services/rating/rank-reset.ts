@@ -167,6 +167,7 @@ export async function previewRankReset(
   const staffOverride = input.targetDiscordId !== input.actorDiscordId;
   if (staffOverride) {
     assertHasMatchModRole({
+      actorDiscordId: input.actorDiscordId,
       memberRoleIds: input.memberRoleIds,
       matchModRoleId: input.matchModRoleId,
     });

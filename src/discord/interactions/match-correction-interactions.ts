@@ -80,6 +80,7 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
   const config = await resolveGuildConfig(interaction.guildId);
 
   assertHasMatchModRole({
+    actorDiscordId: interaction.user.id,
     memberRoleIds: memberRoleIds(interaction),
     matchModRoleId: config.matchModRoleId,
   });

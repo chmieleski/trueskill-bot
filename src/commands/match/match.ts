@@ -14,6 +14,7 @@ import {
   assertHasMatchModRole,
   findInProgressMatchesByHost,
   getMatchById,
+  hasMatchModRole,
   MatchServiceError,
   previewMatchCorrection,
   type MatchWithPlayers,
@@ -53,14 +54,14 @@ function memberRoleIds(interaction: { member: unknown }): string[] {
 }
 
 function hasMatchModeratorRole(
-  interaction: { member: unknown },
+  interaction: { user: { id: string }; member: unknown },
   matchModRoleId: string | undefined,
 ): boolean {
-  if (!matchModRoleId) {
-    return false;
-  }
-
-  return memberRoleIds(interaction).includes(matchModRoleId);
+  return hasMatchModRole({
+    actorDiscordId: interaction.user.id,
+    memberRoleIds: memberRoleIds(interaction),
+    matchModRoleId,
+  });
 }
 
 export function parseQuitterSlots(slotsRaw: string | null | undefined): number[] {
@@ -176,6 +177,7 @@ async function resolveCompletedMatchForModCorrection(
   const config = await resolveGuildConfig(interaction.guildId);
 
   assertHasMatchModRole({
+    actorDiscordId: interaction.user.id,
     memberRoleIds: memberRoleIds(interaction),
     matchModRoleId: config.matchModRoleId,
   });

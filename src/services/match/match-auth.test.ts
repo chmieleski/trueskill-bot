@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { BOT_OWNER_DISCORD_ID } from '../guild/guild-config.js';
 import {
   assertCanCreateMatch,
   assertCanManageMatch,
@@ -37,6 +38,16 @@ describe('canManageMatch', () => {
         actorDiscordId: 'mod',
         memberRoleIds: ['role-mod'],
         matchModRoleId: 'role-mod',
+      }),
+    ).toBe(true);
+  });
+
+  it('allows the bot owner without a mod role', () => {
+    expect(
+      canManageMatch({
+        hostDiscordId: 'host',
+        actorDiscordId: BOT_OWNER_DISCORD_ID,
+        memberRoleIds: [],
       }),
     ).toBe(true);
   });
@@ -101,20 +112,36 @@ describe('assertCanManageMatch', () => {
 
 describe('hasMatchModRole', () => {
   it('returns false when mod role is unset', () => {
-    expect(hasMatchModRole({ memberRoleIds: ['role-mod'] })).toBe(false);
+    expect(
+      hasMatchModRole({ actorDiscordId: 'user', memberRoleIds: ['role-mod'] }),
+    ).toBe(false);
   });
 
   it('returns false when member lacks the role', () => {
     expect(
-      hasMatchModRole({ memberRoleIds: ['other'], matchModRoleId: 'role-mod' }),
+      hasMatchModRole({
+        actorDiscordId: 'user',
+        memberRoleIds: ['other'],
+        matchModRoleId: 'role-mod',
+      }),
     ).toBe(false);
   });
 
   it('returns true when member has the role', () => {
     expect(
       hasMatchModRole({
+        actorDiscordId: 'user',
         memberRoleIds: ['role-mod', 'other'],
         matchModRoleId: 'role-mod',
+      }),
+    ).toBe(true);
+  });
+
+  it('returns true for the bot owner without a mod role', () => {
+    expect(
+      hasMatchModRole({
+        actorDiscordId: BOT_OWNER_DISCORD_ID,
+        memberRoleIds: [],
       }),
     ).toBe(true);
   });
@@ -122,14 +149,27 @@ describe('hasMatchModRole', () => {
 
 describe('assertHasMatchModRole', () => {
   it('throws not-configured when role unset', () => {
-    expect(() => assertHasMatchModRole({ memberRoleIds: [] })).toThrow(
-      'Match moderator role is not configured.',
-    );
+    expect(() =>
+      assertHasMatchModRole({ actorDiscordId: 'user', memberRoleIds: [] }),
+    ).toThrow('Match moderator role is not configured.');
   });
 
   it('throws forbidden when member lacks role', () => {
     expect(() =>
-      assertHasMatchModRole({ memberRoleIds: [], matchModRoleId: 'role-mod' }),
+      assertHasMatchModRole({
+        actorDiscordId: 'user',
+        memberRoleIds: [],
+        matchModRoleId: 'role-mod',
+      }),
     ).toThrow('Only match moderators can do that.');
+  });
+
+  it('does not throw for the bot owner when role is unset', () => {
+    expect(() =>
+      assertHasMatchModRole({
+        actorDiscordId: BOT_OWNER_DISCORD_ID,
+        memberRoleIds: [],
+      }),
+    ).not.toThrow();
   });
 });
