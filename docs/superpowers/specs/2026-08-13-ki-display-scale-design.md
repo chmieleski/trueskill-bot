@@ -1,7 +1,7 @@
 # Ki Display Scale — Design
 
 **Date:** 2026-08-13  
-**Status:** Approved  
+**Status:** Superseded (display conservatism) by [`2026-08-15-soft-early-ki-design.md`](./2026-08-15-soft-early-ki-design.md) — OFFSET/SCALE and “display-only” still apply; fixed `μ − 3σ` does not.  
 **Scope:** Public display transform from OpenSkill ordinal to themed **ki** scores on embeds / leaderboards
 
 ## Goal
