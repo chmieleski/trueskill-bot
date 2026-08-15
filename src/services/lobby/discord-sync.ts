@@ -75,7 +75,7 @@ export async function syncLobbyDiscordMessage(
   client: Client,
   match: MatchWithPlayers,
   mode: LobbySyncMode,
-  options: { ratingPreview?: LobbyRatingPreview } = {},
+  options: { ratingPreview?: LobbyRatingPreview; cancelReason?: string } = {},
 ): Promise<void> {
   if (!match.discordMessageId || !match.discordChannelId) {
     log.warn({ matchId: match.id, mode }, 'Match has no Discord message to sync');
@@ -144,7 +144,12 @@ export async function syncLobbyDiscordMessage(
     };
   } else {
     payload = {
-      embeds: [buildMatchCancelledEmbed(match.id, 'by the host')],
+      embeds: [
+        buildMatchCancelledEmbed(
+          match.id,
+          options.cancelReason ?? 'by the host',
+        ),
+      ],
       components: [],
     };
   }
