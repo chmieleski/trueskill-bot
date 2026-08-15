@@ -10,6 +10,7 @@ import type {
   OverallLeaderboardEntry,
   OverallLeaderboardPage,
 } from './leaderboard.js';
+import { chunkLeaderboardEntries } from './leaderboard.js';
 
 const RANK_GOLD = 0xf0b232;
 
@@ -87,6 +88,27 @@ export function buildOverallLeaderboardEmbed(
   }
 
   return embed;
+}
+
+export function buildOverallLiveLeaderboardEmbeds(
+  entries: OverallLeaderboardEntry[],
+  updatedAt: Date,
+): EmbedBuilder[] {
+  const unix = Math.floor(updatedAt.getTime() / 1000);
+  const stamp = `\n\nUpdated <t:${unix}:R>`;
+  const chunks =
+    entries.length === 0 ? [[]] : chunkLeaderboardEntries(entries);
+
+  return chunks.map((chunk, index) => {
+    const isLast = index === chunks.length - 1;
+    const title =
+      index === 0 ? 'Global Leaderboard' : 'Global Leaderboard (continued)';
+    let description = formatOverallTable(chunk);
+    if (isLast) {
+      description += stamp;
+    }
+    return new EmbedBuilder().setColor(RANK_GOLD).setTitle(title).setDescription(description);
+  });
 }
 
 export function buildHeroLeaderboardEmbed(
