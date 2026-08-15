@@ -17,6 +17,8 @@
     "db:down": "docker compose down",
     "db:clone": "bash scripts/db-clone-local.sh",
     "db:clone:heroes": "bash scripts/db-clone-local.sh --heroes-only",
+    "db:backup": "bash scripts/db-backup.sh",
+    "db:restore": "bash scripts/db-restore-local.sh",
     "db:migrate-multi-league": "tsx scripts/migrate-multi-league.ts",
     "seed:veterans": "tsx scripts/seed-veteran-ratings.ts",
     "test": "vitest run",

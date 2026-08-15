@@ -19,6 +19,8 @@ alwaysApply: true
 | `npm run db:down` | Stop local Postgres (volume kept) |
 | `npm run db:clone` | Dump hosted public data → local Postgres |
 | `npm run db:clone:heroes` | Same clone, `"Hero"` table only |
+| `npm run db:backup` | Gzipped schema+data dump of hosted prod → `.local/backups/` |
+| `npm run db:restore` | Restore a backup into local Docker only (`-- path.sql.gz` optional) |
 | `npm run db:migrate-multi-league` | Probe schema, `migrate deploy` if needed, ensure Game/UDBR leagues for multi-league IHL |
 
 ## Env vars
