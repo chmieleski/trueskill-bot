@@ -90,6 +90,7 @@ model Player {
   ratings                        PlayerRating[]
   heroRatings                    PlayerHeroRating[]
   rankResets                     PlayerRankReset[]
+  ratingSnapshots                MatchRatingSnapshot[]
 
   @@index([username])
   @@index([discordId])
@@ -167,10 +168,12 @@ model Match {
   discordMessageId String?       @unique
   wc3statsGameId   String?
   leagueId         String
+  completedAt      DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   league           League        @relation(fields: [leagueId], references: [id], onDelete: Restrict)
   players          MatchPlayer[]
+  ratingSnapshots  MatchRatingSnapshot[]
 
   @@index([status])
   @@index([createdAt])
@@ -179,6 +182,7 @@ model Match {
   @@index([wc3statsGameId])
   @@index([leagueId, status])
   @@index([leagueId, wc3statsGameId])
+  @@index([leagueId, completedAt])
 }
 
 // MatchPlayer - Player participation in a match
@@ -197,6 +201,30 @@ model MatchPlayer {
   @@id([matchId, playerId])
   @@index([matchId])
   @@index([playerId])
+}
+
+enum MatchRatingEntityKind {
+  GLOBAL
+  HERO
+}
+
+model MatchRatingSnapshot {
+  id            String                @id @default(cuid())
+  matchId       String
+  playerId      String
+  entityKind    MatchRatingEntityKind
+  /// For GLOBAL use sentinel `0`. For HERO use the slot hero id (1–12 for UDBR).
+  heroId        Int
+  mu            Float
+  sigma         Float
+  matchesPlayed Int?
+  createdAt     DateTime              @default(now())
+
+  match  Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, playerId, entityKind, heroId])
+  @@index([matchId])
 }
 
 enum MatchStatus {
