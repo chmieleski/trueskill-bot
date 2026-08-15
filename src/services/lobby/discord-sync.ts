@@ -20,7 +20,8 @@ import {
   matchPlayersToRatingEntries,
   type LobbyRatingPreview,
 } from '../rating/rating-preview.js';
-import { isGuildWc3statsImportReady, resolveGuildConfig } from '../guild/guild-config.js';
+import { prisma } from '../../lib/prisma.js';
+import { isLeagueWc3statsImportReady } from '../league/league-wc3stats.js';
 
 const log = createLogger('lobby-discord-sync');
 
@@ -41,19 +42,28 @@ export function guildIdFromChannel(channel: object): string | undefined {
   return guildId || undefined;
 }
 
-async function resolvePendingGuildSettingsForChannel(
-  channel: object,
+async function resolveLeagueSettingsForLobby(
+  leagueId: string,
 ): Promise<{ playerClaimEnabled: boolean; wc3statsReady: boolean }> {
-  const guildId = guildIdFromChannel(channel);
+  const league = await prisma.league.findUnique({
+    where: { id: leagueId },
+    select: {
+      lobbyPlayerClaimEnabled: true,
+      wc3statsEnabled: true,
+      wc3statsMapPattern: true,
+    },
+  });
 
-  if (!guildId) {
+  if (!league) {
     return { playerClaimEnabled: true, wc3statsReady: false };
   }
 
-  const config = await resolveGuildConfig(guildId);
   return {
-    playerClaimEnabled: config.lobbyPlayerClaimEnabled,
-    wc3statsReady: isGuildWc3statsImportReady(config),
+    playerClaimEnabled: league.lobbyPlayerClaimEnabled,
+    wc3statsReady: isLeagueWc3statsImportReady({
+      wc3statsEnabled: league.wc3statsEnabled,
+      wc3statsMapPattern: league.wc3statsMapPattern ?? undefined,
+    }),
   };
 }
 
@@ -87,10 +97,11 @@ export async function syncLobbyDiscordMessage(
   if (mode === 'pending') {
     const canStart = canStartLobby(players);
     const ratingPreview = await loadLobbyRatingPreview(
+      match.leagueId,
       matchPlayersToRatingEntries(match.players),
     );
     const { playerClaimEnabled, wc3statsReady } =
-      await resolvePendingGuildSettingsForChannel(channel);
+      await resolveLeagueSettingsForLobby(match.leagueId);
     payload = {
       embeds: [
         buildMatchLobbyEmbed(match.id, players, {
@@ -111,6 +122,7 @@ export async function syncLobbyDiscordMessage(
     };
   } else if (mode === 'started') {
     const ratingPreview = await loadLobbyRatingPreview(
+      match.leagueId,
       matchPlayersToRatingEntries(match.players),
     );
     payload = {
@@ -120,7 +132,7 @@ export async function syncLobbyDiscordMessage(
   } else if (mode === 'completed') {
     const ratingPreview =
       options.ratingPreview ??
-      (await loadLobbyRatingPreview(matchPlayersToRatingEntries(match.players)));
+      (await loadLobbyRatingPreview(match.leagueId, matchPlayersToRatingEntries(match.players)));
     payload = {
       embeds: [
         buildMatchCompletedEmbed(match.id, players, {

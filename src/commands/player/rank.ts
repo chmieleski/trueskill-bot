@@ -1,5 +1,5 @@
 import { MessageFlags, SlashCommandBuilder } from 'discord.js';
-import type { ChatInputCommandInteraction } from 'discord.js';
+import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import {
   loadPlayerProfile,
@@ -7,24 +7,36 @@ import {
   PlayerServiceError,
 } from '../../services/player/index.js';
 import { buildRankEmbed } from '../../services/player/index.js';
+import {
+  getLeagueOption,
+  resolveLeagueIdFromInteraction,
+  respondLeagueAutocomplete,
+  withOptionalLeagueOption,
+} from '../../services/league/index.js';
 
 const log = createLogger('rank_cmd');
 
-export const data = new SlashCommandBuilder()
-  .setName('rank')
-  .setDescription('Show your rank profile or look up another player')
-  .addUserOption((option) =>
-    option
-      .setName('user')
-      .setDescription('Discord user to look up')
-      .setRequired(false),
-  )
-  .addStringOption((option) =>
-    option
-      .setName('nick')
-      .setDescription('In-game nick to look up')
-      .setRequired(false),
-  );
+export const data = withOptionalLeagueOption(
+  new SlashCommandBuilder()
+    .setName('rank')
+    .setDescription('Show your rank profile or look up another player')
+    .addUserOption((option) =>
+      option
+        .setName('user')
+        .setDescription('Discord user to look up')
+        .setRequired(false),
+    )
+    .addStringOption((option) =>
+      option
+        .setName('nick')
+        .setDescription('In-game nick to look up')
+        .setRequired(false),
+    ),
+);
+
+export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
+  await respondLeagueAutocomplete(interaction);
+}
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   const user = interaction.options.getUser('user');
@@ -41,7 +53,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   }
 
   try {
-    const profile = await loadPlayerProfile(lookup);
+    const resolved = await resolveLeagueIdFromInteraction(interaction, getLeagueOption(interaction));
+
+    if (!resolved.ok) {
+      const payload = { content: resolved.message };
+      if (interaction.deferred) {
+        await interaction.editReply(payload);
+      } else {
+        await interaction.reply({ ...payload, flags: MessageFlags.Ephemeral });
+      }
+      return;
+    }
+
+    const profile = await loadPlayerProfile(resolved.leagueId, lookup);
 
     let avatarUrl: string | null = null;
     if (profile.discordId) {

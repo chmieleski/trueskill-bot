@@ -87,6 +87,7 @@ describe('buildLeaderboardPageButtons', () => {
   it('shows disabled prev/next on a single-page leaderboard', () => {
     const rows = buildLeaderboardPageButtons({
       invokerId: 'user1',
+      leagueId: 'league-1',
       page: 1,
       totalPages: 1,
     });
@@ -100,13 +101,15 @@ describe('buildLeaderboardPageButtons', () => {
 
 describe('parseLeaderboardPageCustomId', () => {
   it('parses prev and next ids into target pages', () => {
-    expect(parseLeaderboardPageCustomId('leaderboard:page:user1:prev:2')).toEqual({
+    expect(parseLeaderboardPageCustomId('leaderboard:page:user1:prev:2:league-1')).toEqual({
       invokerId: 'user1',
       page: 1,
+      leagueId: 'league-1',
     });
-    expect(parseLeaderboardPageCustomId('leaderboard:page:user1:next:2')).toEqual({
+    expect(parseLeaderboardPageCustomId('leaderboard:page:user1:next:2:league-1')).toEqual({
       invokerId: 'user1',
       page: 3,
+      leagueId: 'league-1',
     });
   });
 

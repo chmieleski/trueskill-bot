@@ -85,9 +85,10 @@ export function paginateOverall(
   };
 }
 
-async function loadEligibleOverallRows(): Promise<OverallLeaderboardEntry[]> {
+async function loadEligibleOverallRows(leagueId: string): Promise<OverallLeaderboardEntry[]> {
   const [ratings, gameCounts] = await Promise.all([
     prisma.playerRating.findMany({
+      where: { leagueId },
       include: {
         player: { select: { id: true, username: true, discordId: true } },
       },
@@ -95,7 +96,7 @@ async function loadEligibleOverallRows(): Promise<OverallLeaderboardEntry[]> {
     prisma.matchPlayer.groupBy({
       by: ['playerId'],
       where: {
-        match: { status: MatchStatus.COMPLETED },
+        match: { leagueId, status: MatchStatus.COMPLETED },
         result: { in: [MatchResult.WIN, MatchResult.LOSS] },
       },
       _count: { _all: true },
@@ -128,16 +129,18 @@ async function loadEligibleOverallRows(): Promise<OverallLeaderboardEntry[]> {
 }
 
 export async function loadOverallLeaderboardPage(
+  leagueId: string,
   page: number,
 ): Promise<OverallLeaderboardPage> {
-  const rows = await loadEligibleOverallRows();
+  const rows = await loadEligibleOverallRows(leagueId);
   return paginateOverall(rows, page);
 }
 
 export async function loadOverallLeaderboardTop(
+  leagueId: string,
   limit: number,
 ): Promise<OverallLeaderboardEntry[]> {
-  const rows = await loadEligibleOverallRows();
+  const rows = await loadEligibleOverallRows(leagueId);
   return rows.slice(0, limit);
 }
 
@@ -172,6 +175,7 @@ function mapHeroRatings(
 }
 
 export async function loadHeroLeaderboard(
+  leagueId: string,
   heroId: number,
   limit: number,
 ): Promise<{ heroName: string; entries: HeroLeaderboardEntry[] }> {
@@ -181,20 +185,20 @@ export async function loadHeroLeaderboard(
   }
 
   const rows = await prisma.playerHeroRating.findMany({
-    where: { heroId, matchesPlayed: { gt: 0 } },
+    where: { leagueId, heroId, matchesPlayed: { gt: 0 } },
     include: { player: { select: { username: true } } },
   });
 
   return { heroName: hero.name, entries: mapHeroRatings(rows, limit) };
 }
 
-export async function loadAllHeroLeaderboards(): Promise<HeroBoardSlice[]> {
+export async function loadAllHeroLeaderboards(leagueId: string): Promise<HeroBoardSlice[]> {
   const heroes = await loadHeroCatalog();
   const slices: HeroBoardSlice[] = [];
 
   for (const hero of heroes) {
     const rows = await prisma.playerHeroRating.findMany({
-      where: { heroId: hero.id, matchesPlayed: { gt: 0 } },
+      where: { leagueId, heroId: hero.id, matchesPlayed: { gt: 0 } },
       include: { player: { select: { username: true } } },
     });
     slices.push({

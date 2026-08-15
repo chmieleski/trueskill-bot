@@ -28,7 +28,7 @@ export interface LobbyRatingPlayerLine {
   nick: string;
   /** Display ki (OFFSET + SCALE × ordinal); field name kept for DTO stability. */
   globalOrdinal: number;
-  /** Display ki for the slot’s hero. */
+  /** Display ki for the slot's hero. */
   heroOrdinal: number;
   /** Completed-match only: ki change for global (after − before). */
   globalDelta?: number;
@@ -62,6 +62,7 @@ type Db = Prisma.TransactionClient | typeof prisma;
  * Accepts optional transaction client for match completion flows.
  */
 export async function ensurePlayerRatings(
+  leagueId: string,
   entries: Pick<RatingPreviewRosterEntry, 'playerId' | 'heroId'>[],
   db: Db = prisma,
 ): Promise<void> {
@@ -70,12 +71,13 @@ export async function ensurePlayerRatings(
   }
 
   await db.playerRating.createMany({
-    data: entries.map((entry) => ({ playerId: entry.playerId })),
+    data: entries.map((entry) => ({ leagueId, playerId: entry.playerId })),
     skipDuplicates: true,
   });
 
   await db.playerHeroRating.createMany({
     data: entries.map((entry) => ({
+      leagueId,
       playerId: entry.playerId,
       heroId: entry.heroId,
     })),
@@ -96,6 +98,7 @@ export type PlayerKiPair = {
  * Load current display ki per slot (global / hero). Used to compute match deltas.
  */
 export async function loadPlayerKiBySlot(
+  leagueId: string,
   entries: Pick<RatingPreviewRosterEntry, 'playerId' | 'heroId' | 'slot'>[],
   db: Db = prisma,
 ): Promise<Map<number, PlayerKiPair>> {
@@ -106,15 +109,16 @@ export async function loadPlayerKiBySlot(
     return result;
   }
 
-  await ensurePlayerRatings(sorted, db);
+  await ensurePlayerRatings(leagueId, sorted, db);
 
   const playerIds = sorted.map((entry) => entry.playerId);
   const [globals, heroes] = await Promise.all([
     db.playerRating.findMany({
-      where: { playerId: { in: playerIds } },
+      where: { leagueId, playerId: { in: playerIds } },
     }),
     db.playerHeroRating.findMany({
       where: {
+        leagueId,
         OR: sorted.map((entry) => ({
           playerId: entry.playerId,
           heroId: entry.heroId,
@@ -178,6 +182,7 @@ export function buildCompletedRatingPreview(
  * On failure, returns default ki and omits winChance.
  */
 export async function loadLobbyRatingPreview(
+  leagueId: string,
   entries: RatingPreviewRosterEntry[],
 ): Promise<LobbyRatingPreview> {
   const sorted = [...entries].sort((a, b) => a.slot - b.slot);
@@ -187,13 +192,14 @@ export async function loadLobbyRatingPreview(
   }
 
   try {
-    await ensurePlayerRatings(sorted);
+    await ensurePlayerRatings(leagueId, sorted);
 
     const catalogHeroIds = await listCatalogHeroIds();
     if (catalogHeroIds.length > 0) {
       await prisma.playerHeroRating.createMany({
         data: sorted.flatMap((entry) =>
           catalogHeroIds.map((heroId) => ({
+            leagueId,
             playerId: entry.playerId,
             heroId,
           })),
@@ -205,10 +211,10 @@ export async function loadLobbyRatingPreview(
     const playerIds = sorted.map((entry) => entry.playerId);
     const [globals, heroes] = await Promise.all([
       prisma.playerRating.findMany({
-        where: { playerId: { in: playerIds } },
+        where: { leagueId, playerId: { in: playerIds } },
       }),
       prisma.playerHeroRating.findMany({
-        where: { playerId: { in: playerIds } },
+        where: { leagueId, playerId: { in: playerIds } },
       }),
     ]);
 

@@ -1,0 +1,32 @@
+---
+description: Declare whether work is general bot core or scoped to a specific game (IHL)
+alwaysApply: true
+---
+
+# Feature scope — general vs game
+
+This bot is **multi-guild** and **multi-league**. A guild may run several IHLs (one per game instance). Ratings and matches are isolated per **league**, not globally.
+
+## Declare scope before coding
+
+Every feature, bugfix, plan, or PR must state one scope:
+
+| Scope | Meaning | Examples |
+|-------|---------|----------|
+| `general` | Shared across all games/leagues | `resolveLeagueContext`, OpenSkill apply shell, match status machine, global command deploy, `Player` link, Prisma tenancy (`leagueId`) |
+| `game:<gameId>` | Only for one game catalog id | `game:warcraft3_udbr` — wc3stats import, UDBR slot map, WC3 OCR prompts, 1–12 `Hero` assumptions |
+
+If scope is unclear, **ask before writing code**.
+
+## Rules
+
+1. **Do not** put game-specific imports, constants, or lobby shapes into `general` modules (league resolve, rating math entrypoints, match lifecycle, command registration).
+2. **Do not** change cross-league isolation (missing `leagueId` on reads/writes, process-wide uniqueness that should be per league, global Elo).
+3. Game work lives under a clear module/preset path (e.g. `src/services/wc3stats/**`, UDBR preset constants). Core calls games through narrow adapters.
+4. When adding a **new game**, follow `docs/dev/adding-a-new-game.md` — do not copy WC3 assumptions into the core.
+5. Specs/plans should label tasks with `general` or `game:<id>` in the task title or a one-line scope note.
+
+## Quick test
+
+- Would this still make sense if the guild’s other league is a non-WC3 game? → If no, it is not `general`.
+- Does this touch Elo, matches, or leaderboards? → Must be keyed by `leagueId`.

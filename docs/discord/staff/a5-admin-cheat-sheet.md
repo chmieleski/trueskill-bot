@@ -1,5 +1,9 @@
 📋 **Staff cheat sheet**
 
+**Leagues (Manage Server)**
+• `/league create` / `/league list`
+• `/league bind` / `/league unbind` — tie channels/categories to a league
+
 **Config (Manage Server)**
 • `/config view`
 • `/config set create_role`

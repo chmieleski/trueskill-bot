@@ -1,6 +1,6 @@
 import type { Client } from 'discord.js';
 import { MatchServiceError } from '../match/match-service.js';
-import { resolveGuildConfig } from '../guild/guild-config.js';
+import { prisma } from '../../lib/prisma.js';
 import { nickForDiscordId } from './lobby-identity.js';
 import {
   addPlayer,
@@ -23,13 +23,15 @@ export type { LobbyActionResult };
 const PLAYER_CLAIM_DISABLED_MESSAGE = 'Player slot claim is disabled on this server.';
 
 /**
- * Reject player claim/leave when the guild has turned the feature off.
- * Call before any roster mutation.
+ * Reject player claim/leave when the league has turned the feature off.
  */
-export async function assertLobbyPlayerClaimEnabled(guildId: string): Promise<void> {
-  const config = await resolveGuildConfig(guildId);
+export async function assertLobbyPlayerClaimEnabled(leagueId: string): Promise<void> {
+  const league = await prisma.league.findUnique({
+    where: { id: leagueId },
+    select: { lobbyPlayerClaimEnabled: true },
+  });
 
-  if (!config.lobbyPlayerClaimEnabled) {
+  if (league?.lobbyPlayerClaimEnabled === false) {
     throw new MatchServiceError(PLAYER_CLAIM_DISABLED_MESSAGE);
   }
 }
@@ -79,11 +81,11 @@ export async function claimLobbySlot(input: {
   guildId: string;
   slot: number;
 }): Promise<LobbyActionResult> {
-  await assertLobbyPlayerClaimEnabled(input.guildId);
-  const nick = await nickForDiscordId(input.discordId);
   const { match, players } = await resolvePendingMatchByMessageId({
     messageId: input.messageId,
   });
+  await assertLobbyPlayerClaimEnabled(match.leagueId);
+  const nick = await nickForDiscordId(input.discordId);
   const next = rosterAfterClaim(players, nick, input.slot);
   return applyRosterAndSync(input.client, match.id, next);
 }
@@ -97,11 +99,11 @@ export async function leaveLobbySlot(input: {
   discordId: string;
   guildId: string;
 }): Promise<LobbyActionResult> {
-  await assertLobbyPlayerClaimEnabled(input.guildId);
-  const nick = await nickForDiscordId(input.discordId);
   const { match, players } = await resolvePendingMatchByMessageId({
     messageId: input.messageId,
   });
+  await assertLobbyPlayerClaimEnabled(match.leagueId);
+  const nick = await nickForDiscordId(input.discordId);
   const next = rosterAfterLeave(players, nick);
   return applyRosterAndSync(input.client, match.id, next);
 }

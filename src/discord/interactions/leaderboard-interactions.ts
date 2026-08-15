@@ -28,10 +28,11 @@ export async function handleLeaderboardInteraction(
     return true;
   }
 
-  const pageData = await loadOverallLeaderboardPage(parsed.page);
+  const pageData = await loadOverallLeaderboardPage(parsed.leagueId, parsed.page);
   const embed = buildOverallLeaderboardEmbed(pageData);
   const components = buildLeaderboardPageButtons({
     invokerId: parsed.invokerId,
+    leagueId: parsed.leagueId,
     page: pageData.page,
     totalPages: pageData.totalPages,
   });

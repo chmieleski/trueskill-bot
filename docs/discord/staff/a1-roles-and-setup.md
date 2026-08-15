@@ -1,6 +1,15 @@
 🛠️ **Staff — roles & first setup**
 
-Need **Manage Server** (or Administrator) for `/config`.
+Need **Manage Server** (or Administrator) for `/config` and `/league`.
+
+**0) Leagues (multi-IHL)**
+Each server can run one or more leagues (IHL instances). Create one, then bind lobby channels so `/register_lobby`, `/rank`, and `/leaderboard` know which league to use.
+```
+/league create game:UDBR name:UDBR
+/league list
+/league bind target:#lobby-channel league:UDBR
+```
+If the server has only one league, bind is optional for resolution; with multiple leagues, bind the lobby channel or pass `league:` on commands.
 
 **1) Who may create lobbies**
 ```

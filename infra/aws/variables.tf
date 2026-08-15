@@ -98,7 +98,9 @@ variable "client_id" {
 }
 
 variable "guild_id" {
-  type = string
+  description = "Discord guild ID for guild-scoped command deploy (empty = global deploy)"
+  type        = string
+  default     = ""
 }
 
 variable "database_url" {

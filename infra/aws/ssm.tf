@@ -26,9 +26,9 @@ resource "aws_ssm_parameter" "client_id" {
 
 resource "aws_ssm_parameter" "guild_id" {
   name        = "${local.ssm_prefix}/GUILD_ID"
-  description = "Discord guild ID for command deploy"
+  description = "Discord guild ID for guild-scoped command deploy (empty = global deploy)"
   type        = "String"
-  value       = var.guild_id
+  value       = var.guild_id == "" ? local.ssm_empty : var.guild_id
   tags        = local.common_tags
 }
 

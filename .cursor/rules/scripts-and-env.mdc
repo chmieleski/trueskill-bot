@@ -10,7 +10,7 @@ alwaysApply: true
 | `npm run dev` | tsx watch, auto-restart, auto-deploy commands |
 | `npm run build` | Prisma generate + TypeScript compile |
 | `npm start` | Production from `dist/` |
-| `npm run deploy-commands` | Manual guild command deploy |
+| `npm run deploy-commands` | Manual slash command deploy (guild if `GUILD_ID` set, else global) |
 | `npm run db:migrate` | Create/apply Prisma migration |
 | `npm run db:push` | Push schema without migration |
 | `npm run db:studio` | Prisma Studio |
@@ -22,7 +22,8 @@ alwaysApply: true
 
 ## Env vars
 
-- `DISCORD_TOKEN`, `CLIENT_ID`, `GUILD_ID`
+- `DISCORD_TOKEN`, `CLIENT_ID`
+- `GUILD_ID` — optional; guild-scoped command deploy when set (typical for dev). Empty/unset = global deploy (production)
 - `DATABASE_URL` — Supabase pooled (6543), or local `127.0.0.1:5433` when using Docker Compose
 - `DIRECT_URL` — Supabase session/direct (5432), or the same local URL as `DATABASE_URL`
 - `PROD_DIRECT_URL` — hosted session/direct URL (5432) for `npm run db:clone` after `.env` points at local Postgres. Never the 6543 pooler.

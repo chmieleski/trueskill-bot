@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MatchServiceError } from '../match/match-service.js';
 
-const { resolveGuildConfig } = vi.hoisted(() => ({
-  resolveGuildConfig: vi.fn(),
+const { leagueFindUnique } = vi.hoisted(() => ({
+  leagueFindUnique: vi.fn(),
 }));
 
 const { nickForDiscordId } = vi.hoisted(() => ({
@@ -14,8 +14,10 @@ const { replaceMatchRoster, getMatchByDiscordMessageId } = vi.hoisted(() => ({
   getMatchByDiscordMessageId: vi.fn(),
 }));
 
-vi.mock('../guild/guild-config.js', () => ({
-  resolveGuildConfig,
+vi.mock('../../lib/prisma.js', () => ({
+  prisma: {
+    league: { findUnique: leagueFindUnique },
+  },
 }));
 
 vi.mock('./lobby-identity.js', () => ({
@@ -83,14 +85,20 @@ describe('rosterAfterLeave', () => {
 
 describe('claimLobbySlot', () => {
   beforeEach(() => {
-    resolveGuildConfig.mockReset();
+    leagueFindUnique.mockReset();
     nickForDiscordId.mockReset();
     replaceMatchRoster.mockReset();
     getMatchByDiscordMessageId.mockReset();
   });
 
   it('throws before roster mutate when player claim is disabled', async () => {
-    resolveGuildConfig.mockResolvedValue({ lobbyPlayerClaimEnabled: false });
+    getMatchByDiscordMessageId.mockResolvedValue({
+      id: 'match-1',
+      leagueId: 'league-1',
+      status: 'PENDING',
+      players: [],
+    });
+    leagueFindUnique.mockResolvedValue({ lobbyPlayerClaimEnabled: false });
 
     await expect(
       claimLobbySlot({
@@ -113,7 +121,6 @@ describe('claimLobbySlot', () => {
     ).rejects.toThrow('Player slot claim is disabled on this server.');
 
     expect(nickForDiscordId).not.toHaveBeenCalled();
-    expect(getMatchByDiscordMessageId).not.toHaveBeenCalled();
     expect(replaceMatchRoster).not.toHaveBeenCalled();
   });
 });

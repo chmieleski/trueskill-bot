@@ -72,7 +72,7 @@ for p in data.get("Parameters") or []:
   [[ -z "$next_token" ]] && break
 done
 
-required=(DISCORD_TOKEN CLIENT_ID GUILD_ID DATABASE_URL DIRECT_URL GEMINI_API_KEY)
+required=(DISCORD_TOKEN CLIENT_ID DATABASE_URL DIRECT_URL GEMINI_API_KEY)
 for key in "${required[@]}"; do
   if [[ -z "${PARAMS[$key]:-}" ]]; then
     echo "Missing required SSM parameter: $SSM_PREFIX/$key" >&2
@@ -85,7 +85,7 @@ tmp="$(mktemp)"
 {
   echo "DISCORD_TOKEN=${PARAMS[DISCORD_TOKEN]}"
   echo "CLIENT_ID=${PARAMS[CLIENT_ID]}"
-  echo "GUILD_ID=${PARAMS[GUILD_ID]}"
+  echo "GUILD_ID=${PARAMS[GUILD_ID]:-}"
   echo "DATABASE_URL=${PARAMS[DATABASE_URL]}"
   echo "DIRECT_URL=${PARAMS[DIRECT_URL]}"
   echo "GEMINI_API_KEY=${PARAMS[GEMINI_API_KEY]}"

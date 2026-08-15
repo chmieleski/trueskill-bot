@@ -31,6 +31,7 @@ export interface CreatedPendingMatch {
 }
 
 export interface CreatePendingMatchInput {
+  leagueId: string;
   hostDiscordId: string;
   discordChannelId: string;
   players: LobbyPlayer[];
@@ -101,6 +102,7 @@ function teamCounts(players: LobbyPlayer[]): { teamACount: number; teamBCount: n
 async function resolvePlayersInTx(
   tx: Prisma.TransactionClient,
   players: LobbyPlayer[],
+  leagueId: string,
 ): Promise<{ playerId: string; slot: number; team: number }[]> {
   const sorted = withNormalizedNicks(players).sort((a, b) => a.slot - b.slot);
 
@@ -143,12 +145,13 @@ async function resolvePlayersInTx(
   });
 
   await tx.playerRating.createMany({
-    data: resolved.map((entry) => ({ playerId: entry.playerId })),
+    data: resolved.map((entry) => ({ leagueId, playerId: entry.playerId })),
     skipDuplicates: true,
   });
 
   await tx.playerHeroRating.createMany({
     data: resolved.map((entry) => ({
+      leagueId,
       playerId: entry.playerId,
       heroId: entry.slot,
     })),
@@ -163,10 +166,12 @@ export function duplicateWc3statsMatchMessage(matchId: string): string {
 }
 
 export async function findActiveMatchByWc3statsGameId(
+  leagueId: string,
   wc3statsGameId: string,
 ): Promise<MatchWithPlayers | null> {
   return prisma.match.findFirst({
     where: {
+      leagueId,
       wc3statsGameId,
       status: { in: ['PENDING', 'IN_PROGRESS'] },
     },
@@ -255,6 +260,7 @@ export async function createPendingMatch(
     if (wc3statsGameId) {
       const existing = await tx.match.findFirst({
         where: {
+          leagueId: input.leagueId,
           wc3statsGameId,
           status: { in: ['PENDING', 'IN_PROGRESS'] },
         },
@@ -266,11 +272,12 @@ export async function createPendingMatch(
       }
     }
 
-    const resolved = await resolvePlayersInTx(tx, players);
+    const resolved = await resolvePlayersInTx(tx, players, input.leagueId);
 
     return tx.match.create({
       data: {
         status: 'PENDING',
+        leagueId: input.leagueId,
         hostDiscordId: input.hostDiscordId,
         discordChannelId: input.discordChannelId,
         wc3statsGameId,
@@ -425,7 +432,7 @@ export async function replaceMatchRoster(
 
     await tx.matchPlayer.deleteMany({ where: { matchId } });
 
-    const resolved = await resolvePlayersInTx(tx, roster);
+    const resolved = await resolvePlayersInTx(tx, roster, existing.leagueId);
 
     if (resolved.length > 0) {
       await tx.matchPlayer.createMany({

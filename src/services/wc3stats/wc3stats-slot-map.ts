@@ -6,6 +6,7 @@ export const MAX_WC3STATS_SLOT = 23;
 export const MIN_HERO_SLOT = 1;
 export const MAX_HERO_SLOT = 12;
 
+/** Shape shared by all slot-map CRUD helpers. */
 export type GuildWc3statsSlotMapping = {
   wc3statsSlot: number;
   heroId: number;
@@ -138,29 +139,21 @@ export function formatWc3statsSlotMapLines(
     .map((entry) => `wc3 \`${entry.wc3statsSlot}\` → hero \`${entry.heroId}\``);
 }
 
-async function ensureGuildConfig(guildId: string): Promise<void> {
-  await prisma.guildConfig.upsert({
-    where: { guildId },
-    create: { guildId },
-    update: {},
-  });
-}
-
-export async function listGuildWc3statsSlotMaps(
-  guildId: string,
+export async function listLeagueWc3statsSlotMaps(
+  leagueId: string,
 ): Promise<GuildWc3statsSlotMapping[]> {
-  const rows = await prisma.guildWc3statsSlotMap.findMany({
-    where: { guildId },
+  const rows = await prisma.leagueWc3statsSlotMap.findMany({
+    where: { leagueId },
     orderBy: [{ heroId: 'asc' }, { wc3statsSlot: 'asc' }],
     select: { wc3statsSlot: true, heroId: true },
   });
   return rows;
 }
 
-export async function loadGuildWc3statsHeroSlotMap(
-  guildId: string,
+export async function loadLeagueWc3statsHeroSlotMap(
+  leagueId: string,
 ): Promise<Wc3statsHeroSlotMap | null> {
-  const rows = await listGuildWc3statsSlotMaps(guildId);
+  const rows = await listLeagueWc3statsSlotMaps(leagueId);
   if (rows.length === 0) {
     return null;
   }
@@ -168,20 +161,20 @@ export async function loadGuildWc3statsHeroSlotMap(
 }
 
 /**
- * Upsert one wc3stats index → hero mapping. Rejects if another wc3 index already owns that hero.
+ * Upsert one wc3stats index → hero mapping for a league.
+ * Rejects if another wc3 index already owns that hero.
  */
-export async function setGuildWc3statsSlotMap(
-  guildId: string,
+export async function setLeagueWc3statsSlotMap(
+  leagueId: string,
   wc3statsSlot: number,
   heroId: number,
 ): Promise<void> {
   assertWc3statsSlotInRange(wc3statsSlot);
   assertHeroSlotInRange(heroId);
-  await ensureGuildConfig(guildId);
 
-  const conflict = await prisma.guildWc3statsSlotMap.findFirst({
+  const conflict = await prisma.leagueWc3statsSlotMap.findFirst({
     where: {
-      guildId,
+      leagueId,
       heroId,
       NOT: { wc3statsSlot },
     },
@@ -194,18 +187,18 @@ export async function setGuildWc3statsSlotMap(
     );
   }
 
-  await prisma.guildWc3statsSlotMap.upsert({
+  await prisma.leagueWc3statsSlotMap.upsert({
     where: {
-      guildId_wc3statsSlot: { guildId, wc3statsSlot },
+      leagueId_wc3statsSlot: { leagueId, wc3statsSlot },
     },
-    create: { guildId, wc3statsSlot, heroId },
+    create: { leagueId, wc3statsSlot, heroId },
     update: { heroId },
   });
 }
 
-/** Replace the entire guild mapping (atomic). */
-export async function replaceGuildWc3statsSlotMaps(
-  guildId: string,
+/** Replace the entire league slot mapping (atomic). */
+export async function replaceLeagueWc3statsSlotMaps(
+  leagueId: string,
   mappings: GuildWc3statsSlotMapping[],
 ): Promise<void> {
   assertUniqueHeroTargets(mappings);
@@ -214,14 +207,12 @@ export async function replaceGuildWc3statsSlotMaps(
     assertHeroSlotInRange(entry.heroId);
   }
 
-  await ensureGuildConfig(guildId);
-
   await prisma.$transaction(async (tx) => {
-    await tx.guildWc3statsSlotMap.deleteMany({ where: { guildId } });
+    await tx.leagueWc3statsSlotMap.deleteMany({ where: { leagueId } });
     if (mappings.length > 0) {
-      await tx.guildWc3statsSlotMap.createMany({
+      await tx.leagueWc3statsSlotMap.createMany({
         data: mappings.map((entry) => ({
-          guildId,
+          leagueId,
           wc3statsSlot: entry.wc3statsSlot,
           heroId: entry.heroId,
         })),
@@ -230,18 +221,18 @@ export async function replaceGuildWc3statsSlotMaps(
   });
 }
 
-export async function clearGuildWc3statsSlotMap(
-  guildId: string,
+export async function clearLeagueWc3statsSlotMap(
+  leagueId: string,
   wc3statsSlot: number,
 ): Promise<boolean> {
   assertWc3statsSlotInRange(wc3statsSlot);
-  const result = await prisma.guildWc3statsSlotMap.deleteMany({
-    where: { guildId, wc3statsSlot },
+  const result = await prisma.leagueWc3statsSlotMap.deleteMany({
+    where: { leagueId, wc3statsSlot },
   });
   return result.count > 0;
 }
 
-export async function clearAllGuildWc3statsSlotMaps(guildId: string): Promise<number> {
-  const result = await prisma.guildWc3statsSlotMap.deleteMany({ where: { guildId } });
+export async function clearAllLeagueWc3statsSlotMaps(leagueId: string): Promise<number> {
+  const result = await prisma.leagueWc3statsSlotMap.deleteMany({ where: { leagueId } });
   return result.count;
 }

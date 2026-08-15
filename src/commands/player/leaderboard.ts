@@ -25,6 +25,12 @@ import {
   buildOverallLeaderboardEmbed,
 } from '../../services/leaderboard/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
+import {
+  getLeagueOption,
+  resolveLeagueIdFromInteraction,
+  respondLeagueAutocomplete,
+  withSubcommandLeagueOption,
+} from '../../services/league/index.js';
 
 const log = createLogger('leaderboard_cmd');
 
@@ -46,41 +52,53 @@ export const data = new SlashCommandBuilder()
   .setName('leaderboard')
   .setDescription('View global and hero leaderboards')
   .addSubcommand((subcommand) =>
-    subcommand
-      .setName('show')
-      .setDescription('Global overall leaderboard (top 10 per page)')
-      .addIntegerOption((option) =>
-        option
-          .setName('page')
-          .setDescription('Page number')
-          .setRequired(false)
-          .setMinValue(1),
-      ),
+    withSubcommandLeagueOption(
+      subcommand
+        .setName('show')
+        .setDescription('Global overall leaderboard (top 10 per page)')
+        .addIntegerOption((option) =>
+          option
+            .setName('page')
+            .setDescription('Page number')
+            .setRequired(false)
+            .setMinValue(1),
+        ),
+    ),
   )
   .addSubcommand((subcommand) =>
-    subcommand
-      .setName('heroes')
-      .setDescription('Top 3 players for each configured hero'),
+    withSubcommandLeagueOption(
+      subcommand
+        .setName('heroes')
+        .setDescription('Top 3 players for each configured hero'),
+    ),
   )
   .addSubcommand((subcommand) =>
-    subcommand
-      .setName('hero')
-      .setDescription('Top 10 players for one hero')
-      .addStringOption((option) =>
-        option
-          .setName('name')
-          .setDescription('Hero name (e.g. Goku)')
-          .setRequired(true)
-          .setAutocomplete(true),
-      ),
+    withSubcommandLeagueOption(
+      subcommand
+        .setName('hero')
+        .setDescription('Top 10 players for one hero')
+        .addStringOption((option) =>
+          option
+            .setName('name')
+            .setDescription('Hero name (e.g. Goku)')
+            .setRequired(true)
+            .setAutocomplete(true),
+        ),
+    ),
   )
   .addSubcommand((subcommand) =>
-    subcommand
-      .setName('setup')
-      .setDescription('Post a live overall top-10 message in this channel'),
+    withSubcommandLeagueOption(
+      subcommand
+        .setName('setup')
+        .setDescription('Post a live overall top-10 message in this channel'),
+    ),
   );
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
+  if (await respondLeagueAutocomplete(interaction)) {
+    return;
+  }
+
   if (interaction.options.getSubcommand() !== 'hero') {
     await interaction.respond([]);
     return;
@@ -152,8 +170,18 @@ async function handleSetup(interaction: ChatInputCommandInteraction): Promise<vo
     throw error;
   }
 
+  const resolved = await resolveLeagueIdFromInteraction(interaction, getLeagueOption(interaction));
+  if (!resolved.ok) {
+    await interaction.reply({ content: resolved.message, flags: MessageFlags.Ephemeral });
+    return;
+  }
+
   try {
-    await setupLiveLeaderboard(interaction.client, interaction.guildId, interaction.channelId);
+    await setupLiveLeaderboard(
+      interaction.client,
+      resolved.leagueId,
+      interaction.channelId,
+    );
     await interaction.reply({
       content: 'Live overall leaderboard set in this channel. Keep only this message here.',
       flags: MessageFlags.Ephemeral,
@@ -167,11 +195,27 @@ async function handleSetup(interaction: ChatInputCommandInteraction): Promise<vo
   }
 }
 
+async function resolveLeagueOrReply(
+  interaction: ChatInputCommandInteraction,
+): Promise<string | null> {
+  const resolved = await resolveLeagueIdFromInteraction(interaction, getLeagueOption(interaction));
+
+  if (!resolved.ok) {
+    await interaction.editReply({ content: resolved.message });
+    return null;
+  }
+
+  return resolved.leagueId;
+}
+
 async function handleShowOverall(interaction: ChatInputCommandInteraction): Promise<void> {
   const requestedPage = interaction.options.getInteger('page') ?? 1;
 
   try {
-    const firstPage = await loadOverallLeaderboardPage(1);
+    const leagueId = await resolveLeagueOrReply(interaction);
+    if (!leagueId) return;
+
+    const firstPage = await loadOverallLeaderboardPage(leagueId, 1);
     if (requestedPage > firstPage.totalPages) {
       await interaction.editReply({
         content: `Page must be between 1 and ${firstPage.totalPages}.`,
@@ -180,10 +224,11 @@ async function handleShowOverall(interaction: ChatInputCommandInteraction): Prom
     }
 
     const pageData =
-      requestedPage === 1 ? firstPage : await loadOverallLeaderboardPage(requestedPage);
+      requestedPage === 1 ? firstPage : await loadOverallLeaderboardPage(leagueId, requestedPage);
     const embed = buildOverallLeaderboardEmbed(pageData);
     const components = buildLeaderboardPageButtons({
       invokerId: interaction.user.id,
+      leagueId,
       page: pageData.page,
       totalPages: pageData.totalPages,
     });
@@ -197,7 +242,10 @@ async function handleShowOverall(interaction: ChatInputCommandInteraction): Prom
 
 async function handleShowAllHeroes(interaction: ChatInputCommandInteraction): Promise<void> {
   try {
-    const slices = await loadAllHeroLeaderboards();
+    const leagueId = await resolveLeagueOrReply(interaction);
+    if (!leagueId) return;
+
+    const slices = await loadAllHeroLeaderboards(leagueId);
     if (slices.length === 0) {
       await interaction.editReply({
         content: 'No heroes are configured for this server. Add a hero roster in the database first.',
@@ -215,13 +263,16 @@ async function handleShowSingleHero(interaction: ChatInputCommandInteraction): P
   const heroName = interaction.options.getString('name', true);
 
   try {
+    const leagueId = await resolveLeagueOrReply(interaction);
+    if (!leagueId) return;
+
     const resolved = await resolveHeroByName(heroName);
     if (!resolved) {
       await interaction.editReply({ content: 'Unknown hero.' });
       return;
     }
 
-    const board = await loadHeroLeaderboard(resolved.heroId, HERO_SINGLE_TOP);
+    const board = await loadHeroLeaderboard(leagueId, resolved.heroId, HERO_SINGLE_TOP);
     await interaction.editReply({
       embeds: [buildHeroLeaderboardEmbed(board.heroName, board.entries)],
     });

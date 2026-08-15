@@ -80,6 +80,7 @@ export function assertBothTeamsHaveActivePlayers(active: { slot: number }[]): vo
 }
 
 export async function applyQuitterPenalties(
+  leagueId: string,
   entries: RatingRosterEntry[],
   db: Db = prisma,
 ): Promise<void> {
@@ -91,6 +92,7 @@ export async function applyQuitterPenalties(
   }
 
   await ensurePlayerRatings(
+    leagueId,
     quitters.map((entry) => ({
       playerId: entry.playerId,
       heroId: entry.heroId,
@@ -101,10 +103,11 @@ export async function applyQuitterPenalties(
   const playerIds = quitters.map((entry) => entry.playerId);
   const [globalRatings, heroRatings] = await Promise.all([
     db.playerRating.findMany({
-      where: { playerId: { in: playerIds } },
+      where: { leagueId, playerId: { in: playerIds } },
     }),
     db.playerHeroRating.findMany({
       where: {
+        leagueId,
         OR: quitters.map((entry) => ({
           playerId: entry.playerId,
           heroId: entry.heroId,
@@ -125,7 +128,7 @@ export async function applyQuitterPenalties(
     const [nextGlobal, nextHero] = applySyntheticLosses(toOpenSkillRatings([global, hero]));
 
     await db.playerRating.update({
-      where: { playerId: entry.playerId },
+      where: { leagueId_playerId: { leagueId, playerId: entry.playerId } },
       data: {
         mu: nextGlobal.mu,
         sigma: nextGlobal.sigma,
@@ -134,7 +137,8 @@ export async function applyQuitterPenalties(
 
     await db.playerHeroRating.update({
       where: {
-        playerId_heroId: {
+        leagueId_playerId_heroId: {
+          leagueId,
           playerId: entry.playerId,
           heroId: entry.heroId,
         },
@@ -164,6 +168,7 @@ function buildTeamEntities(
 }
 
 export async function applyMatchRatings(
+  leagueId: string,
   entries: RatingRosterEntry[],
   winningTeam: 1 | 2,
   db: Db = prisma,
@@ -174,6 +179,7 @@ export async function applyMatchRatings(
   assertBothTeamsHaveActivePlayers(active);
 
   await ensurePlayerRatings(
+    leagueId,
     active.map((entry) => ({
       playerId: entry.playerId,
       heroId: entry.heroId,
@@ -184,10 +190,11 @@ export async function applyMatchRatings(
   const playerIds = active.map((entry) => entry.playerId);
   const [globalRatings, heroRatings] = await Promise.all([
     db.playerRating.findMany({
-      where: { playerId: { in: playerIds } },
+      where: { leagueId, playerId: { in: playerIds } },
     }),
     db.playerHeroRating.findMany({
       where: {
+        leagueId,
         OR: active.map((entry) => ({
           playerId: entry.playerId,
           heroId: entry.heroId,
@@ -246,7 +253,7 @@ export async function applyMatchRatings(
     }
 
     await db.playerRating.update({
-      where: { playerId: entry.playerId },
+      where: { leagueId_playerId: { leagueId, playerId: entry.playerId } },
       data: {
         mu: updated.global.mu,
         sigma: updated.global.sigma,
@@ -255,7 +262,8 @@ export async function applyMatchRatings(
 
     await db.playerHeroRating.update({
       where: {
-        playerId_heroId: {
+        leagueId_playerId_heroId: {
+          leagueId,
           playerId: entry.playerId,
           heroId: updated.heroId,
         },

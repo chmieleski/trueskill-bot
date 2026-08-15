@@ -165,7 +165,7 @@ export async function completeMatch(
       })),
     );
 
-    const beforeBySlot = await loadPlayerKiBySlot(previewEntries, tx);
+    const beforeBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
 
     for (const player of match.players) {
       const isQuitter = quitterSet.has(player.slot);
@@ -180,15 +180,15 @@ export async function completeMatch(
       });
     }
 
-    await applyQuitterPenalties(entries, tx);
-    await applyMatchRatings(entries, winningTeam, tx);
+    await applyQuitterPenalties(match.leagueId, entries, tx);
+    await applyMatchRatings(match.leagueId, entries, winningTeam, tx);
 
     await tx.match.update({
       where: { id: matchId },
       data: { status: 'COMPLETED' },
     });
 
-    const afterBySlot = await loadPlayerKiBySlot(previewEntries, tx);
+    const afterBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
     ratingPreview = buildCompletedRatingPreview(
       previewEntries,
       beforeBySlot,
@@ -212,7 +212,7 @@ export async function cancelInProgressMatch(
     const entries = toRatingEntries(match, new Set(quitterSlots));
 
     if (quitterSlots.length > 0) {
-      await applyQuitterPenalties(entries, tx);
+      await applyQuitterPenalties(match.leagueId, entries, tx);
     }
 
     await tx.match.update({

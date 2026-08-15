@@ -2,9 +2,9 @@ import type { Client, TextChannel } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
 import {
-  clearLeaderboardChannel,
-  setLeaderboardChannel,
-} from '../guild/guild-config.js';
+  clearLeagueLeaderboardChannel,
+  setLeagueLeaderboardChannel,
+} from '../league/league-wc3stats.js';
 import { LIVE_LEADERBOARD_SIZE, loadOverallLeaderboardTop } from './leaderboard.js';
 import { buildOverallLeaderboardEmbed } from './leaderboard-embed.js';
 
@@ -34,8 +34,8 @@ async function deleteMessageBestEffort(
   }
 }
 
-async function buildLiveOverallEmbed() {
-  const entries = await loadOverallLeaderboardTop(LIVE_LEADERBOARD_SIZE);
+async function buildLiveOverallEmbed(leagueId: string) {
+  const entries = await loadOverallLeaderboardTop(leagueId, LIVE_LEADERBOARD_SIZE);
   return buildOverallLeaderboardEmbed(
     {
       entries,
@@ -49,10 +49,13 @@ async function buildLiveOverallEmbed() {
 
 export async function setupLiveLeaderboard(
   client: Client,
-  guildId: string,
+  leagueId: string,
   channelId: string,
 ): Promise<{ messageId: string }> {
-  const existing = await prisma.guildConfig.findUnique({ where: { guildId } });
+  const existing = await prisma.league.findUnique({
+    where: { id: leagueId },
+    select: { leaderboardChannelId: true, leaderboardMessageId: true },
+  });
   if (existing?.leaderboardMessageId && existing.leaderboardChannelId) {
     await deleteMessageBestEffort(
       client,
@@ -61,62 +64,67 @@ export async function setupLiveLeaderboard(
     );
   }
 
-  const embed = await buildLiveOverallEmbed();
+  const embed = await buildLiveOverallEmbed(leagueId);
   const channel = await fetchTextChannel(client, channelId);
   const message = await channel.send({ embeds: [embed] });
-  await setLeaderboardChannel(guildId, channelId, message.id);
+
+  await setLeagueLeaderboardChannel(leagueId, channelId, message.id);
+
   return { messageId: message.id };
 }
 
-export async function clearLiveLeaderboard(client: Client, guildId: string): Promise<void> {
-  const row = await prisma.guildConfig.findUnique({ where: { guildId } });
+export async function clearLiveLeaderboard(client: Client, leagueId: string): Promise<void> {
+  const row = await prisma.league.findUnique({
+    where: { id: leagueId },
+    select: { leaderboardChannelId: true, leaderboardMessageId: true },
+  });
   if (row?.leaderboardChannelId && row.leaderboardMessageId) {
-    await deleteMessageBestEffort(
-      client,
-      row.leaderboardChannelId,
-      row.leaderboardMessageId,
-    );
+    await deleteMessageBestEffort(client, row.leaderboardChannelId, row.leaderboardMessageId);
   }
-  await clearLeaderboardChannel(guildId);
+
+  await clearLeagueLeaderboardChannel(leagueId);
 }
 
-export async function refreshGuildLeaderboard(
+export async function refreshLeagueLeaderboard(
   client: Client,
-  guildId: string,
+  leagueId: string,
 ): Promise<void> {
-  const row = await prisma.guildConfig.findUnique({ where: { guildId } });
+  const row = await prisma.league.findUnique({
+    where: { id: leagueId },
+    select: { leaderboardChannelId: true, leaderboardMessageId: true },
+  });
   if (!row?.leaderboardChannelId || !row.leaderboardMessageId) {
     return;
   }
 
-  const embed = await buildLiveOverallEmbed();
+  const embed = await buildLiveOverallEmbed(leagueId);
 
   try {
     const channel = await fetchTextChannel(client, row.leaderboardChannelId);
     await channel.messages.edit(row.leaderboardMessageId, { embeds: [embed] });
   } catch (error) {
-    log.warn({ err: error, guildId }, 'Leaderboard edit failed; reposting');
+    log.warn({ err: error, leagueId }, 'Leaderboard edit failed; reposting');
     try {
       const channel = await fetchTextChannel(client, row.leaderboardChannelId);
       const message = await channel.send({ embeds: [embed] });
-      await setLeaderboardChannel(guildId, row.leaderboardChannelId, message.id);
+      await setLeagueLeaderboardChannel(leagueId, row.leaderboardChannelId, message.id);
     } catch (repostError) {
-      log.warn({ err: repostError, guildId }, 'Leaderboard repost failed');
+      log.warn({ err: repostError, leagueId }, 'Leaderboard repost failed');
     }
   }
 }
 
 export async function refreshAllLeaderboardChannels(client: Client): Promise<void> {
-  const rows = await prisma.guildConfig.findMany({
+  const leagues = await prisma.league.findMany({
     where: {
       leaderboardChannelId: { not: null },
       leaderboardMessageId: { not: null },
     },
-    select: { guildId: true },
+    select: { id: true },
   });
 
-  for (const row of rows) {
-    await refreshGuildLeaderboard(client, row.guildId);
+  for (const league of leagues) {
+    await refreshLeagueLeaderboard(client, league.id);
   }
 }
 

@@ -1,5 +1,5 @@
 import { Attachment, GuildMember, SlashCommandBuilder } from 'discord.js';
-import type { ChatInputCommandInteraction } from 'discord.js';
+import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import { extractLobbyPlayers, type LobbyPlayer } from '../../services/lobby/index.js';
 import {
@@ -8,7 +8,6 @@ import {
   canStartLobby,
 } from '../../services/lobby/index.js';
 import {
-  isGuildWc3statsImportReady,
   resolveGuildConfig,
   type ResolvedGuildConfig,
 } from '../../services/guild/index.js';
@@ -29,8 +28,18 @@ import {
   parseWc3statsId,
   resolveRegisterLobbySource,
 } from '../../services/lobby/index.js';
+import {
+  getLeagueOption,
+  resolveLeagueIdFromInteraction,
+  respondLeagueAutocomplete,
+  withOptionalLeagueOption,
+} from '../../services/league/index.js';
+import {
+  isLeagueWc3statsImportReady,
+  resolveLeagueConfig,
+} from '../../services/league/league-wc3stats.js';
 import { importWc3statsLobby } from '../../services/wc3stats/index.js';
-import { loadGuildWc3statsHeroSlotMap } from '../../services/wc3stats/index.js';
+import { loadLeagueWc3statsHeroSlotMap } from '../../services/wc3stats/index.js';
 
 const log = createLogger('register_lobby');
 
@@ -120,34 +129,37 @@ async function tryExtractLobbyPlayers(
   }
 }
 
-export const data = new SlashCommandBuilder()
-  .setName('register_lobby')
-  .setDescription('Register a DBZ match lobby (up to 6v6). Screenshot is optional.')
-  .addAttachmentOption((option) =>
-    option.setName('print').setDescription('Lobby screenshot (optional)').setRequired(false),
-  )
-  .addStringOption((option) =>
-    option
-      .setName('wc3stats_id')
-      .setDescription('wc3stats lobby id (optional)')
-      .setRequired(false),
-  );
+export const data = withOptionalLeagueOption(
+  new SlashCommandBuilder()
+    .setName('register_lobby')
+    .setDescription('Register a DBZ match lobby (up to 6v6). Screenshot is optional.')
+    .addAttachmentOption((option) =>
+      option.setName('print').setDescription('Lobby screenshot (optional)').setRequired(false),
+    )
+    .addStringOption((option) =>
+      option
+        .setName('wc3stats_id')
+        .setDescription('wc3stats lobby id (optional)')
+        .setRequired(false),
+    ),
+);
+
+export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
+  await respondLeagueAutocomplete(interaction);
+}
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
 
-  let playerClaimEnabled = true;
+  if (!interaction.guildId || !interaction.channelId) {
+    await interaction.editReply('This command can only be used in a server channel.');
+    return;
+  }
+
+  // ── Auth + role check ────────────────────────────────────────────────────────
   let guildConfig: ResolvedGuildConfig | null = null;
-  let wc3statsReady = false;
-
   try {
-    if (!interaction.guildId) {
-      throw new MatchServiceError('This command can only be used in a server.');
-    }
-
     guildConfig = await resolveGuildConfig(interaction.guildId);
-    wc3statsReady = isGuildWc3statsImportReady(guildConfig);
-    playerClaimEnabled = guildConfig.lobbyPlayerClaimEnabled;
     assertCanCreateMatch({
       memberRoleIds: memberRoleIds(interaction),
       matchCreateRoleId: guildConfig.matchCreateRoleId,
@@ -158,10 +170,24 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       await interaction.editReply(error.message);
       return;
     }
-
     throw error;
   }
 
+  // ── Resolve league early (needed for IHL config) ─────────────────────────────
+  const leagueResolved = await resolveLeagueIdFromInteraction(
+    interaction,
+    getLeagueOption(interaction),
+  );
+  if (!leagueResolved.ok) {
+    await interaction.editReply(leagueResolved.message);
+    return;
+  }
+  const leagueId = leagueResolved.leagueId;
+  const leagueConfig = await resolveLeagueConfig(leagueId);
+  const wc3statsReady = isLeagueWc3statsImportReady(leagueConfig);
+  const playerClaimEnabled = leagueConfig.lobbyPlayerClaimEnabled;
+
+  // ── Parse options ────────────────────────────────────────────────────────────
   const attachment = interaction.options.getAttachment('print');
   let wc3statsId: number | null = null;
 
@@ -199,11 +225,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
-  if (!interaction.channelId) {
-    await interaction.editReply('Could not determine the channel for this lobby.');
-    return;
-  }
-
   const source = resolveRegisterLobbySource({
     attachmentUrl: attachment?.url,
     mimeType: attachment ? resolveMimeType(attachment) : null,
@@ -229,9 +250,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
     }
 
-    const slotMap = interaction.guildId
-      ? await loadGuildWc3statsHeroSlotMap(interaction.guildId)
-      : null;
+    const slotMap = await loadLeagueWc3statsHeroSlotMap(leagueId);
 
     let imported;
     try {
@@ -240,8 +259,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         hostNick,
         requireNickInLobby: !wc3statsId,
         slotMap,
-        mapPattern: guildConfig!.wc3statsMapPattern!,
-        mapSha1: guildConfig!.wc3statsMapSha1,
+        mapPattern: leagueConfig.wc3statsMapPattern!,
+        mapSha1: leagueConfig.wc3statsMapSha1,
       });
     } catch (error) {
       if (error instanceof MatchServiceError) {
@@ -274,6 +293,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   try {
     const created = await createPendingMatch({
+      leagueId,
       hostDiscordId: interaction.user.id,
       discordChannelId: interaction.channelId,
       players,
@@ -282,7 +302,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     const match = await getMatchById(created.matchId);
     const ratingPreview = match
-      ? await loadLobbyRatingPreview(matchPlayersToRatingEntries(match.players))
+      ? await loadLobbyRatingPreview(leagueId, matchPlayersToRatingEntries(match.players))
       : undefined;
 
     await interaction.editReply({
