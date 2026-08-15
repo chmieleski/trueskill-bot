@@ -30,3 +30,5 @@ That’s it. Now Discord ↔ your WC3 nick are friends.
 /settings view
 /settings set host_prompt_pings enabled:False
 ```
+
+Tip: use the **exact** nick you use in Warcraft.
