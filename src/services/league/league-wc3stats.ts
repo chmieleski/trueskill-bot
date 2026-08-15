@@ -7,6 +7,10 @@ import {
   UDBR_MAP_SHA1,
   UDBR_WC3STATS_SLOT_MAP,
 } from '../wc3stats/wc3stats-slot-map.js';
+import {
+  LIVE_LEADERBOARD_DEFAULT_SIZE,
+  assertLiveLeaderboardSize,
+} from '../leaderboard/leaderboard.js';
 
 /** All IHL settings stored on the League row. */
 export interface ResolvedLeagueConfig {
@@ -15,6 +19,7 @@ export interface ResolvedLeagueConfig {
   wc3statsMapSha1: string[];
   leaderboardChannelId: string | undefined;
   leaderboardMessageId: string | undefined;
+  leaderboardSize: number;
   lobbyPlayerClaimEnabled: boolean;
 }
 
@@ -30,6 +35,10 @@ export async function resolveLeagueConfig(leagueId: string): Promise<ResolvedLea
     wc3statsMapSha1: parseWc3statsMapSha1(row?.wc3statsMapSha1),
     leaderboardChannelId: row?.leaderboardChannelId?.trim() || undefined,
     leaderboardMessageId: row?.leaderboardMessageId?.trim() || undefined,
+    leaderboardSize:
+      row?.leaderboardSize != null
+        ? row.leaderboardSize
+        : LIVE_LEADERBOARD_DEFAULT_SIZE,
     lobbyPlayerClaimEnabled: row?.lobbyPlayerClaimEnabled !== false,
   };
 }
@@ -96,6 +105,24 @@ export async function clearLeagueLeaderboardChannel(leagueId: string): Promise<v
   await prisma.league.update({
     where: { id: leagueId },
     data: { leaderboardChannelId: null, leaderboardMessageId: null },
+  });
+}
+
+export async function setLeagueLeaderboardSize(
+  leagueId: string,
+  size: number,
+): Promise<void> {
+  const safe = assertLiveLeaderboardSize(size);
+  await prisma.league.update({
+    where: { id: leagueId },
+    data: { leaderboardSize: safe },
+  });
+}
+
+export async function clearLeagueLeaderboardSize(leagueId: string): Promise<void> {
+  await prisma.league.update({
+    where: { id: leagueId },
+    data: { leaderboardSize: LIVE_LEADERBOARD_DEFAULT_SIZE },
   });
 }
 

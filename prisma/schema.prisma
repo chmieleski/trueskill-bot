@@ -25,6 +25,7 @@ model League {
   wc3statsMapSha1         String?
   leaderboardChannelId    String?
   leaderboardMessageId    String?
+  leaderboardSize         Int      @default(10)
   lobbyPlayerClaimEnabled Boolean  @default(true)
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt

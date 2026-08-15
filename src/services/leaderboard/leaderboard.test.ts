@@ -1,10 +1,48 @@
 import { describe, expect, it } from 'vitest';
 import {
+  LeaderboardServiceError,
+  LIVE_LEADERBOARD_CHUNK_SIZE,
+  assertLiveLeaderboardSize,
   assignSortedRanks,
+  chunkLeaderboardEntries,
   clampPage,
   paginateOverall,
   type OverallLeaderboardEntry,
 } from './leaderboard.js';
+
+describe('assertLiveLeaderboardSize', () => {
+  it('accepts bounds and mid values', () => {
+    expect(assertLiveLeaderboardSize(10)).toBe(10);
+    expect(assertLiveLeaderboardSize(50)).toBe(50);
+    expect(assertLiveLeaderboardSize(100)).toBe(100);
+  });
+
+  it('rejects out of range and non-integers', () => {
+    expect(() => assertLiveLeaderboardSize(9)).toThrow(LeaderboardServiceError);
+    expect(() => assertLiveLeaderboardSize(101)).toThrow(LeaderboardServiceError);
+    expect(() => assertLiveLeaderboardSize(10.5)).toThrow(LeaderboardServiceError);
+    expect(() => assertLiveLeaderboardSize(9)).toThrow(
+      /Live leaderboard size must be between 10 and 100/,
+    );
+  });
+});
+
+describe('chunkLeaderboardEntries', () => {
+  it('chunks by 25', () => {
+    const entries = Array.from({ length: 26 }, (_, i) => i);
+    expect(chunkLeaderboardEntries(entries)).toEqual([
+      entries.slice(0, 25),
+      entries.slice(25),
+    ]);
+    expect(chunkLeaderboardEntries(entries.slice(0, 10))).toEqual([entries.slice(0, 10)]);
+    expect(chunkLeaderboardEntries(Array.from({ length: 100 }, (_, i) => i))).toHaveLength(4);
+    expect(LIVE_LEADERBOARD_CHUNK_SIZE).toBe(25);
+  });
+
+  it('returns empty array for empty input', () => {
+    expect(chunkLeaderboardEntries([])).toEqual([]);
+  });
+});
 
 describe('clampPage', () => {
   it('clamps below 1 and above totalPages', () => {

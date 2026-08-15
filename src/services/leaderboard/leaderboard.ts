@@ -4,7 +4,12 @@ import { prisma } from '../../lib/prisma.js';
 import { displayOrdinal } from '../rating/rating-math.js';
 
 export const LEADERBOARD_PAGE_SIZE = 10;
-export const LIVE_LEADERBOARD_SIZE = 10;
+export const LIVE_LEADERBOARD_MIN_SIZE = 10;
+export const LIVE_LEADERBOARD_MAX_SIZE = 100;
+export const LIVE_LEADERBOARD_DEFAULT_SIZE = 10;
+export const LIVE_LEADERBOARD_CHUNK_SIZE = 25;
+/** @deprecated Use league leaderboardSize; default only. */
+export const LIVE_LEADERBOARD_SIZE = LIVE_LEADERBOARD_DEFAULT_SIZE;
 export const HERO_COMPACT_TOP = 3;
 export const HERO_SINGLE_TOP = 10;
 
@@ -13,6 +18,35 @@ export class LeaderboardServiceError extends Error {
     super(message);
     this.name = 'LeaderboardServiceError';
   }
+}
+
+/** Validate live board size; throws LeaderboardServiceError if invalid. */
+export function assertLiveLeaderboardSize(size: number): number {
+  if (
+    !Number.isInteger(size) ||
+    size < LIVE_LEADERBOARD_MIN_SIZE ||
+    size > LIVE_LEADERBOARD_MAX_SIZE
+  ) {
+    throw new LeaderboardServiceError(
+      'Live leaderboard size must be between 10 and 100.',
+    );
+  }
+  return size;
+}
+
+/** Split entries into fixed-size chunks (default 25). Empty input → []. */
+export function chunkLeaderboardEntries<T>(
+  entries: T[],
+  chunkSize: number = LIVE_LEADERBOARD_CHUNK_SIZE,
+): T[][] {
+  if (entries.length === 0) {
+    return [];
+  }
+  const chunks: T[][] = [];
+  for (let i = 0; i < entries.length; i += chunkSize) {
+    chunks.push(entries.slice(i, i + chunkSize));
+  }
+  return chunks;
 }
 
 export type OverallLeaderboardEntry = {
