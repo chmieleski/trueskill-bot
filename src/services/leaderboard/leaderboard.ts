@@ -8,8 +8,6 @@ export const LIVE_LEADERBOARD_MIN_SIZE = 10;
 export const LIVE_LEADERBOARD_MAX_SIZE = 100;
 export const LIVE_LEADERBOARD_DEFAULT_SIZE = 10;
 export const LIVE_LEADERBOARD_CHUNK_SIZE = 25;
-/** @deprecated Use league leaderboardSize; default only. */
-export const LIVE_LEADERBOARD_SIZE = LIVE_LEADERBOARD_DEFAULT_SIZE;
 export const HERO_COMPACT_TOP = 3;
 export const HERO_SINGLE_TOP = 10;
 
