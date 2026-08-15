@@ -234,6 +234,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         hostNick,
         requireNickInLobby: !wc3statsId,
         slotMap,
+        mapPattern: env.wc3statsMapPattern,
+        mapSha1: env.wc3statsMapSha1,
       });
     } catch (error) {
       if (error instanceof MatchServiceError) {

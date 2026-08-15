@@ -1,19 +1,24 @@
-# Task 5 report — Manual smoke (dev)
+# Task 5 report — importWc3statsLobby takes filter from caller
 
-**Status:** DONE (checklist prepared; Discord UI smoke left for human)
+**Status:** DONE
 
-## Automated verification already done (controller)
+## Implementation
 
-- `rg 'Team A|Team B' src --glob '*.ts'`: only JSDoc in `lobby-ocr.ts` and `rating-math.ts`
-- `npm test`: 27 files, 184 tests PASS
+- Updated `importWc3statsLobby` to require `mapPattern: string` and `mapSha1: string[]`.
+- Kept `env.wc3statsTimeoutMs` inside `importWc3statsLobby`; removed all internal reads of `env.wc3statsMapPattern` and `env.wc3statsMapSha1`.
+- Added the required empty-pattern guard with `Warcraft lobby import is not configured for this server.`
+- Changed invalid regex handling to `Map pattern is not a valid regular expression.`
+- Updated all TypeScript call sites to pass the temporary bridge values:
+  - `mapPattern: env.wc3statsMapPattern`
+  - `mapSha1: env.wc3statsMapSha1`
 
-## Human Discord smoke checklist
+## Verification
 
-1. Restart `npm run dev` (or `npm run deploy-commands`) so slash choice labels refresh.
-2. Spot-check:
-   - Lobby embed: team headers + win % field names → Z Fighters / Evil
-   - Slot add/move selects: themed team in labels
-   - Report Winner buttons: `Z Fighters Won` / `Evil Won`
-   - Completed embed: `{team} won the match.`
+- `npx vitest run src/services/wc3stats/wc3stats-resolve.test.ts`: PASS, 1 file / 12 tests.
+- `npm run build`: PASS, Prisma generate + TypeScript compile.
+- `ReadLints` on edited TypeScript files: no linter errors.
+- Self-review: confirmed no `env.wc3statsMapPattern` / `env.wc3statsMapSha1` reads remain in `src/services/wc3stats/wc3stats-resolve.ts`, and all current TypeScript callers pass map filters.
 
-No code commit for this task.
+## Concerns
+
+- Task 5 intentionally keeps callers bridged to global env map config. Per-guild `resolveGuildConfig` wiring remains for Task 6.

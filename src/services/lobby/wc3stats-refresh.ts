@@ -67,7 +67,12 @@ async function importAndMaybeLinkWc3stats(input: {
   const slotMap = input.guildId ? await loadGuildWc3statsHeroSlotMap(input.guildId) : null;
 
   if (explicitId) {
-    const imported = await importWc3statsLobby({ wc3statsId: explicitId, slotMap });
+    const imported = await importWc3statsLobby({
+      wc3statsId: explicitId,
+      slotMap,
+      mapPattern: env.wc3statsMapPattern,
+      mapSha1: env.wc3statsMapSha1,
+    });
     if (!imported.ok) {
       throw new MatchServiceError(imported.message);
     }
@@ -86,7 +91,12 @@ async function importAndMaybeLinkWc3stats(input: {
       throw new MatchServiceError(WC3STATS_NOT_LINKED_MESSAGE);
     }
 
-    const imported = await importWc3statsLobby({ wc3statsId, slotMap });
+    const imported = await importWc3statsLobby({
+      wc3statsId,
+      slotMap,
+      mapPattern: env.wc3statsMapPattern,
+      mapSha1: env.wc3statsMapSha1,
+    });
     if (!imported.ok) {
       throw new MatchServiceError(imported.message);
     }
@@ -103,6 +113,8 @@ async function importAndMaybeLinkWc3stats(input: {
     hostNick,
     requireNickInLobby: true,
     slotMap,
+    mapPattern: env.wc3statsMapPattern,
+    mapSha1: env.wc3statsMapSha1,
   });
   if (!imported.ok) {
     throw new MatchServiceError(imported.message);
