@@ -19,6 +19,7 @@ alwaysApply: true
 | `npm run db:down` | Stop local Postgres (volume kept) |
 | `npm run db:clone` | Dump hosted public data → local Postgres |
 | `npm run db:clone:heroes` | Same clone, `"Hero"` table only |
+| `npm run db:migrate-multi-league` | Probe schema, `migrate deploy` if needed, ensure Game/UDBR leagues for multi-league IHL |
 
 ## Env vars
 
@@ -27,6 +28,7 @@ alwaysApply: true
 - `DATABASE_URL` — Supabase pooled (6543), or local `127.0.0.1:5433` when using Docker Compose
 - `DIRECT_URL` — Supabase session/direct (5432), or the same local URL as `DATABASE_URL`
 - `PROD_DIRECT_URL` — hosted session/direct URL (5432) for `npm run db:clone` after `.env` points at local Postgres. Never the 6543 pooler.
+- `MULTI_LEAGUE_LEGACY_GUILD_ID` — Discord guild snowflake that owns pre-multi-league Match/rating history for `npm run db:migrate-multi-league` (falls back to `GUILD_ID` if unset)
 - `NODE_ENV` — `development` | `production`
 - `AUTO_DEPLOY_COMMANDS` — auto-register commands on startup
 - `GEMINI_API_KEY` — Google Gemini API key for lobby screenshot OCR
