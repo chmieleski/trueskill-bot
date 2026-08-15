@@ -7,6 +7,12 @@ People with the **mod role** can help when the host is gone or stuck.
 • `/match quitters` — mark leavers
 • `/match cancel` — cancel the match
 
+**Correcting a finished match** (within 24 hours)
+• `/match flip match_id:… winner:…` — fix wrong winner (optional `quitters`)
+• `/match void match_id:…` — undo the result and restore ki
+• Hosts cannot do this — mod role only
+• If players already played more ranked games, later matches are not recalculated
+
 Mods should **always pass `match_id`** when they are not the host (the bot will ask for it).
 
 **Linking accounts**

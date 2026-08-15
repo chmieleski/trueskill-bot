@@ -25,3 +25,5 @@ Now the game is **in progress**. Play in Warcraft!
 • People with the **match mod** role
 
 Always report the real result. Fair play keeps ki honest.
+
+If a result was reported wrong, tell a match mod quickly — they can fix or void it within 24 hours.
