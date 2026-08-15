@@ -125,38 +125,40 @@ export async function loadPlayerProfile(
     throw new PlayerServiceError('Player not found.');
   }
 
-  const [rating, allRatings, matchPlayers, heroRatings] = await Promise.all([
-    prisma.playerRating.findUnique({
-      where: { leagueId_playerId: { leagueId, playerId: player.id } },
-    }),
-    prisma.playerRating.findMany({
-      where: { leagueId },
-      select: { playerId: true, mu: true, sigma: true },
-    }),
-    prisma.matchPlayer.findMany({
-      where: {
-        playerId: player.id,
-        match: { leagueId, status: MatchStatus.COMPLETED },
-        result: { in: [MatchResult.WIN, MatchResult.LOSS] },
-      },
-      select: { result: true },
-    }),
-    prisma.playerHeroRating.findMany({
-      where: { leagueId, playerId: player.id, matchesPlayed: { gt: 0 } },
-      include: { hero: true },
-    }),
-  ]);
+  const [rating, allRatings, matchPlayers, heroRatings, gameCounts] =
+    await Promise.all([
+      prisma.playerRating.findUnique({
+        where: { leagueId_playerId: { leagueId, playerId: player.id } },
+      }),
+      prisma.playerRating.findMany({
+        where: { leagueId },
+        select: { playerId: true, mu: true, sigma: true },
+      }),
+      prisma.matchPlayer.findMany({
+        where: {
+          playerId: player.id,
+          match: { leagueId, status: MatchStatus.COMPLETED },
+          result: { in: [MatchResult.WIN, MatchResult.LOSS] },
+        },
+        select: { result: true },
+      }),
+      prisma.playerHeroRating.findMany({
+        where: { leagueId, playerId: player.id, matchesPlayed: { gt: 0 } },
+        include: { hero: true },
+      }),
+      prisma.matchPlayer.groupBy({
+        by: ['playerId'],
+        where: {
+          match: { leagueId, status: MatchStatus.COMPLETED },
+          result: { in: [MatchResult.WIN, MatchResult.LOSS] },
+        },
+        _count: { _all: true },
+      }),
+    ]);
 
-  const globalKi = rating
-    ? displayOrdinal(rating.mu, rating.sigma)
-    : coldStartKi();
-
-  const allKis = allRatings.map((row) => displayOrdinal(row.mu, row.sigma));
-  if (!rating) {
-    allKis.push(globalKi);
-  }
-
-  const rankPosition = competitionRank(globalKi, allKis);
+  const gamesByPlayer = new Map(
+    gameCounts.map((row) => [row.playerId, row._count._all]),
+  );
 
   let wins = 0;
   let losses = 0;
@@ -169,6 +171,18 @@ export async function loadPlayerProfile(
   }
 
   const games = wins + losses;
+  const globalKi = rating
+    ? displayOrdinal(rating.mu, rating.sigma, games)
+    : coldStartKi();
+
+  const allKis = allRatings.map((row) =>
+    displayOrdinal(row.mu, row.sigma, gamesByPlayer.get(row.playerId) ?? 0),
+  );
+  if (!rating) {
+    allKis.push(globalKi);
+  }
+
+  const rankPosition = competitionRank(globalKi, allKis);
   const winRatePercent =
     games > 0 ? Math.round((wins / games) * 1000) / 10 : null;
 
@@ -176,7 +190,7 @@ export async function loadPlayerProfile(
     .map((row) => ({
       heroId: row.heroId,
       name: row.hero.name,
-      ki: displayOrdinal(row.mu, row.sigma),
+      ki: displayOrdinal(row.mu, row.sigma, row.matchesPlayed),
       matchesPlayed: row.matchesPlayed,
     }))
     .sort((a, b) => b.ki - a.ki || a.name.localeCompare(b.name));
