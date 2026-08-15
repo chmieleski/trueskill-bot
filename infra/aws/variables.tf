@@ -136,24 +136,6 @@ variable "log_level" {
 
 # --- Non-secret bot config (SSM String; refreshed onto the host .env) ---
 
-variable "wc3stats_enabled" {
-  description = "WC3STATS_ENABLED — true to import live UDBR lobbies from wc3stats"
-  type        = string
-  default     = "false"
-}
-
-variable "wc3stats_map_pattern" {
-  description = "WC3STATS_MAP_PATTERN regex vs map filename / path / normalizedName"
-  type        = string
-  default     = "ultimate.?dragon.?ball.?reborn|udbr"
-}
-
-variable "wc3stats_map_sha1" {
-  description = "WC3STATS_MAP_SHA1 comma-separated map.sha1 allowlist (not list hash). UDBR 2.4f default."
-  type        = string
-  default     = "19783c6259e86253a8c940ede63a87e18204bd94"
-}
-
 variable "wc3stats_timeout_ms" {
   description = "WC3STATS_TIMEOUT_MS HTTP timeout for wc3stats API"
   type        = string

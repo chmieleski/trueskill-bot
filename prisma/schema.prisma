@@ -123,6 +123,9 @@ model GuildConfig {
   leaderboardChannelId    String?
   leaderboardMessageId    String?
   lobbyPlayerClaimEnabled Boolean                @default(true)
+  wc3statsEnabled         Boolean                @default(false)
+  wc3statsMapPattern      String?
+  wc3statsMapSha1         String?
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
   wc3statsSlotMaps        GuildWc3statsSlotMap[]

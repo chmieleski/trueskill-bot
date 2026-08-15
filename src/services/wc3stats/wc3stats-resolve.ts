@@ -294,13 +294,19 @@ export async function importWc3statsLobby(input: {
   hostNick?: string | null;
   requireNickInLobby?: boolean;
   slotMap?: Wc3statsHeroSlotMap | null;
+  mapPattern: string;
+  mapSha1: string[];
 }): Promise<ImportWc3statsLobbyResult> {
   const timeoutMs = env.wc3statsTimeoutMs;
+  if (!input.mapPattern.trim()) {
+    throw new MatchServiceError('Warcraft lobby import is not configured for this server.');
+  }
+
   let mapConfig: ReturnType<typeof compileWc3statsMapConfig>;
   try {
-    mapConfig = compileWc3statsMapConfig(env.wc3statsMapPattern, env.wc3statsMapSha1);
+    mapConfig = compileWc3statsMapConfig(input.mapPattern, input.mapSha1);
   } catch {
-    throw new MatchServiceError('WC3STATS_MAP_PATTERN is not a valid regular expression.');
+    throw new MatchServiceError('Map pattern is not a valid regular expression.');
   }
 
   try {

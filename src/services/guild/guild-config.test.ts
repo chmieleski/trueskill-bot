@@ -6,6 +6,11 @@ const { findUnique, upsert } = vi.hoisted(() => ({
   upsert: vi.fn(),
 }));
 
+const { replaceGuildWc3statsSlotMaps, clearAllGuildWc3statsSlotMaps } = vi.hoisted(() => ({
+  replaceGuildWc3statsSlotMaps: vi.fn(),
+  clearAllGuildWc3statsSlotMaps: vi.fn(),
+}));
+
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
     guildConfig: {
@@ -22,12 +27,24 @@ vi.mock('../../config/env.js', () => ({
   },
 }));
 
+vi.mock('../wc3stats/wc3stats-slot-map.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../wc3stats/wc3stats-slot-map.js')>();
+  return {
+    ...actual,
+    replaceGuildWc3statsSlotMaps,
+    clearAllGuildWc3statsSlotMaps,
+  };
+});
+
 import { env } from '../../config/env.js';
 import {
   BOT_OWNER_DISCORD_ID,
+  applyUdbrWc3statsPreset,
   assertCanConfigureBot,
   canConfigureBot,
   clearLeaderboardChannel,
+  clearGuildWc3statsPackage,
+  isGuildWc3statsImportReady,
   resolveGuildConfig,
   setLeaderboardChannel,
   setLobbyPlayerClaimEnabled,
@@ -35,6 +52,11 @@ import {
   setMatchModRole,
 } from './guild-config.js';
 import { MatchServiceError } from '../match/match-service.js';
+import {
+  UDBR_MAP_PATTERN,
+  UDBR_MAP_SHA1,
+  UDBR_WC3STATS_SLOT_MAP,
+} from '../wc3stats/wc3stats-slot-map.js';
 
 describe('resolveGuildConfig', () => {
   beforeEach(() => {
@@ -58,6 +80,9 @@ describe('resolveGuildConfig', () => {
       leaderboardChannelId: undefined,
       leaderboardMessageId: undefined,
       lobbyPlayerClaimEnabled: true,
+      wc3statsEnabled: false,
+      wc3statsMapPattern: undefined,
+      wc3statsMapSha1: [],
     });
   });
 
@@ -110,6 +135,105 @@ describe('resolveGuildConfig', () => {
     expect(resolved.matchCreateRoleId).toBeUndefined();
     expect(resolved.matchCreateRoleSource).toBe('unset');
     expect(resolved.matchModRoleSource).toBe('unset');
+  });
+});
+
+describe('guild wc3stats package', () => {
+  beforeEach(() => {
+    findUnique.mockReset();
+    upsert.mockReset();
+    replaceGuildWc3statsSlotMaps.mockReset();
+    clearAllGuildWc3statsSlotMaps.mockReset();
+    upsert.mockResolvedValue({});
+  });
+
+  it('defaults wc3stats off with empty filter when no row', async () => {
+    findUnique.mockResolvedValue(null);
+    const resolved = await resolveGuildConfig('guild-1');
+    expect(resolved.wc3statsEnabled).toBe(false);
+    expect(resolved.wc3statsMapPattern).toBeUndefined();
+    expect(resolved.wc3statsMapSha1).toEqual([]);
+  });
+
+  it('reads enabled and filter from the database only', async () => {
+    findUnique.mockResolvedValue({
+      guildId: 'guild-1',
+      matchCreateRoleId: null,
+      matchModRoleId: null,
+      leaderboardChannelId: null,
+      leaderboardMessageId: null,
+      lobbyPlayerClaimEnabled: true,
+      wc3statsEnabled: true,
+      wc3statsMapPattern: 'udbr',
+      wc3statsMapSha1: 'Aa, Bb',
+    });
+    const resolved = await resolveGuildConfig('guild-1');
+    expect(resolved.wc3statsEnabled).toBe(true);
+    expect(resolved.wc3statsMapPattern).toBe('udbr');
+    expect(resolved.wc3statsMapSha1).toEqual(['aa', 'bb']);
+  });
+
+  it('isGuildWc3statsImportReady requires enabled and pattern', () => {
+    expect(
+      isGuildWc3statsImportReady({
+        wc3statsEnabled: true,
+        wc3statsMapPattern: 'x',
+      }),
+    ).toBe(true);
+    expect(
+      isGuildWc3statsImportReady({
+        wc3statsEnabled: true,
+        wc3statsMapPattern: undefined,
+      }),
+    ).toBe(false);
+    expect(
+      isGuildWc3statsImportReady({
+        wc3statsEnabled: false,
+        wc3statsMapPattern: 'x',
+      }),
+    ).toBe(false);
+  });
+
+  it('applies the UDBR wc3stats preset package', async () => {
+    await applyUdbrWc3statsPreset('guild-1');
+
+    expect(upsert).toHaveBeenCalledWith({
+      where: { guildId: 'guild-1' },
+      create: {
+        guildId: 'guild-1',
+        wc3statsEnabled: true,
+        wc3statsMapPattern: UDBR_MAP_PATTERN,
+        wc3statsMapSha1: UDBR_MAP_SHA1,
+      },
+      update: {
+        wc3statsEnabled: true,
+        wc3statsMapPattern: UDBR_MAP_PATTERN,
+        wc3statsMapSha1: UDBR_MAP_SHA1,
+      },
+    });
+    expect(replaceGuildWc3statsSlotMaps).toHaveBeenCalledWith('guild-1', [
+      ...UDBR_WC3STATS_SLOT_MAP,
+    ]);
+  });
+
+  it('clears the guild wc3stats package', async () => {
+    await clearGuildWc3statsPackage('guild-1');
+
+    expect(upsert).toHaveBeenCalledWith({
+      where: { guildId: 'guild-1' },
+      create: {
+        guildId: 'guild-1',
+        wc3statsEnabled: false,
+        wc3statsMapPattern: null,
+        wc3statsMapSha1: null,
+      },
+      update: {
+        wc3statsEnabled: false,
+        wc3statsMapPattern: null,
+        wc3statsMapSha1: null,
+      },
+    });
+    expect(clearAllGuildWc3statsSlotMaps).toHaveBeenCalledWith('guild-1');
   });
 });
 

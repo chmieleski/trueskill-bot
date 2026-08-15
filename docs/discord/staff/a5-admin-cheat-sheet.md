@@ -8,6 +8,7 @@
 • `/config set leaderboard_channel` / `/leaderboard setup`
 • `/config clear leaderboard_channel`
 • `/config set wc3stats_map_preset` (UDBR)
+• `/config clear wc3stats`
 • `/config set|clear wc3stats_slot` / `wc3stats_map`
 
 **Mod role**

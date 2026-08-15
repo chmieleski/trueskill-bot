@@ -1,5 +1,4 @@
 import type { ActionRowBuilder, ButtonBuilder, Client, EmbedBuilder } from 'discord.js';
-import { env } from '../../config/env.js';
 import { createLogger } from '../../lib/logger.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
 import {
@@ -21,7 +20,7 @@ import {
   matchPlayersToRatingEntries,
   type LobbyRatingPreview,
 } from '../rating/rating-preview.js';
-import { resolveGuildConfig } from '../guild/guild-config.js';
+import { isGuildWc3statsImportReady, resolveGuildConfig } from '../guild/guild-config.js';
 
 const log = createLogger('lobby-discord-sync');
 
@@ -42,15 +41,20 @@ export function guildIdFromChannel(channel: object): string | undefined {
   return guildId || undefined;
 }
 
-async function resolvePlayerClaimEnabledForChannel(channel: object): Promise<boolean> {
+async function resolvePendingGuildSettingsForChannel(
+  channel: object,
+): Promise<{ playerClaimEnabled: boolean; wc3statsReady: boolean }> {
   const guildId = guildIdFromChannel(channel);
 
   if (!guildId) {
-    return true;
+    return { playerClaimEnabled: true, wc3statsReady: false };
   }
 
   const config = await resolveGuildConfig(guildId);
-  return config.lobbyPlayerClaimEnabled;
+  return {
+    playerClaimEnabled: config.lobbyPlayerClaimEnabled,
+    wc3statsReady: isGuildWc3statsImportReady(config),
+  };
 }
 
 function determineWinningTeam(players: MatchWithPlayers['players']): 1 | 2 {
@@ -85,7 +89,8 @@ export async function syncLobbyDiscordMessage(
     const ratingPreview = await loadLobbyRatingPreview(
       matchPlayersToRatingEntries(match.players),
     );
-    const playerClaimEnabled = await resolvePlayerClaimEnabledForChannel(channel);
+    const { playerClaimEnabled, wc3statsReady } =
+      await resolvePendingGuildSettingsForChannel(channel);
     payload = {
       embeds: [
         buildMatchLobbyEmbed(match.id, players, {
@@ -93,7 +98,7 @@ export async function syncLobbyDiscordMessage(
           createdAt: match.createdAt,
           ratingPreview,
           wc3statsGameId: match.wc3statsGameId,
-          wc3statsLinkAvailable: env.wc3statsEnabled && !match.wc3statsGameId,
+          wc3statsLinkAvailable: wc3statsReady && !match.wc3statsGameId,
         }),
       ],
       components: buildLobbyButtons({
@@ -101,7 +106,7 @@ export async function syncLobbyDiscordMessage(
         playerCount: players.length,
         playerClaimEnabled,
         wc3statsGameId: match.wc3statsGameId,
-        wc3statsEnabled: env.wc3statsEnabled,
+        wc3statsEnabled: wc3statsReady,
       }),
     };
   } else if (mode === 'started') {

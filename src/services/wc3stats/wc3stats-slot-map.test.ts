@@ -3,8 +3,11 @@ import { MatchServiceError } from '../match/match-service.js';
 import {
   assertUniqueHeroTargets,
   formatWc3statsSlotMapLines,
+  parseWc3statsMapSha1,
   parseWc3statsSlotMapEntries,
   toWc3statsHeroSlotMap,
+  UDBR_MAP_PATTERN,
+  UDBR_MAP_SHA1,
   UDBR_WC3STATS_SLOT_MAP,
 } from './wc3stats-slot-map.js';
 
@@ -48,5 +51,24 @@ describe('UDBR_WC3STATS_SLOT_MAP', () => {
 describe('formatWc3statsSlotMapLines', () => {
   it('explains unset legacy behavior', () => {
     expect(formatWc3statsSlotMapLines([])[0]).toContain('legacy');
+  });
+});
+
+describe('parseWc3statsMapSha1', () => {
+  it('returns empty for null/undefined/blank', () => {
+    expect(parseWc3statsMapSha1(null)).toEqual([]);
+    expect(parseWc3statsMapSha1(undefined)).toEqual([]);
+    expect(parseWc3statsMapSha1('  ')).toEqual([]);
+  });
+
+  it('splits, trims, and lowercases', () => {
+    expect(parseWc3statsMapSha1('ABC, def ,')).toEqual(['abc', 'def']);
+  });
+});
+
+describe('UDBR filter constants', () => {
+  it('matches the historical env defaults', () => {
+    expect(UDBR_MAP_PATTERN).toBe('ultimate.?dragon.?ball.?reborn|udbr');
+    expect(UDBR_MAP_SHA1).toBe('19783c6259e86253a8c940ede63a87e18204bd94');
   });
 });

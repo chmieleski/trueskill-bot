@@ -107,9 +107,6 @@ resource "aws_instance" "bot" {
     aws_ssm_parameter.log_level,
     aws_ssm_parameter.match_create_role_id,
     aws_ssm_parameter.match_mod_role_id,
-    aws_ssm_parameter.wc3stats_enabled,
-    aws_ssm_parameter.wc3stats_map_pattern,
-    aws_ssm_parameter.wc3stats_map_sha1,
     aws_ssm_parameter.wc3stats_timeout_ms,
   ]
 }

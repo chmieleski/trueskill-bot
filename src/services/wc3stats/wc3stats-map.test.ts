@@ -26,7 +26,7 @@ describe('compileWc3statsMapConfig', () => {
   it('throws on an invalid regex', async () => {
     const { compileWc3statsMapConfig } = await import('./wc3stats-map.js');
     expect(() => compileWc3statsMapConfig('(', [])).toThrow(
-      'WC3STATS_MAP_PATTERN is not a valid regular expression.',
+      'wc3stats map pattern is not a valid regular expression.',
     );
   });
 });
