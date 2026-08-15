@@ -37,3 +37,11 @@ Hosts can also `/lobby sync` (or Refresh) to pull the live WC3 lobby when the fe
 - Enable (and load UDBR defaults): `/config set wc3stats_map_preset preset:UDBR`
 - Full reset: `/config clear wc3stats`
 - Layout-only clear commands unchanged
+
+**Optional: host lobby prompts**
+When import is enabled, ping linked hosts (`/link`) when their matching Warcraft lobby appears:
+```
+/config set wc3stats_host_prompt enabled:True channel:#lobbies
+/config clear wc3stats_host_prompt
+```
+Only the mentioned host can Open lobby / Dismiss. Open uses the same create-role rules as `/register_lobby`.

@@ -21,6 +21,8 @@ export interface ResolvedLeagueConfig {
   leaderboardMessageId: string | undefined;
   leaderboardSize: number;
   lobbyPlayerClaimEnabled: boolean;
+  wc3statsHostPromptEnabled: boolean;
+  wc3statsHostPromptChannelId: string | undefined;
 }
 
 /**
@@ -40,6 +42,8 @@ export async function resolveLeagueConfig(leagueId: string): Promise<ResolvedLea
         ? row.leaderboardSize
         : LIVE_LEADERBOARD_DEFAULT_SIZE,
     lobbyPlayerClaimEnabled: row?.lobbyPlayerClaimEnabled !== false,
+    wc3statsHostPromptEnabled: row?.wc3statsHostPromptEnabled === true,
+    wc3statsHostPromptChannelId: row?.wc3statsHostPromptChannelId?.trim() || undefined,
   };
 }
 
@@ -50,6 +54,25 @@ export function isLeagueWc3statsImportReady(
   config: Pick<ResolvedLeagueConfig, 'wc3statsEnabled' | 'wc3statsMapPattern'>,
 ): boolean {
   return config.wc3statsEnabled && Boolean(config.wc3statsMapPattern);
+}
+
+/**
+ * True when host-lobby prompts may run: import ready + prompt enabled + channel set.
+ */
+export function isLeagueWc3statsHostPromptReady(
+  config: Pick<
+    ResolvedLeagueConfig,
+    | 'wc3statsEnabled'
+    | 'wc3statsMapPattern'
+    | 'wc3statsHostPromptEnabled'
+    | 'wc3statsHostPromptChannelId'
+  >,
+): boolean {
+  return (
+    isLeagueWc3statsImportReady(config) &&
+    config.wc3statsHostPromptEnabled &&
+    Boolean(config.wc3statsHostPromptChannelId)
+  );
 }
 
 /**
@@ -143,4 +166,39 @@ export async function setLeagueLobbyPlayerClaimEnabled(
     where: { id: leagueId },
     data: { lobbyPlayerClaimEnabled: enabled },
   });
+}
+
+/**
+ * Enable host-lobby prompts and set the Discord channel that receives them.
+ * Pass `enabled: false` to disable and clear the channel.
+ */
+export async function setLeagueWc3statsHostPrompt(
+  leagueId: string,
+  input: { enabled: true; channelId: string } | { enabled: false },
+): Promise<void> {
+  if (!input.enabled) {
+    await prisma.league.update({
+      where: { id: leagueId },
+      data: {
+        wc3statsHostPromptEnabled: false,
+        wc3statsHostPromptChannelId: null,
+      },
+    });
+    return;
+  }
+
+  await prisma.league.update({
+    where: { id: leagueId },
+    data: {
+      wc3statsHostPromptEnabled: true,
+      wc3statsHostPromptChannelId: input.channelId,
+    },
+  });
+}
+
+/**
+ * Disable host-lobby prompts and clear the configured channel.
+ */
+export async function clearLeagueWc3statsHostPrompt(leagueId: string): Promise<void> {
+  await setLeagueWc3statsHostPrompt(leagueId, { enabled: false });
 }

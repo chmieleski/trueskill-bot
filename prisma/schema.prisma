@@ -26,9 +26,11 @@ model League {
   leaderboardChannelId    String?
   leaderboardMessageId    String?
   leaderboardSize         Int      @default(10)
-  lobbyPlayerClaimEnabled Boolean  @default(true)
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  lobbyPlayerClaimEnabled       Boolean  @default(true)
+  wc3statsHostPromptEnabled     Boolean  @default(false)
+  wc3statsHostPromptChannelId   String?
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
 
   game              Game                    @relation(fields: [gameId], references: [id])
   channelBindings   LeagueChannelBinding[]

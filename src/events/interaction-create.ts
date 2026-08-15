@@ -3,6 +3,7 @@ import type { Interaction } from 'discord.js';
 import { handleLeaderboardInteraction } from '../discord/interactions/leaderboard-interactions.js';
 import { handleLobbyInteraction } from '../discord/interactions/lobby-interactions.js';
 import { handleMatchInteraction } from '../discord/interactions/match-interactions.js';
+import { handleWc3statsHostPromptInteraction } from '../discord/interactions/wc3stats-host-prompt-interactions.js';
 import { createLogger } from '../lib/logger.js';
 
 const log = createLogger('interaction');
@@ -21,6 +22,11 @@ export async function execute(interaction: Interaction): Promise<void> {
   );
 
   try {
+    if (await handleWc3statsHostPromptInteraction(interaction)) {
+      log.debug({ userId: interaction.user.id }, 'wc3stats host prompt interaction handled');
+      return;
+    }
+
     if (await handleLeaderboardInteraction(interaction)) {
       log.debug({ userId: interaction.user.id }, 'Leaderboard interaction handled');
       return;

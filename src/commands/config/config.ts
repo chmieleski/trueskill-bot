@@ -11,10 +11,12 @@ import {
 import {
   applyUdbrWc3statsPreset,
   clearLeagueLeaderboardSize,
+  clearLeagueWc3statsHostPrompt,
   clearLeagueWc3statsPackage,
   resolveLeagueConfig,
   setLeagueLeaderboardSize,
   setLeagueLobbyPlayerClaimEnabled,
+  setLeagueWc3statsHostPrompt,
 } from '../../services/league/league-wc3stats.js';
 import {
   getLeagueOption,
@@ -68,6 +70,16 @@ function formatRoleLine(
 
 function formatPlayerClaimLine(enabled: boolean): string {
   return `**Player claim:** \`${enabled ? 'on' : 'off'}\``;
+}
+
+function formatWc3statsHostPromptLine(
+  enabled: boolean,
+  channelId: string | undefined,
+): string {
+  if (!enabled || !channelId) {
+    return '**wc3stats host lobby prompt:** `off`';
+  }
+  return `**wc3stats host lobby prompt:** \`on\` · <#${channelId}>`;
 }
 
 function formatWc3statsEnabledLine(enabled: boolean): string {
@@ -229,6 +241,25 @@ export const data = new SlashCommandBuilder()
                 .addChoices({ name: 'UDBR (Z Fighters / Evils)', value: 'udbr' }),
             ),
         ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('wc3stats_host_prompt')
+            .setDescription('Ping linked hosts when their wc3stats lobby appears')
+            .addBooleanOption((option) =>
+              option
+                .setName('enabled')
+                .setDescription('On: post Open lobby prompts for linked hosts')
+                .setRequired(true),
+            )
+            .addChannelOption((option) =>
+              option
+                .setName('channel')
+                .setDescription('Channel for host prompts (required when enabling)')
+                .setRequired(false),
+            ),
+        ),
       ),
   )
   .addSubcommandGroup((group) =>
@@ -276,6 +307,13 @@ export const data = new SlashCommandBuilder()
           subcommand
             .setName('wc3stats')
             .setDescription('Disable wc3stats import and clear filter + slot map for this server'),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('wc3stats_host_prompt')
+            .setDescription('Disable host lobby prompts and clear the prompt channel'),
         ),
       ),
   );
@@ -365,6 +403,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           ...formatWc3statsFilterLines(
             leagueConfig.wc3statsMapPattern,
             leagueConfig.wc3statsMapSha1 ?? [],
+          ),
+          formatWc3statsHostPromptLine(
+            leagueConfig.wc3statsHostPromptEnabled,
+            leagueConfig.wc3statsHostPromptChannelId,
           ),
           formatWc3statsMapSection(formatWc3statsSlotMapLines(slotMaps)),
         ].join('\n'),
@@ -550,6 +592,67 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         });
         return;
       }
+
+      if (subcommand === 'wc3stats_host_prompt') {
+        const leagueId = await requireLeagueId(interaction);
+        if (!leagueId) return;
+
+        const enabled = interaction.options.getBoolean('enabled', true);
+        if (!enabled) {
+          await setLeagueWc3statsHostPrompt(leagueId, { enabled: false });
+          log.info(
+            { guildId: interaction.guildId, leagueId, userId: interaction.user.id },
+            'wc3stats host prompt disabled',
+          );
+          await interaction.reply({
+            content: 'wc3stats host lobby prompt disabled.',
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
+        const channel = interaction.options.getChannel('channel', false);
+        if (!channel) {
+          await interaction.reply({
+            content: 'Choose a channel when enabling the wc3stats host lobby prompt.',
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
+        const allowedTypes = new Set([
+          ChannelType.GuildText,
+          ChannelType.GuildAnnouncement,
+        ]);
+        if (!allowedTypes.has(channel.type)) {
+          await interaction.reply({
+            content: 'Choose a server text channel for host lobby prompts.',
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
+        await setLeagueWc3statsHostPrompt(leagueId, {
+          enabled: true,
+          channelId: channel.id,
+        });
+        log.info(
+          {
+            guildId: interaction.guildId,
+            leagueId,
+            channelId: channel.id,
+            userId: interaction.user.id,
+          },
+          'wc3stats host prompt enabled',
+        );
+        await interaction.reply({
+          content:
+            `wc3stats host lobby prompt enabled in <#${channel.id}>. ` +
+            'Linked hosts are pinged when their matching Warcraft lobby appears.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
     }
 
     if (subcommandGroup === 'clear') {
@@ -617,6 +720,22 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         await interaction.reply({
           content:
             'wc3stats import disabled. Map filter and slot mappings cleared for this server.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'wc3stats_host_prompt') {
+        const leagueId = await requireLeagueId(interaction);
+        if (!leagueId) return;
+
+        await clearLeagueWc3statsHostPrompt(leagueId);
+        log.info(
+          { guildId: interaction.guildId, leagueId, userId: interaction.user.id },
+          'wc3stats host prompt cleared',
+        );
+        await interaction.reply({
+          content: 'wc3stats host lobby prompt disabled and channel cleared.',
           flags: MessageFlags.Ephemeral,
         });
         return;

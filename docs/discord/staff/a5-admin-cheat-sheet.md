@@ -15,6 +15,7 @@
 • `/config set wc3stats_map_preset` (UDBR)
 • `/config clear wc3stats`
 • `/config set|clear wc3stats_slot` / `wc3stats_map`
+• `/config set|clear wc3stats_host_prompt` — ping linked hosts for live matching lobbies
 
 **Mod role**
 • `/match complete|quitters|cancel` (+ `match_id`)
