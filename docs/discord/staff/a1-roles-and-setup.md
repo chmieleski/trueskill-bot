@@ -46,6 +46,21 @@ Optional size (default 10, max 100; Discord splits every 25 ranks into another e
 ```
 Reset: `/config clear leaderboard_size`
 
+**5) Player rank reset (optional)**
+Default is **off**. When enabled, linked players can wipe their overall and hero ki back to defaults via `/rank_reset` (with a cooldown).
+```
+/config set rank_reset enabled:True
+/config set rank_reset enabled:True cooldown_days:45
+/config set rank_reset enabled:False
+/config set rank_reset_cooldown days:30
+```
+Cooldown defaults to **30 days**; omit `cooldown_days` when enabling to keep that default. `rank_reset_cooldown` changes days without toggling on/off.
+
+Match mods can force-reset a linked player (bypasses cooldown):
+```
+/rank_reset user:@Player
+```
+
 **See everything**
 ```
 /config view
