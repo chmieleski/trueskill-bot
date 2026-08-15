@@ -11,14 +11,15 @@
 #   bash scripts/db-clone-local.sh --dump-only
 #   bash scripts/db-clone-local.sh --restore-only
 #
-# Requires Docker. pg_dump/psql run inside the postgres:16 image.
+# Requires Docker. pg_dump/psql run inside the postgres:17 image (must be
+# >= hosted Supabase major; pg_dump refuses a newer server).
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-IMAGE="${POSTGRES_IMAGE:-postgres:16}"
+IMAGE="${POSTGRES_IMAGE:-postgres:17}"
 CONTAINER="${POSTGRES_CONTAINER:-dbz-bot-postgres}"
 POSTGRES_PORT="${POSTGRES_PORT:-5433}"
 LOCAL_URL="postgresql://postgres:postgres@127.0.0.1:${POSTGRES_PORT}/dbzbot?schema=public"
@@ -156,22 +157,41 @@ resolve_source_url() {
   ensure_dump_url "$url"
 }
 
+local_pgdata_incompatible() {
+  docker logs "$CONTAINER" 2>/dev/null | grep -qi "incompatible with server"
+}
+
 wait_for_postgres() {
   local i
   for i in $(seq 1 40); do
     if docker exec "$CONTAINER" pg_isready -U postgres -d dbzbot >/dev/null 2>&1; then
       return 0
     fi
+    if [[ "$i" -ge 8 ]] && local_pgdata_incompatible; then
+      return 1
+    fi
     sleep 1
   done
-  echo "Local Postgres did not become ready (${CONTAINER})." >&2
-  exit 1
+  return 1
 }
 
 start_local_postgres() {
   echo "Starting local Postgres (docker compose)…"
   docker compose -f "${ROOT}/docker-compose.yml" up -d
-  wait_for_postgres
+  if wait_for_postgres; then
+    return 0
+  fi
+  if local_pgdata_incompatible; then
+    echo "Local volume is an older Postgres major. Recreating for ${IMAGE}…"
+    docker compose -f "${ROOT}/docker-compose.yml" down -v
+    docker compose -f "${ROOT}/docker-compose.yml" up -d
+    if wait_for_postgres; then
+      return 0
+    fi
+  fi
+  echo "Local Postgres did not become ready (${CONTAINER})." >&2
+  docker logs "$CONTAINER" >&2 || true
+  exit 1
 }
 
 # Recreate the app database so a second clone does not hit PK conflicts.

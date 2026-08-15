@@ -1,4 +1,6 @@
 # Local Postgres for the Discord bot. Does not touch hosted Supabase.
+# Image major must match hosted (pg_dump cannot dump a newer server).
+# Upgrading from 16: docker compose down -v  (data dir is not portable).
 #
 #   docker compose up -d
 #   npm run db:clone          # optional: copy prod public data into this instance
@@ -10,7 +12,7 @@ name: dbz-bot
 
 services:
   postgres:
-    image: postgres:16
+    image: ${POSTGRES_IMAGE:-postgres:17}
     container_name: dbz-bot-postgres
     restart: unless-stopped
     environment:
