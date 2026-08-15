@@ -39,11 +39,14 @@ function isSendableTextChannel(channel: unknown): channel is TextChannel {
 }
 
 /**
- * Load linked Players (discordId set) keyed by normalized username.
+ * Load linked Players who accept host-lobby pings, keyed by normalized username.
  */
 export async function loadLinkedPlayersByNick(): Promise<Map<string, string>> {
   const rows = await prisma.player.findMany({
-    where: { discordId: { not: null } },
+    where: {
+      discordId: { not: null },
+      wc3statsHostPromptPingsEnabled: true,
+    },
     select: { username: true, discordId: true },
   });
 

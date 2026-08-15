@@ -45,3 +45,9 @@ When import is enabled, ping linked hosts (`/link`) when their matching Warcraft
 /config clear wc3stats_host_prompt
 ```
 Only the mentioned host can Open lobby / Dismiss. Open uses the same create-role rules as `/register_lobby`.
+
+Players can opt out of pings (still linked; just no auto-prompt):
+```
+/settings set host_prompt_pings enabled:False
+/settings view
+```
