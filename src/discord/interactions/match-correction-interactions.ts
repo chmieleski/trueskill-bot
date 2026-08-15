@@ -85,11 +85,12 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
   });
 
   if (parsed.action === 'flip') {
-    const updated = await flipCompletedMatch(parsed.matchId, {
-      winningTeam: parsed.winningTeam,
-      quitterSlots: parsed.quitterSlots,
-    });
-    await syncLobbyDiscordMessage(interaction.client, updated, 'completed');
+    const { match: updated, ratingPreview } = await flipCompletedMatch(
+      parsed.matchId,
+      parsed.winningTeam,
+      parsed.quitterSlots,
+    );
+    await syncLobbyDiscordMessage(interaction.client, updated, 'completed', { ratingPreview });
     await refreshLeagueLeaderboard(interaction.client, updated.leagueId);
     await interaction.editReply({
       content: `Match \`${updated.id}\` corrected.`,

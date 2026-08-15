@@ -241,7 +241,8 @@ export async function hasNewerCompletedMatches(
 
 /**
  * Persist pre-apply μ/σ (and hero matchesPlayed) for every roster player.
- * Call once before OpenSkill writes on first complete. Idempotent reject if any rows exist.
+ * Call once before OpenSkill writes on first complete.
+ * Throws MatchServiceError if snapshots already exist for this match.
  */
 export async function writeMatchRatingSnapshots(
   leagueId: string,
