@@ -11,7 +11,7 @@ import {
 } from '../../services/lobby/create-from-wc3stats.js';
 import { MatchServiceError } from '../../services/match/index.js';
 import {
-  buildHostPromptDismissedContent,
+  buildHostPromptDismissEphemeral,
   parseHostPromptCustomId,
 } from '../../services/wc3stats/wc3stats-host-prompt.js';
 import { rememberHostPromptKey } from '../../services/wc3stats/wc3stats-host-prompt-poller.js';
@@ -138,19 +138,11 @@ async function handleDismiss(interaction: ButtonInteraction): Promise<void> {
     return;
   }
 
-  await interaction.deferUpdate();
-
-  const lobbyName =
-    interaction.message.content.match(/\*\*(.+?)\*\*/)?.[1] ?? `Lobby ${parsed.wc3statsId}`;
-
-  await interaction.message.edit({
-    content: buildHostPromptDismissedContent({
-      lobbyName,
-      wc3statsId: parsed.wc3statsId,
-    }),
-    embeds: [],
-    components: [],
+  await interaction.reply({
+    content: buildHostPromptDismissEphemeral(),
+    flags: MessageFlags.Ephemeral,
   });
+  await interaction.message.delete();
   rememberHostPromptKey(parsed.leagueId, parsed.wc3statsId);
 
   log.info(
