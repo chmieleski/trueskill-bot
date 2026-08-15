@@ -11,6 +11,7 @@
 • `/config set player_claim`
 • `/config set leaderboard_channel` / `/leaderboard setup`
 • `/config clear leaderboard_channel`
+• `/config set leaderboard_size` / `/config clear leaderboard_size`
 • `/config set wc3stats_map_preset` (UDBR)
 • `/config clear wc3stats`
 • `/config set|clear wc3stats_slot` / `wc3stats_map`
