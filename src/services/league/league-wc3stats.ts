@@ -108,6 +108,9 @@ export async function clearLeagueLeaderboardChannel(leagueId: string): Promise<v
   });
 }
 
+/**
+ * Store the live leaderboard row count on the league.
+ */
 export async function setLeagueLeaderboardSize(
   leagueId: string,
   size: number,
@@ -119,6 +122,9 @@ export async function setLeagueLeaderboardSize(
   });
 }
 
+/**
+ * Reset the live leaderboard row count to the default (10).
+ */
 export async function clearLeagueLeaderboardSize(leagueId: string): Promise<void> {
   await prisma.league.update({
     where: { id: leagueId },

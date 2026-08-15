@@ -60,7 +60,11 @@ export async function setupLiveLeaderboard(
 ): Promise<{ messageId: string }> {
   const existing = await prisma.league.findUnique({
     where: { id: leagueId },
-    select: { leaderboardChannelId: true, leaderboardMessageId: true },
+    select: {
+      leaderboardChannelId: true,
+      leaderboardMessageId: true,
+      leaderboardSize: true,
+    },
   });
   if (existing?.leaderboardMessageId && existing.leaderboardChannelId) {
     await deleteMessageBestEffort(
@@ -70,7 +74,10 @@ export async function setupLiveLeaderboard(
     );
   }
 
-  const embeds = await buildLiveOverallEmbeds(leagueId);
+  const embeds = await buildLiveOverallEmbeds(
+    leagueId,
+    existing?.leaderboardSize ?? LIVE_LEADERBOARD_DEFAULT_SIZE,
+  );
   const channel = await fetchTextChannel(client, channelId);
   const message = await channel.send({ embeds });
 

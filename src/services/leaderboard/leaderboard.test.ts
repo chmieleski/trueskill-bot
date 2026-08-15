@@ -42,6 +42,15 @@ describe('chunkLeaderboardEntries', () => {
   it('returns empty array for empty input', () => {
     expect(chunkLeaderboardEntries([])).toEqual([]);
   });
+
+  it('rejects zero or negative chunk size', () => {
+    const entries = [1, 2, 3];
+    expect(() => chunkLeaderboardEntries(entries, 0)).toThrow(LeaderboardServiceError);
+    expect(() => chunkLeaderboardEntries(entries, -1)).toThrow(LeaderboardServiceError);
+    expect(() => chunkLeaderboardEntries(entries, 0)).toThrow(
+      /Leaderboard chunk size must be a positive integer/,
+    );
+  });
 });
 
 describe('clampPage', () => {

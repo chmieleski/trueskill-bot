@@ -40,6 +40,11 @@ export function chunkLeaderboardEntries<T>(
   if (entries.length === 0) {
     return [];
   }
+  if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
+    throw new LeaderboardServiceError(
+      'Leaderboard chunk size must be a positive integer.',
+    );
+  }
   const chunks: T[][] = [];
   for (let i = 0; i < entries.length; i += chunkSize) {
     chunks.push(entries.slice(i, i + chunkSize));
