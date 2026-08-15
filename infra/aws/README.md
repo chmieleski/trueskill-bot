@@ -49,7 +49,9 @@ sudo journalctl -u dbz-bot -f
 
 First boot takes several minutes (apt, Node, `npm ci`, migrate, build).
 
-`t3.micro` has ~1 GiB RAM. Bootstrap and `host-update.sh` create a **2 GiB swapfile** (`/swapfile`) so `npm ci` / `tsc` do not OOM the host or starve the SSM agent. CI waits for SSM `Online` and `/var/lib/dbz-bot/ready` before deploying (avoids racing first-boot).
+`t3.micro` has ~1 GiB RAM. **First boot** (`user-data.sh.tftpl`) creates a **2 GiB** `/swapfile` before `npm ci`, then runs `deploy/aws/ensure-swap.sh` again after the repo clone. `host-update.sh` also ensures swap on every deploy. Persist the user-data change with `tofu apply` so a **new** instance launch includes it (updating user-data in place does not re-run cloud-init on the current box).
+
+CI waits for SSM `Online` (or a send-command probe) and `/var/lib/dbz-bot/ready` before deploying (avoids racing first-boot).
 
 ## Update the bot later
 

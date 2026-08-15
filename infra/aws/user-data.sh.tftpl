@@ -102,6 +102,12 @@ else
   sudo -u ubuntu git -C "$APP_DIR" pull --ff-only origin "$REPO_BRANCH"
 fi
 
+# Canonical swap helper from the repo (idempotent; covers older inline path drift).
+if [[ -f "$APP_DIR/deploy/aws/ensure-swap.sh" ]]; then
+  echo "==> Ensuring swap via deploy/aws/ensure-swap.sh"
+  bash "$APP_DIR/deploy/aws/ensure-swap.sh"
+fi
+
 echo "==> Waiting for instance profile credentials"
 for _ in $(seq 1 30); do
   if aws sts get-caller-identity >/dev/null 2>&1; then
