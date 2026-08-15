@@ -131,7 +131,10 @@ export function parseMatchCorrectionButtonCustomId(
     const matchId = parts[3];
     const actorDiscordId = parts[4];
     const teamRaw = Number(parts[5]);
-    const winningTeam: 1 | 2 = teamRaw === 1 ? 1 : 2;
+    if (teamRaw !== 1 && teamRaw !== 2) {
+      return null;
+    }
+    const winningTeam: 1 | 2 = teamRaw;
     const quitterSlots = decodeSlots(parts[6]);
     if (!matchId || !actorDiscordId) {
       return null;
@@ -489,6 +492,19 @@ export async function flipCompletedMatch(
     const active = entries.filter((e) => !e.isQuitter);
     assertBothTeamsHaveActivePlayers(active);
 
+    const previewEntries = matchPlayersToRatingEntries(
+      match.players.map((p) => ({
+        ...p,
+        isQuitter: quitterSet.has(p.slot),
+      })),
+    );
+    await ensurePlayerRatings(
+      match.leagueId,
+      match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
+      tx,
+    );
+    const beforeBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
+
     for (const player of match.players) {
       const isQuitter = quitterSet.has(player.slot);
       const won = !isQuitter && isWinningSlot(player.slot, winningTeam);
@@ -504,19 +520,6 @@ export async function flipCompletedMatch(
     await applyQuitterPenalties(match.leagueId, entries, tx);
     await applyMatchRatings(match.leagueId, entries, winningTeam, tx);
 
-    // Build rating preview
-    const previewEntries = matchPlayersToRatingEntries(
-      match.players.map((p) => ({
-        ...p,
-        isQuitter: quitterSet.has(p.slot),
-      })),
-    );
-    await ensurePlayerRatings(
-      match.leagueId,
-      match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
-      tx,
-    );
-    const beforeBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
     const afterBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
     ratingPreview = buildCompletedRatingPreview(previewEntries, beforeBySlot, afterBySlot);
   });

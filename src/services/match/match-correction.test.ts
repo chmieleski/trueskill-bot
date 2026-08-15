@@ -83,6 +83,14 @@ describe('matchcorr customId', () => {
     expect(parseMatchCorrectionButtonCustomId('match:ok:f:foo:bar:1:–')).toBeNull();
   });
 
+  it('returns null for malformed team value', () => {
+    expect(
+      parseMatchCorrectionButtonCustomId(
+        'matchcorr:ok:f:clxxxxxxxxxxxxxxxxxxxxxx:123456789012345678:3:1-7',
+      ),
+    ).toBeNull();
+  });
+
   it('cancel customId parses to kind=cancel', () => {
     const id = buildMatchCorrectionConfirmCustomId({
       action: 'flip',
