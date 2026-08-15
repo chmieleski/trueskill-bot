@@ -8,6 +8,7 @@ import {
 } from './match-service.js';
 import {
   buildCompletedRatingPreview,
+  ensurePlayerRatings,
   loadPlayerKiBySlot,
   matchPlayersToRatingEntries,
   type LobbyRatingPreview,
@@ -18,6 +19,7 @@ import {
   assertBothTeamsHaveActivePlayers,
   type RatingRosterEntry,
 } from '../rating/rating-update.js';
+import { writeMatchRatingSnapshots } from './match-correction.js';
 
 const log = createLogger('match-report');
 
@@ -167,6 +169,18 @@ export async function completeMatch(
 
     const beforeBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
 
+    await ensurePlayerRatings(
+      match.leagueId,
+      match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
+      tx,
+    );
+    await writeMatchRatingSnapshots(
+      match.leagueId,
+      matchId,
+      match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
+      tx,
+    );
+
     for (const player of match.players) {
       const isQuitter = quitterSet.has(player.slot);
       const won = !isQuitter && isWinningSlot(player.slot, winningTeam);
@@ -185,7 +199,7 @@ export async function completeMatch(
 
     await tx.match.update({
       where: { id: matchId },
-      data: { status: 'COMPLETED' },
+      data: { status: 'COMPLETED', completedAt: new Date() },
     });
 
     const afterBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
