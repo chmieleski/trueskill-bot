@@ -1,6 +1,5 @@
 import { Attachment, GuildMember, SlashCommandBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
-import { env } from '../../config/env.js';
 import { createLogger } from '../../lib/logger.js';
 import { extractLobbyPlayers, type LobbyPlayer } from '../../services/lobby/index.js';
 import {
@@ -8,7 +7,11 @@ import {
   buildMatchLobbyEmbed,
   canStartLobby,
 } from '../../services/lobby/index.js';
-import { resolveGuildConfig } from '../../services/guild/index.js';
+import {
+  isGuildWc3statsImportReady,
+  resolveGuildConfig,
+  type ResolvedGuildConfig,
+} from '../../services/guild/index.js';
 import { nickForDiscordId } from '../../services/lobby/index.js';
 import { assertCanCreateMatch } from '../../services/match/index.js';
 import {
@@ -134,17 +137,20 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   await interaction.deferReply();
 
   let playerClaimEnabled = true;
+  let guildConfig: ResolvedGuildConfig | null = null;
+  let wc3statsReady = false;
 
   try {
     if (!interaction.guildId) {
       throw new MatchServiceError('This command can only be used in a server.');
     }
 
-    const config = await resolveGuildConfig(interaction.guildId);
-    playerClaimEnabled = config.lobbyPlayerClaimEnabled;
+    guildConfig = await resolveGuildConfig(interaction.guildId);
+    wc3statsReady = isGuildWc3statsImportReady(guildConfig);
+    playerClaimEnabled = guildConfig.lobbyPlayerClaimEnabled;
     assertCanCreateMatch({
       memberRoleIds: memberRoleIds(interaction),
-      matchCreateRoleId: config.matchCreateRoleId,
+      matchCreateRoleId: guildConfig.matchCreateRoleId,
     });
   } catch (error) {
     if (error instanceof MatchServiceError) {
@@ -176,7 +182,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       channelId: interaction.channelId,
       hasScreenshot: Boolean(attachment),
       wc3statsId,
-      wc3statsEnabled: env.wc3statsEnabled,
+      wc3statsEnabled: wc3statsReady,
       attachmentName: attachment?.name,
       contentType: attachment?.contentType,
       size: attachment?.size,
@@ -201,7 +207,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const source = resolveRegisterLobbySource({
     attachmentUrl: attachment?.url,
     mimeType: attachment ? resolveMimeType(attachment) : null,
-    wc3statsEnabled: env.wc3statsEnabled,
+    wc3statsEnabled: wc3statsReady,
     wc3statsId,
   });
 
@@ -213,7 +219,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     players = await tryExtractLobbyPlayers(source.url, source.mimeType);
   }
 
-  if (env.wc3statsEnabled && (source.kind === 'wc3stats' || wc3statsId)) {
+  if (wc3statsReady && (source.kind === 'wc3stats' || wc3statsId)) {
     let hostNick: string | null = null;
     try {
       hostNick = await nickForDiscordId(interaction.user.id);
@@ -234,6 +240,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         hostNick,
         requireNickInLobby: !wc3statsId,
         slotMap,
+        mapPattern: guildConfig!.wc3statsMapPattern!,
+        mapSha1: guildConfig!.wc3statsMapSha1,
       });
     } catch (error) {
       if (error instanceof MatchServiceError) {
@@ -285,7 +293,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           ratingPreview,
           wc3statsGameId,
           wc3statsUnavailable,
-          wc3statsLinkAvailable: env.wc3statsEnabled && !wc3statsGameId,
+          wc3statsLinkAvailable: wc3statsReady && !wc3statsGameId,
         }),
       ],
       components: buildLobbyButtons({
@@ -293,7 +301,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         playerCount: players.length,
         playerClaimEnabled,
         wc3statsGameId,
-        wc3statsEnabled: env.wc3statsEnabled,
+        wc3statsEnabled: wc3statsReady,
       }),
     });
 

@@ -25,7 +25,7 @@ export function isUdbrMap(input: Wc3statsMapInput, config: Wc3statsMapConfig): b
   return haystack !== '' && config.pattern.test(haystack);
 }
 
-/** Compile map filter from env strings. Throws if the pattern is not a valid regex. */
+/** Compile map filter from guild config strings. Throws if the pattern is not a valid regex. */
 export function compileWc3statsMapConfig(
   patternSource: string,
   sha1Allowlist: string[],
@@ -36,6 +36,6 @@ export function compileWc3statsMapConfig(
       sha1Allowlist: new Set(sha1Allowlist),
     };
   } catch {
-    throw new Error('WC3STATS_MAP_PATTERN is not a valid regular expression.');
+    throw new Error('wc3stats map pattern is not a valid regular expression.');
   }
 }

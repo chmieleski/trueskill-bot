@@ -94,16 +94,14 @@ tmp="$(mktemp)"
   echo "LOG_LEVEL=${PARAMS[LOG_LEVEL]:-info}"
   echo "MATCH_CREATE_ROLE_ID=${PARAMS[MATCH_CREATE_ROLE_ID]:-}"
   echo "MATCH_MOD_ROLE_ID=${PARAMS[MATCH_MOD_ROLE_ID]:-}"
-  echo "WC3STATS_ENABLED=${PARAMS[WC3STATS_ENABLED]:-false}"
-  echo "WC3STATS_MAP_PATTERN=${PARAMS[WC3STATS_MAP_PATTERN]:-ultimate.?dragon.?ball.?reborn|udbr}"
-  echo "WC3STATS_MAP_SHA1=${PARAMS[WC3STATS_MAP_SHA1]:-}"
   echo "WC3STATS_TIMEOUT_MS=${PARAMS[WC3STATS_TIMEOUT_MS]:-4000}"
 } > "$tmp"
 
 # Append any extra SSM keys not already written (forward-compat for new params).
-known=' DISCORD_TOKEN CLIENT_ID GUILD_ID DATABASE_URL DIRECT_URL GEMINI_API_KEY LOG_LEVEL MATCH_CREATE_ROLE_ID MATCH_MOD_ROLE_ID WC3STATS_ENABLED WC3STATS_MAP_PATTERN WC3STATS_MAP_SHA1 WC3STATS_TIMEOUT_MS '
+known=' DISCORD_TOKEN CLIENT_ID GUILD_ID DATABASE_URL DIRECT_URL GEMINI_API_KEY LOG_LEVEL MATCH_CREATE_ROLE_ID MATCH_MOD_ROLE_ID WC3STATS_TIMEOUT_MS '
+deprecated=' WC3STATS_ENABLED WC3STATS_MAP_PATTERN WC3STATS_MAP_SHA1 '
 for key in "${!PARAMS[@]}"; do
-  if [[ "$known" != *" $key "* ]]; then
+  if [[ "$known" != *" $key "* ]] && [[ "$deprecated" != *" $key "* ]]; then
     echo "${key}=${PARAMS[$key]}" >> "$tmp"
   fi
 done
