@@ -99,7 +99,7 @@
 ### Task 5: Spec/plan docs + PR update
 
 - [x] Commit design + plan + implementation
-- [ ] Push and update PR description
+- [x] Push and update PR description
 
 ## Verification
 
