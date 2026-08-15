@@ -4,18 +4,21 @@ import { createLogger } from '../../lib/logger.js';
 import { syncLobbyDiscordMessage } from '../../services/lobby/index.js';
 import { resolveGuildConfig } from '../../services/guild/index.js';
 import { assertCanManageMatch } from '../../services/match/index.js';
-import { refreshAllLeaderboardChannels } from '../../services/leaderboard/index.js';
+import { refreshAllLeaderboardChannels, refreshLeagueLeaderboard } from '../../services/leaderboard/index.js';
 import {
   cancelInProgressMatch,
   completeMatch,
   setQuitters,
 } from '../../services/match/index.js';
 import {
+  assertHasMatchModRole,
   findInProgressMatchesByHost,
   getMatchById,
   MatchServiceError,
+  previewMatchCorrection,
   type MatchWithPlayers,
 } from '../../services/match/index.js';
+import { buildMatchCorrectionConfirmComponents } from '../../discord/interactions/match-correction-interactions.js';
 import type { LobbyRatingPreview } from '../../services/rating/index.js';
 import { teamDisplayName } from '../../services/guild/index.js';
 
@@ -151,6 +154,37 @@ async function resolveMatchForCommand(
   throw new MatchServiceError('You have no in-progress match. Pass match_id to choose one.');
 }
 
+/**
+ * Resolves a completed match for a mod correction command.
+ * Requires guild, mod role, and the match to exist and be completed.
+ */
+async function resolveCompletedMatchForModCorrection(
+  interaction: ChatInputCommandInteraction,
+): Promise<MatchWithPlayers> {
+  if (!interaction.guildId) {
+    throw new MatchServiceError('This command can only be used in a server.');
+  }
+
+  const matchId = interaction.options.getString('match_id', true);
+  const config = await resolveGuildConfig(interaction.guildId);
+
+  assertHasMatchModRole({
+    memberRoleIds: memberRoleIds(interaction),
+    matchModRoleId: config.matchModRoleId,
+  });
+
+  const match = await getMatchById(matchId);
+  if (!match) {
+    throw new MatchServiceError('This match was not found.');
+  }
+
+  if (match.status !== 'COMPLETED') {
+    throw new MatchServiceError('This match is not completed.');
+  }
+
+  return match;
+}
+
 async function applyMatchMutation(
   interaction: ChatInputCommandInteraction,
   match: MatchWithPlayers,
@@ -219,6 +253,38 @@ export const data = new SlashCommandBuilder()
           .setDescription('In-progress match id (required if you have more than one)')
           .setRequired(false),
       ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('flip')
+      .setDescription('Correct the winner of a completed match (mods only, 24h)')
+      .addStringOption((option) =>
+        option.setName('match_id').setDescription('Completed match id').setRequired(true),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('winner')
+          .setDescription('Correct winning team')
+          .setRequired(true)
+          .addChoices(
+            { name: teamDisplayName(1), value: 'A' },
+            { name: teamDisplayName(2), value: 'B' },
+          ),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('quitters')
+          .setDescription('Comma-separated slots; omit to keep current quitters')
+          .setRequired(false),
+      ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('void')
+      .setDescription('Void a completed match and restore ratings (mods only, 24h)')
+      .addStringOption((option) =>
+        option.setName('match_id').setDescription('Completed match id').setRequired(true),
+      ),
   );
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -238,6 +304,65 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   );
 
   try {
+    if (subcommand === 'flip' || subcommand === 'void') {
+      const match = await resolveCompletedMatchForModCorrection(interaction);
+      const preview = await previewMatchCorrection(match.id);
+
+      const lines: string[] = [];
+
+      if (subcommand === 'flip') {
+        const winner = parseWinner(interaction.options.getString('winner', true));
+        const quittersRaw = interaction.options.getString('quitters');
+        const quitterSlots = quittersRaw === null ? undefined : parseQuitterSlots(quittersRaw);
+        const quittersLine =
+          quitterSlots !== undefined && quitterSlots.length > 0
+            ? ` with quitters [${quitterSlots.join(', ')}]`
+            : '';
+
+        lines.push(
+          `Flip match \`${match.id}\` → winner **${teamDisplayName(winner)}**${quittersLine}.`,
+        );
+        if (preview.hasNewerMatches) {
+          lines.push(
+            'Warning: some players have completed ranked matches since this one. Those later results will not be recalculated.',
+          );
+        }
+        lines.push('This can only be done within 24 hours of completion.');
+
+        await interaction.editReply({
+          content: lines.join('\n'),
+          components: buildMatchCorrectionConfirmComponents({
+            action: 'flip',
+            matchId: match.id,
+            actorDiscordId: interaction.user.id,
+            winningTeam: winner,
+            quitterSlots: quitterSlots ?? match.players.filter((p) => p.result === 'QUIT').map((p) => p.slot),
+          }),
+        });
+      } else {
+        lines.push(
+          `Void match \`${match.id}\`. Ratings will be restored to pre-match values and the match will be cancelled.`,
+        );
+        if (preview.hasNewerMatches) {
+          lines.push(
+            'Warning: some players have completed ranked matches since this one. Those later results will not be recalculated.',
+          );
+        }
+        lines.push('This can only be done within 24 hours of completion.');
+
+        await interaction.editReply({
+          content: lines.join('\n'),
+          components: buildMatchCorrectionConfirmComponents({
+            action: 'void',
+            matchId: match.id,
+            actorDiscordId: interaction.user.id,
+          }),
+        });
+      }
+
+      return;
+    }
+
     const match = await resolveMatchForCommand(interaction, matchId);
 
     if (subcommand === 'quitters') {
