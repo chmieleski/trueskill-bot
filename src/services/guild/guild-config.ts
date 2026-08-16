@@ -3,6 +3,10 @@ import {
   PermissionsBitField,
   type PermissionsString,
 } from 'discord.js';
+import {
+  QuitterLeaderboardDisplay,
+  QuitterLeaderboardSort,
+} from '@prisma/client';
 import { env } from '../../config/env.js';
 import { prisma } from '../../lib/prisma.js';
 import { MatchServiceError } from '../match/match-service.js';
@@ -11,7 +15,14 @@ export const BOT_OWNER_DISCORD_ID = '723326675647070218';
 
 const CONFIGURE_FORBIDDEN = 'You do not have permission to configure this bot.';
 
+export const QUITTER_LEADERBOARD_DEFAULT_SIZE = 10;
+export const QUITTER_LEADERBOARD_DEFAULT_DISPLAY = 'both' as const;
+export const QUITTER_LEADERBOARD_DEFAULT_SORT = 'count' as const;
+
 export type RoleConfigSource = 'database' | 'env' | 'unset';
+
+export type QuitterLeaderboardDisplayValue = 'count' | 'rate' | 'both';
+export type QuitterLeaderboardSortValue = 'count' | 'rate';
 
 /** Guild-level config: role overrides only. IHL fields live on League. */
 export interface ResolvedGuildConfig {
@@ -19,6 +30,11 @@ export interface ResolvedGuildConfig {
   matchModRoleId: string | undefined;
   matchCreateRoleSource: RoleConfigSource;
   matchModRoleSource: RoleConfigSource;
+  quitterLeaderboardChannelId: string | undefined;
+  quitterLeaderboardMessageId: string | undefined;
+  quitterLeaderboardSize: number;
+  quitterLeaderboardDisplay: QuitterLeaderboardDisplayValue;
+  quitterLeaderboardSort: QuitterLeaderboardSortValue;
 }
 
 function resolveField(
@@ -36,6 +52,11 @@ function resolveField(
   return { value: undefined, source: 'unset' };
 }
 
+function trimOptionalId(value: string | null | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 export async function resolveGuildConfig(guildId: string): Promise<ResolvedGuildConfig> {
   const row = await prisma.guildConfig.findUnique({ where: { guildId } });
 
@@ -47,6 +68,14 @@ export async function resolveGuildConfig(guildId: string): Promise<ResolvedGuild
     matchModRoleId: mod.value,
     matchCreateRoleSource: create.source,
     matchModRoleSource: mod.source,
+    quitterLeaderboardChannelId: trimOptionalId(row?.quitterLeaderboardChannelId),
+    quitterLeaderboardMessageId: trimOptionalId(row?.quitterLeaderboardMessageId),
+    quitterLeaderboardSize:
+      row?.quitterLeaderboardSize ?? QUITTER_LEADERBOARD_DEFAULT_SIZE,
+    quitterLeaderboardDisplay:
+      row?.quitterLeaderboardDisplay ?? QUITTER_LEADERBOARD_DEFAULT_DISPLAY,
+    quitterLeaderboardSort:
+      row?.quitterLeaderboardSort ?? QUITTER_LEADERBOARD_DEFAULT_SORT,
   };
 }
 
@@ -63,6 +92,102 @@ export async function setMatchModRole(guildId: string, roleId: string): Promise<
     where: { guildId },
     create: { guildId, matchModRoleId: roleId },
     update: { matchModRoleId: roleId },
+  });
+}
+
+export async function setQuitterLeaderboardChannel(
+  guildId: string,
+  channelId: string,
+  messageId: string,
+): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: {
+      guildId,
+      quitterLeaderboardChannelId: channelId,
+      quitterLeaderboardMessageId: messageId,
+    },
+    update: {
+      quitterLeaderboardChannelId: channelId,
+      quitterLeaderboardMessageId: messageId,
+    },
+  });
+}
+
+export async function clearQuitterLeaderboardChannel(guildId: string): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: { guildId },
+    update: {
+      quitterLeaderboardChannelId: null,
+      quitterLeaderboardMessageId: null,
+    },
+  });
+}
+
+export async function setQuitterLeaderboardSize(guildId: string, size: number): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: { guildId, quitterLeaderboardSize: size },
+    update: { quitterLeaderboardSize: size },
+  });
+}
+
+export async function clearQuitterLeaderboardSize(guildId: string): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: { guildId, quitterLeaderboardSize: QUITTER_LEADERBOARD_DEFAULT_SIZE },
+    update: { quitterLeaderboardSize: QUITTER_LEADERBOARD_DEFAULT_SIZE },
+  });
+}
+
+export async function setQuitterLeaderboardDisplay(
+  guildId: string,
+  display: QuitterLeaderboardDisplayValue,
+): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: {
+      guildId,
+      quitterLeaderboardDisplay: display as QuitterLeaderboardDisplay,
+    },
+    update: { quitterLeaderboardDisplay: display as QuitterLeaderboardDisplay },
+  });
+}
+
+export async function clearQuitterLeaderboardDisplay(guildId: string): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: {
+      guildId,
+      quitterLeaderboardDisplay: QuitterLeaderboardDisplay.both,
+    },
+    update: { quitterLeaderboardDisplay: QuitterLeaderboardDisplay.both },
+  });
+}
+
+export async function setQuitterLeaderboardSort(
+  guildId: string,
+  sort: QuitterLeaderboardSortValue,
+): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: {
+      guildId,
+      quitterLeaderboardSort: sort as QuitterLeaderboardSort,
+    },
+    update: { quitterLeaderboardSort: sort as QuitterLeaderboardSort },
+  });
+}
+
+export async function clearQuitterLeaderboardSort(guildId: string): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: {
+      guildId,
+      quitterLeaderboardSort: QuitterLeaderboardSort.count,
+    },
+    update: { quitterLeaderboardSort: QuitterLeaderboardSort.count },
   });
 }
 

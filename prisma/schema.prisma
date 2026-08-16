@@ -240,11 +240,27 @@ enum MatchResult {
   DRAW // Not used in game mechanics, kept for future flexibility
 }
 
+enum QuitterLeaderboardDisplay {
+  count
+  rate
+  both
+}
+
+enum QuitterLeaderboardSort {
+  count
+  rate
+}
+
 // GuildConfig - per-server bot settings (role overrides only; IHL fields moved to League)
 model GuildConfig {
-  guildId           String   @id
-  matchCreateRoleId String?
-  matchModRoleId    String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  guildId                      String                     @id
+  matchCreateRoleId            String?
+  matchModRoleId               String?
+  quitterLeaderboardChannelId  String?
+  quitterLeaderboardMessageId  String?
+  quitterLeaderboardSize       Int                        @default(10)
+  quitterLeaderboardDisplay    QuitterLeaderboardDisplay  @default(both)
+  quitterLeaderboardSort       QuitterLeaderboardSort     @default(count)
+  createdAt                    DateTime                   @default(now())
+  updatedAt                    DateTime                   @updatedAt
 }
