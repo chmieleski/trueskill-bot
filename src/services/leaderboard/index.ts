@@ -27,3 +27,17 @@ export {
   setupLiveLeaderboard,
   stopLeaderboardRefreshScheduler,
 } from './leaderboard-channel.js';
+export {
+  assertQuitterLeaderboardSize,
+  assignCompetitionRanks,
+  filterEligibleQuitterRows,
+  loadQuitterLeaderboard,
+  loadQuitterLeaderboardPage,
+  loadQuitterLeaderboardTop,
+  paginateQuitterEntries,
+  sortQuitterRows,
+  type QuitterLeaderboardDisplayMode,
+  type QuitterLeaderboardEntry,
+  type QuitterLeaderboardPage,
+  type QuitterLeaderboardSortMode,
+} from './quitter-leaderboard.js';
