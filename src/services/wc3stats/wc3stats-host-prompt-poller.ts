@@ -4,7 +4,7 @@ import { createLogger } from '../../lib/logger.js';
 import { env } from '../../config/env.js';
 import { findActiveMatchByWc3statsGameId } from '../match/match-service.js';
 import { isLeagueWc3statsHostPromptReady } from '../league/league-wc3stats.js';
-import { getGameProfile } from '../../domain/game-profile.js';
+import { getGameProfile, UnknownGameIdError } from '../../domain/game-profile.js';
 import { fetchGamelist, Wc3statsClientError } from './wc3stats-client.js';
 import { compileWc3statsMapConfig } from './wc3stats-map.js';
 import { parseWc3statsMapSha1 } from './wc3stats-slot-map.js';
@@ -98,8 +98,11 @@ export async function listHostPromptReadyLeagues(): Promise<PromptReadyLeague[]>
       if (getGameProfile(row.gameId).import !== 'wc3stats') {
         continue;
       }
-    } catch {
-      continue;
+    } catch (error) {
+      if (error instanceof UnknownGameIdError) {
+        continue;
+      }
+      throw error;
     }
     const config = {
       wc3statsEnabled: row.wc3statsEnabled,
