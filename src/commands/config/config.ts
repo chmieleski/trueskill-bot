@@ -3,9 +3,17 @@ import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'disco
 import { createLogger } from '../../lib/logger.js';
 import {
   assertCanConfigureBot,
+  clearQuitterLeaderboardDisplay,
+  clearQuitterLeaderboardSize,
+  clearQuitterLeaderboardSort,
   resolveGuildConfig,
   setMatchCreateRole,
   setMatchModRole,
+  setQuitterLeaderboardDisplay,
+  setQuitterLeaderboardSize,
+  setQuitterLeaderboardSort,
+  type QuitterLeaderboardDisplayValue,
+  type QuitterLeaderboardSortValue,
   type RoleConfigSource,
 } from '../../services/guild/index.js';
 import {
@@ -38,10 +46,14 @@ import {
   setLeagueWc3statsSlotMap,
 } from '../../services/wc3stats/index.js';
 import {
+  assertQuitterLeaderboardSize,
   clearLiveLeaderboard,
+  clearQuitterLiveLeaderboard,
   LeaderboardServiceError,
+  refreshGuildQuitterLeaderboard,
   refreshLeagueLeaderboard,
   setupLiveLeaderboard,
+  setupQuitterLiveLeaderboard,
 } from '../../services/leaderboard/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
 import { RankResetServiceError } from '../../services/rating/index.js';
@@ -120,6 +132,19 @@ function formatLeaderboardLine(
   return `**Live leaderboard:** <#${channelId}> · message \`${messageId}\` · size \`${size}\``;
 }
 
+function formatQuitterLeaderboardLine(
+  channelId: string | undefined,
+  messageId: string | undefined,
+  size: number,
+  display: string,
+  sort: string,
+): string {
+  if (!channelId || !messageId) {
+    return `**Quitter leaderboard:** \`unset\` · size \`${size}\` · display \`${display}\` · sort \`${sort}\``;
+  }
+  return `**Quitter leaderboard:** <#${channelId}> · message \`${messageId}\` · size \`${size}\` · display \`${display}\` · sort \`${sort}\``;
+}
+
 function formatLeagueLine(name: string | undefined): string {
   return `**League:** ${name ? `\`${name}\`` : '`unset`'}`;
 }
@@ -156,6 +181,61 @@ export const data = new SlashCommandBuilder()
               .setName('role')
               .setDescription('Discord role for match moderators')
               .setRequired(true),
+          ),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('quitter_leaderboard_channel')
+          .setDescription('Set the channel for the live quitter leaderboard message')
+          .addChannelOption((option) =>
+            option
+              .setName('channel')
+              .setDescription('Channel where the live quitter leaderboard message is posted')
+              .setRequired(true),
+          ),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('quitter_leaderboard_size')
+          .setDescription('How many players appear on the live quitter leaderboard')
+          .addIntegerOption((option) =>
+            option
+              .setName('size')
+              .setDescription('Number of ranks to show (10–100)')
+              .setRequired(true)
+              .setMinValue(10)
+              .setMaxValue(100),
+          ),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('quitter_leaderboard_display')
+          .setDescription('Columns shown on the quitter leaderboard')
+          .addStringOption((option) =>
+            option
+              .setName('display')
+              .setDescription('Show quit count, quit rate, or both')
+              .setRequired(true)
+              .addChoices(
+                { name: 'count', value: 'count' },
+                { name: 'rate', value: 'rate' },
+                { name: 'both', value: 'both' },
+              ),
+          ),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('quitter_leaderboard_sort')
+          .setDescription('Sort order for the quitter leaderboard')
+          .addStringOption((option) =>
+            option
+              .setName('sort')
+              .setDescription('Rank by quit count or quit rate')
+              .setRequired(true)
+              .addChoices(
+                { name: 'count', value: 'count' },
+                { name: 'rate', value: 'rate' },
+              ),
           ),
       )
       .addSubcommand((subcommand) =>
@@ -310,6 +390,26 @@ export const data = new SlashCommandBuilder()
       .setName('clear')
       .setDescription('Clear a bot configuration value')
       .addSubcommand((subcommand) =>
+        subcommand
+          .setName('quitter_leaderboard_channel')
+          .setDescription('Remove the live quitter leaderboard message binding'),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('quitter_leaderboard_size')
+          .setDescription('Reset quitter leaderboard size to 10'),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('quitter_leaderboard_display')
+          .setDescription('Reset quitter leaderboard display to both'),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('quitter_leaderboard_sort')
+          .setDescription('Reset quitter leaderboard sort to count'),
+      )
+      .addSubcommand((subcommand) =>
         withSubcommandLeagueOption(
           subcommand
             .setName('leaderboard_channel')
@@ -436,6 +536,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
             resolved.matchCreateRoleSource,
           ),
           formatRoleLine('Mod role', resolved.matchModRoleId, resolved.matchModRoleSource),
+          formatQuitterLeaderboardLine(
+            resolved.quitterLeaderboardChannelId,
+            resolved.quitterLeaderboardMessageId,
+            resolved.quitterLeaderboardSize,
+            resolved.quitterLeaderboardDisplay,
+            resolved.quitterLeaderboardSort,
+          ),
           formatLeaderboardLine(
             leagueConfig.leaderboardChannelId,
             leagueConfig.leaderboardMessageId,
@@ -486,6 +593,98 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         );
         await interaction.reply({
           content: `Mod role set to <@&${role.id}>.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'quitter_leaderboard_channel') {
+        const channel = interaction.options.getChannel('channel', true);
+        const allowedTypes = new Set([
+          ChannelType.GuildText,
+          ChannelType.GuildAnnouncement,
+          ChannelType.GuildForum,
+        ]);
+        if (!allowedTypes.has(channel.type)) {
+          await interaction.reply({
+            content: 'Choose a server text channel for the quitter leaderboard.',
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
+        await setupQuitterLiveLeaderboard(interaction.client, interaction.guildId, channel.id);
+        log.info(
+          {
+            guildId: interaction.guildId,
+            channelId: channel.id,
+            userId: interaction.user.id,
+          },
+          'Quitter leaderboard channel updated',
+        );
+        await interaction.reply({
+          content: `Live quitter leaderboard set in <#${channel.id}>. Keep only that message there.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'quitter_leaderboard_size') {
+        const size = interaction.options.getInteger('size', true);
+        try {
+          assertQuitterLeaderboardSize(size);
+          await setQuitterLeaderboardSize(interaction.guildId, size);
+        } catch (error) {
+          if (error instanceof LeaderboardServiceError) {
+            await interaction.reply({
+              content: error.message,
+              flags: MessageFlags.Ephemeral,
+            });
+            return;
+          }
+          throw error;
+        }
+
+        await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, size, userId: interaction.user.id },
+          'Quitter leaderboard size updated',
+        );
+        await interaction.reply({
+          content: `Quitter leaderboard size set to \`${size}\`.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'quitter_leaderboard_display') {
+        const display = interaction.options.getString(
+          'display',
+          true,
+        ) as QuitterLeaderboardDisplayValue;
+        await setQuitterLeaderboardDisplay(interaction.guildId, display);
+        await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, display, userId: interaction.user.id },
+          'Quitter leaderboard display updated',
+        );
+        await interaction.reply({
+          content: `Quitter leaderboard display set to \`${display}\`.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'quitter_leaderboard_sort') {
+        const sort = interaction.options.getString('sort', true) as QuitterLeaderboardSortValue;
+        await setQuitterLeaderboardSort(interaction.guildId, sort);
+        await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, sort, userId: interaction.user.id },
+          'Quitter leaderboard sort updated',
+        );
+        await interaction.reply({
+          content: `Quitter leaderboard sort set to \`${sort}\`.`,
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -776,6 +975,61 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     if (subcommandGroup === 'clear') {
+      if (subcommand === 'quitter_leaderboard_channel') {
+        await clearQuitterLiveLeaderboard(interaction.client, interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, userId: interaction.user.id },
+          'Quitter leaderboard channel cleared',
+        );
+        await interaction.reply({
+          content: 'Live quitter leaderboard cleared.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'quitter_leaderboard_size') {
+        await clearQuitterLeaderboardSize(interaction.guildId);
+        await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, userId: interaction.user.id },
+          'Quitter leaderboard size cleared',
+        );
+        await interaction.reply({
+          content: 'Quitter leaderboard size reset to `10`.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'quitter_leaderboard_display') {
+        await clearQuitterLeaderboardDisplay(interaction.guildId);
+        await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, userId: interaction.user.id },
+          'Quitter leaderboard display cleared',
+        );
+        await interaction.reply({
+          content: 'Quitter leaderboard display reset to `both`.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'quitter_leaderboard_sort') {
+        await clearQuitterLeaderboardSort(interaction.guildId);
+        await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, userId: interaction.user.id },
+          'Quitter leaderboard sort cleared',
+        );
+        await interaction.reply({
+          content: 'Quitter leaderboard sort reset to `count`.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
       if (subcommand === 'leaderboard_channel') {
         const leagueId = await requireLeagueId(interaction);
         if (!leagueId) return;
