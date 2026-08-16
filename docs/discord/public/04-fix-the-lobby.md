@@ -2,11 +2,11 @@
 
 The lobby message has buttons. Use them like toys that fix the board.
 
-**Host tools (emoji buttons)**
-• ➕ Add a player
-• ✏️ Edit a nick
-• 🔀 Move / swap seats
-• 🗑️ Remove a player
+**Host tools**
+• ➕ **Add** a player
+• ✏️ **Edit** a nick
+• 🔀 **Move** / swap seats
+• 🗑️ **Remove** a player
 • 🔄 Refresh from wc3stats (when available)
 • ▶️ **Start Match** (only when the lobby is valid)
 

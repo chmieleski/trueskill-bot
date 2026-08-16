@@ -151,6 +151,25 @@ describe('buildMatchReportButtons', () => {
 });
 
 describe('buildLobbyButtons', () => {
+  it('labels roster controls with text so they are readable', () => {
+    const rows = buildLobbyButtons({
+      playerCount: 2,
+      playerClaimEnabled: false,
+    });
+    const roster = rows.at(-1)?.toJSON().components as Array<{
+      custom_id?: string;
+      label?: string;
+    }>;
+    const labels = Object.fromEntries(
+      (roster ?? []).map((button) => [button.custom_id, button.label]),
+    );
+
+    expect(labels[LOBBY_CUSTOM_IDS.editNick]).toBe('Edit');
+    expect(labels[LOBBY_CUSTOM_IDS.move]).toBe('Move');
+    expect(labels[LOBBY_CUSTOM_IDS.remove]).toBe('Remove');
+    expect(labels[LOBBY_CUSTOM_IDS.add]).toBe('Add');
+  });
+
   it('includes Add when the lobby is not full', () => {
     const rows = buildLobbyButtons({
       canStart: true,

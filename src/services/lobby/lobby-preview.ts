@@ -479,18 +479,20 @@ export function buildLobbyButtons(
     rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(refreshButton));
   }
 
-  // Icon-only roster controls (emoji is enough for Discord buttons).
   const rosterControls = [
     new ButtonBuilder()
       .setCustomId(LOBBY_CUSTOM_IDS.editNick)
+      .setLabel('Edit')
       .setEmoji('✏️')
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(LOBBY_CUSTOM_IDS.move)
+      .setLabel('Move')
       .setEmoji('🔀')
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(LOBBY_CUSTOM_IDS.remove)
+      .setLabel('Remove')
       .setEmoji('🗑️')
       .setStyle(ButtonStyle.Danger),
   ];
@@ -499,6 +501,7 @@ export function buildLobbyButtons(
     rosterControls.push(
       new ButtonBuilder()
         .setCustomId(LOBBY_CUSTOM_IDS.add)
+        .setLabel('Add')
         .setEmoji('➕')
         .setStyle(ButtonStyle.Success),
     );
