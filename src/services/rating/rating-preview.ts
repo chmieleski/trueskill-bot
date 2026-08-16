@@ -4,6 +4,7 @@ import { predictWin } from 'openskill';
 import { listCatalogHeroIds } from '../guild/hero-catalog.js';
 import { prisma } from '../../lib/prisma.js';
 import { createLogger } from '../../lib/logger.js';
+import { ratingEntitiesForPlayer } from './rating-entities.js';
 import {
   displayOrdinal,
   roundWinPercents,
@@ -52,7 +53,7 @@ export type RatingPreviewRosterEntry = {
   playerId: string;
   slot: number;
   team: 1 | 2;
-  heroId: number;
+  heroId: number | null;
   nick: string;
   isQuitter?: boolean;
 };
@@ -60,8 +61,8 @@ export type RatingPreviewRosterEntry = {
 type Db = Prisma.TransactionClient | typeof prisma;
 
 /**
- * Batch cold-start for missing global + hero ratings (few round-trips).
- * Accepts optional transaction client for match completion flows.
+ * Batch cold-start for missing global ratings, plus hero ratings only when
+ * `heroId` is set. Accepts optional transaction client for match completion.
  */
 export async function ensurePlayerRatings(
   leagueId: string,
@@ -77,14 +78,19 @@ export async function ensurePlayerRatings(
     skipDuplicates: true,
   });
 
-  await db.playerHeroRating.createMany({
-    data: entries.map((entry) => ({
-      leagueId,
-      playerId: entry.playerId,
-      heroId: entry.heroId,
-    })),
-    skipDuplicates: true,
-  });
+  const withHero = entries.filter(
+    (entry): entry is typeof entry & { heroId: number } => entry.heroId != null,
+  );
+  if (withHero.length > 0) {
+    await db.playerHeroRating.createMany({
+      data: withHero.map((entry) => ({
+        leagueId,
+        playerId: entry.playerId,
+        heroId: entry.heroId,
+      })),
+      skipDuplicates: true,
+    });
+  }
 }
 
 function defaultMuSigma(): { mu: number; sigma: number } {
@@ -114,19 +120,24 @@ export async function loadPlayerKiBySlot(
   await ensurePlayerRatings(leagueId, sorted, db);
 
   const playerIds = sorted.map((entry) => entry.playerId);
+  const withHero = sorted.filter(
+    (entry): entry is typeof entry & { heroId: number } => entry.heroId != null,
+  );
   const [globals, heroes, gameCounts] = await Promise.all([
     db.playerRating.findMany({
       where: { leagueId, playerId: { in: playerIds } },
     }),
-    db.playerHeroRating.findMany({
-      where: {
-        leagueId,
-        OR: sorted.map((entry) => ({
-          playerId: entry.playerId,
-          heroId: entry.heroId,
-        })),
-      },
-    }),
+    withHero.length > 0
+      ? db.playerHeroRating.findMany({
+          where: {
+            leagueId,
+            OR: withHero.map((entry) => ({
+              playerId: entry.playerId,
+              heroId: entry.heroId,
+            })),
+          },
+        })
+      : Promise.resolve([]),
     db.matchPlayer.groupBy({
       by: ['playerId'],
       where: {
@@ -149,12 +160,19 @@ export async function loadPlayerKiBySlot(
 
   for (const entry of sorted) {
     const global = globalByPlayer.get(entry.playerId) ?? defaultMuSigma();
+    const globalGames = gamesByPlayer.get(entry.playerId) ?? 0;
+    const globalKi = displayOrdinal(global.mu, global.sigma, globalGames);
+
+    if (entry.heroId == null) {
+      result.set(entry.slot, { global: globalKi, hero: globalKi });
+      continue;
+    }
+
     const heroRow = heroByKey.get(heroKey(entry.playerId, entry.heroId));
     const hero = heroRow ?? defaultMuSigma();
-    const globalGames = gamesByPlayer.get(entry.playerId) ?? 0;
     const heroGames = heroRow?.matchesPlayed ?? 0;
     result.set(entry.slot, {
-      global: displayOrdinal(global.mu, global.sigma, globalGames),
+      global: globalKi,
       hero: displayOrdinal(hero.mu, hero.sigma, heroGames),
     });
   }
@@ -210,18 +228,23 @@ export async function loadLobbyRatingPreview(
   try {
     await ensurePlayerRatings(leagueId, sorted);
 
-    const catalogHeroIds = await listCatalogHeroIds();
-    if (catalogHeroIds.length > 0) {
-      await prisma.playerHeroRating.createMany({
-        data: sorted.flatMap((entry) =>
-          catalogHeroIds.map((heroId) => ({
-            leagueId,
-            playerId: entry.playerId,
-            heroId,
-          })),
-        ),
-        skipDuplicates: true,
-      });
+    if (sorted.some((entry) => entry.heroId != null)) {
+      const catalogHeroIds = await listCatalogHeroIds();
+      if (catalogHeroIds.length > 0) {
+        const withHero = sorted.filter(
+          (entry): entry is typeof entry & { heroId: number } => entry.heroId != null,
+        );
+        await prisma.playerHeroRating.createMany({
+          data: withHero.flatMap((entry) =>
+            catalogHeroIds.map((heroId) => ({
+              leagueId,
+              playerId: entry.playerId,
+              heroId,
+            })),
+          ),
+          skipDuplicates: true,
+        });
+      }
     }
 
     const playerIds = sorted.map((entry) => entry.playerId);
@@ -254,14 +277,26 @@ export async function loadLobbyRatingPreview(
 
     const players: LobbyRatingPlayerLine[] = sorted.map((entry) => {
       const global = globalByPlayer.get(entry.playerId) ?? defaultMuSigma();
+      const globalGames = gamesByPlayer.get(entry.playerId) ?? 0;
+      const globalOrdinal = displayOrdinal(global.mu, global.sigma, globalGames);
+
+      if (entry.heroId == null) {
+        return {
+          slot: entry.slot,
+          nick: entry.nick,
+          globalOrdinal,
+          heroOrdinal: globalOrdinal,
+          isQuitter: entry.isQuitter,
+        };
+      }
+
       const heroRow = heroByKey.get(heroKey(entry.playerId, entry.heroId));
       const hero = heroRow ?? defaultMuSigma();
-      const globalGames = gamesByPlayer.get(entry.playerId) ?? 0;
       const heroGames = heroRow?.matchesPlayed ?? 0;
       return {
         slot: entry.slot,
         nick: entry.nick,
-        globalOrdinal: displayOrdinal(global.mu, global.sigma, globalGames),
+        globalOrdinal,
         heroOrdinal: displayOrdinal(hero.mu, hero.sigma, heroGames),
         isQuitter: entry.isQuitter,
       };
@@ -272,19 +307,17 @@ export async function loadLobbyRatingPreview(
       return { players };
     }
 
-    const teamEntities = (team: RatingPreviewRosterEntry[]) => {
-      const entities: { mu: number; sigma: number }[] = [];
-      for (const entry of team) {
-        const global = globalByPlayer.get(entry.playerId) ?? defaultMuSigma();
-        const hero =
-          heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultMuSigma();
-        entities.push(
-          { mu: global.mu, sigma: global.sigma },
-          { mu: hero.mu, sigma: hero.sigma },
-        );
-      }
-      return toOpenSkillRatings(entities);
-    };
+    const teamEntities = (team: RatingPreviewRosterEntry[]) =>
+      toOpenSkillRatings(
+        team.flatMap((entry) => {
+          const global = globalByPlayer.get(entry.playerId) ?? defaultMuSigma();
+          const hero =
+            entry.heroId == null
+              ? defaultMuSigma()
+              : heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultMuSigma();
+          return ratingEntitiesForPlayer(global, hero, entry.heroId);
+        }),
+      );
 
     const [pA, pB] = predictWin([teamEntities(teamA), teamEntities(teamB)]);
     const winChance = roundWinPercents(pA ?? 0.5, pB ?? 0.5);
@@ -299,20 +332,27 @@ export async function loadLobbyRatingPreview(
       },
     };
 
+    const balanceRoster = sorted.flatMap((entry) =>
+      entry.heroId == null
+        ? []
+        : [
+            {
+              playerId: entry.playerId,
+              slot: entry.slot,
+              team: entry.team,
+              heroId: entry.heroId,
+              nick: entry.nick,
+            },
+          ],
+    );
+
     let balanceSuggestion: BalanceSuggestion | undefined;
-    if (isUnbalancedWinChance(winChance.teamAPercent)) {
+    if (
+      balanceRoster.length === sorted.length &&
+      isUnbalancedWinChance(winChance.teamAPercent)
+    ) {
       try {
-        balanceSuggestion = suggestBalanceMove(
-          sorted.map((entry) => ({
-            playerId: entry.playerId,
-            slot: entry.slot,
-            team: entry.team,
-            heroId: entry.heroId,
-            nick: entry.nick,
-          })),
-          lookup,
-          winChance,
-        );
+        balanceSuggestion = suggestBalanceMove(balanceRoster, lookup, winChance);
       } catch (error) {
         log.warn({ err: error }, 'Failed to compute balance suggestion');
       }
@@ -342,7 +382,7 @@ export function matchPlayersToRatingEntries(
     playerId: string;
     slot: number;
     team: number;
-    heroId: number;
+    heroId: number | null;
     isQuitter?: boolean;
     player: { username: string };
   }[],
