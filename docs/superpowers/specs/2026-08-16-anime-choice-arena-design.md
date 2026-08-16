@@ -201,7 +201,7 @@ All user-facing strings stay **English**.
 **Runtime (match-scoped):** embeds, lobby buttons/selects, start/report copy use `profile.slotCount`, `profile.teamNames`, and `profile.ratingLabel`. ACA lobby shows 10 slot controls, Team A / Team B, global `ki` only (same label as UDBR until a future preset change).
 
 **ACA add / move (buttons):** Host does not pick a raw slot.
-- **Add:** modal asks for nick + team (`1` / `2` or the profile team name). Bot seats the player in the **lowest empty slot** on that team.
+- **Add:** ephemeral **team dropdown** (only teams with an empty seat), then a nick-only modal. Bot seats the player in the **lowest empty slot** on that team.
 - **Move:** after picking a player, destinations are **Move → Team A/B** (lowest empty seat on that team; omit the player’s current team and full teams) and **Swap → &lt;nick&gt;** for each other occupied seat.
 - UDBR keeps slot-number add and per-slot move/swap destinations.
 - Slash `/lobby add|swap` still uses slot integers (global command tree); execute-time validation stays profile-aware.

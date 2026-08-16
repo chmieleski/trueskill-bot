@@ -35,7 +35,6 @@ import {
   leaveLobbySlot,
   movePlayer,
   nextEmptySlotOnTeam,
-  parseTeamInput,
   refreshLobbyFromWc3stats,
   removePlayer,
   resolvePendingMatchByMessageId,
@@ -446,6 +445,23 @@ async function handleAdd(interaction: ButtonInteraction): Promise<void> {
     return;
   }
 
+  if (profile.heroBinding === 'optional_in_game') {
+    const teamOptions = addTeamSelectOptions(result.players, profile);
+    if (teamOptions.length === 0) {
+      await replyEphemeral(interaction, 'No empty seats available. Remove a player first.');
+      return;
+    }
+
+    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(`lobby:select:add_team:${messageId}`)
+        .setPlaceholder('Select a team')
+        .addOptions(teamOptions),
+    );
+    await replyEphemeral(interaction, 'Which team should this player join?', [row]);
+    return;
+  }
+
   const modal = new ModalBuilder()
     .setCustomId(`lobby:modal:add:${messageId}`)
     .setTitle('Add Player');
@@ -457,27 +473,88 @@ async function handleAdd(interaction: ButtonInteraction): Promise<void> {
     .setRequired(true)
     .setMaxLength(32);
 
-  const secondInput =
-    profile.heroBinding === 'optional_in_game'
-      ? new TextInputBuilder()
-          .setCustomId('team')
-          .setLabel(`Team (1=${profile.teamNames[1]}, 2=${profile.teamNames[2]})`.slice(0, 45))
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true)
-          .setMinLength(1)
-          .setMaxLength(32)
-      : new TextInputBuilder()
-          .setCustomId('slot')
-          .setLabel(`Slot number (1-${profile.slotCount})`)
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true)
-          .setMinLength(1)
-          .setMaxLength(2);
+  const slotInput = new TextInputBuilder()
+    .setCustomId('slot')
+    .setLabel(`Slot number (1-${profile.slotCount})`)
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMinLength(1)
+    .setMaxLength(2);
 
   modal.addComponents(
     new ActionRowBuilder<TextInputBuilder>().addComponents(nickInput),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(secondInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(slotInput),
   );
+
+  await interaction.showModal(modal);
+}
+
+/** Teams with at least one empty seat (ACA add dropdown). */
+function addTeamSelectOptions(players: LobbyPlayer[], profile: GameProfile) {
+  const occupied = new Set(players.map((player) => player.slot));
+  const options: { label: string; description: string; value: string }[] = [];
+
+  for (const team of [1, 2] as const) {
+    let empty = 0;
+    for (let slot = 1; slot <= profile.slotCount; slot += 1) {
+      if (teamForSlot(profile, slot) === team && !occupied.has(slot)) {
+        empty += 1;
+      }
+    }
+    if (empty === 0) {
+      continue;
+    }
+    options.push({
+      label: teamDisplayName(team, profile),
+      description: empty === 1 ? '1 empty seat' : `${empty} empty seats`,
+      value: String(team),
+    });
+  }
+
+  return options;
+}
+
+async function handleSelectAddTeam(
+  interaction: StringSelectMenuInteraction,
+  messageId: string,
+): Promise<void> {
+  const result = await requirePendingMatch(messageId);
+
+  if ('error' in result) {
+    await replyEphemeral(interaction, result.error);
+    return;
+  }
+
+  const teamRaw = interaction.values[0]!;
+  const team = Number(teamRaw);
+  if (team !== 1 && team !== 2) {
+    await replyEphemeral(interaction, 'Invalid team.');
+    return;
+  }
+
+  const profile = await profileForMatch(result.match.leagueId);
+  try {
+    nextEmptySlotOnTeam(result.players, profile, team as TeamId);
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await replyEphemeral(interaction, error.message);
+      return;
+    }
+    throw error;
+  }
+
+  const modal = new ModalBuilder()
+    .setCustomId(`lobby:modal:add:${messageId}:${team}`)
+    .setTitle(`Add Player — ${teamDisplayName(team as TeamId, profile)}`);
+
+  const nickInput = new TextInputBuilder()
+    .setCustomId('nick')
+    .setLabel('In-game nick')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMaxLength(32);
+
+  modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(nickInput));
 
   await interaction.showModal(modal);
 }
@@ -862,6 +939,7 @@ async function handleModalEditNick(
 async function handleModalAdd(
   interaction: ModalSubmitInteraction,
   messageId: string,
+  teamFromSelect: TeamId | null,
 ): Promise<void> {
   if (interaction.channelId) {
     await deletePreviousEphemeral(
@@ -894,9 +972,13 @@ async function handleModalAdd(
     const profile = await profileForMatch(result.match.leagueId);
     let slot: number;
 
-    if (profile.heroBinding === 'optional_in_game') {
-      const team = parseTeamInput(interaction.fields.getTextInputValue('team'), profile);
-      slot = nextEmptySlotOnTeam(result.players, profile, team);
+    if (teamFromSelect != null) {
+      slot = nextEmptySlotOnTeam(result.players, profile, teamFromSelect);
+    } else if (profile.heroBinding === 'optional_in_game') {
+      await interaction.editReply({
+        content: 'Pick a team from the dropdown, then enter the nick.',
+      });
+      return;
     } else {
       const slotRaw = interaction.fields.getTextInputValue('slot').trim();
       slot = Number(slotRaw);
@@ -1005,6 +1087,11 @@ async function handleSelect(interaction: StringSelectMenuInteraction): Promise<v
     return;
   }
 
+  if (kind === 'add_team') {
+    await handleSelectAddTeam(interaction, messageId);
+    return;
+  }
+
   if (kind === 'claim') {
     await handleSelectClaim(interaction, messageId);
     return;
@@ -1030,7 +1117,10 @@ async function handleModal(interaction: ModalSubmitInteraction): Promise<void> {
   }
 
   if (kind === 'add') {
-    await handleModalAdd(interaction, messageId);
+    const teamPart = parts[4];
+    const teamFromSelect =
+      teamPart === '1' || teamPart === '2' ? (Number(teamPart) as TeamId) : null;
+    await handleModalAdd(interaction, messageId, teamFromSelect);
     return;
   }
 
