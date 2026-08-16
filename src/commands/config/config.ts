@@ -835,7 +835,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       if (subcommand === 'wc3stats_slot') {
-        const leagueId = await requireLeagueId(interaction);
+        const leagueId = await requireWc3statsLeague(interaction);
         if (!leagueId) return;
 
         const wc3Slot = interaction.options.getInteger('wc3_slot', true);
@@ -854,7 +854,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       if (subcommand === 'wc3stats') {
-        const leagueId = await requireLeagueId(interaction);
+        const leagueId = await requireWc3statsLeague(interaction);
         if (!leagueId) return;
 
         await clearLeagueWc3statsPackage(leagueId);
@@ -871,7 +871,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       if (subcommand === 'wc3stats_host_prompt') {
-        const leagueId = await requireLeagueId(interaction);
+        const leagueId = await requireWc3statsLeague(interaction);
         if (!leagueId) return;
 
         await clearLeagueWc3statsHostPrompt(leagueId);
@@ -887,7 +887,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       if (subcommand === 'wc3stats_map') {
-        const leagueId = await requireLeagueId(interaction);
+        const leagueId = await requireWc3statsLeague(interaction);
         if (!leagueId) return;
 
         const removed = await clearAllLeagueWc3statsSlotMaps(leagueId);
