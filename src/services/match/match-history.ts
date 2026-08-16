@@ -1,3 +1,13 @@
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+} from 'discord.js';
+import { prisma } from '../../lib/prisma.js';
+import { loadHeroCatalog } from '../guild/hero-catalog.js';
+import { MatchServiceError } from './match-service.js';
+
 export const MATCH_HISTORY_PAGE_SIZE = 10;
 
 export type MatchHistoryRow = {
@@ -80,4 +90,159 @@ export function parseMatchHistoryPageCustomId(
     return { invokerId, playerId, leagueId, page: currentPage + 1 };
   }
   return null;
+}
+
+export async function resolveHistoryPlayer(
+  discordId: string,
+  kind: 'self' | 'user',
+): Promise<{ id: string; username: string }> {
+  const player = await prisma.player.findUnique({ where: { discordId } });
+  if (!player) {
+    if (kind === 'self') {
+      throw new MatchServiceError(
+        'Your Discord is not linked to an in-game nick. Use /link to bind it.',
+      );
+    }
+    throw new MatchServiceError('Player not found.');
+  }
+  return { id: player.id, username: player.username };
+}
+
+export async function loadMatchHistoryPage(input: {
+  leagueId: string;
+  playerId: string;
+  username: string;
+  page: number;
+}): Promise<MatchHistoryPage> {
+  const where = {
+    leagueId: input.leagueId,
+    status: 'COMPLETED' as const,
+    players: { some: { playerId: input.playerId } },
+  };
+
+  const totalMatches = await prisma.match.count({ where });
+  const totalPages = Math.max(1, Math.ceil(totalMatches / MATCH_HISTORY_PAGE_SIZE));
+  const page = clampMatchHistoryPage(input.page, totalPages);
+  const skip = (page - 1) * MATCH_HISTORY_PAGE_SIZE;
+
+  const matches = await prisma.match.findMany({
+    where,
+    orderBy: [{ completedAt: 'desc' }, { createdAt: 'desc' }],
+    skip,
+    take: MATCH_HISTORY_PAGE_SIZE,
+    select: {
+      id: true,
+      completedAt: true,
+      createdAt: true,
+      players: {
+        where: { playerId: input.playerId },
+        select: {
+          team: true,
+          result: true,
+          heroId: true,
+          isQuitter: true,
+        },
+      },
+    },
+  });
+
+  const catalog = await loadHeroCatalog();
+  const heroNameById = new Map(catalog.map((h) => [h.id, h.name]));
+
+  const rows: MatchHistoryRow[] = [];
+  for (const match of matches) {
+    const mp = match.players[0];
+    if (!mp || (mp.result !== 'WIN' && mp.result !== 'LOSS')) {
+      continue;
+    }
+    if (mp.team !== 1 && mp.team !== 2) {
+      continue;
+    }
+    rows.push({
+      matchId: match.id,
+      completedAt: match.completedAt ?? match.createdAt,
+      result: mp.result,
+      team: mp.team,
+      heroName: mp.heroId != null ? (heroNameById.get(mp.heroId) ?? null) : null,
+      isQuitter: mp.isQuitter,
+    });
+  }
+
+  return {
+    targetPlayerId: input.playerId,
+    targetUsername: input.username,
+    page,
+    totalPages,
+    totalMatches,
+    rows,
+  };
+}
+
+export function buildMatchHistoryEmbed(
+  page: MatchHistoryPage,
+  _leagueId: string,
+  teamLabelFor: (team: 1 | 2) => string,
+): EmbedBuilder {
+  const body =
+    page.rows.length === 0
+      ? 'No completed matches yet.'
+      : page.rows.map((row) => formatMatchHistoryRow(row, teamLabelFor(row.team))).join('\n');
+
+  const embed = new EmbedBuilder()
+    .setTitle(`Match history — ${page.targetUsername}`)
+    .setDescription(
+      `Page ${page.page} of ${page.totalPages} · ${page.totalMatches} matches\n\n${body}`,
+    )
+    .setColor(0xf0b232);
+
+  if (page.totalPages > 1) {
+    embed.setFooter({
+      text: 'Use /match show match_id:… · Only you can use the buttons',
+    });
+  } else if (page.totalMatches > 0) {
+    embed.setFooter({ text: 'Use /match show match_id:… to open a match' });
+  }
+
+  return embed;
+}
+
+export function buildMatchHistoryPageButtons(input: {
+  invokerId: string;
+  playerId: string;
+  leagueId: string;
+  page: number;
+  totalPages: number;
+}): ActionRowBuilder<ButtonBuilder>[] {
+  if (input.totalPages <= 1) {
+    return [];
+  }
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(
+        buildMatchHistoryPageCustomId(
+          input.invokerId,
+          input.playerId,
+          input.leagueId,
+          'prev',
+          input.page,
+        ),
+      )
+      .setLabel('Previous')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(input.page <= 1),
+    new ButtonBuilder()
+      .setCustomId(
+        buildMatchHistoryPageCustomId(
+          input.invokerId,
+          input.playerId,
+          input.leagueId,
+          'next',
+          input.page,
+        ),
+      )
+      .setLabel('Next')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(input.page >= input.totalPages),
+  );
+  return [row];
 }

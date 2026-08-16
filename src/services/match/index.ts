@@ -20,6 +20,20 @@ export {
 } from './match-auth.js';
 export { startMatchCleanupScheduler, stopMatchCleanupScheduler } from './match-cleanup.js';
 export {
+  buildMatchHistoryEmbed,
+  buildMatchHistoryPageButtons,
+  buildMatchHistoryPageCustomId,
+  clampMatchHistoryPage,
+  formatMatchHistoryRow,
+  loadMatchHistoryPage,
+  MATCH_HISTORY_PAGE_SIZE,
+  parseMatchHistoryPageCustomId,
+  resolveHistoryPlayer,
+  winningTeamFromPlayers,
+  type MatchHistoryPage,
+  type MatchHistoryRow,
+} from './match-history.js';
+export {
   CORRECTION_WINDOW_MS,
   GLOBAL_SNAPSHOT_HERO_ID,
   isWithinCorrectionWindow,
