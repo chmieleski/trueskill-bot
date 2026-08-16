@@ -23,7 +23,7 @@ Import league tenancy from `src/services/league/index.js` (barrel). Key exports:
 | **CRUD** | `createLeague`, `listLeaguesForGuild`, `getLeagueById`, `getDefaultUdbrLeagueId` (legacy UDBR-only helper — prefer resolve) |
 | **Bindings** | `bindDiscordToLeague`, `unbindDiscord`, `LeagueBindingKind` (`CHANNEL` \| `CATEGORY`) |
 | **Staff slash** | `/league create`, `/league list`, `/league bind`, `/league unbind` — `src/commands/league/league.ts` |
-| **Game id constant** | `WARCRAFT3_UDBR_GAME_ID`, `KnownGameId` — `src/domain/games.ts` |
+| **Game id constant** | `WARCRAFT3_UDBR_GAME_ID`, `WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID`, `KnownGameId` — `src/domain/games.ts` |
 
 **Resolution order** (same everywhere): explicit `league:` option → channel binding → category binding → sole league in guild → else ambiguous / no leagues.
 
@@ -130,8 +130,9 @@ WC3 UDBR uses a global `Hero` table (slots 1–12). That is **not** universal.
 
 | `gameId` | Status | Module (current) |
 |----------|--------|------------------|
-| `warcraft3_udbr` | First game (v1 multi-league) | `src/services/league/league-wc3stats.ts` + `src/services/wc3stats/**` (may later move under `src/games/warcraft3_udbr/`) |
+| `warcraft3_udbr` | First game | `src/services/league/league-wc3stats.ts` + `src/services/wc3stats/**` |
+| `warcraft3_anime_choice_arena` | Second game (v1: Discord-only, global rating, no in-game pick) | `src/domain/game-profile.ts` |
 
 ## When to invest in “full” generalization
 
-Shipping with WC3-only adapters and a league tenant (design scope **C**) is intentional. Broader pluggable import/OCR/hero frameworks (scope **A**) wait until a second game forces shared patterns. Prefer duplicating a thin adapter once over abstracting too early — but **never** duplicate tenancy or Elo isolation.
+Shipping with WC3-only adapters and a league tenant (design scope **C**) is intentional. The shared pattern is `GameProfile` in `src/domain/game-profile.ts` (`slotCount`, `heroBinding`, `import`). Full `src/games/<id>/` adapters still wait. `optional_in_game` is the second hero pattern; do not reuse UDBR `Hero` ids 1–12. Prefer duplicating a thin adapter once over abstracting too early — but **never** duplicate tenancy or Elo isolation.

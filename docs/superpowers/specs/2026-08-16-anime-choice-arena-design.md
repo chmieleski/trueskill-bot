@@ -1,7 +1,8 @@
 # Anime Choice Arena IHL (slot ≠ hero) — Design
 
 **Date:** 2026-08-16  
-**Status:** Approved — awaiting implementation plan  
+**Status:** Approved — implementation plan written  
+**Plan:** [docs/superpowers/plans/2026-08-16-anime-choice-arena.md](../plans/2026-08-16-anime-choice-arena.md)  
 **Scope:** `general` (game profile, nullable `heroId`, team-based roster split, global-only OpenSkill when no hero) + `game:warcraft3_anime_choice_arena` (catalog seed, `/league create` choice, Discord-only lobby)  
 **Depends on:** Multi-league IHL live (`Game` / `League` / `leagueId` on matches and ratings). Does **not** depend on unmerged `feature/game-scoped-heroes`.  
 **Related:** [Adding a new game](../../dev/adding-a-new-game.md), [Multi-league IHL](./2026-08-15-multi-league-ihl-design.md), [Team display names](./2026-08-14-team-display-names-design.md)
