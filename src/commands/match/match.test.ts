@@ -29,6 +29,8 @@ describe('match command data', () => {
 
     expect(json.name).toBe('match');
     expect(json.options?.map((option) => option.name)).toEqual([
+      'history',
+      'show',
       'quitters',
       'complete',
       'cancel',

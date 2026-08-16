@@ -1,5 +1,9 @@
 import { GuildMember, MessageFlags, SlashCommandBuilder } from 'discord.js';
-import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'discord.js';
+import type {
+  AutocompleteInteraction,
+  ChatInputCommandInteraction,
+  InteractionReplyOptions,
+} from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import { syncLobbyDiscordMessage } from '../../services/lobby/index.js';
 import { resolveGuildConfig, teamDisplayName, winnerLabel } from '../../services/guild/index.js';
@@ -216,6 +220,27 @@ async function applyMatchMutation(
   await interaction.editReply({ content: replyMessage });
 }
 
+async function replyMatchRead(
+  interaction: ChatInputCommandInteraction,
+  payload: Pick<InteractionReplyOptions, 'content' | 'embeds' | 'components'>,
+  ephemeral = false,
+): Promise<void> {
+  if (interaction.deferred || interaction.replied) {
+    await interaction.editReply(payload);
+    return;
+  }
+  await interaction.reply({
+    ...payload,
+    ...(ephemeral ? { flags: MessageFlags.Ephemeral } : {}),
+  });
+}
+
+function publicReadErrorMessage(subcommand: string): string {
+  return subcommand === 'show'
+    ? 'Something went wrong loading that match.'
+    : 'Something went wrong loading match history.';
+}
+
 export const data = new SlashCommandBuilder()
   .setName('match')
   .setDescription('Manage matches or view history')
@@ -337,7 +362,19 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const subcommand = interaction.options.getSubcommand(true);
   const isPublicRead = subcommand === 'history' || subcommand === 'show';
-  await interaction.deferReply(isPublicRead ? undefined : { flags: MessageFlags.Ephemeral });
+
+  const historyUser = subcommand === 'history' ? interaction.options.getUser('user') : null;
+  const historyKind =
+    historyUser && historyUser.id !== interaction.user.id ? ('user' as const) : ('self' as const);
+
+  // Self-unlinked history must stay private; Discord locks visibility on the first response.
+  if (subcommand === 'history' && historyKind === 'user') {
+    await interaction.deferReply();
+  } else if (subcommand === 'show') {
+    await interaction.deferReply();
+  } else if (subcommand !== 'history') {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  }
 
   const matchId = interaction.options.getString('match_id');
 
@@ -356,18 +393,21 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       if (!interaction.guildId) {
         throw new MatchServiceError('This command can only be used in a server.');
       }
+      const discordId = historyUser?.id ?? interaction.user.id;
+      const player = await resolveHistoryPlayer(discordId, historyKind);
+
+      if (!interaction.deferred) {
+        await interaction.deferReply();
+      }
+
       const resolved = await resolveLeagueIdFromInteraction(
         interaction,
         getLeagueOption(interaction),
       );
       if (!resolved.ok) {
-        await interaction.editReply({ content: resolved.message });
+        await replyMatchRead(interaction, { content: resolved.message });
         return;
       }
-      const user = interaction.options.getUser('user');
-      const kind = user && user.id !== interaction.user.id ? 'user' : 'self';
-      const discordId = user?.id ?? interaction.user.id;
-      const player = await resolveHistoryPlayer(discordId, kind);
       const pageNum = interaction.options.getInteger('page') ?? 1;
       const pageData = await loadMatchHistoryPage({
         leagueId: resolved.leagueId,
@@ -386,7 +426,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         page: pageData.page,
         totalPages: pageData.totalPages,
       });
-      await interaction.editReply({ embeds: [embed], components });
+      await replyMatchRead(interaction, { embeds: [embed], components });
       return;
     }
 
@@ -410,7 +450,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         guildId: interaction.guildId,
         leagueId,
       });
-      await interaction.editReply({ embeds: [embed] });
+      await replyMatchRead(interaction, { embeds: [embed] });
       return;
     }
 
@@ -534,11 +574,27 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   } catch (error) {
     if (error instanceof MatchServiceError) {
       log.warn({ err: error, userId: interaction.user.id, subcommand }, 'Match command rejected');
-      await interaction.editReply({ content: error.message });
+      if (isPublicRead) {
+        await replyMatchRead(
+          interaction,
+          { content: error.message },
+          subcommand === 'history' && historyKind === 'self' && !interaction.deferred,
+        );
+      } else {
+        await interaction.editReply({ content: error.message });
+      }
       return;
     }
 
     log.error({ err: error, userId: interaction.user.id, subcommand }, 'Match command failed');
+    if (isPublicRead) {
+      await replyMatchRead(
+        interaction,
+        { content: publicReadErrorMessage(subcommand) },
+        subcommand === 'history' && historyKind === 'self' && !interaction.deferred,
+      );
+      return;
+    }
     await interaction.editReply({
       content: 'Could not update the match. Please try again.',
     });
