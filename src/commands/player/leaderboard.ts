@@ -9,7 +9,10 @@ import type {
 } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import { assertCanConfigureBot } from '../../services/guild/index.js';
-import { setupLiveLeaderboard } from '../../services/leaderboard/index.js';
+import {
+  setupLiveLeaderboard,
+  setupQuitterLiveLeaderboard,
+} from '../../services/leaderboard/index.js';
 import { HeroCatalogError, listHeroNames, resolveHeroByName } from '../../services/guild/index.js';
 import {
   HERO_SINGLE_TOP,
@@ -17,12 +20,15 @@ import {
   loadAllHeroLeaderboards,
   loadHeroLeaderboard,
   loadOverallLeaderboardPage,
+  loadQuitterLeaderboardPage,
 } from '../../services/leaderboard/index.js';
 import {
   buildAllHeroLeaderboardsEmbed,
   buildHeroLeaderboardEmbed,
   buildLeaderboardPageButtons,
   buildOverallLeaderboardEmbed,
+  buildQuitterLeaderboardEmbed,
+  buildQuitterPageButtons,
 } from '../../services/leaderboard/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
 import {
@@ -92,6 +98,19 @@ export const data = new SlashCommandBuilder()
         .setName('setup')
         .setDescription('Post a live overall top-10 message in this channel'),
     ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('quitters')
+      .setDescription('Guild quitter leaderboard (top 10 per page)')
+      .addIntegerOption((option) =>
+        option.setName('page').setDescription('Page number').setRequired(false).setMinValue(1),
+      ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('setup_quitters')
+      .setDescription('Post a live quitter leaderboard message in this channel'),
   );
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
@@ -128,6 +147,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
+  if (subcommand === 'setup_quitters') {
+    await handleSetupQuitters(interaction);
+    return;
+  }
+
   await interaction.deferReply();
 
   if (subcommand === 'show') {
@@ -142,6 +166,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   if (subcommand === 'hero') {
     await handleShowSingleHero(interaction);
+    return;
+  }
+
+  if (subcommand === 'quitters') {
+    await handleShowQuitters(interaction);
     return;
   }
 
@@ -190,6 +219,48 @@ async function handleSetup(interaction: ChatInputCommandInteraction): Promise<vo
     log.error({ err: error, guildId: interaction.guildId }, 'leaderboard setup failed');
     await interaction.reply({
       content: 'Something went wrong setting up the live leaderboard.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+}
+
+/** Post a guild-wide live quitter leaderboard in the current channel. */
+async function handleSetupQuitters(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!interaction.guildId || !interaction.channelId) {
+    await interaction.reply({
+      content: 'This command can only be used in a server.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  try {
+    assertCanConfigureBot({
+      userId: interaction.user.id,
+      memberPermissions: memberPermissions(interaction),
+    });
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await interaction.reply({ content: error.message, flags: MessageFlags.Ephemeral });
+      return;
+    }
+    throw error;
+  }
+
+  try {
+    await setupQuitterLiveLeaderboard(
+      interaction.client,
+      interaction.guildId,
+      interaction.channelId,
+    );
+    await interaction.reply({
+      content: 'Live quitter leaderboard set in this channel. Keep only this message here.',
+      flags: MessageFlags.Ephemeral,
+    });
+  } catch (error) {
+    log.error({ err: error, guildId: interaction.guildId }, 'leaderboard setup_quitters failed');
+    await interaction.reply({
+      content: 'Something went wrong setting up the live quitter leaderboard.',
       flags: MessageFlags.Ephemeral,
     });
   }
@@ -287,5 +358,43 @@ async function handleShowSingleHero(interaction: ChatInputCommandInteraction): P
     }
     log.error({ err: error, heroName }, 'leaderboard hero failed');
     await interaction.editReply({ content: 'Something went wrong loading that hero leaderboard.' });
+  }
+}
+
+/** Paginated guild-wide quitter leaderboard (no league option). */
+async function handleShowQuitters(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!interaction.guildId) {
+    await interaction.editReply({ content: 'This command can only be used in a server.' });
+    return;
+  }
+
+  const requestedPage = interaction.options.getInteger('page') ?? 1;
+
+  try {
+    const firstPage = await loadQuitterLeaderboardPage(interaction.guildId, 1);
+    if (requestedPage > firstPage.totalPages) {
+      await interaction.editReply({
+        content: `Page must be between 1 and ${firstPage.totalPages}.`,
+      });
+      return;
+    }
+
+    const pageData =
+      requestedPage === 1
+        ? firstPage
+        : await loadQuitterLeaderboardPage(interaction.guildId, requestedPage);
+    const embed = buildQuitterLeaderboardEmbed(pageData);
+    const components = buildQuitterPageButtons({
+      invokerId: interaction.user.id,
+      page: pageData.page,
+      totalPages: pageData.totalPages,
+    });
+
+    await interaction.editReply({ embeds: [embed], components });
+  } catch (error) {
+    log.error({ err: error }, 'leaderboard quitters failed');
+    await interaction.editReply({
+      content: 'Something went wrong loading the quitter leaderboard.',
+    });
   }
 }
