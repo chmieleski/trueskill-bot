@@ -10,6 +10,7 @@ import {
 } from '../../services/guild/index.js';
 import {
   applyUdbrWc3statsPreset,
+  assertLeagueAllowsWc3stats,
   clearLeagueLeaderboardSize,
   clearLeagueWc3statsHostPrompt,
   clearLeagueWc3statsPackage,
@@ -375,6 +376,30 @@ async function requireLeagueId(
   return resolved.ok ? resolved.leagueId : null;
 }
 
+async function requireWc3statsLeague(
+  interaction: ChatInputCommandInteraction,
+): Promise<string | null> {
+  const leagueId = await requireLeagueId(interaction);
+  if (!leagueId) {
+    return null;
+  }
+
+  try {
+    await assertLeagueAllowsWc3stats(leagueId);
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await interaction.reply({
+        content: error.message,
+        flags: MessageFlags.Ephemeral,
+      });
+      return null;
+    }
+    throw error;
+  }
+
+  return leagueId;
+}
+
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
   await respondLeagueAutocomplete(interaction);
 }
@@ -649,7 +674,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       if (subcommand === 'wc3stats_slot') {
-        const leagueId = await requireLeagueId(interaction);
+        const leagueId = await requireWc3statsLeague(interaction);
         if (!leagueId) return;
 
         const wc3Slot = interaction.options.getInteger('wc3_slot', true);
@@ -667,7 +692,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       if (subcommand === 'wc3stats_map') {
-        const leagueId = await requireLeagueId(interaction);
+        const leagueId = await requireWc3statsLeague(interaction);
         if (!leagueId) return;
 
         const entries = parseWc3statsSlotMapEntries(
@@ -689,7 +714,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       if (subcommand === 'wc3stats_map_preset') {
-        const leagueId = await requireLeagueId(interaction);
+        const leagueId = await requireWc3statsLeague(interaction);
         if (!leagueId) return;
 
         const preset = interaction.options.getString('preset', true);
@@ -714,7 +739,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       if (subcommand === 'wc3stats_host_prompt') {
-        const leagueId = await requireLeagueId(interaction);
+        const leagueId = await requireWc3statsLeague(interaction);
         if (!leagueId) return;
 
         const enabled = interaction.options.getBoolean('enabled', true);
