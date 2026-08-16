@@ -103,8 +103,8 @@ function assertKnownQuitterSlots(match: MatchWithPlayers, quitterSlots: Set<numb
   }
 }
 
-function isWinningSlot(slot: number, winningTeam: 1 | 2): boolean {
-  return winningTeam === 1 ? slot <= 6 : slot > 6;
+function isWinningTeam(team: number, winningTeam: 1 | 2): boolean {
+  return team === winningTeam;
 }
 
 export async function setQuitters(
@@ -184,7 +184,7 @@ export async function completeMatch(
 
     for (const player of match.players) {
       const isQuitter = quitterSet.has(player.slot);
-      const won = !isQuitter && isWinningSlot(player.slot, winningTeam);
+      const won = !isQuitter && isWinningTeam(player.team, winningTeam);
 
       await tx.matchPlayer.update({
         where: { matchId_playerId: { matchId, playerId: player.playerId } },

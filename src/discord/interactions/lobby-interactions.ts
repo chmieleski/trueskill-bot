@@ -45,6 +45,12 @@ import { nickForDiscordId } from '../../services/lobby/index.js';
 import { resolveGuildConfig } from '../../services/guild/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
 import { teamDisplayNameForSlot } from '../../services/guild/index.js';
+import {
+  getGameProfileForLeague,
+  LeagueNotFoundError,
+} from '../../services/league/league-profile.js';
+import { invalidSlotMessage } from '../../domain/game-profile.js';
+import type { GameProfile } from '../../domain/game-profile.js';
 
 const log = createLogger('lobby');
 
@@ -176,6 +182,17 @@ async function requirePendingMatch(messageId: string) {
       return { error: error.message };
     }
 
+    throw error;
+  }
+}
+
+async function profileForMatch(leagueId: string): Promise<GameProfile> {
+  try {
+    return await getGameProfileForLeague(leagueId);
+  } catch (error) {
+    if (error instanceof LeagueNotFoundError) {
+      throw new MatchServiceError(error.message);
+    }
     throw error;
   }
 }
@@ -638,7 +655,8 @@ async function handleSelectMoveSlot(
   const toSlot = Number(interaction.values[0]);
 
   try {
-    const nextPlayers = movePlayer(result.players, fromSlot, toSlot);
+    const profile = await profileForMatch(result.match.leagueId);
+    const nextPlayers = movePlayer(result.players, fromSlot, toSlot, profile);
     const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
     if (ok) {
@@ -668,7 +686,8 @@ async function handleSelectRemove(
   const slot = Number(interaction.values[0]);
 
   try {
-    const nextPlayers = removePlayer(result.players, { slot });
+    const profile = await profileForMatch(result.match.leagueId);
+    const nextPlayers = removePlayer(result.players, { slot }, profile);
     const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
     if (ok) {
@@ -717,7 +736,8 @@ async function handleModalEditNick(
   const nick = interaction.fields.getTextInputValue('nick');
 
   try {
-    const nextPlayers = editPlayerNick(result.players, slot, nick);
+    const profile = await profileForMatch(result.match.leagueId);
+    const nextPlayers = editPlayerNick(result.players, slot, nick, profile);
     const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
     if (ok) {
@@ -767,7 +787,8 @@ async function handleModalAdd(
   const slot = Number(slotRaw);
 
   try {
-    const nextPlayers = addPlayer(result.players, nick, slot);
+    const profile = await profileForMatch(result.match.leagueId);
+    const nextPlayers = addPlayer(result.players, nick, slot, profile);
     const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
     if (ok) {
@@ -775,10 +796,10 @@ async function handleModalAdd(
     }
   } catch (error) {
     if (error instanceof MatchServiceError) {
-      // Preserve clearer invalid-slot wording when Number() fails
       if (!Number.isInteger(slot)) {
+        const profile = await profileForMatch(result.match.leagueId);
         await interaction.editReply({
-          content: `Invalid slot ${slotRaw}. Slots must be between ${MIN_SLOT} and ${MAX_SLOT}.`,
+          content: invalidSlotMessage(profile),
         });
         return;
       }

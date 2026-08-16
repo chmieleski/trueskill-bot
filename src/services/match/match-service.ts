@@ -1,13 +1,23 @@
 import type { Match, MatchPlayer, Player, Prisma } from '@prisma/client';
+import type { GameProfile } from '../../domain/game-profile.js';
+import {
+  invalidSlotMessage,
+  isSlotInProfile,
+  rosterHeroId,
+  teamForSlot,
+} from '../../domain/game-profile.js';
 import { prisma } from '../../lib/prisma.js';
 import { createLogger } from '../../lib/logger.js';
-import { LobbyOcrError, validateLobbyPlayers, type LobbyPlayer } from '../lobby/lobby-ocr.js';
+import type { LobbyPlayer } from '../lobby/lobby-ocr.js';
 import { normalizeNick } from '../player/player-nick.js';
 import { assertHeroCatalogReady, assertHeroExists, HeroCatalogError } from '../guild/hero-catalog.js';
+import {
+  getGameProfileForLeague,
+  LeagueNotFoundError,
+} from '../league/league-profile.js';
 
 const log = createLogger('match');
 
-const TEAM_A_MAX_SLOT = 6;
 const STALE_PENDING_MS = 2 * 60 * 60 * 1000;
 
 /** User-facing English errors safe to show in Discord replies. */
@@ -65,12 +75,12 @@ function assertUniqueNicks(players: LobbyPlayer[]): void {
   }
 }
 
-function assertValidSlots(players: LobbyPlayer[]): void {
+function assertValidSlots(players: LobbyPlayer[], profile: GameProfile): void {
   const seenSlots = new Set<number>();
 
   for (const player of players) {
-    if (player.slot < 1 || player.slot > 12) {
-      throw new MatchServiceError(`Invalid slot ${player.slot}. Slots must be between 1 and 12.`);
+    if (!isSlotInProfile(profile, player.slot)) {
+      throw new MatchServiceError(invalidSlotMessage(profile));
     }
 
     if (seenSlots.has(player.slot)) {
@@ -78,6 +88,28 @@ function assertValidSlots(players: LobbyPlayer[]): void {
     }
 
     seenSlots.add(player.slot);
+  }
+}
+
+function assertBothTeamsOccupied(players: LobbyPlayer[], profile: GameProfile): void {
+  const teamA = players.filter((player) => teamForSlot(profile, player.slot) === 1);
+  const teamB = players.filter((player) => teamForSlot(profile, player.slot) === 2);
+
+  if (teamA.length === 0 || teamB.length === 0) {
+    throw new MatchServiceError(
+      `Both ${profile.teamNames[1]} and ${profile.teamNames[2]} need at least one human player.`,
+    );
+  }
+}
+
+async function loadMatchProfile(leagueId: string): Promise<GameProfile> {
+  try {
+    return await getGameProfileForLeague(leagueId);
+  } catch (error) {
+    if (error instanceof LeagueNotFoundError) {
+      throw new MatchServiceError(error.message);
+    }
+    throw error;
   }
 }
 
@@ -90,8 +122,11 @@ function toLobbyPlayers(match: MatchWithPlayers): LobbyPlayer[] {
     .sort((a, b) => a.slot - b.slot);
 }
 
-function teamCounts(players: LobbyPlayer[]): { teamACount: number; teamBCount: number } {
-  const teamACount = players.filter((player) => player.slot <= TEAM_A_MAX_SLOT).length;
+function teamCounts(
+  players: LobbyPlayer[],
+  profile: GameProfile,
+): { teamACount: number; teamBCount: number } {
+  const teamACount = players.filter((player) => teamForSlot(profile, player.slot) === 1).length;
   return { teamACount, teamBCount: players.length - teamACount };
 }
 
@@ -103,7 +138,8 @@ async function resolvePlayersInTx(
   tx: Prisma.TransactionClient,
   players: LobbyPlayer[],
   leagueId: string,
-): Promise<{ playerId: string; slot: number; team: number }[]> {
+  profile: GameProfile,
+): Promise<{ playerId: string; slot: number; team: number; heroId: number | null }[]> {
   const sorted = withNormalizedNicks(players).sort((a, b) => a.slot - b.slot);
 
   if (sorted.length === 0) {
@@ -140,7 +176,8 @@ async function resolvePlayersInTx(
     return {
       playerId: dbPlayer.id,
       slot: player.slot,
-      team: player.slot <= TEAM_A_MAX_SLOT ? 1 : 2,
+      team: teamForSlot(profile, player.slot),
+      heroId: rosterHeroId(profile, player.slot),
     };
   });
 
@@ -149,14 +186,19 @@ async function resolvePlayersInTx(
     skipDuplicates: true,
   });
 
-  await tx.playerHeroRating.createMany({
-    data: resolved.map((entry) => ({
-      leagueId,
-      playerId: entry.playerId,
-      heroId: entry.slot,
-    })),
-    skipDuplicates: true,
-  });
+  const withHero = resolved.filter(
+    (entry): entry is typeof entry & { heroId: number } => entry.heroId != null,
+  );
+  if (withHero.length > 0) {
+    await tx.playerHeroRating.createMany({
+      data: withHero.map((entry) => ({
+        leagueId,
+        playerId: entry.playerId,
+        heroId: entry.heroId,
+      })),
+      skipDuplicates: true,
+    });
+  }
 
   return resolved;
 }
@@ -241,17 +283,20 @@ export async function linkMatchWc3statsGameId(
 export async function createPendingMatch(
   input: CreatePendingMatchInput,
 ): Promise<CreatedPendingMatch> {
+  const profile = await loadMatchProfile(input.leagueId);
   const players = withNormalizedNicks(input.players);
-  assertValidSlots(players);
+  assertValidSlots(players, profile);
   assertUniqueNicks(players);
 
-  try {
-    await assertHeroCatalogReady();
-    for (const player of players) {
-      await assertHeroExists(player.slot);
+  if (profile.heroBinding === 'slot_bound') {
+    try {
+      await assertHeroCatalogReady();
+      for (const player of players) {
+        await assertHeroExists(player.slot);
+      }
+    } catch (error) {
+      mapHeroCatalogError(error);
     }
-  } catch (error) {
-    mapHeroCatalogError(error);
   }
 
   const wc3statsGameId = input.wc3statsGameId?.trim() || null;
@@ -272,7 +317,7 @@ export async function createPendingMatch(
       }
     }
 
-    const resolved = await resolvePlayersInTx(tx, players, input.leagueId);
+    const resolved = await resolvePlayersInTx(tx, players, input.leagueId, profile);
 
     return tx.match.create({
       data: {
@@ -286,7 +331,7 @@ export async function createPendingMatch(
             playerId: entry.playerId,
             team: entry.team,
             slot: entry.slot,
-            heroId: entry.slot,
+            heroId: entry.heroId,
             result: null,
             isQuitter: false,
           })),
@@ -295,7 +340,7 @@ export async function createPendingMatch(
     });
   });
 
-  const { teamACount, teamBCount } = teamCounts(players);
+  const { teamACount, teamBCount } = teamCounts(players, profile);
 
   log.info(
     {
@@ -403,20 +448,28 @@ export async function replaceMatchRoster(
   matchId: string,
   players: LobbyPlayer[],
 ): Promise<MatchWithPlayers> {
+  const existingMatch = await prisma.match.findUnique({ where: { id: matchId } });
+  if (!existingMatch) {
+    throw new MatchServiceError('This match lobby was not found.');
+  }
+
+  const profile = await loadMatchProfile(existingMatch.leagueId);
   const roster = withNormalizedNicks(players);
-  assertValidSlots(roster);
+  assertValidSlots(roster, profile);
   assertUniqueNicks(roster);
 
-  try {
-    await assertHeroCatalogReady();
-    for (const player of roster) {
-      await assertHeroExists(player.slot);
+  if (profile.heroBinding === 'slot_bound') {
+    try {
+      await assertHeroCatalogReady();
+      for (const player of roster) {
+        await assertHeroExists(player.slot);
+      }
+    } catch (error) {
+      if (error instanceof MatchServiceError) {
+        throw error;
+      }
+      mapHeroCatalogError(error);
     }
-  } catch (error) {
-    if (error instanceof MatchServiceError) {
-      throw error;
-    }
-    mapHeroCatalogError(error);
   }
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -432,7 +485,7 @@ export async function replaceMatchRoster(
 
     await tx.matchPlayer.deleteMany({ where: { matchId } });
 
-    const resolved = await resolvePlayersInTx(tx, roster, existing.leagueId);
+    const resolved = await resolvePlayersInTx(tx, roster, existing.leagueId, profile);
 
     if (resolved.length > 0) {
       await tx.matchPlayer.createMany({
@@ -441,7 +494,7 @@ export async function replaceMatchRoster(
           playerId: entry.playerId,
           team: entry.team,
           slot: entry.slot,
-          heroId: entry.slot,
+          heroId: entry.heroId,
           result: null,
           isQuitter: false,
         })),
@@ -460,7 +513,7 @@ export async function replaceMatchRoster(
   });
 
   log.info(
-    { matchId, playerCount: roster.length, ...teamCounts(roster) },
+    { matchId, playerCount: roster.length, ...teamCounts(roster, profile) },
     'Match roster replaced',
   );
 
@@ -481,18 +534,10 @@ export async function startMatch(matchId: string): Promise<MatchWithPlayers> {
     throw new MatchServiceError('This match has already been started or cancelled.');
   }
 
+  const profile = await loadMatchProfile(match.leagueId);
   const players = toLobbyPlayers(match);
   assertUniqueNicks(players);
-
-  try {
-    validateLobbyPlayers(players);
-  } catch (error) {
-    if (error instanceof LobbyOcrError) {
-      throw new MatchServiceError(error.message);
-    }
-
-    throw error;
-  }
+  assertBothTeamsOccupied(players, profile);
 
   const updated = await prisma.match.update({
     where: { id: matchId },
@@ -506,7 +551,7 @@ export async function startMatch(matchId: string): Promise<MatchWithPlayers> {
   });
 
   log.info(
-    { matchId, playerCount: players.length, ...teamCounts(players) },
+    { matchId, playerCount: players.length, ...teamCounts(players, profile) },
     'Match started',
   );
 

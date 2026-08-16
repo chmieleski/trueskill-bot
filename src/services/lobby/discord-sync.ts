@@ -68,7 +68,7 @@ async function resolveLeagueSettingsForLobby(
 }
 
 function determineWinningTeam(players: MatchWithPlayers['players']): 1 | 2 {
-  return players.some((player) => player.result === 'WIN' && player.slot <= 6) ? 1 : 2;
+  return players.some((player) => player.result === 'WIN' && player.team === 1) ? 1 : 2;
 }
 
 export async function syncLobbyDiscordMessage(
