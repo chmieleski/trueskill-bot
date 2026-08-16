@@ -25,6 +25,7 @@ export {
   buildMatchHistoryPageCustomId,
   clampMatchHistoryPage,
   formatMatchHistoryRow,
+  loadCompletedMatchShow,
   loadMatchHistoryPage,
   MATCH_HISTORY_PAGE_SIZE,
   parseMatchHistoryPageCustomId,

@@ -1,15 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const playerFindUnique = vi.fn();
-const matchFindMany = vi.fn();
-const matchCount = vi.fn();
+const {
+  playerFindUnique,
+  matchFindMany,
+  matchCount,
+  getMatchById,
+  listLeaguesForGuild,
+  buildMatchCompletedEmbed,
+} = vi.hoisted(() => ({
+  playerFindUnique: vi.fn(),
+  matchFindMany: vi.fn(),
+  matchCount: vi.fn(),
+  getMatchById: vi.fn(),
+  listLeaguesForGuild: vi.fn(),
+  buildMatchCompletedEmbed: vi.fn(),
+}));
 
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
-    player: { findUnique: (...a: unknown[]) => playerFindUnique(...a) },
+    player: { findUnique: playerFindUnique },
     match: {
-      findMany: (...a: unknown[]) => matchFindMany(...a),
-      count: (...a: unknown[]) => matchCount(...a),
+      findMany: matchFindMany,
+      count: matchCount,
     },
   },
 }));
@@ -22,6 +34,14 @@ vi.mock('../league/league-profile.js', () => ({
   getGameProfileForLeague: vi.fn(async () => ({})),
 }));
 
+vi.mock('../league/league.js', () => ({
+  listLeaguesForGuild,
+}));
+
+vi.mock('../lobby/lobby-preview.js', () => ({
+  buildMatchCompletedEmbed,
+}));
+
 vi.mock('./match-service.js', () => {
   class MatchServiceError extends Error {
     constructor(message: string) {
@@ -29,7 +49,18 @@ vi.mock('./match-service.js', () => {
       this.name = 'MatchServiceError';
     }
   }
-  return { MatchServiceError };
+
+  return {
+    MatchServiceError,
+    getMatchById,
+    matchToLobbyPlayers: (match: {
+      players: Array<{ slot: number; player: { username: string } }>;
+    }) =>
+      match.players.map((entry) => ({
+        slot: entry.slot,
+        nick: entry.player.username.toLowerCase(),
+      })),
+  };
 });
 
 import {
@@ -38,11 +69,13 @@ import {
   buildMatchHistoryPageCustomId,
   clampMatchHistoryPage,
   formatMatchHistoryRow,
+  loadCompletedMatchShow,
   loadMatchHistoryPage,
   parseMatchHistoryPageCustomId,
   resolveHistoryPlayer,
   winningTeamFromPlayers,
 } from './match-history.js';
+import { MatchServiceError } from './match-service.js';
 
 describe('formatMatchHistoryRow', () => {
   it('formats summary with hero and quitter marker', () => {
@@ -227,5 +260,101 @@ describe('buildMatchHistoryPageButtons', () => {
         totalPages: 1,
       }),
     ).toEqual([]);
+  });
+});
+
+describe('loadCompletedMatchShow', () => {
+  beforeEach(() => {
+    getMatchById.mockReset();
+    listLeaguesForGuild.mockReset();
+    buildMatchCompletedEmbed.mockReset();
+    buildMatchCompletedEmbed.mockImplementation(() => {
+      const { EmbedBuilder } = require('discord.js');
+      return new EmbedBuilder().setTitle('Match Completed');
+    });
+  });
+
+  it('throws not found when missing', async () => {
+    getMatchById.mockResolvedValue(null);
+    await expect(
+      loadCompletedMatchShow({ matchId: 'x', guildId: 'g1' }),
+    ).rejects.toThrow('This match was not found.');
+  });
+
+  it('throws not found when league not in guild', async () => {
+    getMatchById.mockResolvedValue({
+      id: 'm1',
+      status: 'COMPLETED',
+      leagueId: 'other',
+      players: [{ team: 1, result: 'WIN' }],
+    });
+    listLeaguesForGuild.mockResolvedValue([{ id: 'L1' }]);
+    await expect(
+      loadCompletedMatchShow({ matchId: 'm1', guildId: 'g1' }),
+    ).rejects.toThrow('This match was not found.');
+  });
+
+  it('throws not completed when status wrong but league ok', async () => {
+    getMatchById.mockResolvedValue({
+      id: 'm1',
+      status: 'IN_PROGRESS',
+      leagueId: 'L1',
+      players: [],
+    });
+    listLeaguesForGuild.mockResolvedValue([{ id: 'L1' }]);
+    await expect(
+      loadCompletedMatchShow({ matchId: 'm1', guildId: 'g1' }),
+    ).rejects.toThrow('This match is not completed.');
+  });
+
+  it('throws not found when leagueId filter mismatches', async () => {
+    getMatchById.mockResolvedValue({
+      id: 'm1',
+      status: 'COMPLETED',
+      leagueId: 'L1',
+      players: [{ team: 1, result: 'WIN', slot: 1, player: { username: 'a' } }],
+    });
+    listLeaguesForGuild.mockResolvedValue([{ id: 'L1' }]);
+    await expect(
+      loadCompletedMatchShow({ matchId: 'm1', guildId: 'g1', leagueId: 'L2' }),
+    ).rejects.toThrow('This match was not found.');
+  });
+
+  it('returns match and embed without ratingPreview for completed match', async () => {
+    const match = {
+      id: 'm1',
+      status: 'COMPLETED',
+      leagueId: 'L1',
+      players: [
+        {
+          team: 1,
+          result: 'WIN',
+          slot: 1,
+          player: { username: 'alice' },
+        },
+      ],
+    };
+    getMatchById.mockResolvedValue(match);
+    listLeaguesForGuild.mockResolvedValue([{ id: 'L1' }]);
+
+    const result = await loadCompletedMatchShow({
+      matchId: 'm1',
+      guildId: 'g1',
+      leagueId: 'L1',
+    });
+
+    expect(result.match).toBe(match);
+    expect(buildMatchCompletedEmbed).toHaveBeenCalledOnce();
+    const embedOptions = buildMatchCompletedEmbed.mock.calls[0]![2] as Record<string, unknown>;
+    expect(embedOptions).not.toHaveProperty('ratingPreview');
+    expect(embedOptions.winningTeam).toBe(1);
+    expect(result.embed.data.title).toBe('Match Completed');
+  });
+
+  it('throws MatchServiceError for tenancy failures', async () => {
+    getMatchById.mockResolvedValue(null);
+    await expect(
+      loadCompletedMatchShow({ matchId: 'x', guildId: 'g1' }),
+    ).rejects.toBeInstanceOf(MatchServiceError);
   });
 });

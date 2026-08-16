@@ -6,7 +6,15 @@ import {
 } from 'discord.js';
 import { prisma } from '../../lib/prisma.js';
 import { loadHeroCatalog } from '../guild/hero-catalog.js';
-import { MatchServiceError } from './match-service.js';
+import { listLeaguesForGuild } from '../league/league.js';
+import { getGameProfileForLeague } from '../league/league-profile.js';
+import { buildMatchCompletedEmbed } from '../lobby/lobby-preview.js';
+import {
+  getMatchById,
+  matchToLobbyPlayers,
+  MatchServiceError,
+  type MatchWithPlayers,
+} from './match-service.js';
 
 export const MATCH_HISTORY_PAGE_SIZE = 10;
 
@@ -245,4 +253,39 @@ export function buildMatchHistoryPageButtons(input: {
       .setDisabled(input.page >= input.totalPages),
   );
   return [row];
+}
+
+/** Load a completed match for /match show with guild/league tenancy checks. */
+export async function loadCompletedMatchShow(input: {
+  matchId: string;
+  guildId: string;
+  leagueId?: string | null;
+}): Promise<{ match: MatchWithPlayers; embed: EmbedBuilder }> {
+  const match = await getMatchById(input.matchId);
+  if (!match) {
+    throw new MatchServiceError('This match was not found.');
+  }
+
+  const leagues = await listLeaguesForGuild(input.guildId);
+  const allowed = new Set(leagues.map((league) => league.id));
+  if (!allowed.has(match.leagueId)) {
+    throw new MatchServiceError('This match was not found.');
+  }
+
+  if (input.leagueId && match.leagueId !== input.leagueId) {
+    throw new MatchServiceError('This match was not found.');
+  }
+
+  if (match.status !== 'COMPLETED') {
+    throw new MatchServiceError('This match is not completed.');
+  }
+
+  const profile = await getGameProfileForLeague(match.leagueId);
+  const winningTeam = winningTeamFromPlayers(match.players);
+  const embed = buildMatchCompletedEmbed(match.id, matchToLobbyPlayers(match), {
+    winningTeam,
+    profile,
+  });
+
+  return { match, embed };
 }
