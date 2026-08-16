@@ -5,7 +5,8 @@ import {
   SlashCommandBuilder,
 } from 'discord.js';
 import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'discord.js';
-import { WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
+import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
+import { getGameProfile, UnknownGameIdError } from '../../domain/game-profile.js';
 import { createLogger } from '../../lib/logger.js';
 import { assertCanConfigureBot } from '../../services/guild/index.js';
 import {
@@ -72,7 +73,10 @@ export const data = new SlashCommandBuilder()
           .setName('game')
           .setDescription('Game for this league')
           .setRequired(true)
-          .addChoices({ name: 'UDBR (Warcraft III)', value: WARCRAFT3_UDBR_GAME_ID }),
+          .addChoices(
+            { name: 'UDBR (Warcraft III)', value: WARCRAFT3_UDBR_GAME_ID },
+            { name: 'Anime Choice Arena', value: WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID },
+          ),
       )
       .addStringOption((option) =>
         option
@@ -153,12 +157,17 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const gameId = interaction.options.getString('game', true);
       const name = interaction.options.getString('name', true).trim();
 
-      if (gameId !== WARCRAFT3_UDBR_GAME_ID) {
-        await interaction.reply({
-          content: 'Unknown game.',
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
+      try {
+        getGameProfile(gameId);
+      } catch (error) {
+        if (error instanceof UnknownGameIdError) {
+          await interaction.reply({
+            content: 'Unknown game.',
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+        throw error;
       }
 
       if (name.length === 0) {
