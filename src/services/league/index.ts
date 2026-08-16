@@ -35,6 +35,7 @@ export {
 
 export {
   applyUdbrWc3statsPreset,
+  assertLeagueAllowsWc3stats,
   clearLeagueLeaderboardChannel,
   clearLeagueLeaderboardSize,
   clearLeagueWc3statsHostPrompt,
