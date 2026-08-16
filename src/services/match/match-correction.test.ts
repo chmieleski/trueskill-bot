@@ -2,10 +2,31 @@ import { describe, expect, it } from 'vitest';
 import {
   CORRECTION_WINDOW_MS,
   GLOBAL_SNAPSHOT_HERO_ID,
+  expectedSnapshotCount,
   isWithinCorrectionWindow,
   parseMatchCorrectionButtonCustomId,
   buildMatchCorrectionConfirmCustomId,
 } from './match-correction.js';
+
+describe('expectedSnapshotCount', () => {
+  it('counts GLOBAL+HERO per player when heroId is set', () => {
+    expect(
+      expectedSnapshotCount([
+        { heroId: 1 },
+        { heroId: 7 },
+      ]),
+    ).toBe(4);
+  });
+
+  it('counts GLOBAL only when heroId is null', () => {
+    expect(
+      expectedSnapshotCount([
+        { heroId: null },
+        { heroId: null },
+      ]),
+    ).toBe(2);
+  });
+});
 
 describe('match correction constants', () => {
   it('uses a 24h window', () => {

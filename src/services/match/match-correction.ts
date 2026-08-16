@@ -190,16 +190,22 @@ export function assertMatchCorrectable(match: {
 }
 
 /**
+ * Expected snapshot rows: GLOBAL for every player, plus HERO when heroId is set.
+ */
+export function expectedSnapshotCount(players: { heroId: number | null }[]): number {
+  return players.reduce((count, player) => count + (player.heroId == null ? 1 : 2), 0);
+}
+
+/**
  * Throws MatchServiceError if snapshots are missing for the roster.
- * Expects exactly 2 rows per player (GLOBAL + HERO).
  */
 export async function assertSnapshotsComplete(
   matchId: string,
-  rosterSize: number,
+  players: { heroId: number | null }[],
   db: Db = prisma,
 ): Promise<void> {
   const count = await db.matchRatingSnapshot.count({ where: { matchId } });
-  if (count !== rosterSize * 2) {
+  if (count !== expectedSnapshotCount(players)) {
     throw new MatchServiceError(
       'This match cannot be corrected because rating snapshots are missing.',
     );
@@ -401,9 +407,8 @@ export async function previewMatchCorrection(matchId: string): Promise<MatchCorr
     };
   }
 
-  const rosterSize = match.players.length;
   const snapshotCount = await prisma.matchRatingSnapshot.count({ where: { matchId } });
-  if (snapshotCount !== rosterSize * 2) {
+  if (snapshotCount !== expectedSnapshotCount(match.players)) {
     return {
       match,
       canCorrect: false,
@@ -501,7 +506,7 @@ export async function flipCompletedMatch(
   await prisma.$transaction(async (tx) => {
     const match = await lockCompletedMatch(tx, matchId);
     assertMatchCorrectable(match);
-    await assertSnapshotsComplete(matchId, match.players.length, tx);
+    await assertSnapshotsComplete(matchId, match.players, tx);
 
     await restoreMatchRatingSnapshots(match.leagueId, matchId, tx);
 
@@ -562,7 +567,7 @@ export async function voidCompletedMatch(matchId: string): Promise<MatchWithPlay
   await prisma.$transaction(async (tx) => {
     const match = await lockCompletedMatch(tx, matchId);
     assertMatchCorrectable(match);
-    await assertSnapshotsComplete(matchId, match.players.length, tx);
+    await assertSnapshotsComplete(matchId, match.players, tx);
 
     await restoreMatchRatingSnapshots(match.leagueId, matchId, tx);
 
