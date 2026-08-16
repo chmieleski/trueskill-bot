@@ -31,7 +31,7 @@ type Db = Prisma.TransactionClient | typeof prisma;
 
 type SnapshotPlayer = {
   playerId: string;
-  heroId: number;
+  heroId: number | null;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -243,6 +243,7 @@ export async function hasNewerCompletedMatches(
  * Persist pre-apply μ/σ (and hero matchesPlayed) for every roster player.
  * Call once before OpenSkill writes on first complete.
  * Throws MatchServiceError if snapshots already exist for this match.
+ * When `heroId` is null, writes GLOBAL only (no hero row required).
  */
 export async function writeMatchRatingSnapshots(
   leagueId: string,
@@ -256,14 +257,19 @@ export async function writeMatchRatingSnapshots(
   }
 
   const playerIds = players.map((p) => p.playerId);
+  const withHero = players.filter(
+    (p): p is SnapshotPlayer & { heroId: number } => p.heroId != null,
+  );
   const [globals, heroes] = await Promise.all([
     db.playerRating.findMany({ where: { leagueId, playerId: { in: playerIds } } }),
-    db.playerHeroRating.findMany({
-      where: {
-        leagueId,
-        OR: players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
-      },
-    }),
+    withHero.length > 0
+      ? db.playerHeroRating.findMany({
+          where: {
+            leagueId,
+            OR: withHero.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
+          },
+        })
+      : Promise.resolve([]),
   ]);
 
   const globalByPlayer = new Map(globals.map((row) => [row.playerId, row]));
@@ -271,22 +277,35 @@ export async function writeMatchRatingSnapshots(
 
   const rows = players.flatMap((player) => {
     const global = globalByPlayer.get(player.playerId);
-    const hero = heroByKey.get(`${player.playerId}:${player.heroId}`);
-    if (!global || !hero) {
+    if (!global) {
       throw new MatchServiceError(
         'Cannot snapshot ratings: missing player or hero rating rows.',
       );
     }
+
+    const globalRow = {
+      matchId,
+      playerId: player.playerId,
+      entityKind: 'GLOBAL' as const,
+      heroId: GLOBAL_SNAPSHOT_HERO_ID,
+      mu: global.mu,
+      sigma: global.sigma,
+      matchesPlayed: null,
+    };
+
+    if (player.heroId == null) {
+      return [globalRow];
+    }
+
+    const hero = heroByKey.get(`${player.playerId}:${player.heroId}`);
+    if (!hero) {
+      throw new MatchServiceError(
+        'Cannot snapshot ratings: missing player or hero rating rows.',
+      );
+    }
+
     return [
-      {
-        matchId,
-        playerId: player.playerId,
-        entityKind: 'GLOBAL' as const,
-        heroId: GLOBAL_SNAPSHOT_HERO_ID,
-        mu: global.mu,
-        sigma: global.sigma,
-        matchesPlayed: null,
-      },
+      globalRow,
       {
         matchId,
         playerId: player.playerId,

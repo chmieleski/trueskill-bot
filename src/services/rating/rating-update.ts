@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { rating, rate, type Rating } from 'openskill';
 import { prisma } from '../../lib/prisma.js';
 import { MatchServiceError } from '../match/match-service.js';
+import { ratingEntitiesForPlayer } from './rating-entities.js';
 import { ensurePlayerRatings } from './rating-preview.js';
 import { splitRosterByTeam, toOpenSkillRatings } from './rating-math.js';
 
@@ -19,7 +20,7 @@ export type RatingRosterEntry = {
   playerId: string;
   slot: number;
   team: 1 | 2;
-  heroId: number;
+  heroId: number | null;
   isQuitter: boolean;
 };
 
@@ -104,19 +105,24 @@ export async function applyQuitterPenalties(
   );
 
   const playerIds = quitters.map((entry) => entry.playerId);
+  const withHero = quitters.filter(
+    (entry): entry is RatingRosterEntry & { heroId: number } => entry.heroId != null,
+  );
   const [globalRatings, heroRatings] = await Promise.all([
     db.playerRating.findMany({
       where: { leagueId, playerId: { in: playerIds } },
     }),
-    db.playerHeroRating.findMany({
-      where: {
-        leagueId,
-        OR: quitters.map((entry) => ({
-          playerId: entry.playerId,
-          heroId: entry.heroId,
-        })),
-      },
-    }),
+    withHero.length > 0
+      ? db.playerHeroRating.findMany({
+          where: {
+            leagueId,
+            OR: withHero.map((entry) => ({
+              playerId: entry.playerId,
+              heroId: entry.heroId,
+            })),
+          },
+        })
+      : Promise.resolve([]),
   ]);
 
   const globalByPlayer = new Map(globalRatings.map((row) => [row.playerId, row]));
@@ -127,8 +133,17 @@ export async function applyQuitterPenalties(
   for (const entry of quitters) {
     const global = globalByPlayer.get(entry.playerId) ?? defaultRatingEntity();
     const hero =
-      heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity();
-    const [nextGlobal, nextHero] = applySyntheticLosses(toOpenSkillRatings([global, hero]));
+      entry.heroId == null
+        ? defaultRatingEntity()
+        : heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity();
+    const updated = applySyntheticLosses(
+      toOpenSkillRatings(ratingEntitiesForPlayer(global, hero, entry.heroId)),
+    );
+    const nextGlobal = updated[0];
+
+    if (!nextGlobal) {
+      continue;
+    }
 
     await db.playerRating.update({
       where: { leagueId_playerId: { leagueId, playerId: entry.playerId } },
@@ -137,6 +152,15 @@ export async function applyQuitterPenalties(
         sigma: nextGlobal.sigma,
       },
     });
+
+    if (entry.heroId == null) {
+      continue;
+    }
+
+    const nextHero = updated[1];
+    if (!nextHero) {
+      continue;
+    }
 
     await db.playerHeroRating.update({
       where: {
@@ -163,9 +187,11 @@ function buildTeamEntities(
     team.flatMap((entry) => {
       const global = globalByPlayer.get(entry.playerId) ?? defaultRatingEntity();
       const hero =
-        heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity();
+        entry.heroId == null
+          ? defaultRatingEntity()
+          : heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity();
 
-      return [global, hero];
+      return ratingEntitiesForPlayer(global, hero, entry.heroId);
     }),
   );
 }
@@ -191,19 +217,24 @@ export async function applyMatchRatings(
   );
 
   const playerIds = active.map((entry) => entry.playerId);
+  const withHero = active.filter(
+    (entry): entry is RatingRosterEntry & { heroId: number } => entry.heroId != null,
+  );
   const [globalRatings, heroRatings] = await Promise.all([
     db.playerRating.findMany({
       where: { leagueId, playerId: { in: playerIds } },
     }),
-    db.playerHeroRating.findMany({
-      where: {
-        leagueId,
-        OR: active.map((entry) => ({
-          playerId: entry.playerId,
-          heroId: entry.heroId,
-        })),
-      },
-    }),
+    withHero.length > 0
+      ? db.playerHeroRating.findMany({
+          where: {
+            leagueId,
+            OR: withHero.map((entry) => ({
+              playerId: entry.playerId,
+              heroId: entry.heroId,
+            })),
+          },
+        })
+      : Promise.resolve([]),
   ]);
 
   const globalByPlayer = new Map(globalRatings.map((row) => [row.playerId, row]));
@@ -225,16 +256,22 @@ export async function applyMatchRatings(
 
   const updatedByPlayer = new Map<
     string,
-    { global: Rating; hero: Rating; heroId: number }
+    { global: Rating; hero?: Rating; heroId: number | null }
   >();
 
   const registerTeam = (team: RatingRosterEntry[], ratings: Rating[]): void => {
-    team.forEach((entry, index) => {
-      const global = ratings[index * 2];
-      const hero = ratings[index * 2 + 1];
+    let offset = 0;
+    for (const entry of team) {
+      const stride = entry.heroId == null ? 1 : 2;
+      const global = ratings[offset];
+      const hero = stride === 2 ? ratings[offset + 1] : undefined;
+      offset += stride;
 
-      if (!global || !hero) {
-        return;
+      if (!global) {
+        continue;
+      }
+      if (stride === 2 && !hero) {
+        continue;
       }
 
       updatedByPlayer.set(entry.playerId, {
@@ -242,7 +279,7 @@ export async function applyMatchRatings(
         hero,
         heroId: entry.heroId,
       });
-    });
+    }
   };
 
   registerTeam(winningRoster, updatedWinningTeam);
@@ -263,12 +300,16 @@ export async function applyMatchRatings(
       },
     });
 
+    if (entry.heroId == null || !updated.hero) {
+      continue;
+    }
+
     await db.playerHeroRating.update({
       where: {
         leagueId_playerId_heroId: {
           leagueId,
           playerId: entry.playerId,
-          heroId: updated.heroId,
+          heroId: entry.heroId,
         },
       },
       data: {
