@@ -61,7 +61,8 @@ Cold start (0 games, z=3) ≈ 1000; after 5+ games the board is slightly less ha
 | **Cold start (new hero)** | Missing `PlayerHeroRating` for `(leagueId, playerId, heroId)` → create defaults (μ 25, σ ≈ 8.333). League-global rating still enters the team array, so pairing is not tanked. Wins mostly raise the new hero’s μ; veteran league-global μ barely moves. |
 | **Asymmetric lobbies** | Fewer humans → lower `Σ μ`. Upset underfill gets maximized reward. Empty slots are absent entities, not zero-μ fillers. |
 | **Quitters** | `MatchPlayer.isQuitter` → N=1 OpenSkill synthetic loss (`rate` vs **peer** dummy that mirrors the quitter’s league-global+hero μ/σ) on both tables; excluded from match Bayesian `rate()`. Hero `matchesPlayed` is **not** incremented (so hero display **z** may lag global after a quit LOSS). A strong fixed dummy under-punishes display ki (expected loss). Host/mod may still complete remaining players or cancel (cancel applies quit penalties if flagged). |
-| **Soft early ki (display z)** | See Public ki above. Global g = completed W/L count; hero g = `matchesPlayed`. Spec: `docs/superpowers/specs/2026-08-15-soft-early-ki-design.md`. |
+| **Soft early ki (display z)** | See Public ki above. Global g = completed W/L count **since the player's latest `PlayerRankReset` in that league** (lifetime if never reset); hero g = `PlayerHeroRating.matchesPlayed` (hero rows deleted on reset). Spec: `docs/superpowers/specs/2026-08-15-soft-early-ki-design.md`. |
+| **Rank reset + display** | Reset restores μ/σ defaults and deletes hero rows; public W/L/quits and soft-z game count restart after the reset timestamp. Match rows are not deleted. |
 | **Multi-league same player** | Same `playerId` in league A and B — ratings are independent; always pass `leagueId` into `applyMatchRatings`, `ensurePlayerRatings`, leaderboard loaders, and rank profile. |
 
 ## Agent constraints

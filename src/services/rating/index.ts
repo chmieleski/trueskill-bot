@@ -23,3 +23,12 @@ export {
   type RankResetPreview,
   type RankResetResult,
 } from './rank-reset.js';
+export {
+  aggregateMatchDisplayStats,
+  gamesByPlayerFromStats,
+  isMatchCountedAfterRankReset,
+  loadLatestRankResetAtByPlayer,
+  loadMatchDisplayStatsByPlayer,
+  type MatchDisplayStatRow,
+  type PlayerMatchDisplayStats,
+} from './rank-reset-display.js';

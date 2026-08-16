@@ -1,7 +1,10 @@
-import { MatchStatus, MatchResult } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { normalizeNick } from './player-nick.js';
 import { displayOrdinal } from '../rating/rating-math.js';
+import {
+  gamesByPlayerFromStats,
+  loadMatchDisplayStatsByPlayer,
+} from '../rating/rank-reset-display.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
 
 const DEFAULT_MU = 25;
@@ -131,7 +134,7 @@ export async function loadPlayerProfile(
   const gameProfile = await getGameProfileForLeague(leagueId);
   const includeHeroes = gameProfile.heroBinding === 'slot_bound';
 
-  const [rating, allRatings, matchPlayers, quits, heroRatings, gameCounts] =
+  const [rating, allRatings, heroRatings, displayStatsByPlayer] =
     await Promise.all([
       prisma.playerRating.findUnique({
         where: { leagueId_playerId: { leagueId, playerId: player.id } },
@@ -140,57 +143,25 @@ export async function loadPlayerProfile(
         where: { leagueId },
         select: { playerId: true, mu: true, sigma: true },
       }),
-      prisma.matchPlayer.findMany({
-        where: {
-          playerId: player.id,
-          match: { leagueId, status: MatchStatus.COMPLETED },
-          result: { in: [MatchResult.WIN, MatchResult.LOSS] },
-        },
-        select: { result: true },
-      }),
-      // Include CANCELLED: cancel-with-quitters still applies penalties and keeps flags.
-      // Exclude IN_PROGRESS so provisional quit marks do not inflate the count.
-      prisma.matchPlayer.count({
-        where: {
-          playerId: player.id,
-          isQuitter: true,
-          match: {
-            leagueId,
-            status: { in: [MatchStatus.COMPLETED, MatchStatus.CANCELLED] },
-          },
-        },
-      }),
       includeHeroes
         ? prisma.playerHeroRating.findMany({
             where: { leagueId, playerId: player.id, matchesPlayed: { gt: 0 } },
             include: { hero: true },
           })
         : Promise.resolve([]),
-      prisma.matchPlayer.groupBy({
-        by: ['playerId'],
-        where: {
-          match: { leagueId, status: MatchStatus.COMPLETED },
-          result: { in: [MatchResult.WIN, MatchResult.LOSS] },
-        },
-        _count: { _all: true },
-      }),
+      // W/L/games/quits and soft-ki z restart after the player's latest rank reset.
+      loadMatchDisplayStatsByPlayer(leagueId),
     ]);
 
-  const gamesByPlayer = new Map(
-    gameCounts.map((row) => [row.playerId, row._count._all]),
-  );
+  const gamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
+  const mine = displayStatsByPlayer.get(player.id) ?? {
+    games: 0,
+    wins: 0,
+    losses: 0,
+    quits: 0,
+  };
+  const { games, wins, losses, quits } = mine;
 
-  let wins = 0;
-  let losses = 0;
-  for (const row of matchPlayers) {
-    if (row.result === MatchResult.WIN) {
-      wins += 1;
-    } else if (row.result === MatchResult.LOSS) {
-      losses += 1;
-    }
-  }
-
-  const games = wins + losses;
   const globalKi = rating
     ? displayOrdinal(rating.mu, rating.sigma, games)
     : coldStartKi();
@@ -205,7 +176,6 @@ export async function loadPlayerProfile(
   const rankPosition = competitionRank(globalKi, allKis);
   const winRatePercent =
     games > 0 ? Math.round((wins / games) * 1000) / 10 : null;
-
   const heroes: PlayerProfileHero[] = heroRatings
     .map((row) => ({
       heroId: row.heroId,

@@ -1,5 +1,4 @@
 import type { Prisma } from '@prisma/client';
-import { MatchResult, MatchStatus } from '@prisma/client';
 import { predictWin } from 'openskill';
 import { assertTeam } from '../../domain/game-profile.js';
 import { listCatalogHeroIds } from '../guild/hero-catalog.js';
@@ -13,6 +12,10 @@ import {
   splitRosterByTeam,
   toOpenSkillRatings,
 } from './rating-math.js';
+import {
+  gamesByPlayerFromStats,
+  loadMatchDisplayStatsByPlayer,
+} from './rank-reset-display.js';
 import {
   isUnbalancedWinChance,
   suggestBalanceMoves,
@@ -126,7 +129,7 @@ export async function loadPlayerKiBySlot(
   const withHero = sorted.filter(
     (entry): entry is typeof entry & { heroId: number } => entry.heroId != null,
   );
-  const [globals, heroes, gameCounts] = await Promise.all([
+  const [globals, heroes, displayStatsByPlayer] = await Promise.all([
     db.playerRating.findMany({
       where: { leagueId, playerId: { in: playerIds } },
     }),
@@ -141,21 +144,11 @@ export async function loadPlayerKiBySlot(
           },
         })
       : Promise.resolve([]),
-    db.matchPlayer.groupBy({
-      by: ['playerId'],
-      where: {
-        playerId: { in: playerIds },
-        match: { leagueId, status: MatchStatus.COMPLETED },
-        result: { in: [MatchResult.WIN, MatchResult.LOSS] },
-      },
-      _count: { _all: true },
-    }),
+    loadMatchDisplayStatsByPlayer(leagueId, playerIds, db),
   ]);
 
   const globalByPlayer = new Map(globals.map((row) => [row.playerId, row]));
-  const gamesByPlayer = new Map(
-    gameCounts.map((row) => [row.playerId, row._count._all]),
-  );
+  const gamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
   const heroKey = (playerId: string, heroId: number) => `${playerId}:${heroId}`;
   const heroByKey = new Map(
     heroes.map((row) => [heroKey(row.playerId, row.heroId), row]),
@@ -252,28 +245,18 @@ export async function loadLobbyRatingPreview(
     }
 
     const playerIds = sorted.map((entry) => entry.playerId);
-    const [globals, heroes, gameCounts] = await Promise.all([
+    const [globals, heroes, displayStatsByPlayer] = await Promise.all([
       prisma.playerRating.findMany({
         where: { leagueId, playerId: { in: playerIds } },
       }),
       prisma.playerHeroRating.findMany({
         where: { leagueId, playerId: { in: playerIds } },
       }),
-      prisma.matchPlayer.groupBy({
-        by: ['playerId'],
-        where: {
-          playerId: { in: playerIds },
-          match: { leagueId, status: MatchStatus.COMPLETED },
-          result: { in: [MatchResult.WIN, MatchResult.LOSS] },
-        },
-        _count: { _all: true },
-      }),
+      loadMatchDisplayStatsByPlayer(leagueId, playerIds),
     ]);
 
     const globalByPlayer = new Map(globals.map((row) => [row.playerId, row]));
-    const gamesByPlayer = new Map(
-      gameCounts.map((row) => [row.playerId, row._count._all]),
-    );
+    const gamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
     const heroKey = (playerId: string, heroId: number) => `${playerId}:${heroId}`;
     const heroByKey = new Map(
       heroes.map((row) => [heroKey(row.playerId, row.heroId), row]),

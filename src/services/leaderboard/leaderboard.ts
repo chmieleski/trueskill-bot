@@ -1,7 +1,10 @@
-import { MatchResult, MatchStatus } from '@prisma/client';
 import { loadHeroCatalog } from '../guild/hero-catalog.js';
 import { prisma } from '../../lib/prisma.js';
 import { displayOrdinal } from '../rating/rating-math.js';
+import {
+  gamesByPlayerFromStats,
+  loadMatchDisplayStatsByPlayer,
+} from '../rating/rank-reset-display.js';
 
 export const LEADERBOARD_PAGE_SIZE = 10;
 export const LIVE_LEADERBOARD_MIN_SIZE = 10;
@@ -123,26 +126,17 @@ export function paginateOverall(
 }
 
 async function loadEligibleOverallRows(leagueId: string): Promise<OverallLeaderboardEntry[]> {
-  const [ratings, gameCounts] = await Promise.all([
+  const [ratings, displayStatsByPlayer] = await Promise.all([
     prisma.playerRating.findMany({
       where: { leagueId },
       include: {
         player: { select: { id: true, username: true, discordId: true } },
       },
     }),
-    prisma.matchPlayer.groupBy({
-      by: ['playerId'],
-      where: {
-        match: { leagueId, status: MatchStatus.COMPLETED },
-        result: { in: [MatchResult.WIN, MatchResult.LOSS] },
-      },
-      _count: { _all: true },
-    }),
+    loadMatchDisplayStatsByPlayer(leagueId),
   ]);
 
-  const gamesByPlayer = new Map(
-    gameCounts.map((row) => [row.playerId, row._count._all]),
-  );
+  const gamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
 
   const sorted = ratings
     .map((row) => {
