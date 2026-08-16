@@ -33,6 +33,7 @@ import {
   resolveLeagueIdFromInteraction,
   respondLeagueAutocomplete,
   withOptionalLeagueOption,
+  getGameProfileForLeague,
 } from '../../services/league/index.js';
 import {
   isLeagueWc3statsImportReady,
@@ -184,6 +185,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
   const leagueId = leagueResolved.leagueId;
   const leagueConfig = await resolveLeagueConfig(leagueId);
+  const profile = await getGameProfileForLeague(leagueId);
   const wc3statsReady = isLeagueWc3statsImportReady(leagueConfig);
   const playerClaimEnabled = leagueConfig.lobbyPlayerClaimEnabled;
 
@@ -289,7 +291,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
   }
 
-  const canStart = canStartLobby(players);
+  const canStart = canStartLobby(players, profile);
 
   try {
     const created = await createPendingMatch({
@@ -314,6 +316,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           wc3statsGameId,
           wc3statsUnavailable,
           wc3statsLinkAvailable: wc3statsReady && !wc3statsGameId,
+          profile,
         }),
       ],
       components: buildLobbyButtons({
@@ -322,6 +325,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         playerClaimEnabled,
         wc3statsGameId,
         wc3statsEnabled: wc3statsReady,
+        profile,
       }),
     });
 

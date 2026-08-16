@@ -1,17 +1,21 @@
-/** Slots 1–6 = team 1; 7–12 = team 2 (same split as rating-math / lobby). */
-const TEAM_A_MAX_SLOT = 6;
+import {
+  getGameProfile,
+  teamForSlot,
+  type GameProfile,
+} from '../../domain/game-profile.js';
+import { WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
 
-const TEAM_DISPLAY_NAMES = {
-  1: 'Z Fighters',
-  2: 'Evil',
-} as const;
-
-/** User-facing team label (hardcoded; later map/guild can swap this map). */
-export function teamDisplayName(team: 1 | 2): string {
-  return TEAM_DISPLAY_NAMES[team];
+function resolvedTeamNames(profile?: GameProfile): { 1: string; 2: string } {
+  return (profile ?? getGameProfile(WARCRAFT3_UDBR_GAME_ID)).teamNames;
 }
 
-/** Display name for a lobby slot. */
-export function teamDisplayNameForSlot(slot: number): string {
-  return teamDisplayName(slot <= TEAM_A_MAX_SLOT ? 1 : 2);
+/** User-facing team label. Omit profile for UDBR names (slash registration + OCR). */
+export function teamDisplayName(team: 1 | 2, profile?: GameProfile): string {
+  return resolvedTeamNames(profile)[team];
+}
+
+/** Display name for a lobby slot. Omit profile to use UDBR slot split and names. */
+export function teamDisplayNameForSlot(slot: number, profile?: GameProfile): string {
+  const resolved = profile ?? getGameProfile(WARCRAFT3_UDBR_GAME_ID);
+  return teamDisplayName(teamForSlot(resolved, slot), resolved);
 }

@@ -14,6 +14,8 @@ import {
   isLeagueWc3statsImportReady,
   resolveLeagueConfig,
 } from '../league/league-wc3stats.js';
+import { getGameProfileForLeague } from '../league/league-profile.js';
+import type { GameProfile } from '../../domain/game-profile.js';
 import { resolveGuildConfig } from '../guild/index.js';
 import {
   importWc3statsLobby,
@@ -45,6 +47,7 @@ export type CreateMatchFromWc3statsResult = {
   wc3statsReady: boolean;
   playerClaimEnabled: boolean;
   ratingPreview: Awaited<ReturnType<typeof loadLobbyRatingPreview>> | undefined;
+  profile: GameProfile;
 };
 
 /**
@@ -61,6 +64,7 @@ export async function createMatchFromWc3statsLobby(
   });
 
   const leagueConfig = await resolveLeagueConfig(input.leagueId);
+  const profile = await getGameProfileForLeague(input.leagueId);
   const wc3statsReady = isLeagueWc3statsImportReady(leagueConfig);
   if (!wc3statsReady || !leagueConfig.wc3statsMapPattern) {
     throw new MatchServiceError('Warcraft lobby import is not configured for this league.');
@@ -111,7 +115,7 @@ export async function createMatchFromWc3statsLobby(
     wc3statsGameId = String(input.wc3statsId);
   }
 
-  const canStart = canStartLobby(players);
+  const canStart = canStartLobby(players, profile);
   const created = await createPendingMatch({
     leagueId: input.leagueId,
     hostDiscordId: input.hostDiscordId,
@@ -135,6 +139,7 @@ export async function createMatchFromWc3statsLobby(
     wc3statsReady,
     playerClaimEnabled: leagueConfig.lobbyPlayerClaimEnabled,
     ratingPreview,
+    profile,
   };
 }
 

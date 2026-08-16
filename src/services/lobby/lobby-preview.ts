@@ -7,10 +7,16 @@ import {
   TimestampStyles,
 } from 'discord.js';
 import type { LobbyPlayer, ValidatedLobby } from './lobby-ocr.js';
-import { validateLobbyPlayers } from './lobby-ocr.js';
 import { formatBalanceHint } from './lobby-balance.js';
 import type { LobbyRatingPlayerLine, LobbyRatingPreview } from '../rating/rating-preview.js';
-import { teamDisplayName } from '../guild/team-names.js';
+import { teamDisplayName, teamDisplayNameForSlot } from '../guild/team-names.js';
+import {
+  getGameProfile,
+  isSlotInProfile,
+  teamForSlot,
+  type GameProfile,
+} from '../../domain/game-profile.js';
+import { WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
 
 export const LOBBY_CUSTOM_IDS = {
   start: 'lobby:start',
@@ -34,6 +40,11 @@ const TEAM_B_EMOJI = '🟦';
 
 /** Real Discord embed footer (not a field) — no markdown supported here. */
 const ORDINAL_FOOTER = 'Per player: slot  nick  global / hero (ki)';
+const GLOBAL_ONLY_FOOTER = 'Per player: slot  nick  global (ki)';
+
+function resolvedProfile(profile?: GameProfile): GameProfile {
+  return profile ?? getGameProfile(WARCRAFT3_UDBR_GAME_ID);
+}
 
 /** Pad slot 1–12 so columns stay aligned in monospace roster lines. */
 function formatSlotLabel(slot: number): string {
@@ -73,12 +84,14 @@ export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): st
   }
 
   const nickWidth = Math.max(8, ...players.map((player) => player.nick.length));
+  const showHeroColumn = players.some((player) => player.showHero !== false);
   const ratingWidth = Math.max(
     4,
-    ...players.flatMap((player) => [
-      String(player.globalOrdinal).length,
-      String(player.heroOrdinal).length,
-    ]),
+    ...players.flatMap((player) =>
+      showHeroColumn
+        ? [String(player.globalOrdinal).length, String(player.heroOrdinal).length]
+        : [String(player.globalOrdinal).length],
+    ),
   );
 
   return players
@@ -86,10 +99,13 @@ export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): st
       const slotLabel = formatSlotLabel(player.slot);
       const nick = player.nick.padEnd(nickWidth, ' ');
       const global = String(player.globalOrdinal).padStart(ratingWidth, ' ');
-      const hero = String(player.heroOrdinal).padStart(ratingWidth, ' ');
       const globalDelta = formatSignedDelta(player.globalDelta);
-      const heroDelta = formatSignedDelta(player.heroDelta);
       const quitterMark = player.isQuitter ? ' 🚪' : '';
+      if (player.showHero === false) {
+        return `\`${slotLabel}  ${nick}   ${global}${globalDelta}\`${quitterMark}`;
+      }
+      const hero = String(player.heroOrdinal).padStart(ratingWidth, ' ');
+      const heroDelta = formatSignedDelta(player.heroDelta);
       return `\`${slotLabel}  ${nick}   ${global}${globalDelta} / ${hero}${heroDelta}\`${quitterMark}`;
     })
     .join('\n');
@@ -105,45 +121,52 @@ export function formatSignedDelta(delta: number | undefined): string {
   return ` (${sign}${delta})`;
 }
 
-export function splitLobbyPlayers(players: LobbyPlayer[]): ValidatedLobby {
+export function splitLobbyPlayers(
+  players: LobbyPlayer[],
+  profile?: GameProfile,
+): ValidatedLobby {
+  const resolved = resolvedProfile(profile);
+  const inProfile = (player: LobbyPlayer) => isSlotInProfile(resolved, player.slot);
   const teamA = players
-    .filter((player) => player.slot <= 6)
+    .filter((player) => inProfile(player) && teamForSlot(resolved, player.slot) === 1)
     .sort((a, b) => a.slot - b.slot);
   const teamB = players
-    .filter((player) => player.slot > 6)
+    .filter((player) => inProfile(player) && teamForSlot(resolved, player.slot) === 2)
     .sort((a, b) => a.slot - b.slot);
 
   return { teamA, teamB };
 }
 
-function splitPreviewPlayers(players: LobbyRatingPlayerLine[]): {
+function splitPreviewPlayers(
+  players: LobbyRatingPlayerLine[],
+  profile?: GameProfile,
+): {
   teamA: LobbyRatingPlayerLine[];
   teamB: LobbyRatingPlayerLine[];
 } {
+  const resolved = resolvedProfile(profile);
+  const inProfile = (player: LobbyRatingPlayerLine) => isSlotInProfile(resolved, player.slot);
   const teamA = players
-    .filter((player) => player.slot <= 6)
+    .filter((player) => inProfile(player) && teamForSlot(resolved, player.slot) === 1)
     .sort((a, b) => a.slot - b.slot);
   const teamB = players
-    .filter((player) => player.slot > 6)
+    .filter((player) => inProfile(player) && teamForSlot(resolved, player.slot) === 2)
     .sort((a, b) => a.slot - b.slot);
 
   return { teamA, teamB };
 }
 
-export function canStartLobby(players: LobbyPlayer[]): boolean {
-  try {
-    validateLobbyPlayers(players);
-    return true;
-  } catch {
-    return false;
-  }
+/** Both teams have ≥1 human using the profile slot split (not OCR 12-slot rules). */
+export function canStartLobby(players: LobbyPlayer[], profile?: GameProfile): boolean {
+  const { teamA, teamB } = splitLobbyPlayers(players, profile);
+  return teamA.length >= 1 && teamB.length >= 1;
 }
 
 /**
  * Win-chance row: two inline fields + blank spacer so Discord keeps a clean
  * two-column row (embeds lay out inline fields in groups of three).
  */
-function ratingPreviewFields(preview: LobbyRatingPreview | undefined) {
+function ratingPreviewFields(preview: LobbyRatingPreview | undefined, profile?: GameProfile) {
   if (!preview?.winChance) {
     return [];
   }
@@ -156,7 +179,7 @@ function ratingPreviewFields(preview: LobbyRatingPreview | undefined) {
       inline: false,
     },
     {
-      name: `${TEAM_A_EMOJI} ${teamDisplayName(1)} win`,
+      name: `${TEAM_A_EMOJI} ${teamDisplayName(1, profile)} win`,
       value: `${winChanceEmoji(teamAPercent, teamBPercent)} **${teamAPercent}%**`,
       inline: true,
     },
@@ -166,7 +189,7 @@ function ratingPreviewFields(preview: LobbyRatingPreview | undefined) {
       inline: true,
     },
     {
-      name: `${TEAM_B_EMOJI} ${teamDisplayName(2)} win`,
+      name: `${TEAM_B_EMOJI} ${teamDisplayName(2, profile)} win`,
       value: `${winChanceEmoji(teamBPercent, teamAPercent)} **${teamBPercent}%**`,
       inline: true,
     },
@@ -189,9 +212,10 @@ function balanceHintFields(preview: LobbyRatingPreview | undefined) {
 function teamFieldValues(
   players: LobbyPlayer[],
   ratingPreview: LobbyRatingPreview | undefined,
+  profile?: GameProfile,
 ): { teamAValue: string; teamBValue: string; teamACount: number; teamBCount: number } {
   if (ratingPreview) {
-    const { teamA, teamB } = splitPreviewPlayers(ratingPreview.players);
+    const { teamA, teamB } = splitPreviewPlayers(ratingPreview.players, profile);
     return {
       teamAValue: formatTeamLinesFromPreview(teamA),
       teamBValue: formatTeamLinesFromPreview(teamB),
@@ -200,13 +224,21 @@ function teamFieldValues(
     };
   }
 
-  const { teamA, teamB } = splitLobbyPlayers(players);
+  const { teamA, teamB } = splitLobbyPlayers(players, profile);
   return {
     teamAValue: formatTeamLines(teamA),
     teamBValue: formatTeamLines(teamB),
     teamACount: teamA.length,
     teamBCount: teamB.length,
   };
+}
+
+function ordinalFooter(preview: LobbyRatingPreview | undefined): string | undefined {
+  if (!preview) {
+    return undefined;
+  }
+  const hideHero = preview.players.some((player) => player.showHero === false);
+  return hideHero ? GLOBAL_ONLY_FOOTER : ORDINAL_FOOTER;
 }
 
 /** Shared chrome: author (match id), footer legend, timestamp. */
@@ -220,8 +252,9 @@ function applyEmbedChrome(
 ): EmbedBuilder {
   embed.setAuthor({ name: `Match ${options.matchId}` });
 
-  if (options.ratingPreview) {
-    embed.setFooter({ text: ORDINAL_FOOTER });
+  const footer = ordinalFooter(options.ratingPreview);
+  if (footer) {
+    embed.setFooter({ text: footer });
   }
 
   if (options.timestamp) {
@@ -241,15 +274,18 @@ export function buildMatchLobbyEmbed(
     wc3statsGameId?: string | null;
     wc3statsUnavailable?: boolean;
     wc3statsLinkAvailable?: boolean;
+    profile?: GameProfile;
   } = {},
 ): EmbedBuilder {
-  const canStart = options.canStart ?? canStartLobby(players);
+  const profile = resolvedProfile(options.profile);
+  const canStart = options.canStart ?? canStartLobby(players, profile);
   const createdAt = options.createdAt ?? new Date();
   const expiresAt = new Date(createdAt.getTime() + LOBBY_PENDING_TTL_MS);
   const expiresLine = `Expires ${time(expiresAt, TimestampStyles.RelativeTime)}`;
   const { teamAValue, teamBValue, teamACount, teamBCount } = teamFieldValues(
     players,
     options.ratingPreview,
+    profile,
   );
 
   const descriptionLines = [
@@ -280,16 +316,16 @@ export function buildMatchLobbyEmbed(
     .setDescription(descriptionLines.join('\n'))
     .addFields(
       {
-        name: `${TEAM_A_EMOJI} ${teamDisplayName(1)} (${teamACount})`,
+        name: `${TEAM_A_EMOJI} ${teamDisplayName(1, profile)} (${teamACount})`,
         value: teamAValue,
         inline: false,
       },
       {
-        name: `${TEAM_B_EMOJI} ${teamDisplayName(2)} (${teamBCount})`,
+        name: `${TEAM_B_EMOJI} ${teamDisplayName(2, profile)} (${teamBCount})`,
         value: teamBValue,
         inline: false,
       },
-      ...ratingPreviewFields(options.ratingPreview),
+      ...ratingPreviewFields(options.ratingPreview, profile),
       ...balanceHintFields(options.ratingPreview),
     )
     .setColor(0x5865f2);
@@ -304,11 +340,13 @@ export function buildMatchLobbyEmbed(
 export function buildMatchInProgressEmbed(
   matchId: string,
   players: LobbyPlayer[],
-  options: { ratingPreview?: LobbyRatingPreview } = {},
+  options: { ratingPreview?: LobbyRatingPreview; profile?: GameProfile } = {},
 ): EmbedBuilder {
+  const profile = resolvedProfile(options.profile);
   const { teamAValue, teamBValue, teamACount, teamBCount } = teamFieldValues(
     players,
     options.ratingPreview,
+    profile,
   );
 
   const embed = new EmbedBuilder()
@@ -316,16 +354,16 @@ export function buildMatchInProgressEmbed(
     .setDescription('Match has started. Report the result when finished.')
     .addFields(
       {
-        name: `${TEAM_A_EMOJI} ${teamDisplayName(1)} (${teamACount})`,
+        name: `${TEAM_A_EMOJI} ${teamDisplayName(1, profile)} (${teamACount})`,
         value: teamAValue,
         inline: false,
       },
       {
-        name: `${TEAM_B_EMOJI} ${teamDisplayName(2)} (${teamBCount})`,
+        name: `${TEAM_B_EMOJI} ${teamDisplayName(2, profile)} (${teamBCount})`,
         value: teamBValue,
         inline: false,
       },
-      ...ratingPreviewFields(options.ratingPreview),
+      ...ratingPreviewFields(options.ratingPreview, profile),
     )
     .setColor(0x57f287);
 
@@ -363,13 +401,16 @@ export function buildMatchCompletedEmbed(
   options: {
     ratingPreview?: LobbyRatingPreview;
     winningTeam: 1 | 2;
+    profile?: GameProfile;
   },
 ): EmbedBuilder {
+  const profile = resolvedProfile(options.profile);
   const { teamAValue, teamBValue, teamACount, teamBCount } = teamFieldValues(
     players,
     options.ratingPreview,
+    profile,
   );
-  const winnerLabel = teamDisplayName(options.winningTeam);
+  const winnerLabel = teamDisplayName(options.winningTeam, profile);
   const color = options.winningTeam === 1 ? 0xf1c40f : 0x57f287;
 
   const embed = new EmbedBuilder()
@@ -377,12 +418,12 @@ export function buildMatchCompletedEmbed(
     .setDescription(`${winnerLabel} won the match.`)
     .addFields(
       {
-        name: `${TEAM_A_EMOJI} ${teamDisplayName(1)} (${teamACount})`,
+        name: `${TEAM_A_EMOJI} ${teamDisplayName(1, profile)} (${teamACount})`,
         value: teamAValue,
         inline: false,
       },
       {
-        name: `${TEAM_B_EMOJI} ${teamDisplayName(2)} (${teamBCount})`,
+        name: `${TEAM_B_EMOJI} ${teamDisplayName(2, profile)} (${teamBCount})`,
         value: teamBValue,
         inline: false,
       },
@@ -408,28 +449,27 @@ export function buildMatchCancelledEmbed(
     .setTimestamp(new Date());
 }
 
-/** Full 6v6 lobby: all slots 1–12 occupied. */
-const MAX_LOBBY_HUMANS = 12;
-const MIN_SLOT = 1;
-const MAX_SLOT = 12;
-
-/**
- * Empty-slot options for player claim. Labels include the hero (slot = hero).
- */
+/** Empty-slot options for player claim. Slot-bound games include the hero name. */
 export function claimSlotSelectOptions(
   players: LobbyPlayer[],
   heroNameForSlot: (slot: number) => string,
+  profile?: GameProfile,
 ): { label: string; value: string }[] {
+  const resolved = resolvedProfile(profile);
   const occupied = new Set(players.map((player) => player.slot));
   const options: { label: string; value: string }[] = [];
 
-  for (let slot = MIN_SLOT; slot <= MAX_SLOT; slot += 1) {
+  for (let slot = 1; slot <= resolved.slotCount; slot += 1) {
     if (occupied.has(slot)) {
       continue;
     }
 
+    const suffix =
+      resolved.heroBinding === 'slot_bound'
+        ? heroNameForSlot(slot)
+        : teamDisplayNameForSlot(slot, resolved);
     options.push({
-      label: `Slot ${slot} · ${heroNameForSlot(slot)}`.slice(0, 100),
+      label: `Slot ${slot} · ${suffix}`.slice(0, 100),
       value: String(slot),
     });
   }
@@ -445,6 +485,7 @@ export function buildLobbyButtons(
     playerClaimEnabled?: boolean;
     wc3statsGameId?: string | null;
     wc3statsEnabled?: boolean;
+    profile?: GameProfile;
   } = {},
 ): ActionRowBuilder<ButtonBuilder>[] {
   if (options.locked) {
@@ -454,7 +495,8 @@ export function buildLobbyButtons(
   const rows: ActionRowBuilder<ButtonBuilder>[] = [];
   const playerClaimEnabled = options.playerClaimEnabled ?? true;
   const playerCount = options.playerCount ?? 0;
-  const canAdd = playerCount < MAX_LOBBY_HUMANS;
+  const slotCount = resolvedProfile(options.profile).slotCount;
+  const canAdd = playerCount < slotCount;
   const showRefresh = Boolean(options.wc3statsGameId) || Boolean(options.wc3statsEnabled);
 
   const refreshButton = new ButtonBuilder()

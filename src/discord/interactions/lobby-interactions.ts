@@ -58,9 +58,6 @@ type ComponentRow =
   | ActionRowBuilder<ButtonBuilder>
   | ActionRowBuilder<StringSelectMenuBuilder>;
 
-const MIN_SLOT = 1;
-const MAX_SLOT = 12;
-
 const UPDATED_MESSAGE = 'Lobby updated.';
 
 function memberRoleIds(interaction: { member: unknown }): string[] {
@@ -101,16 +98,16 @@ function playerSelectOptions(players: LobbyPlayer[]) {
     }));
 }
 
-function emptySlotSelectOptions(players: LobbyPlayer[]) {
+function emptySlotSelectOptions(players: LobbyPlayer[], profile: GameProfile) {
   const occupied = new Set(players.map((player) => player.slot));
   const options = [];
 
-  for (let slot = MIN_SLOT; slot <= MAX_SLOT; slot += 1) {
+  for (let slot = 1; slot <= profile.slotCount; slot += 1) {
     if (occupied.has(slot)) {
       continue;
     }
 
-    const team = teamDisplayNameForSlot(slot);
+    const team = teamDisplayNameForSlot(slot, profile);
     options.push({
       label: `Slot ${slot} (${team})`,
       value: String(slot),
@@ -121,16 +118,20 @@ function emptySlotSelectOptions(players: LobbyPlayer[]) {
 }
 
 /** Destinations for Change Slot: empty slots (move) and occupied slots (swap). */
-function destinationSlotSelectOptions(players: LobbyPlayer[], fromSlot: number) {
+function destinationSlotSelectOptions(
+  players: LobbyPlayer[],
+  fromSlot: number,
+  profile: GameProfile,
+) {
   const bySlot = new Map(players.map((player) => [player.slot, player]));
   const options = [];
 
-  for (let slot = MIN_SLOT; slot <= MAX_SLOT; slot += 1) {
+  for (let slot = 1; slot <= profile.slotCount; slot += 1) {
     if (slot === fromSlot) {
       continue;
     }
 
-    const team = teamDisplayNameForSlot(slot);
+    const team = teamDisplayNameForSlot(slot, profile);
     const occupant = bySlot.get(slot);
 
     if (occupant) {
@@ -365,7 +366,8 @@ async function handleAdd(interaction: ButtonInteraction): Promise<void> {
     return;
   }
 
-  if (emptySlotSelectOptions(result.players).length === 0) {
+  const profile = await profileForMatch(result.match.leagueId);
+  if (emptySlotSelectOptions(result.players, profile).length === 0) {
     await replyEphemeral(interaction, 'No empty slots available. Remove a player first.');
     return;
   }
@@ -383,7 +385,7 @@ async function handleAdd(interaction: ButtonInteraction): Promise<void> {
 
   const slotInput = new TextInputBuilder()
     .setCustomId('slot')
-    .setLabel('Slot number (1-12)')
+    .setLabel(`Slot number (1-${profile.slotCount})`)
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMinLength(1)
@@ -442,9 +444,11 @@ async function handleClaim(interaction: ButtonInteraction): Promise<void> {
 
   const catalog = await loadHeroCatalog();
   const heroNameById = new Map(catalog.map((hero) => [hero.id, hero.name]));
+  const profile = await profileForMatch(result.match.leagueId);
   const options = claimSlotSelectOptions(
     result.players,
     (slot) => heroNameById.get(slot) ?? `Hero ${slot}`,
+    profile,
   );
 
   if (options.length === 0) {
@@ -624,7 +628,11 @@ async function handleSelectMovePlayer(
     return;
   }
 
-  const destinations = destinationSlotSelectOptions(result.players, fromSlot);
+  const destinations = destinationSlotSelectOptions(
+    result.players,
+    fromSlot,
+    await profileForMatch(result.match.leagueId),
+  );
 
   const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
     new StringSelectMenuBuilder()

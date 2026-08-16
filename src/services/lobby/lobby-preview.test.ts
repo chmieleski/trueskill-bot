@@ -5,12 +5,15 @@ import {
   buildMatchInProgressEmbed,
   buildMatchLobbyEmbed,
   buildMatchReportButtons,
+  canStartLobby,
   claimSlotSelectOptions,
   formatSignedDelta,
   formatTeamLines,
   formatTeamLinesFromPreview,
   LOBBY_CUSTOM_IDS,
 } from './lobby-preview.js';
+import { getGameProfile } from '../../domain/game-profile.js';
+import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID } from '../../domain/games.js';
 import { buildCompletedRatingPreview } from '../rating/rating-preview.js';
 
 describe('formatSignedDelta', () => {
@@ -95,6 +98,18 @@ describe('formatTeamLinesFromPreview', () => {
     expect(secondLine).toMatch(/`\s*7\s+vegeta/);
     expect(secondLine).toMatch(/`\s+🚪$/);
   });
+
+  it('omits the hero ki column when showHero is false', () => {
+    const value = formatTeamLinesFromPreview([
+      { slot: 1, nick: 'alice', globalOrdinal: 1100, heroOrdinal: 1100, showHero: false },
+      { slot: 6, nick: 'bob', globalOrdinal: 900, heroOrdinal: 900, showHero: false },
+    ]);
+    const lines = value.split('\n');
+
+    expect(lines[0]).toMatch(/^`\s*1\s+alice\s+1100`$/);
+    expect(lines[1]).toMatch(/^`\s*6\s+bob\s+ 900`$/);
+    expect(value).not.toContain('/');
+  });
 });
 
 describe('buildCompletedRatingPreview', () => {
@@ -123,6 +138,7 @@ describe('buildCompletedRatingPreview', () => {
         globalDelta: 186,
         heroDelta: 200,
         isQuitter: false,
+        showHero: true,
       },
       {
         slot: 7,
@@ -132,6 +148,7 @@ describe('buildCompletedRatingPreview', () => {
         globalDelta: -100,
         heroDelta: -150,
         isQuitter: true,
+        showHero: true,
       },
     ]);
   });
@@ -255,6 +272,19 @@ describe('buildLobbyButtons', () => {
 
     expect(ids).toContain(LOBBY_CUSTOM_IDS.refresh);
   });
+
+  it('omits Add when the profile slot count is filled', () => {
+    const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
+    const rows = buildLobbyButtons({
+      canStart: true,
+      playerCount: 10,
+      playerClaimEnabled: false,
+      profile: aca,
+    });
+    const rosterIds = rows.at(-1)?.toJSON().components.map((button) => button.custom_id);
+
+    expect(rosterIds).not.toContain(LOBBY_CUSTOM_IDS.add);
+  });
 });
 
 describe('claimSlotSelectOptions', () => {
@@ -271,6 +301,28 @@ describe('claimSlotSelectOptions', () => {
     expect(options[0]).toEqual({ label: 'Slot 2 · Piccolo', value: '2' });
     expect(options.map((option) => option.value)).not.toContain('1');
     expect(options.map((option) => option.value)).not.toContain('7');
+  });
+
+  it('labels ACA empty slots with team names and stops at slot 10', () => {
+    const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
+    const options = claimSlotSelectOptions(
+      [
+        { slot: 1, nick: 'alice' },
+        { slot: 6, nick: 'bob' },
+      ],
+      () => 'unused',
+      aca,
+    );
+
+    expect(options).toHaveLength(8);
+    expect(options.map((option) => option.value)).not.toContain('11');
+    expect(options.map((option) => option.value)).not.toContain('12');
+    expect(options[0]).toEqual({ label: 'Slot 2 · Team A', value: '2' });
+    expect(options.find((option) => option.value === '6')).toBeUndefined();
+    expect(options.find((option) => option.value === '7')).toEqual({
+      label: 'Slot 7 · Team B',
+      value: '7',
+    });
   });
 });
 
@@ -413,5 +465,46 @@ describe('buildMatchCompletedEmbed', () => {
     expect(json.fields?.[1]?.value).not.toContain('🚪');
     expect(json.footer?.text).toBe('Per player: slot  nick  global / hero (ki)');
     expect(json.color).toBe(0xf1c40f);
+  });
+
+  it('uses Team A / Team B and a global-only footer for ACA', () => {
+    const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
+    const embed = buildMatchCompletedEmbed(
+      'match-aca',
+      [
+        { slot: 1, nick: 'alice' },
+        { slot: 6, nick: 'bob' },
+      ],
+      {
+        winningTeam: 2,
+        profile: aca,
+        ratingPreview: {
+          players: [
+            { slot: 1, nick: 'alice', globalOrdinal: 1100, heroOrdinal: 1100, showHero: false },
+            { slot: 6, nick: 'bob', globalOrdinal: 900, heroOrdinal: 900, showHero: false },
+          ],
+        },
+      },
+    );
+    const json = embed.toJSON();
+
+    expect(json.description).toBe('Team B won the match.');
+    expect(json.fields?.[0]?.name).toContain('Team A');
+    expect(json.fields?.[1]?.name).toContain('Team B');
+    expect(json.fields?.[1]?.value).toMatch(/`\s*6\s+bob/);
+    expect(json.footer?.text).toBe('Per player: slot  nick  global (ki)');
+  });
+});
+
+describe('canStartLobby', () => {
+  it('allows UDBR 1+7 and rejects 1+6', () => {
+    expect(canStartLobby([{ slot: 1, nick: 'a' }, { slot: 7, nick: 'b' }])).toBe(true);
+    expect(canStartLobby([{ slot: 1, nick: 'a' }, { slot: 6, nick: 'b' }])).toBe(false);
+  });
+
+  it('allows ACA 1+6 because slot 6 is Team B', () => {
+    const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
+    expect(canStartLobby([{ slot: 1, nick: 'a' }, { slot: 6, nick: 'b' }], aca)).toBe(true);
+    expect(canStartLobby([{ slot: 1, nick: 'a' }, { slot: 5, nick: 'b' }], aca)).toBe(false);
   });
 });

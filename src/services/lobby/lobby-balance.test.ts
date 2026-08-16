@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { getGameProfile } from '../../domain/game-profile.js';
+import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID } from '../../domain/games.js';
 import {
   compareSuggestions,
   formatBalanceHint,
@@ -163,6 +165,35 @@ describe('suggestBalanceMove', () => {
     expect(
       Math.abs(50 - suggestion!.resultingWinChance.teamAPercent),
     ).toBeLessThan(Math.abs(50 - 20));
+  });
+
+  it('never suggests ACA slots above 10', () => {
+    const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
+    const roster: BalanceRosterEntry[] = [
+      { playerId: 'a1', slot: 1, team: 1, heroId: null, nick: 'A1' },
+      { playerId: 'b1', slot: 6, team: 2, heroId: null, nick: 'B1' },
+      { playerId: 'b2', slot: 7, team: 2, heroId: null, nick: 'B2' },
+      { playerId: 'b3', slot: 8, team: 2, heroId: null, nick: 'B3' },
+    ];
+    const lookup = lookupFromMaps(
+      {
+        a1: { mu: 22, sigma: 6 },
+        b1: { mu: 30, sigma: 4 },
+        b2: { mu: 30, sigma: 4 },
+        b3: { mu: 30, sigma: 4 },
+      },
+      {},
+    );
+    const suggestion = suggestBalanceMove(
+      roster,
+      lookup,
+      { teamAPercent: 20, teamBPercent: 80 },
+      aca,
+    );
+    if (suggestion) {
+      expect(suggestion.toSlot).toBeLessThanOrEqual(10);
+      expect(suggestion.fromSlot).toBeLessThanOrEqual(10);
+    }
   });
 
   it('compareSuggestions prefers swap over move, then lower fromSlot', () => {

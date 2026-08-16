@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { MatchResult, MatchStatus } from '@prisma/client';
 import { predictWin } from 'openskill';
 import { listCatalogHeroIds } from '../guild/hero-catalog.js';
+import { getGameProfileForLeague } from '../league/league-profile.js';
 import { prisma } from '../../lib/prisma.js';
 import { createLogger } from '../../lib/logger.js';
 import { ratingEntitiesForPlayer, rosterEntriesWithHeroId } from './rating-entities.js';
@@ -37,6 +38,8 @@ export interface LobbyRatingPlayerLine {
   /** Completed-match only: ki change for hero (after − before). */
   heroDelta?: number;
   isQuitter?: boolean;
+  /** When false, lobby embeds omit the hero ki column. Default true. */
+  showHero?: boolean;
 }
 
 export interface LobbyRatingPreview {
@@ -202,6 +205,7 @@ export function buildCompletedRatingPreview(
         globalDelta: after.global - before.global,
         heroDelta: after.hero - before.hero,
         isQuitter: entry.isQuitter,
+        showHero: entry.heroId != null,
       };
     });
 
@@ -285,6 +289,7 @@ export async function loadLobbyRatingPreview(
           globalOrdinal,
           heroOrdinal: globalOrdinal,
           isQuitter: entry.isQuitter,
+          showHero: false,
         };
       }
 
@@ -297,6 +302,7 @@ export async function loadLobbyRatingPreview(
         globalOrdinal,
         heroOrdinal: displayOrdinal(hero.mu, hero.sigma, heroGames),
         isQuitter: entry.isQuitter,
+        showHero: true,
       };
     });
 
@@ -330,27 +336,24 @@ export async function loadLobbyRatingPreview(
       },
     };
 
-    const balanceRoster = sorted.flatMap((entry) =>
-      entry.heroId == null
-        ? []
-        : [
-            {
-              playerId: entry.playerId,
-              slot: entry.slot,
-              team: entry.team,
-              heroId: entry.heroId,
-              nick: entry.nick,
-            },
-          ],
-    );
+    const profile = await getGameProfileForLeague(leagueId);
+    const balanceRoster = sorted.map((entry) => ({
+      playerId: entry.playerId,
+      slot: entry.slot,
+      team: entry.team,
+      heroId: entry.heroId,
+      nick: entry.nick,
+    }));
 
     let balanceSuggestion: BalanceSuggestion | undefined;
-    if (
-      balanceRoster.length === sorted.length &&
-      isUnbalancedWinChance(winChance.teamAPercent)
-    ) {
+    if (isUnbalancedWinChance(winChance.teamAPercent)) {
       try {
-        balanceSuggestion = suggestBalanceMove(balanceRoster, lookup, winChance);
+        balanceSuggestion = suggestBalanceMove(
+          balanceRoster,
+          lookup,
+          winChance,
+          profile,
+        );
       } catch (error) {
         log.warn({ err: error }, 'Failed to compute balance suggestion');
       }
@@ -369,6 +372,7 @@ export async function loadLobbyRatingPreview(
         nick: entry.nick,
         globalOrdinal: displayOrdinal(DEFAULT_MU, DEFAULT_SIGMA),
         heroOrdinal: displayOrdinal(DEFAULT_MU, DEFAULT_SIGMA),
+        showHero: entry.heroId != null,
       })),
     };
   }
