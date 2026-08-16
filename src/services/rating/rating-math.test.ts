@@ -55,14 +55,14 @@ describe('roundWinPercents', () => {
 });
 
 describe('splitRosterByTeam', () => {
-  it('puts slots 1-6 in A and 7-12 in B', () => {
+  it('groups by persisted team, not slot <= 6', () => {
     const { teamA, teamB } = splitRosterByTeam([
-      { slot: 7 },
-      { slot: 1 },
-      { slot: 12 },
+      { slot: 6, team: 2 as const },
+      { slot: 1, team: 1 as const },
+      { slot: 10, team: 2 as const },
     ]);
     expect(teamA.map((e) => e.slot)).toEqual([1]);
-    expect(teamB.map((e) => e.slot)).toEqual([7, 12]);
+    expect(teamB.map((e) => e.slot)).toEqual([6, 10]);
   });
 });
 

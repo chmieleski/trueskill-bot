@@ -101,8 +101,8 @@ describe('buildCompletedRatingPreview', () => {
   it('attaches after−before ki deltas per player', () => {
     const preview = buildCompletedRatingPreview(
       [
-        { playerId: 'p1', slot: 1, heroId: 1, nick: 'goku', isQuitter: false },
-        { playerId: 'p2', slot: 7, heroId: 7, nick: 'vegeta', isQuitter: true },
+        { playerId: 'p1', slot: 1, team: 1, heroId: 1, nick: 'goku', isQuitter: false },
+        { playerId: 'p2', slot: 7, team: 2, heroId: 7, nick: 'vegeta', isQuitter: true },
       ],
       new Map([
         [1, { global: 1000, hero: 1000 }],

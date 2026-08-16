@@ -74,12 +74,15 @@ describe('partitionRosterForRating', () => {
 describe('assertBothTeamsHaveActivePlayers', () => {
   it('accepts one active player per team', () => {
     expect(() =>
-      assertBothTeamsHaveActivePlayers([{ slot: 1 }, { slot: 7 }]),
+      assertBothTeamsHaveActivePlayers([
+        { slot: 1, team: 1 },
+        { slot: 6, team: 2 },
+      ]),
     ).not.toThrow();
   });
 
   it('rejects when quitters empty a team', () => {
-    expect(() => assertBothTeamsHaveActivePlayers([{ slot: 1 }])).toThrow(
+    expect(() => assertBothTeamsHaveActivePlayers([{ slot: 1, team: 1 }])).toThrow(
       MatchServiceError,
     );
   });

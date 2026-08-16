@@ -419,6 +419,7 @@ function toRatingEntries(
   return match.players.map((player) => ({
     playerId: player.playerId,
     slot: player.slot,
+    team: player.team as 1 | 2,
     heroId: player.heroId,
     isQuitter: quitterSet.has(player.slot),
   }));

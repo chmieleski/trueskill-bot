@@ -18,6 +18,7 @@ export const QUITTER_SYNTHETIC_LOSSES = 1;
 export type RatingRosterEntry = {
   playerId: string;
   slot: number;
+  team: 1 | 2;
   heroId: number;
   isQuitter: boolean;
 };
@@ -69,7 +70,9 @@ export function partitionRosterForRating<T extends { isQuitter: boolean }>(
   };
 }
 
-export function assertBothTeamsHaveActivePlayers(active: { slot: number }[]): void {
+export function assertBothTeamsHaveActivePlayers(
+  active: { slot: number; team: 1 | 2 }[],
+): void {
   const { teamA, teamB } = splitRosterByTeam(active);
 
   if (teamA.length === 0 || teamB.length === 0) {
