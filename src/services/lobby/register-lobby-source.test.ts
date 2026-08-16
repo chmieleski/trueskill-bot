@@ -7,6 +7,7 @@ import {
 import { MatchServiceError } from '../match/match-service.js';
 import {
   allowsEmptyMatchOnWc3statsFailure,
+  assertProfileAllowsWc3statsImport,
   assertRegisterLobbyAllowedForProfile,
   parseWc3statsId,
   resolveRegisterLobbySource,
@@ -112,5 +113,15 @@ describe('assertRegisterLobbyAllowedForProfile', () => {
     expect(() =>
       assertRegisterLobbyAllowedForProfile(aca, { hasScreenshot: false, hasWc3statsId: false }),
     ).not.toThrow();
+  });
+});
+
+describe('assertProfileAllowsWc3statsImport', () => {
+  it('throws the import refuse string for ACA', () => {
+    expect(() => assertProfileAllowsWc3statsImport(aca)).toThrow(WC3STATS_UNSUPPORTED_MESSAGE);
+  });
+
+  it('does not throw for UDBR', () => {
+    expect(() => assertProfileAllowsWc3statsImport(udbr)).not.toThrow();
   });
 });

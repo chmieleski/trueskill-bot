@@ -2,7 +2,7 @@ import { GuildMember, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import { syncLobbyDiscordMessage } from '../../services/lobby/index.js';
-import { resolveGuildConfig } from '../../services/guild/index.js';
+import { resolveGuildConfig, teamDisplayName, winnerLabel } from '../../services/guild/index.js';
 import { assertCanManageMatch } from '../../services/match/index.js';
 import { refreshAllLeaderboardChannels, refreshLeagueLeaderboard } from '../../services/leaderboard/index.js';
 import {
@@ -21,7 +21,7 @@ import {
 } from '../../services/match/index.js';
 import { buildMatchCorrectionConfirmComponents } from '../../discord/interactions/match-correction-interactions.js';
 import type { LobbyRatingPreview } from '../../services/rating/index.js';
-import { teamDisplayName } from '../../services/guild/index.js';
+import { getGameProfileForLeague } from '../../services/league/index.js';
 
 const log = createLogger('match_cmd');
 
@@ -335,8 +335,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
             ? ` with quitters [${quitterSlots.join(', ')}]`
             : '';
 
+        const profile = await getGameProfileForLeague(match.leagueId);
         lines.push(
-          `Flip match \`${match.id}\` → winner **${teamDisplayName(winner)}**${quittersLine}.`,
+          `Flip match \`${match.id}\` → winner **${winnerLabel(winner, profile)}**${quittersLine}.`,
         );
         if (preview.hasNewerMatches) {
           lines.push(
@@ -401,13 +402,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       await interaction.editReply({
         content: 'Updating ratings and completing the match… This can take a few seconds.',
       });
+      const profile = await getGameProfileForLeague(match.leagueId);
       const completed = await completeMatch(match.id, winner, quitterSlots);
       void refreshAllLeaderboardChannels(interaction.client).catch(() => undefined);
       await applyMatchMutation(
         interaction,
         completed.match,
         'completed',
-        `Match \`${completed.match.id}\` completed. Winner: **${teamDisplayName(winner)}**.`,
+        `Match \`${completed.match.id}\` completed. Winner: **${winnerLabel(winner, profile)}**.`,
         { ratingPreview: completed.ratingPreview },
       );
       return;

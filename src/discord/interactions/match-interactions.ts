@@ -32,8 +32,9 @@ import {
   type MatchWithPlayers,
 } from '../../services/match/index.js';
 import { assertCanManageMatch } from '../../services/match/index.js';
-import { resolveGuildConfig } from '../../services/guild/index.js';
-import { teamDisplayName } from '../../services/guild/index.js';
+import type { GameProfile } from '../../domain/game-profile.js';
+import { getGameProfileForLeague } from '../../services/league/index.js';
+import { resolveGuildConfig, winnerLabel } from '../../services/guild/index.js';
 
 const log = createLogger('match-interactions');
 
@@ -177,17 +178,21 @@ function buildReportSkipRow(matchId: string): ActionRowBuilder<ButtonBuilder> {
   );
 }
 
-function buildWinnerRow(matchId: string, quitterSlots: number[]): ActionRowBuilder<ButtonBuilder> {
+function buildWinnerRow(
+  matchId: string,
+  quitterSlots: number[],
+  profile: GameProfile,
+): ActionRowBuilder<ButtonBuilder> {
   const slotsCsv = encodeSlots(quitterSlots);
 
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`match:rw:win:${matchId}:1:${slotsCsv}`)
-      .setLabel(`${teamDisplayName(1)} Won`)
+      .setLabel(`${winnerLabel(1, profile)} Won`)
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(`match:rw:win:${matchId}:2:${slotsCsv}`)
-      .setLabel(`${teamDisplayName(2)} Won`)
+      .setLabel(`${winnerLabel(2, profile)} Won`)
       .setStyle(ButtonStyle.Primary),
   );
 }
@@ -286,6 +291,10 @@ async function resolveById(
   });
 
   return match;
+}
+
+async function profileForMatch(match: MatchWithPlayers): Promise<GameProfile> {
+  return getGameProfileForLeague(match.leagueId);
 }
 
 /**
@@ -390,12 +399,13 @@ async function handleReportQuitters(
   matchId: string,
 ): Promise<void> {
   const match = await resolveById(interaction, matchId);
+  const profile = await profileForMatch(match);
   const quitterSlots = interaction.values.map((slot) => Number(slot));
 
   await updateEphemeral(
     interaction,
     `${formatQuitterSummary(match, quitterSlots)}\n\nChoose the winner:`,
-    [buildWinnerRow(matchId, quitterSlots)],
+    [buildWinnerRow(matchId, quitterSlots, profile)],
   );
 }
 
@@ -406,18 +416,20 @@ async function handleReportQuittersKeep(
   quitterSlots: number[],
 ): Promise<void> {
   const match = await resolveById(interaction, matchId);
+  const profile = await profileForMatch(match);
 
   await updateEphemeral(
     interaction,
     `${formatQuitterSummary(match, quitterSlots)}\n\nChoose the winner:`,
-    [buildWinnerRow(matchId, quitterSlots)],
+    [buildWinnerRow(matchId, quitterSlots, profile)],
   );
 }
 
 async function handleReportSkip(interaction: ButtonInteraction, matchId: string): Promise<void> {
-  await resolveById(interaction, matchId);
+  const match = await resolveById(interaction, matchId);
+  const profile = await profileForMatch(match);
   await updateEphemeral(interaction, 'Quitters: none\n\nChoose the winner:', [
-    buildWinnerRow(matchId, []),
+    buildWinnerRow(matchId, [], profile),
   ]);
 }
 
@@ -428,8 +440,9 @@ async function handleWinnerChoice(
   quitterSlots: number[],
 ): Promise<void> {
   const match = await resolveById(interaction, matchId);
+  const profile = await profileForMatch(match);
   const content = [
-    `Winner: **${teamDisplayName(winningTeam)}**`,
+    `Winner: **${winnerLabel(winningTeam, profile)}**`,
     formatQuitterSummary(match, quitterSlots),
     '',
     'Confirm to complete the match and apply ratings.',
@@ -446,7 +459,8 @@ async function handleConfirmResult(
   winningTeam: 1 | 2,
   quitterSlots: number[],
 ): Promise<void> {
-  await resolveById(interaction, matchId);
+  const match = await resolveById(interaction, matchId);
+  const profile = await profileForMatch(match);
   await showWorking(
     interaction,
     'Updating ratings and completing the match… This can take a few seconds.',
@@ -458,7 +472,7 @@ async function handleConfirmResult(
     ratingPreview: completed.ratingPreview,
   });
   await interaction.editReply({
-    content: `Match \`${matchId}\` completed. Winner: **${teamDisplayName(winningTeam)}**.`,
+    content: `Match \`${matchId}\` completed. Winner: **${winnerLabel(winningTeam, profile)}**.`,
     components: [],
   });
 }
