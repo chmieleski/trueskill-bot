@@ -31,6 +31,8 @@ export type PlayerProfile = {
   rankPosition: number;
   wins: number;
   losses: number;
+  /** Completed or cancelled matches where this player was marked a quitter. */
+  quits: number;
   winRatePercent: number | null;
   heroes: PlayerProfileHero[];
 };
@@ -125,7 +127,7 @@ export async function loadPlayerProfile(
     throw new PlayerServiceError('Player not found.');
   }
 
-  const [rating, allRatings, matchPlayers, heroRatings, gameCounts] =
+  const [rating, allRatings, matchPlayers, quits, heroRatings, gameCounts] =
     await Promise.all([
       prisma.playerRating.findUnique({
         where: { leagueId_playerId: { leagueId, playerId: player.id } },
@@ -141,6 +143,18 @@ export async function loadPlayerProfile(
           result: { in: [MatchResult.WIN, MatchResult.LOSS] },
         },
         select: { result: true },
+      }),
+      // Include CANCELLED: cancel-with-quitters still applies penalties and keeps flags.
+      // Exclude IN_PROGRESS so provisional quit marks do not inflate the count.
+      prisma.matchPlayer.count({
+        where: {
+          playerId: player.id,
+          isQuitter: true,
+          match: {
+            leagueId,
+            status: { in: [MatchStatus.COMPLETED, MatchStatus.CANCELLED] },
+          },
+        },
       }),
       prisma.playerHeroRating.findMany({
         where: { leagueId, playerId: player.id, matchesPlayed: { gt: 0 } },
@@ -203,6 +217,7 @@ export async function loadPlayerProfile(
     rankPosition,
     wins,
     losses,
+    quits,
     winRatePercent,
     heroes,
   };

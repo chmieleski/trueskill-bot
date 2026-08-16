@@ -10,6 +10,7 @@ const baseProfile: PlayerProfile = {
   rankPosition: 3,
   wins: 12,
   losses: 5,
+  quits: 2,
   winRatePercent: 70.6,
   heroes: [
     { heroId: 1, name: 'Goku', ki: 4200, matchesPlayed: 8 },
@@ -40,16 +41,22 @@ describe('buildRankEmbed', () => {
     expect(data.thumbnail?.url).toBe('https://cdn.example/a.png');
   });
 
-  it('omits WR% when no games', () => {
+  it('includes quit count in the record line', () => {
+    const description = buildRankEmbed(baseProfile).toJSON().description ?? '';
+    expect(description).toContain('12W · 5L · 2Q · 70.6% WR');
+  });
+
+  it('omits WR% when no games but still shows quits', () => {
     const embed = buildRankEmbed({
       ...baseProfile,
       discordId: null,
       wins: 0,
       losses: 0,
+      quits: 0,
       winRatePercent: null,
     });
     const description = embed.toJSON().description ?? '';
-    expect(description).toBe('0W · 0L');
+    expect(description).toBe('0W · 0L · 0Q');
     expect(description).not.toContain('WR');
   });
 

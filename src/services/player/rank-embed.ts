@@ -26,8 +26,8 @@ export function buildRankEmbed(
 ): EmbedBuilder {
   const record =
     profile.winRatePercent === null
-      ? `${profile.wins}W · ${profile.losses}L`
-      : `${profile.wins}W · ${profile.losses}L · ${profile.winRatePercent}% WR`;
+      ? `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q`
+      : `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q · ${profile.winRatePercent}% WR`;
 
   // Mentions only resolve in description/fields — Discord footers are plain text.
   const description = profile.discordId
