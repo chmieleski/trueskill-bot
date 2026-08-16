@@ -91,6 +91,7 @@ async function handleOpen(interaction: ButtonInteraction): Promise<void> {
           wc3statsGameId: created.wc3statsGameId,
           wc3statsUnavailable: created.wc3statsUnavailable,
           wc3statsLinkAvailable: created.wc3statsReady && !created.wc3statsGameId,
+          profile: created.profile,
         }),
       ],
       components: buildLobbyButtons({
@@ -99,6 +100,7 @@ async function handleOpen(interaction: ButtonInteraction): Promise<void> {
         playerClaimEnabled: created.playerClaimEnabled,
         wc3statsGameId: created.wc3statsGameId,
         wc3statsEnabled: created.wc3statsReady,
+        profile: created.profile,
       }),
     });
 

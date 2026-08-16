@@ -1,12 +1,17 @@
 import { predictWin } from 'openskill';
 import {
+  getGameProfile,
+  rosterHeroId,
+  teamForSlot,
+  type GameProfile,
+} from '../../domain/game-profile.js';
+import { WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
+import { ratingEntitiesForPlayer } from '../rating/rating-entities.js';
+import {
   roundWinPercents,
   splitRosterByTeam,
   toOpenSkillRatings,
 } from '../rating/rating-math.js';
-
-const TEAM_A_MAX = 6;
-const ALL_SLOTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
 export type MuSigma = { mu: number; sigma: number };
 
@@ -14,7 +19,7 @@ export type BalanceRosterEntry = {
   playerId: string;
   slot: number;
   team: 1 | 2;
-  heroId: number;
+  heroId: number | null;
   nick: string;
 };
 
@@ -31,6 +36,20 @@ export type BalanceSuggestion = {
   toNick?: string;
   resultingWinChance: { teamAPercent: number; teamBPercent: number };
 };
+
+function resolvedProfile(profile?: GameProfile): GameProfile {
+  return profile ?? getGameProfile(WARCRAFT3_UDBR_GAME_ID);
+}
+
+function emptySlotsForProfile(profile: GameProfile, occupied: Set<number>): number[] {
+  const empty: number[] = [];
+  for (let slot = 1; slot <= profile.slotCount; slot += 1) {
+    if (!occupied.has(slot)) {
+      empty.push(slot);
+    }
+  }
+  return empty;
+}
 
 export function isUnbalancedWinChance(teamAPercent: number): boolean {
   return teamAPercent < 45 || teamAPercent > 55;
@@ -57,8 +76,10 @@ function winChanceForRoster(
   const entities = (team: BalanceRosterEntry[]) => {
     const list: MuSigma[] = [];
     for (const entry of team) {
-      list.push(lookup.global(entry.playerId));
-      list.push(lookup.hero(entry.playerId, entry.heroId));
+      const global = lookup.global(entry.playerId);
+      const hero =
+        entry.heroId == null ? global : lookup.hero(entry.playerId, entry.heroId);
+      list.push(...ratingEntitiesForPlayer(global, hero, entry.heroId));
     }
     return toOpenSkillRatings(list);
   };
@@ -71,15 +92,28 @@ function applySwap(
   roster: BalanceRosterEntry[],
   slotA: number,
   slotB: number,
+  profile: GameProfile,
 ): BalanceRosterEntry[] {
   const a = roster.find((e) => e.slot === slotA)!;
   const b = roster.find((e) => e.slot === slotB)!;
   return roster.map((entry) => {
     if (entry.slot === slotA) {
-      return { playerId: b.playerId, nick: b.nick, slot: slotA, heroId: slotA, team: entry.team };
+      return {
+        playerId: b.playerId,
+        nick: b.nick,
+        slot: slotA,
+        heroId: rosterHeroId(profile, slotA),
+        team: entry.team,
+      };
     }
     if (entry.slot === slotB) {
-      return { playerId: a.playerId, nick: a.nick, slot: slotB, heroId: slotB, team: entry.team };
+      return {
+        playerId: a.playerId,
+        nick: a.nick,
+        slot: slotB,
+        heroId: rosterHeroId(profile, slotB),
+        team: entry.team,
+      };
     }
     return entry;
   });
@@ -89,15 +123,15 @@ function applyMove(
   roster: BalanceRosterEntry[],
   fromSlot: number,
   toSlot: number,
+  profile: GameProfile,
 ): BalanceRosterEntry[] {
   return roster.map((entry) =>
     entry.slot === fromSlot
       ? {
           ...entry,
           slot: toSlot,
-          heroId: toSlot,
-          // Temporary UDBR inference until Task 5 persists profile teamForSlot.
-          team: toSlot <= TEAM_A_MAX ? 1 : 2,
+          heroId: rosterHeroId(profile, toSlot),
+          team: teamForSlot(profile, toSlot),
         }
       : entry,
   );
@@ -124,6 +158,7 @@ export function suggestBalanceMove(
   roster: BalanceRosterEntry[],
   lookup: BalanceRatingLookup,
   currentWinChance: { teamAPercent: number; teamBPercent: number },
+  profile?: GameProfile,
 ): BalanceSuggestion | undefined {
   if (!isUnbalancedWinChance(currentWinChance.teamAPercent)) {
     return undefined;
@@ -133,16 +168,17 @@ export function suggestBalanceMove(
     return undefined;
   }
 
+  const resolved = resolvedProfile(profile);
   const currentImbalance = imbalance(currentWinChance.teamAPercent);
   const occupied = new Set(roster.map((e) => e.slot));
-  const emptySlots = ALL_SLOTS.filter((slot) => !occupied.has(slot));
+  const emptySlots = emptySlotsForProfile(resolved, occupied);
   const { teamA, teamB } = splitRosterByTeam(roster);
 
   const candidates: BalanceSuggestion[] = [];
 
   for (const a of teamA) {
     for (const b of teamB) {
-      const next = applySwap(roster, a.slot, b.slot);
+      const next = applySwap(roster, a.slot, b.slot, resolved);
       const wc = winChanceForRoster(next, lookup);
       if (!wc || imbalance(wc.teamAPercent) >= currentImbalance) {
         continue;
@@ -160,7 +196,7 @@ export function suggestBalanceMove(
 
   for (const entry of roster) {
     for (const toSlot of emptySlots) {
-      const next = applyMove(roster, entry.slot, toSlot);
+      const next = applyMove(roster, entry.slot, toSlot, resolved);
       if (!teamCountsOk(next)) {
         continue;
       }

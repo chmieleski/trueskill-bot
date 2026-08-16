@@ -22,6 +22,7 @@ import {
 } from '../rating/rating-preview.js';
 import { prisma } from '../../lib/prisma.js';
 import { isLeagueWc3statsImportReady } from '../league/league-wc3stats.js';
+import { getGameProfileForLeague } from '../league/league-profile.js';
 
 const log = createLogger('lobby-discord-sync');
 
@@ -89,13 +90,14 @@ export async function syncLobbyDiscordMessage(
   }
 
   const players = matchToLobbyPlayers(match);
+  const profile = await getGameProfileForLeague(match.leagueId);
   let payload: {
     embeds: EmbedBuilder[];
     components: ActionRowBuilder<ButtonBuilder>[];
   };
 
   if (mode === 'pending') {
-    const canStart = canStartLobby(players);
+    const canStart = canStartLobby(players, profile);
     const ratingPreview = await loadLobbyRatingPreview(
       match.leagueId,
       matchPlayersToRatingEntries(match.players),
@@ -110,6 +112,7 @@ export async function syncLobbyDiscordMessage(
           ratingPreview,
           wc3statsGameId: match.wc3statsGameId,
           wc3statsLinkAvailable: wc3statsReady && !match.wc3statsGameId,
+          profile,
         }),
       ],
       components: buildLobbyButtons({
@@ -118,6 +121,7 @@ export async function syncLobbyDiscordMessage(
         playerClaimEnabled,
         wc3statsGameId: match.wc3statsGameId,
         wc3statsEnabled: wc3statsReady,
+        profile,
       }),
     };
   } else if (mode === 'started') {
@@ -126,7 +130,7 @@ export async function syncLobbyDiscordMessage(
       matchPlayersToRatingEntries(match.players),
     );
     payload = {
-      embeds: [buildMatchInProgressEmbed(match.id, players, { ratingPreview })],
+      embeds: [buildMatchInProgressEmbed(match.id, players, { ratingPreview, profile })],
       components: buildMatchReportButtons(),
     };
   } else if (mode === 'completed') {
@@ -138,6 +142,7 @@ export async function syncLobbyDiscordMessage(
         buildMatchCompletedEmbed(match.id, players, {
           ratingPreview,
           winningTeam: determineWinningTeam(match.players),
+          profile,
         }),
       ],
       components: [],
