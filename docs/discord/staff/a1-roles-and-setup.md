@@ -61,9 +61,41 @@ Match mods can force-reset a linked player (bypasses cooldown):
 /rank_reset user:@Player
 ```
 
+**6) Live quitter leaderboard channel**
+```
+/config set quitter_leaderboard_channel channel:#quitters
+```
+or in the channel:
+```
+/leaderboard setup_quitters
+```
+Keep **only** that bot message in that channel.
+
+Guild-wide — counts quits across **all leagues** on this server (unlike the overall live board, which is per league).
+
+Optional size (default 10, max 100; Discord splits every 25 ranks into another embed):
+```
+/config set quitter_leaderboard_size size:25
+```
+Reset: `/config clear quitter_leaderboard_size`
+
+Columns and sort (defaults: display `both`, sort `count`):
+```
+/config set quitter_leaderboard_display display:count
+/config set quitter_leaderboard_display display:rate
+/config set quitter_leaderboard_display display:both
+/config set quitter_leaderboard_sort sort:count
+/config set quitter_leaderboard_sort sort:rate
+```
+Sort can differ from visible columns (e.g. sort by rate while only showing quit count).
+
+Reset display/sort: `/config clear quitter_leaderboard_display` · `/config clear quitter_leaderboard_sort`
+
+Players can also browse with `/leaderboard quitters`.
+
 **See everything**
 ```
 /config view
 ```
 
-Clear live board: `/config clear leaderboard_channel`
+Clear live boards: `/config clear leaderboard_channel` · `/config clear quitter_leaderboard_channel`
