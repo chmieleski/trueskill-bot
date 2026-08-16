@@ -191,7 +191,7 @@ model MatchPlayer {
   playerId  String
   team      Int // 1 or 2 (1-6 = Team A, 7-12 = Team B)
   slot      Int // 1-12 (Absolute position - determines team + hero)
-  heroId    Int // 1-12 (DBZ heroes mapped to slots)
+  heroId    Int? // slot-bound games: slot id; optional_in_game: null until pick (phase 2)
   result    MatchResult? // Null until match ends
   isQuitter Boolean      @default(false) // Quitter penalty flag
 
