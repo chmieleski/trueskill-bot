@@ -14,3 +14,12 @@ export function ratingEntitiesForPlayer(
   }
   return [global, hero];
 }
+
+/**
+ * Roster rows that have a catalog hero (hero rating entity exists).
+ */
+export function rosterEntriesWithHeroId<T extends { heroId: number | null }>(
+  entries: T[],
+): Array<T & { heroId: number }> {
+  return entries.filter((entry): entry is T & { heroId: number } => entry.heroId != null);
+}
