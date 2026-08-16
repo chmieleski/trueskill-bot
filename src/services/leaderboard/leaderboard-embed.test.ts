@@ -5,6 +5,7 @@ import {
   buildLeaderboardPageButtons,
   buildOverallLeaderboardEmbed,
   buildOverallLiveLeaderboardEmbeds,
+  formatOverallTable,
   formatRankPrefix,
   parseLeaderboardPageCustomId,
 } from './leaderboard-embed.js';
@@ -30,6 +31,14 @@ describe('formatRankPrefix', () => {
   });
 });
 
+describe('formatOverallTable', () => {
+  it('uses a capitalized ratingLabel column header', () => {
+    const table = formatOverallTable([fakeEntry(1)], 'power');
+    expect(table).toContain('Power');
+    expect(table).not.toContain(' Ki');
+  });
+});
+
 describe('buildOverallLeaderboardEmbed', () => {
   it('includes page line for command mode', () => {
     const embed = buildOverallLeaderboardEmbed({
@@ -52,6 +61,19 @@ describe('buildOverallLeaderboardEmbed', () => {
     expect(data.color).toBe(0xf0b232);
     expect(data.description).toContain('Page 1 of 1');
     expect(data.description).toContain('Tinys');
+  });
+
+  it('passes ratingLabel into the table header', () => {
+    const embed = buildOverallLeaderboardEmbed(
+      {
+        entries: [fakeEntry(1)],
+        page: 1,
+        totalPages: 1,
+        totalPlayers: 1,
+      },
+      { ratingLabel: 'power' },
+    );
+    expect(embed.data.description).toContain('Power');
   });
 
   it('omits page line for live mode and renders timestamp in description', () => {

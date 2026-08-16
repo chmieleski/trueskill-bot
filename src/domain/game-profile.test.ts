@@ -20,6 +20,7 @@ describe('getGameProfile', () => {
     expect(profile.teamAMaxSlot).toBe(6);
     expect(profile.heroBinding).toBe('slot_bound');
     expect(profile.import).toBe('wc3stats');
+    expect(profile.ratingLabel).toBe('ki');
     expect(profile.teamNames).toEqual({ 1: 'Z Fighters', 2: 'Evil' });
   });
 
@@ -31,6 +32,7 @@ describe('getGameProfile', () => {
     expect(profile.teamAMaxSlot).toBe(5);
     expect(profile.heroBinding).toBe('optional_in_game');
     expect(profile.import).toBe('none');
+    expect(profile.ratingLabel).toBe('ki');
     expect(profile.teamNames).toEqual({ 1: 'Team A', 2: 'Team B' });
   });
 

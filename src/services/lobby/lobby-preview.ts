@@ -38,12 +38,15 @@ export const LOBBY_PENDING_TTL_MS = 2 * 60 * 60 * 1000;
 const TEAM_A_EMOJI = '🟥';
 const TEAM_B_EMOJI = '🟦';
 
-/** Real Discord embed footer (not a field) — no markdown supported here. */
-const ORDINAL_FOOTER = 'Per player: slot  nick  global / hero (ki)';
-const GLOBAL_ONLY_FOOTER = 'Per player: slot  nick  global (ki)';
-
 function resolvedProfile(profile?: GameProfile): GameProfile {
   return profile ?? getGameProfile(WARCRAFT3_UDBR_GAME_ID);
+}
+
+/** Real Discord embed footer (not a field) — no markdown supported here. */
+function ordinalFooterText(ratingLabel: string, hideHero: boolean): string {
+  return hideHero
+    ? `Per player: slot  nick  global (${ratingLabel})`
+    : `Per player: slot  nick  global / hero (${ratingLabel})`;
 }
 
 /** Pad slot 1–12 so columns stay aligned in monospace roster lines. */
@@ -233,12 +236,15 @@ function teamFieldValues(
   };
 }
 
-function ordinalFooter(preview: LobbyRatingPreview | undefined): string | undefined {
+function ordinalFooter(
+  preview: LobbyRatingPreview | undefined,
+  ratingLabel: string,
+): string | undefined {
   if (!preview) {
     return undefined;
   }
   const hideHero = preview.players.some((player) => player.showHero === false);
-  return hideHero ? GLOBAL_ONLY_FOOTER : ORDINAL_FOOTER;
+  return ordinalFooterText(ratingLabel, hideHero);
 }
 
 /** Shared chrome: author (match id), footer legend, timestamp. */
@@ -247,12 +253,13 @@ function applyEmbedChrome(
   options: {
     matchId: string;
     ratingPreview?: LobbyRatingPreview;
+    ratingLabel: string;
     timestamp?: Date;
   },
 ): EmbedBuilder {
   embed.setAuthor({ name: `Match ${options.matchId}` });
 
-  const footer = ordinalFooter(options.ratingPreview);
+  const footer = ordinalFooter(options.ratingPreview, options.ratingLabel);
   if (footer) {
     embed.setFooter({ text: footer });
   }
@@ -333,6 +340,7 @@ export function buildMatchLobbyEmbed(
   return applyEmbedChrome(embed, {
     matchId,
     ratingPreview: options.ratingPreview,
+    ratingLabel: profile.ratingLabel,
     timestamp: createdAt,
   });
 }
@@ -370,6 +378,7 @@ export function buildMatchInProgressEmbed(
   return applyEmbedChrome(embed, {
     matchId,
     ratingPreview: options.ratingPreview,
+    ratingLabel: profile.ratingLabel,
     timestamp: new Date(),
   });
 }
@@ -433,6 +442,7 @@ export function buildMatchCompletedEmbed(
   return applyEmbedChrome(embed, {
     matchId,
     ratingPreview: options.ratingPreview,
+    ratingLabel: profile.ratingLabel,
     timestamp: new Date(),
   });
 }

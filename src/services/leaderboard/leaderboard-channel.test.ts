@@ -19,6 +19,10 @@ vi.mock('../league/league-wc3stats.js', () => ({
   clearLeagueLeaderboardChannel: vi.fn(),
 }));
 
+vi.mock('../league/league-profile.js', () => ({
+  getGameProfileForLeague: vi.fn().mockResolvedValue({ ratingLabel: 'ki' }),
+}));
+
 vi.mock('./leaderboard.js', () => ({
   loadOverallLeaderboardTop: vi.fn().mockResolvedValue([]),
   LIVE_LEADERBOARD_DEFAULT_SIZE: 10,
@@ -70,7 +74,11 @@ describe('refreshLeagueLeaderboard', () => {
     await refreshLeagueLeaderboard(client, 'league-1');
 
     expect(loadOverallLeaderboardTop).toHaveBeenCalledWith('league-1', 50);
-    expect(buildOverallLiveLeaderboardEmbeds).toHaveBeenCalled();
+    expect(buildOverallLiveLeaderboardEmbeds).toHaveBeenCalledWith(
+      [],
+      expect.any(Date),
+      'ki',
+    );
     expect(edit).toHaveBeenCalledWith('msg-1', {
       embeds: [{ fake: true }],
     });

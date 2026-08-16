@@ -25,12 +25,13 @@ UDBR behavior stays as it is today (12 slots, `heroId = slot`, dual-entity ratin
 - Catalog of Anime Choice Arena characters
 - Recording in-game hero picks on `MatchPlayer`
 - Dual-entity OpenSkill (global + hero) for this game
-- Themed team names for ACA (v1 uses Team A / Team B)
 - Full `src/games/<id>/` adapter framework
-- Changing OpenSkill math, ki formula, match status machine, or `leagueId` isolation
+- Changing OpenSkill math or the ordinal/`displayOrdinal` formula (only the **display word** for that number is per-game)
+- Changing match status machine or `leagueId` isolation
 - New production env / SSM keys
 - Migrating the global `Hero` table (1–12) or `PlayerHeroRating` FKs
 - Landing or depending on `feature/game-scoped-heroes`
+- Per-guild or runtime overrides of flavor (v1 = code profile only; edit the preset to change)
 
 ## Locked decisions
 
@@ -47,9 +48,9 @@ UDBR behavior stays as it is today (12 slots, `heroId = slot`, dual-entity ratin
 | Rating v1 | League-global `PlayerRating` only |
 | Hero v1 | `MatchPlayer.heroId = null`; do not create/update `PlayerHeroRating` |
 | Hero phase 2 | `GameHero` catalog per `gameId` + persist pick; do **not** reuse UDBR `Hero` ids 1–12 |
-| Profile storage v1 | TypeScript module; **no** new `Game` / `League` columns for slot count or hero mode |
+| Profile storage v1 | TypeScript module; **no** new `Game` / `League` columns for slot count, hero mode, or flavor |
 | Team split | Persist `MatchPlayer.team`; rating/lobby split uses **`team`**, not hardcoded `slot <= 6` |
-| Team UI (runtime) | Profile `teamNames`: UDBR stays Z Fighters / Evil; ACA is Team A / Team B |
+| Display flavor (runtime) | On `GameProfile`: `ratingLabel` + `teamNames`. UDBR = `ki` / Z Fighters / Evil; ACA v1 = `ki` / Team A / Team B. Mutable later by editing the game’s profile entry only |
 | Slash command metadata | **Global** — slot `min`/`max` stay 1–12; winner choice **labels** stay Z Fighters / Evil. Validate slot against the resolved league’s profile at execute time |
 | Create / mod roles | Stay guild-wide (`GuildConfig`) |
 | Isolation | Unchanged: ratings and matches keyed by `leagueId` |
@@ -60,6 +61,7 @@ UDBR behavior stays as it is today (12 slots, `heroId = slot`, dual-entity ratin
 - **Full `src/games/<id>/` framework now** — too much for the first non-UDBR IHL; profile is the forced shared pattern.
 - **`GameHero` table in this PR** — unused until picks exist (YAGNI). Nullable `heroId` + `heroBinding` is the v1 contract.
 - **Require a `Hero` row per `MatchPlayer`** — blocks `optional_in_game`. Keep no required FK from `MatchPlayer` to `Hero` (current `main`).
+- **Hardcode Dragon Ball flavor in core** — team names and the rating unit must live on `GameProfile` so a third map can swap copy without forking embeds.
 
 ## Architecture
 
@@ -73,6 +75,7 @@ getGameProfile(gameId)     // general — code catalog
   teamAMaxSlot
   heroBinding: slot_bound | optional_in_game
   import: wc3stats | none
+  ratingLabel              // user-facing unit, e.g. "ki"
   teamNames: { 1, 2 }
 
 League.gameId → profile
@@ -86,8 +89,11 @@ League.gameId → profile
 | Slots | 12 (6+6) | 10 (5+5) |
 | `heroBinding` | `slot_bound` (`heroId = slot`) | `optional_in_game` (`heroId` null) |
 | `import` | `wc3stats` | `none` |
+| `ratingLabel` | `ki` | `ki` |
 | Runtime team names | Z Fighters / Evil | Team A / Team B |
 | Fill | screenshot / wc3stats / Discord | Discord only |
+
+Flavor (`ratingLabel`, `teamNames`) is **per game/map preset**, not hardcoded Dragon Ball copy in core. Both games ship with `ki` today; ACA uses neutral Team A / Team B. Changing either later is an edit to that profile row in code — no Prisma migration.
 
 Happy path: `/league create` → `/league bind` → `/register_lobby` (empty) → add/swap/claim → start → report → `/rank`.
 
@@ -108,6 +114,8 @@ export type GameProfile = {
   teamAMaxSlot: number;
   heroBinding: HeroBinding;
   import: GameImportKind;
+  /** User-facing rating unit (e.g. "ki"). Math unchanged; label is per game. */
+  ratingLabel: string;
   teamNames: { 1: string; 2: string };
 };
 
@@ -121,7 +129,11 @@ export function teamForSlot(profile: GameProfile, slot: number): 1 | 2;
 
 ### Call-site rules
 
-Core must read the profile of the **resolved league** (or the match’s `league.gameId`) instead of literals `12`, `6`, `heroId = slot`, or Z Fighters / Evil **at runtime**.
+Core must read the profile of the **resolved league** (or the match’s `league.gameId`) instead of literals `12`, `6`, `heroId = slot`, Z Fighters / Evil, or the word `ki` **at runtime** (user-facing surfaces).
+
+- Embeds, rank titles, lobby footers, and similar copy use `profile.ratingLabel` and `profile.teamNames`.
+- Internal DTO / field names may keep `ki` / `globalKi` for stability; that does not authorize hardcoding `"ki"` in new user-visible strings when a profile is in scope.
+- Global slash **registration** may still hardcode Z Fighters / Evil (Discord one-tree limit); runtime replies after resolve must use the profile.
 
 UDBR-only modules (`src/services/wc3stats/**`, OCR prompt, host-lobby poller) run only when `profile.import === 'wc3stats'` (or equivalent league config already used today). They must not run for ACA leagues.
 
@@ -162,8 +174,8 @@ The OpenSkill **shell** stays `applyMatchRatings(leagueId, entries, winningTeam)
 
 - `ensurePlayerRatings` creates `PlayerRating` always; creates `PlayerHeroRating` only when `heroId` is non-null.
 - `splitRosterByTeam` takes `team: 1 | 2` on each entry (not `slot <= 6`). Callers pass persisted `MatchPlayer.team`.
-- Preview, win %, and balance hint for ACA use **global ki only**. No hero line, no “move to destination hero”.
-- `/rank` omits the hero block when the player has no `PlayerHeroRating` rows in that league (empty block is already possible; do not invent placeholder heroes).
+- Preview, win %, and balance hint for ACA use **global rating only** (label from `profile.ratingLabel`, default preset `ki`). No hero line, no “move to destination hero”.
+- `/rank` omits the hero block when the player has no `PlayerHeroRating` rows in that league (empty block is already possible; do not invent placeholder heroes). Titles/lines that show the number use `profile.ratingLabel`.
 - `/leaderboard` hero subcommand (or hero option) on an `optional_in_game` league with no catalog: refuse — *Hero rankings are not available for this game.*
 
 Correction (`/match flip` / `void`) stays `general`. Restore GLOBAL snapshots; skip HERO restore when none were written.
@@ -186,7 +198,7 @@ All user-facing strings stay **English**.
 
 **Staff:** `/league create` adds choice `{ name: 'Anime Choice Arena', value: 'warcraft3_anime_choice_arena' }`. Bind/unbind unchanged.
 
-**Runtime (match-scoped):** embeds, lobby buttons/selects, start/report copy use `profile.slotCount` and `profile.teamNames`. ACA lobby shows 10 slot controls, Team A / Team B, global ki only.
+**Runtime (match-scoped):** embeds, lobby buttons/selects, start/report copy use `profile.slotCount`, `profile.teamNames`, and `profile.ratingLabel`. ACA lobby shows 10 slot controls, Team A / Team B, global `ki` only (same label as UDBR until a future preset change).
 
 **Global slash metadata (Discord limitation):** one command tree for all guilds. Do **not** change registered slot `minValue`/`maxValue` (stay 1–12) or winner choice **names** (stay Z Fighters / Evil, values `A` / `B`). Execute/autocomplete validate against the **resolved league** profile:
 
@@ -212,7 +224,7 @@ Host-lobby poller: skip leagues whose profile `import !== 'wc3stats'` (in additi
 
 Required coverage:
 
-- Profiles: UDBR 12 / `slot_bound` / `wc3stats` / Z Fighters–Evil; ACA 10 / `optional_in_game` / `none` / Team A–B.
+- Profiles: UDBR 12 / `slot_bound` / `wc3stats` / `ratingLabel: ki` / Z Fighters–Evil; ACA 10 / `optional_in_game` / `none` / `ratingLabel: ki` / Team A–B.
 - `teamForSlot` and persist `MatchPlayer.team` for both layouts.
 - `splitRosterByTeam` uses `team` (UDBR 6v6 and ACA 5v5, including unbalanced).
 - `applyMatchRatings` and quitters with `heroId` null: only `PlayerRating` rows change; zero `PlayerHeroRating` writes.
@@ -232,8 +244,8 @@ Do not put ACA map SHA-1 or 1.26 details in `.env`.
 1. Optional lobby screenshot OCR that reads **nicks and teams**, not heroes.
 2. `GameHero` + persist pick (`MatchPlayer.heroId` set).
 3. Dual-entity OpenSkill when `heroId` is present on that game.
-4. Themed ACA team names via the same profile field.
-5. A third game = new `gameId` + `GameProfile` row in code + `Game` seed.
+4. Retheme ACA (or any game) by editing that profile’s `teamNames` / `ratingLabel` only — already supported; no extra feature work.
+5. A third game = new `gameId` + `GameProfile` row in code + `Game` seed (including its own flavor preset).
 
 ## Edge cases
 

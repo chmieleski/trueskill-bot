@@ -46,6 +46,11 @@ describe('buildRankEmbed', () => {
     expect(description).toContain('12W · 5L · 2Q · 70.6% WR');
   });
 
+  it('uses profile ratingLabel in the title when provided', () => {
+    const data = buildRankEmbed(baseProfile, { ratingLabel: 'power' }).toJSON();
+    expect(data.title).toBe('Rank #3 · 4000 power');
+  });
+
   it('omits WR% when no games but still shows quits', () => {
     const embed = buildRankEmbed({
       ...baseProfile,
