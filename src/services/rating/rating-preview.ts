@@ -4,7 +4,7 @@ import { predictWin } from 'openskill';
 import { listCatalogHeroIds } from '../guild/hero-catalog.js';
 import { prisma } from '../../lib/prisma.js';
 import { createLogger } from '../../lib/logger.js';
-import { ratingEntitiesForPlayer } from './rating-entities.js';
+import { ratingEntitiesForPlayer, rosterEntriesWithHeroId } from './rating-entities.js';
 import {
   displayOrdinal,
   roundWinPercents,
@@ -78,9 +78,7 @@ export async function ensurePlayerRatings(
     skipDuplicates: true,
   });
 
-  const withHero = entries.filter(
-    (entry): entry is typeof entry & { heroId: number } => entry.heroId != null,
-  );
+  const withHero = rosterEntriesWithHeroId(entries);
   if (withHero.length > 0) {
     await db.playerHeroRating.createMany({
       data: withHero.map((entry) => ({

@@ -1,6 +1,7 @@
 import { rating } from 'openskill';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MatchServiceError } from '../match/match-service.js';
+import { ensurePlayerRatings } from './rating-preview.js';
 import {
   applySyntheticLosses,
   assertBothTeamsHaveActivePlayers,
@@ -85,5 +86,43 @@ describe('assertBothTeamsHaveActivePlayers', () => {
     expect(() => assertBothTeamsHaveActivePlayers([{ slot: 1, team: 1 }])).toThrow(
       MatchServiceError,
     );
+  });
+});
+
+describe('ensurePlayerRatings', () => {
+  it('does not create PlayerHeroRating when heroId is null', async () => {
+    const playerRating = { createMany: vi.fn().mockResolvedValue({ count: 2 }) };
+    const playerHeroRating = { createMany: vi.fn() };
+
+    await ensurePlayerRatings(
+      'league-1',
+      [
+        { playerId: 'p1', heroId: null },
+        { playerId: 'p2', heroId: null },
+      ],
+      { playerRating, playerHeroRating } as never,
+    );
+
+    expect(playerRating.createMany).toHaveBeenCalledOnce();
+    expect(playerHeroRating.createMany).not.toHaveBeenCalled();
+  });
+
+  it('creates PlayerHeroRating only for non-null heroId', async () => {
+    const playerRating = { createMany: vi.fn().mockResolvedValue({ count: 2 }) };
+    const playerHeroRating = { createMany: vi.fn().mockResolvedValue({ count: 1 }) };
+
+    await ensurePlayerRatings(
+      'league-1',
+      [
+        { playerId: 'p1', heroId: null },
+        { playerId: 'p2', heroId: 4 },
+      ],
+      { playerRating, playerHeroRating } as never,
+    );
+
+    expect(playerHeroRating.createMany).toHaveBeenCalledWith({
+      data: [{ leagueId: 'league-1', playerId: 'p2', heroId: 4 }],
+      skipDuplicates: true,
+    });
   });
 });

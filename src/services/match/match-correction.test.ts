@@ -1,30 +1,33 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { MatchServiceError } from './match-service.js';
 import {
   CORRECTION_WINDOW_MS,
   GLOBAL_SNAPSHOT_HERO_ID,
+  assertSnapshotsComplete,
   expectedSnapshotCount,
   isWithinCorrectionWindow,
   parseMatchCorrectionButtonCustomId,
   buildMatchCorrectionConfirmCustomId,
+  writeMatchRatingSnapshots,
 } from './match-correction.js';
 
+const SNAPSHOTS_MISSING =
+  'This match cannot be corrected because rating snapshots are missing.';
+
 describe('expectedSnapshotCount', () => {
+  // assertSnapshotsComplete and previewMatchCorrection both use this helper.
   it('counts GLOBAL+HERO per player when heroId is set', () => {
-    expect(
-      expectedSnapshotCount([
-        { heroId: 1 },
-        { heroId: 7 },
-      ]),
-    ).toBe(4);
+    expect(expectedSnapshotCount([{ heroId: 1 }, { heroId: 7 }])).toBe(4);
   });
 
-  it('counts GLOBAL only when heroId is null', () => {
-    expect(
-      expectedSnapshotCount([
-        { heroId: null },
-        { heroId: null },
-      ]),
-    ).toBe(2);
+  it('counts one GLOBAL row per null-hero player (not rosterSize * 2)', () => {
+    const acaRoster = Array.from({ length: 10 }, () => ({ heroId: null }));
+    expect(expectedSnapshotCount(acaRoster)).toBe(10);
+    expect(expectedSnapshotCount(acaRoster)).not.toBe(acaRoster.length * 2);
+  });
+
+  it('adds 1 for null heroId and 2 when heroId is set', () => {
+    expect(expectedSnapshotCount([{ heroId: null }, { heroId: 3 }, { heroId: null }])).toBe(4);
   });
 });
 
@@ -125,5 +128,114 @@ describe('matchcorr customId', () => {
     const parsed = parseMatchCorrectionButtonCustomId(cancelId);
     expect(parsed?.kind).toBe('cancel');
     expect(parsed?.action).toBe('flip');
+  });
+});
+
+function mockCorrectionDb(opts: {
+  snapshotCount?: number;
+  globals?: Array<{ playerId: string; mu: number; sigma: number }>;
+  heroes?: Array<{
+    playerId: string;
+    heroId: number;
+    mu: number;
+    sigma: number;
+    matchesPlayed: number;
+  }>;
+}) {
+  const createMany = vi.fn().mockResolvedValue({ count: 0 });
+  const count = vi.fn().mockResolvedValue(opts.snapshotCount ?? 0);
+  const heroFindMany = vi.fn().mockResolvedValue(opts.heroes ?? []);
+  return {
+    db: {
+      matchRatingSnapshot: { count, createMany },
+      playerRating: {
+        findMany: vi.fn().mockResolvedValue(opts.globals ?? []),
+      },
+      playerHeroRating: { findMany: heroFindMany },
+    } as never,
+    createMany,
+    count,
+    heroFindMany,
+  };
+}
+
+describe('writeMatchRatingSnapshots', () => {
+  it('inserts one GLOBAL row per null-hero player', async () => {
+    const players = Array.from({ length: 10 }, (_, i) => ({
+      playerId: `p${i + 1}`,
+      heroId: null,
+    }));
+    const { db, createMany, heroFindMany } = mockCorrectionDb({
+      globals: players.map((player) => ({
+        playerId: player.playerId,
+        mu: 25,
+        sigma: 8.333,
+      })),
+    });
+
+    await writeMatchRatingSnapshots('league-1', 'match-1', players, db);
+
+    expect(heroFindMany).not.toHaveBeenCalled();
+    expect(createMany).toHaveBeenCalledOnce();
+    const rows = (createMany.mock.calls[0]![0] as { data: Array<{ entityKind: string; heroId: number }> })
+      .data;
+    expect(rows).toHaveLength(10);
+    expect(
+      rows.every(
+        (row) => row.entityKind === 'GLOBAL' && row.heroId === GLOBAL_SNAPSHOT_HERO_ID,
+      ),
+    ).toBe(true);
+  });
+
+  it('inserts GLOBAL and HERO rows when heroId is set', async () => {
+    const players = [
+      { playerId: 'p1', heroId: 1 },
+      { playerId: 'p2', heroId: 7 },
+    ];
+    const { db, createMany } = mockCorrectionDb({
+      globals: [
+        { playerId: 'p1', mu: 25, sigma: 8.333 },
+        { playerId: 'p2', mu: 25, sigma: 8.333 },
+      ],
+      heroes: [
+        { playerId: 'p1', heroId: 1, mu: 25, sigma: 8.333, matchesPlayed: 0 },
+        { playerId: 'p2', heroId: 7, mu: 25, sigma: 8.333, matchesPlayed: 0 },
+      ],
+    });
+
+    await writeMatchRatingSnapshots('league-1', 'match-1', players, db);
+
+    const rows = (createMany.mock.calls[0]![0] as { data: unknown[] }).data;
+    expect(rows).toHaveLength(4);
+  });
+});
+
+describe('assertSnapshotsComplete', () => {
+  it('accepts one snapshot per null-hero player', async () => {
+    const roster = Array.from({ length: 10 }, () => ({ heroId: null }));
+    const { db } = mockCorrectionDb({ snapshotCount: 10 });
+
+    await expect(assertSnapshotsComplete('match-1', roster, db)).resolves.toBeUndefined();
+  });
+
+  it('rejects a null-hero roster when the count is rosterSize * 2', async () => {
+    const roster = Array.from({ length: 10 }, () => ({ heroId: null }));
+    const { db } = mockCorrectionDb({ snapshotCount: 20 });
+
+    await expect(assertSnapshotsComplete('match-1', roster, db)).rejects.toThrow(SNAPSHOTS_MISSING);
+    await expect(assertSnapshotsComplete('match-1', roster, db)).rejects.toBeInstanceOf(
+      MatchServiceError,
+    );
+  });
+
+  it('still requires two rows when heroId is set', async () => {
+    const roster = [{ heroId: 1 }, { heroId: 2 }];
+    const tooFew = mockCorrectionDb({ snapshotCount: 2 });
+    await expect(assertSnapshotsComplete('match-1', roster, tooFew.db)).rejects.toThrow(
+      SNAPSHOTS_MISSING,
+    );
+
+    const complete = mockCorrectionDb({ snapshotCount: 4 });
+    await expect(assertSnapshotsComplete('match-1', roster, complete.db)).resolves.toBeUndefined();
   });
 });
