@@ -238,13 +238,15 @@ function teamFieldValues(
 
 function ordinalFooter(
   preview: LobbyRatingPreview | undefined,
-  ratingLabel: string,
+  profile: GameProfile,
 ): string | undefined {
   if (!preview) {
     return undefined;
   }
-  const hideHero = preview.players.some((player) => player.showHero === false);
-  return ordinalFooterText(ratingLabel, hideHero);
+  const hideHero =
+    profile.heroBinding === 'optional_in_game' ||
+    preview.players.some((player) => player.showHero === false);
+  return ordinalFooterText(profile.ratingLabel, hideHero);
 }
 
 /** Shared chrome: author (match id), footer legend, timestamp. */
@@ -253,13 +255,13 @@ function applyEmbedChrome(
   options: {
     matchId: string;
     ratingPreview?: LobbyRatingPreview;
-    ratingLabel: string;
+    profile: GameProfile;
     timestamp?: Date;
   },
 ): EmbedBuilder {
   embed.setAuthor({ name: `Match ${options.matchId}` });
 
-  const footer = ordinalFooter(options.ratingPreview, options.ratingLabel);
+  const footer = ordinalFooter(options.ratingPreview, options.profile);
   if (footer) {
     embed.setFooter({ text: footer });
   }
@@ -340,7 +342,7 @@ export function buildMatchLobbyEmbed(
   return applyEmbedChrome(embed, {
     matchId,
     ratingPreview: options.ratingPreview,
-    ratingLabel: profile.ratingLabel,
+    profile,
     timestamp: createdAt,
   });
 }
@@ -378,7 +380,7 @@ export function buildMatchInProgressEmbed(
   return applyEmbedChrome(embed, {
     matchId,
     ratingPreview: options.ratingPreview,
-    ratingLabel: profile.ratingLabel,
+    profile,
     timestamp: new Date(),
   });
 }
@@ -442,7 +444,7 @@ export function buildMatchCompletedEmbed(
   return applyEmbedChrome(embed, {
     matchId,
     ratingPreview: options.ratingPreview,
-    ratingLabel: profile.ratingLabel,
+    profile,
     timestamp: new Date(),
   });
 }

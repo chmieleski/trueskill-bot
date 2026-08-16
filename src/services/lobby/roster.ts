@@ -1,5 +1,9 @@
-import type { GameProfile } from '../../domain/game-profile.js';
-import { invalidSlotMessage, isSlotInProfile } from '../../domain/game-profile.js';
+import type { GameProfile, TeamId } from '../../domain/game-profile.js';
+import {
+  invalidSlotMessage,
+  isSlotInProfile,
+  teamForSlot,
+} from '../../domain/game-profile.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
 import { MatchServiceError } from '../match/match-service.js';
 import { normalizeNick } from '../player/player-nick.js';
@@ -12,6 +16,68 @@ function assertSlotInRange(slot: number, profile: GameProfile): void {
   if (!isSlotInProfile(profile, slot)) {
     throw new MatchServiceError(invalidSlotMessage(profile));
   }
+}
+
+/**
+ * Parse host team input for optional_in_game add (1/2, A/B, or profile team name).
+ */
+export function parseTeamInput(raw: string, profile: GameProfile): TeamId {
+  const trimmed = raw.trim().toLowerCase();
+  if (trimmed === '') {
+    throw new MatchServiceError(
+      `Enter 1 (${profile.teamNames[1]}) or 2 (${profile.teamNames[2]}).`,
+    );
+  }
+
+  if (
+    trimmed === '1' ||
+    trimmed === 'a' ||
+    trimmed === 'team a' ||
+    trimmed === 'team 1'
+  ) {
+    return 1;
+  }
+  if (
+    trimmed === '2' ||
+    trimmed === 'b' ||
+    trimmed === 'team b' ||
+    trimmed === 'team 2'
+  ) {
+    return 2;
+  }
+
+  const name1 = profile.teamNames[1].toLowerCase();
+  const name2 = profile.teamNames[2].toLowerCase();
+  if (trimmed === name1) {
+    return 1;
+  }
+  if (trimmed === name2) {
+    return 2;
+  }
+
+  throw new MatchServiceError(
+    `Enter 1 (${profile.teamNames[1]}) or 2 (${profile.teamNames[2]}).`,
+  );
+}
+
+/** Lowest empty slot on the given team, or throw if that team is full. */
+export function nextEmptySlotOnTeam(
+  players: LobbyPlayer[],
+  profile: GameProfile,
+  team: TeamId,
+): number {
+  const occupied = new Set(players.map((player) => player.slot));
+
+  for (let slot = 1; slot <= profile.slotCount; slot += 1) {
+    if (teamForSlot(profile, slot) !== team) {
+      continue;
+    }
+    if (!occupied.has(slot)) {
+      return slot;
+    }
+  }
+
+  throw new MatchServiceError(`${profile.teamNames[team]} is full.`);
 }
 
 export function addPlayer(

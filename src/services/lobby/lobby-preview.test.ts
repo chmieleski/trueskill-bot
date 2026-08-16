@@ -494,6 +494,15 @@ describe('buildMatchCompletedEmbed', () => {
     expect(json.fields?.[1]?.value).toMatch(/`\s*6\s+bob/);
     expect(json.footer?.text).toBe('Per player: slot  nick  global (ki)');
   });
+
+  it('uses a global-only footer for empty ACA lobbies with an empty preview', () => {
+    const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
+    const embed = buildMatchLobbyEmbed('match-aca-empty', [], {
+      profile: aca,
+      ratingPreview: { players: [] },
+    });
+    expect(embed.toJSON().footer?.text).toBe('Per player: slot  nick  global (ki)');
+  });
 });
 
 describe('canStartLobby', () => {
