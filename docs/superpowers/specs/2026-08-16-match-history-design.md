@@ -28,7 +28,7 @@ Players can browse **their completed match history** (newest first, paginated) a
 | Pagination | **10 per page**, slash `page` option + Prev/Next buttons, **invoker-only** |
 | League | Resolved via existing league helpers (same as `/rank` / `/leaderboard`) |
 | Detail embed | Reuse **`buildMatchCompletedEmbed`** |
-| Ki on show | From `MatchRatingSnapshot` as **post-match values without deltas**; omit ki if no snapshots |
+| Ki on show | **Omit** `ratingPreview` — `MatchRatingSnapshot` stores **pre-match** μ/σ for corrections, not post-match display |
 | Wrong guild/league on show | Treat as **not found** (do not leak other tenants) |
 | Language | English user-facing strings |
 
@@ -86,8 +86,7 @@ Players can browse **their completed match history** (newest first, paginated) a
 1. `getMatchById`.
 2. Missing id or wrong guild/league → “Match not found.” Match found in this guild/league but not `COMPLETED` → “This match is not completed.”
 3. Map roster; determine winning team from player `result` values.
-4. Optionally attach rating preview from snapshots (after-ki only).
-5. Reply with `buildMatchCompletedEmbed`.
+4. Reply with `buildMatchCompletedEmbed` **without** `ratingPreview` (snapshots are pre-match only).
 
 ## Data
 
@@ -110,11 +109,10 @@ Existing indexes (`MatchPlayer.playerId`, `Match(leagueId, completedAt)`) are su
 - `heroId` → hero name when catalog/profile provides it; else `—`
 - `isQuitter` → append ` Q` (or equivalent clear marker)
 
-### Show + snapshots
+### Show + ratings display
 
-- Prefer stored `MatchRatingSnapshot` rows to build display ki **after** the match.
-- Do **not** fabricate before-values or deltas.
-- If snapshots are missing (legacy / edge), show roster + winner only.
+- Show roster + winner only via `buildMatchCompletedEmbed`.
+- Do **not** attach live ratings or invent deltas from `MatchRatingSnapshot` (those rows are pre-apply snapshots for match correction).
 
 ## Pagination buttons
 
@@ -152,4 +150,4 @@ After implementation, add brief lines to the Discord public cheat sheet for `/ma
 1. Nick lookup on history
 2. Deep link to original Discord lobby message
 3. Include cancelled matches with a status column
-4. True before/after ki if we later persist pre-match snapshots
+4. Historical ki deltas if we later persist post-match (or before+after) display snapshots
