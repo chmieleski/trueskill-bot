@@ -22,6 +22,7 @@ import { applyWc3statsRefresh } from '../wc3stats/wc3stats-roster.js';
 import { loadLeagueWc3statsHeroSlotMap } from '../wc3stats/wc3stats-slot-map.js';
 import { syncLobbyDiscordMessage, type LobbyActionResult } from './discord-sync.js';
 import { nickForDiscordId } from './lobby-identity.js';
+import { assertLeagueAllowsWc3stats } from './register-lobby-source.js';
 
 const NOT_FOUND_MESSAGE = 'This match lobby was not found. Run /register_lobby again.';
 const NOT_EDITABLE_MESSAGE = 'This match can no longer be edited.';
@@ -159,6 +160,8 @@ export async function refreshLobbyFromWc3stats(input: {
   if (match.status !== 'PENDING') {
     throw new MatchServiceError(NOT_EDITABLE_MESSAGE);
   }
+
+  await assertLeagueAllowsWc3stats(match.leagueId);
 
   assertCanManageMatch({
     hostDiscordId: match.hostDiscordId,

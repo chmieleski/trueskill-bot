@@ -4,6 +4,7 @@ import { createLogger } from '../../lib/logger.js';
 import { env } from '../../config/env.js';
 import { findActiveMatchByWc3statsGameId } from '../match/match-service.js';
 import { isLeagueWc3statsHostPromptReady } from '../league/league-wc3stats.js';
+import { getGameProfile } from '../../domain/game-profile.js';
 import { fetchGamelist, Wc3statsClientError } from './wc3stats-client.js';
 import { compileWc3statsMapConfig } from './wc3stats-map.js';
 import { parseWc3statsMapSha1 } from './wc3stats-slot-map.js';
@@ -82,6 +83,7 @@ export async function listHostPromptReadyLeagues(): Promise<PromptReadyLeague[]>
     select: {
       id: true,
       guildId: true,
+      gameId: true,
       wc3statsHostPromptChannelId: true,
       wc3statsMapPattern: true,
       wc3statsMapSha1: true,
@@ -92,6 +94,13 @@ export async function listHostPromptReadyLeagues(): Promise<PromptReadyLeague[]>
 
   const ready: PromptReadyLeague[] = [];
   for (const row of rows) {
+    try {
+      if (getGameProfile(row.gameId).import !== 'wc3stats') {
+        continue;
+      }
+    } catch {
+      continue;
+    }
     const config = {
       wc3statsEnabled: row.wc3statsEnabled,
       wc3statsMapPattern: row.wc3statsMapPattern?.trim() || undefined,

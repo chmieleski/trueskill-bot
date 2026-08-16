@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { MatchServiceError } from '../match/match-service.js';
+import { assertLeagueAllowsWc3stats } from '../lobby/register-lobby-source.js';
 
 export const MIN_WC3STATS_SLOT = 0;
 export const MAX_WC3STATS_SLOT = 23;
@@ -169,6 +170,7 @@ export async function setLeagueWc3statsSlotMap(
   wc3statsSlot: number,
   heroId: number,
 ): Promise<void> {
+  await assertLeagueAllowsWc3stats(leagueId);
   assertWc3statsSlotInRange(wc3statsSlot);
   assertHeroSlotInRange(heroId);
 
@@ -201,6 +203,7 @@ export async function replaceLeagueWc3statsSlotMaps(
   leagueId: string,
   mappings: GuildWc3statsSlotMapping[],
 ): Promise<void> {
+  await assertLeagueAllowsWc3stats(leagueId);
   assertUniqueHeroTargets(mappings);
   for (const entry of mappings) {
     assertWc3statsSlotInRange(entry.wc3statsSlot);
@@ -225,6 +228,7 @@ export async function clearLeagueWc3statsSlotMap(
   leagueId: string,
   wc3statsSlot: number,
 ): Promise<boolean> {
+  await assertLeagueAllowsWc3stats(leagueId);
   assertWc3statsSlotInRange(wc3statsSlot);
   const result = await prisma.leagueWc3statsSlotMap.deleteMany({
     where: { leagueId, wc3statsSlot },

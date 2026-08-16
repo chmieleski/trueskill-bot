@@ -1,10 +1,21 @@
 import { describe, expect, it } from 'vitest';
+import { getGameProfile } from '../../domain/game-profile.js';
+import {
+  WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
+  WARCRAFT3_UDBR_GAME_ID,
+} from '../../domain/games.js';
 import { MatchServiceError } from '../match/match-service.js';
 import {
   allowsEmptyMatchOnWc3statsFailure,
+  assertRegisterLobbyAllowedForProfile,
   parseWc3statsId,
   resolveRegisterLobbySource,
+  SCREENSHOT_UNSUPPORTED_MESSAGE,
+  WC3STATS_UNSUPPORTED_MESSAGE,
 } from './register-lobby-source.js';
+
+const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
+const udbr = getGameProfile(WARCRAFT3_UDBR_GAME_ID);
 
 describe('resolveRegisterLobbySource', () => {
   it('returns empty when no attachment url is given', () => {
@@ -78,5 +89,28 @@ describe('parseWc3statsId', () => {
   it('rejects non-numeric ids', () => {
     expect(() => parseWc3statsId('abc')).toThrow(MatchServiceError);
     expect(() => parseWc3statsId('abc')).toThrow('wc3stats_id must be a positive number.');
+  });
+});
+
+describe('assertRegisterLobbyAllowedForProfile', () => {
+  it('refuses screenshot and wc3stats id on import none', () => {
+    expect(() =>
+      assertRegisterLobbyAllowedForProfile(aca, { hasScreenshot: true, hasWc3statsId: false }),
+    ).toThrow(SCREENSHOT_UNSUPPORTED_MESSAGE);
+    expect(() =>
+      assertRegisterLobbyAllowedForProfile(aca, { hasScreenshot: false, hasWc3statsId: true }),
+    ).toThrow(WC3STATS_UNSUPPORTED_MESSAGE);
+  });
+
+  it('allows screenshot on UDBR', () => {
+    expect(() =>
+      assertRegisterLobbyAllowedForProfile(udbr, { hasScreenshot: true, hasWc3statsId: false }),
+    ).not.toThrow();
+  });
+
+  it('allows empty Discord-only register on import none', () => {
+    expect(() =>
+      assertRegisterLobbyAllowedForProfile(aca, { hasScreenshot: false, hasWc3statsId: false }),
+    ).not.toThrow();
   });
 });
