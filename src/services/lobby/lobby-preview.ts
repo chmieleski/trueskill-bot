@@ -7,7 +7,7 @@ import {
   TimestampStyles,
 } from 'discord.js';
 import type { LobbyPlayer, ValidatedLobby } from './lobby-ocr.js';
-import { formatBalanceHint } from './lobby-balance.js';
+import { formatBalanceHints } from './lobby-balance.js';
 import type { LobbyRatingPlayerLine, LobbyRatingPreview } from '../rating/rating-preview.js';
 import { teamDisplayName, teamDisplayNameForSlot } from '../guild/team-names.js';
 import {
@@ -200,13 +200,14 @@ function ratingPreviewFields(preview: LobbyRatingPreview | undefined, profile?: 
 }
 
 function balanceHintFields(preview: LobbyRatingPreview | undefined) {
-  if (!preview?.balanceSuggestion) {
+  const suggestions = preview?.balanceSuggestions;
+  if (!suggestions || suggestions.length === 0) {
     return [];
   }
   return [
     {
       name: 'Balance hint',
-      value: formatBalanceHint(preview.balanceSuggestion),
+      value: formatBalanceHints(suggestions),
       inline: false,
     },
   ];

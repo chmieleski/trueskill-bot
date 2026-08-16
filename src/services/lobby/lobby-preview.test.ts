@@ -338,19 +338,58 @@ describe('balance hint on embeds', () => {
           { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000 },
         ],
         winChance: { teamAPercent: 70, teamBPercent: 30 },
-        balanceSuggestion: {
-          kind: 'swap',
-          fromSlot: 1,
-          toSlot: 7,
-          fromNick: 'Alice',
-          toNick: 'Bob',
-          resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
-        },
+        balanceSuggestions: [
+          {
+            kind: 'swap',
+            fromSlot: 1,
+            toSlot: 7,
+            fromNick: 'Alice',
+            toNick: 'Bob',
+            resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
+          },
+        ],
       },
     });
     const fields = embed.data.fields ?? [];
     const hint = fields.find((f) => f.name === 'Balance hint');
     expect(hint?.value).toBe('Swap Alice (1) ↔ Bob (7) → ~52% / 48%');
+  });
+
+  it('lists up to three numbered balance hints', () => {
+    const embed = buildMatchLobbyEmbed('m1', [
+      { nick: 'Alice', slot: 1 },
+      { nick: 'Bob', slot: 7 },
+    ], {
+      ratingPreview: {
+        players: [
+          { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000 },
+          { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000 },
+        ],
+        winChance: { teamAPercent: 70, teamBPercent: 30 },
+        balanceSuggestions: [
+          {
+            kind: 'swap',
+            fromSlot: 1,
+            toSlot: 7,
+            fromNick: 'Alice',
+            toNick: 'Bob',
+            resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
+          },
+          {
+            kind: 'move',
+            fromSlot: 7,
+            toSlot: 2,
+            fromNick: 'Bob',
+            resultingWinChance: { teamAPercent: 51, teamBPercent: 49 },
+          },
+        ],
+      },
+    });
+    const fields = embed.data.fields ?? [];
+    const hint = fields.find((f) => f.name === 'Balance hint');
+    expect(hint?.value).toBe(
+      '1. Swap Alice (1) ↔ Bob (7) → ~52% / 48%\n2. Move Bob (7) → empty slot 2 → ~51% / 49%',
+    );
   });
 
   it('omits Balance hint on Match In Progress even if DTO has suggestion', () => {
@@ -364,13 +403,15 @@ describe('balance hint on embeds', () => {
           { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000 },
         ],
         winChance: { teamAPercent: 70, teamBPercent: 30 },
-        balanceSuggestion: {
-          kind: 'move',
-          fromSlot: 7,
-          toSlot: 2,
-          fromNick: 'Bob',
-          resultingWinChance: { teamAPercent: 51, teamBPercent: 49 },
-        },
+        balanceSuggestions: [
+          {
+            kind: 'move',
+            fromSlot: 7,
+            toSlot: 2,
+            fromNick: 'Bob',
+            resultingWinChance: { teamAPercent: 51, teamBPercent: 49 },
+          },
+        ],
       },
     });
     const fields = embed.data.fields ?? [];

@@ -15,7 +15,7 @@ import {
 } from './rating-math.js';
 import {
   isUnbalancedWinChance,
-  suggestBalanceMove,
+  suggestBalanceMoves,
   type BalanceRatingLookup,
   type BalanceSuggestion,
 } from '../lobby/lobby-balance.js';
@@ -50,7 +50,8 @@ export interface LobbyRatingPreview {
     teamAPercent: number;
     teamBPercent: number;
   };
-  balanceSuggestion?: BalanceSuggestion;
+  /** Up to 3 improving single moves (best first); empty-slot moves deduped per player. */
+  balanceSuggestions?: BalanceSuggestion[];
 }
 
 export type RatingPreviewRosterEntry = {
@@ -346,24 +347,27 @@ export async function loadLobbyRatingPreview(
       nick: entry.nick,
     }));
 
-    let balanceSuggestion: BalanceSuggestion | undefined;
+    let balanceSuggestions: BalanceSuggestion[] | undefined;
     if (isUnbalancedWinChance(winChance.teamAPercent)) {
       try {
-        balanceSuggestion = suggestBalanceMove(
+        const suggestions = suggestBalanceMoves(
           balanceRoster,
           lookup,
           winChance,
           profile,
         );
+        if (suggestions.length > 0) {
+          balanceSuggestions = suggestions;
+        }
       } catch (error) {
-        log.warn({ err: error }, 'Failed to compute balance suggestion');
+        log.warn({ err: error }, 'Failed to compute balance suggestions');
       }
     }
 
     return {
       players,
       winChance,
-      balanceSuggestion,
+      balanceSuggestions,
     };
   } catch (error) {
     log.error({ err: error }, 'Failed to load lobby rating preview');

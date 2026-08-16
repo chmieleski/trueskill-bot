@@ -137,6 +137,9 @@ function applyMove(
   );
 }
 
+/** Max distinct advisory moves shown on the Match Lobby embed. */
+export const MAX_BALANCE_SUGGESTIONS = 3;
+
 /** Exposed for tie-break unit tests. */
 export function compareSuggestions(a: BalanceSuggestion, b: BalanceSuggestion): number {
   const imbDiff =
@@ -154,18 +157,44 @@ export function compareSuggestions(a: BalanceSuggestion, b: BalanceSuggestion): 
   return a.toSlot - b.toSlot;
 }
 
-export function suggestBalanceMove(
+/**
+ * Empty-slot moves for the same player (e.g. nick → slots 6/7/8) count as one
+ * suggestion — keep the best destination. Swaps stay distinct.
+ */
+export function dedupeEmptySlotMoves(candidates: BalanceSuggestion[]): BalanceSuggestion[] {
+  const bestMoveByFromSlot = new Map<number, BalanceSuggestion>();
+  const swaps: BalanceSuggestion[] = [];
+
+  for (const candidate of candidates) {
+    if (candidate.kind === 'swap') {
+      swaps.push(candidate);
+      continue;
+    }
+    const existing = bestMoveByFromSlot.get(candidate.fromSlot);
+    if (!existing || compareSuggestions(candidate, existing) < 0) {
+      bestMoveByFromSlot.set(candidate.fromSlot, candidate);
+    }
+  }
+
+  return [...swaps, ...bestMoveByFromSlot.values()];
+}
+
+/**
+ * Returns up to {@link MAX_BALANCE_SUGGESTIONS} improving single moves, best first.
+ * Same-player empty-slot destinations collapse to one entry (best free slot).
+ */
+export function suggestBalanceMoves(
   roster: BalanceRosterEntry[],
   lookup: BalanceRatingLookup,
   currentWinChance: { teamAPercent: number; teamBPercent: number },
   profile?: GameProfile,
-): BalanceSuggestion | undefined {
+): BalanceSuggestion[] {
   if (!isUnbalancedWinChance(currentWinChance.teamAPercent)) {
-    return undefined;
+    return [];
   }
 
   if (!teamCountsOk(roster)) {
-    return undefined;
+    return [];
   }
 
   const resolved = resolvedProfile(profile);
@@ -215,11 +244,22 @@ export function suggestBalanceMove(
   }
 
   if (candidates.length === 0) {
-    return undefined;
+    return [];
   }
 
-  candidates.sort(compareSuggestions);
-  return candidates[0];
+  const deduped = dedupeEmptySlotMoves(candidates);
+  deduped.sort(compareSuggestions);
+  return deduped.slice(0, MAX_BALANCE_SUGGESTIONS);
+}
+
+/** Best single improving move, or undefined when none. */
+export function suggestBalanceMove(
+  roster: BalanceRosterEntry[],
+  lookup: BalanceRatingLookup,
+  currentWinChance: { teamAPercent: number; teamBPercent: number },
+  profile?: GameProfile,
+): BalanceSuggestion | undefined {
+  return suggestBalanceMoves(roster, lookup, currentWinChance, profile)[0];
 }
 
 export function formatBalanceHint(suggestion: BalanceSuggestion): string {
@@ -227,5 +267,18 @@ export function formatBalanceHint(suggestion: BalanceSuggestion): string {
   if (suggestion.kind === 'swap') {
     return `Swap ${suggestion.fromNick} (${suggestion.fromSlot}) ↔ ${suggestion.toNick} (${suggestion.toSlot}) → ~${teamAPercent}% / ${teamBPercent}%`;
   }
-  return `Move ${suggestion.fromNick} (${suggestion.fromSlot}) → slot ${suggestion.toSlot} → ~${teamAPercent}% / ${teamBPercent}%`;
+  return `Move ${suggestion.fromNick} (${suggestion.fromSlot}) → empty slot ${suggestion.toSlot} → ~${teamAPercent}% / ${teamBPercent}%`;
+}
+
+/** Formats up to three hints as a numbered list for the lobby embed. */
+export function formatBalanceHints(suggestions: BalanceSuggestion[]): string {
+  if (suggestions.length === 0) {
+    return '';
+  }
+  if (suggestions.length === 1) {
+    return formatBalanceHint(suggestions[0]!);
+  }
+  return suggestions
+    .map((suggestion, index) => `${index + 1}. ${formatBalanceHint(suggestion)}`)
+    .join('\n');
 }

@@ -3,11 +3,15 @@ import { getGameProfile } from '../../domain/game-profile.js';
 import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID } from '../../domain/games.js';
 import {
   compareSuggestions,
+  dedupeEmptySlotMoves,
   formatBalanceHint,
+  formatBalanceHints,
   isUnbalancedWinChance,
   suggestBalanceMove,
+  suggestBalanceMoves,
   type BalanceRatingLookup,
   type BalanceRosterEntry,
+  type BalanceSuggestion,
   type MuSigma,
 } from './lobby-balance.js';
 
@@ -209,6 +213,104 @@ describe('suggestBalanceMove', () => {
     const swapLow = { ...swap, fromSlot: 1 };
     expect(compareSuggestions(swapLow, swapHigh)).toBeLessThan(0);
   });
+
+  it('collapses same-player empty-slot moves into one suggestion', () => {
+    const roster: BalanceRosterEntry[] = [
+      { playerId: 'a1', slot: 1, team: 1, heroId: 1, nick: 'A1' },
+      { playerId: 'chmieleski', slot: 7, team: 2, heroId: 7, nick: 'chmieleski' },
+      { playerId: 'b2', slot: 8, team: 2, heroId: 8, nick: 'B2' },
+      { playerId: 'b3', slot: 9, team: 2, heroId: 9, nick: 'B3' },
+    ];
+    const lookup = lookupFromMaps(
+      {
+        a1: { mu: 22, sigma: 6 },
+        chmieleski: { mu: 35, sigma: 3 },
+        b2: { mu: 30, sigma: 4 },
+        b3: { mu: 30, sigma: 4 },
+      },
+      {},
+    );
+    const suggestions = suggestBalanceMoves(roster, lookup, {
+      teamAPercent: 15,
+      teamBPercent: 85,
+    });
+    const movesFromChmieleski = suggestions.filter(
+      (s) => s.kind === 'move' && s.fromNick === 'chmieleski',
+    );
+    expect(movesFromChmieleski.length).toBeLessThanOrEqual(1);
+    expect(suggestions.length).toBeGreaterThan(0);
+    expect(suggestions.length).toBeLessThanOrEqual(3);
+  });
+
+  it('returns at most three distinct suggestions', () => {
+    const roster: BalanceRosterEntry[] = [
+      { playerId: 's1', slot: 1, team: 1, heroId: 1, nick: 'S1' },
+      { playerId: 's2', slot: 2, team: 1, heroId: 2, nick: 'S2' },
+      { playerId: 's3', slot: 3, team: 1, heroId: 3, nick: 'S3' },
+      { playerId: 'w1', slot: 7, team: 2, heroId: 7, nick: 'W1' },
+      { playerId: 'w2', slot: 8, team: 2, heroId: 8, nick: 'W2' },
+      { playerId: 'w3', slot: 9, team: 2, heroId: 9, nick: 'W3' },
+    ];
+    const lookup = lookupFromMaps(
+      {
+        s1: { mu: 40, sigma: 2 },
+        s2: { mu: 38, sigma: 2 },
+        s3: { mu: 36, sigma: 2 },
+        w1: { mu: 18, sigma: 8 },
+        w2: { mu: 18, sigma: 8 },
+        w3: { mu: 18, sigma: 8 },
+      },
+      {},
+    );
+    const suggestions = suggestBalanceMoves(roster, lookup, {
+      teamAPercent: 90,
+      teamBPercent: 10,
+    });
+    expect(suggestions.length).toBeGreaterThan(0);
+    expect(suggestions.length).toBeLessThanOrEqual(3);
+  });
+});
+
+describe('dedupeEmptySlotMoves', () => {
+  it('keeps one move per fromSlot and all swaps', () => {
+    const baseWc = { teamAPercent: 52, teamBPercent: 48 };
+    const candidates: BalanceSuggestion[] = [
+      {
+        kind: 'move',
+        fromSlot: 7,
+        toSlot: 6,
+        fromNick: 'chmieleski',
+        resultingWinChance: { teamAPercent: 48, teamBPercent: 52 },
+      },
+      {
+        kind: 'move',
+        fromSlot: 7,
+        toSlot: 5,
+        fromNick: 'chmieleski',
+        resultingWinChance: { teamAPercent: 50, teamBPercent: 50 },
+      },
+      {
+        kind: 'move',
+        fromSlot: 7,
+        toSlot: 4,
+        fromNick: 'chmieleski',
+        resultingWinChance: { teamAPercent: 49, teamBPercent: 51 },
+      },
+      {
+        kind: 'swap',
+        fromSlot: 1,
+        toSlot: 8,
+        fromNick: 'Alice',
+        toNick: 'Bob',
+        resultingWinChance: baseWc,
+      },
+    ];
+    const deduped = dedupeEmptySlotMoves(candidates);
+    const moves = deduped.filter((c) => c.kind === 'move');
+    expect(moves).toHaveLength(1);
+    expect(moves[0]!.toSlot).toBe(5); // perfect 50/50 beats 49/51
+    expect(deduped.filter((c) => c.kind === 'swap')).toHaveLength(1);
+  });
 });
 
 describe('formatBalanceHint', () => {
@@ -232,6 +334,30 @@ describe('formatBalanceHint', () => {
         fromNick: 'Alice',
         resultingWinChance: { teamAPercent: 51, teamBPercent: 49 },
       }),
-    ).toBe('Move Alice (3) → slot 10 → ~51% / 49%');
+    ).toBe('Move Alice (3) → empty slot 10 → ~51% / 49%');
+  });
+
+  it('numbers multiple hints', () => {
+    expect(
+      formatBalanceHints([
+        {
+          kind: 'swap',
+          fromSlot: 1,
+          toSlot: 7,
+          fromNick: 'Alice',
+          toNick: 'Bob',
+          resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
+        },
+        {
+          kind: 'move',
+          fromSlot: 8,
+          toSlot: 2,
+          fromNick: 'Eve',
+          resultingWinChance: { teamAPercent: 51, teamBPercent: 49 },
+        },
+      ]),
+    ).toBe(
+      '1. Swap Alice (1) ↔ Bob (7) → ~52% / 48%\n2. Move Eve (8) → empty slot 2 → ~51% / 49%',
+    );
   });
 });
