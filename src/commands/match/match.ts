@@ -1,5 +1,5 @@
 import { GuildMember, MessageFlags, SlashCommandBuilder } from 'discord.js';
-import type { ChatInputCommandInteraction } from 'discord.js';
+import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import { syncLobbyDiscordMessage } from '../../services/lobby/index.js';
 import { resolveGuildConfig, teamDisplayName, winnerLabel } from '../../services/guild/index.js';
@@ -12,16 +12,27 @@ import {
 } from '../../services/match/index.js';
 import {
   assertHasMatchModRole,
+  buildMatchHistoryEmbed,
+  buildMatchHistoryPageButtons,
   findInProgressMatchesByHost,
   getMatchById,
   hasMatchModRole,
+  loadCompletedMatchShow,
+  loadMatchHistoryPage,
   MatchServiceError,
   previewMatchCorrection,
+  resolveHistoryPlayer,
   type MatchWithPlayers,
 } from '../../services/match/index.js';
 import { buildMatchCorrectionConfirmComponents } from '../../discord/interactions/match-correction-interactions.js';
 import type { LobbyRatingPreview } from '../../services/rating/index.js';
-import { getGameProfileForLeague } from '../../services/league/index.js';
+import {
+  getGameProfileForLeague,
+  getLeagueOption,
+  resolveLeagueIdFromInteraction,
+  respondLeagueAutocomplete,
+  withSubcommandLeagueOption,
+} from '../../services/league/index.js';
 
 const log = createLogger('match_cmd');
 
@@ -207,7 +218,30 @@ async function applyMatchMutation(
 
 export const data = new SlashCommandBuilder()
   .setName('match')
-  .setDescription('Manage an in-progress match')
+  .setDescription('Manage matches or view history')
+  .addSubcommand((subcommand) =>
+    withSubcommandLeagueOption(
+      subcommand
+        .setName('history')
+        .setDescription('List your completed matches (newest first)')
+        .addUserOption((option) =>
+          option.setName('user').setDescription('Discord user to look up').setRequired(false),
+        )
+        .addIntegerOption((option) =>
+          option.setName('page').setDescription('Page number').setRequired(false).setMinValue(1),
+        ),
+    ),
+  )
+  .addSubcommand((subcommand) =>
+    withSubcommandLeagueOption(
+      subcommand
+        .setName('show')
+        .setDescription('Show a completed match by id')
+        .addStringOption((option) =>
+          option.setName('match_id').setDescription('Completed match id').setRequired(true),
+        ),
+    ),
+  )
   .addSubcommand((subcommand) =>
     subcommand
       .setName('quitters')
@@ -296,10 +330,15 @@ export const data = new SlashCommandBuilder()
       ),
   );
 
-export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
+  await respondLeagueAutocomplete(interaction);
+}
 
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const subcommand = interaction.options.getSubcommand(true);
+  const isPublicRead = subcommand === 'history' || subcommand === 'show';
+  await interaction.deferReply(isPublicRead ? undefined : { flags: MessageFlags.Ephemeral });
+
   const matchId = interaction.options.getString('match_id');
 
   log.info(
@@ -313,6 +352,68 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   );
 
   try {
+    if (subcommand === 'history') {
+      if (!interaction.guildId) {
+        throw new MatchServiceError('This command can only be used in a server.');
+      }
+      const resolved = await resolveLeagueIdFromInteraction(
+        interaction,
+        getLeagueOption(interaction),
+      );
+      if (!resolved.ok) {
+        await interaction.editReply({ content: resolved.message });
+        return;
+      }
+      const user = interaction.options.getUser('user');
+      const kind = user && user.id !== interaction.user.id ? 'user' : 'self';
+      const discordId = user?.id ?? interaction.user.id;
+      const player = await resolveHistoryPlayer(discordId, kind);
+      const pageNum = interaction.options.getInteger('page') ?? 1;
+      const pageData = await loadMatchHistoryPage({
+        leagueId: resolved.leagueId,
+        playerId: player.id,
+        username: player.username,
+        page: pageNum,
+      });
+      const profile = await getGameProfileForLeague(resolved.leagueId);
+      const embed = buildMatchHistoryEmbed(pageData, resolved.leagueId, (team) =>
+        teamDisplayName(team, profile),
+      );
+      const components = buildMatchHistoryPageButtons({
+        invokerId: interaction.user.id,
+        playerId: player.id,
+        leagueId: resolved.leagueId,
+        page: pageData.page,
+        totalPages: pageData.totalPages,
+      });
+      await interaction.editReply({ embeds: [embed], components });
+      return;
+    }
+
+    if (subcommand === 'show') {
+      if (!interaction.guildId) {
+        throw new MatchServiceError('This command can only be used in a server.');
+      }
+      const showMatchId = interaction.options.getString('match_id', true);
+      const leagueOpt = getLeagueOption(interaction);
+      let leagueId: string | null = null;
+      if (leagueOpt) {
+        const resolved = await resolveLeagueIdFromInteraction(interaction, leagueOpt);
+        if (!resolved.ok) {
+          await interaction.editReply({ content: resolved.message });
+          return;
+        }
+        leagueId = resolved.leagueId;
+      }
+      const { embed } = await loadCompletedMatchShow({
+        matchId: showMatchId,
+        guildId: interaction.guildId,
+        leagueId,
+      });
+      await interaction.editReply({ embeds: [embed] });
+      return;
+    }
+
     if (subcommand === 'flip' || subcommand === 'void') {
       const match = await resolveCompletedMatchForModCorrection(interaction);
       const preview = await previewMatchCorrection(match.id);
