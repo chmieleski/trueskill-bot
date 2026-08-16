@@ -95,6 +95,7 @@ Call sites pass entity-specific game counts:
 | Quitter | Global LOSS counts toward g once match is COMPLETED; hero `matchesPlayed` is **not** incremented on quit (existing update rule) → hero z may lag global |
 | Dual entity | Global and hero **z** are independent |
 | Ladder inflation | Veterans (≥5 games) permanently use z=2.5 → slightly higher public ki than pre-change at same μ/σ |
+| After `/rank_reset` | Global g (and displayed W/L/quits) restart from matches with `completedAt` **after** the latest `PlayerRankReset`; default μ/σ → ~1000 until new games. Hero rows are deleted so hero g cold-starts. |
 
 ## Testing
 
