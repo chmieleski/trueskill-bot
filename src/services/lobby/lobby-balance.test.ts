@@ -34,8 +34,8 @@ describe('isUnbalancedWinChance', () => {
 describe('suggestBalanceMove', () => {
   it('returns undefined when current win chance is balanced', () => {
     const roster: BalanceRosterEntry[] = [
-      { playerId: 'a', slot: 1, heroId: 1, nick: 'Alice' },
-      { playerId: 'b', slot: 7, heroId: 7, nick: 'Bob' },
+      { playerId: 'a', slot: 1, team: 1, heroId: 1, nick: 'Alice' },
+      { playerId: 'b', slot: 7, team: 2, heroId: 7, nick: 'Bob' },
     ];
     const lookup = lookupFromMaps({}, {});
     expect(
@@ -45,8 +45,8 @@ describe('suggestBalanceMove', () => {
 
   it('returns undefined when all players are on one team even if win chance is unbalanced', () => {
     const roster: BalanceRosterEntry[] = [
-      { playerId: 'a', slot: 1, heroId: 1, nick: 'Alice' },
-      { playerId: 'b', slot: 2, heroId: 2, nick: 'Bob' },
+      { playerId: 'a', slot: 1, team: 1, heroId: 1, nick: 'Alice' },
+      { playerId: 'b', slot: 2, team: 1, heroId: 2, nick: 'Bob' },
     ];
     const lookup = lookupFromMaps({}, {});
     expect(
@@ -58,9 +58,9 @@ describe('suggestBalanceMove', () => {
     // 1v2: only A player moving to B empty slot would empty A — must not suggest that
     // unless a swap exists. With one on A, swaps are possible with B players.
     const roster: BalanceRosterEntry[] = [
-      { playerId: 'strong', slot: 1, heroId: 1, nick: 'Strong' },
-      { playerId: 'w1', slot: 7, heroId: 7, nick: 'Weak1' },
-      { playerId: 'w2', slot: 8, heroId: 8, nick: 'Weak2' },
+      { playerId: 'strong', slot: 1, team: 1, heroId: 1, nick: 'Strong' },
+      { playerId: 'w1', slot: 7, team: 2, heroId: 7, nick: 'Weak1' },
+      { playerId: 'w2', slot: 8, team: 2, heroId: 8, nick: 'Weak2' },
     ];
     const lookup = lookupFromMaps(
       {
@@ -80,15 +80,30 @@ describe('suggestBalanceMove', () => {
       if (suggestion.kind === 'move') {
         const moving = next.get(suggestion.fromSlot)!;
         next.delete(suggestion.fromSlot);
-        next.set(suggestion.toSlot, { ...moving, slot: suggestion.toSlot, heroId: suggestion.toSlot });
+        next.set(suggestion.toSlot, {
+          ...moving,
+          slot: suggestion.toSlot,
+          heroId: suggestion.toSlot,
+          team: suggestion.toSlot <= 6 ? 1 : 2,
+        });
       } else {
         const a = next.get(suggestion.fromSlot)!;
         const b = next.get(suggestion.toSlot)!;
-        next.set(suggestion.fromSlot, { ...b, slot: suggestion.fromSlot, heroId: suggestion.fromSlot });
-        next.set(suggestion.toSlot, { ...a, slot: suggestion.toSlot, heroId: suggestion.toSlot });
+        next.set(suggestion.fromSlot, {
+          ...b,
+          slot: suggestion.fromSlot,
+          heroId: suggestion.fromSlot,
+          team: a.team,
+        });
+        next.set(suggestion.toSlot, {
+          ...a,
+          slot: suggestion.toSlot,
+          heroId: suggestion.toSlot,
+          team: b.team,
+        });
       }
-      const teamA = [...next.values()].filter((e) => e.slot <= 6);
-      const teamB = [...next.values()].filter((e) => e.slot > 6);
+      const teamA = [...next.values()].filter((e) => e.team === 1);
+      const teamB = [...next.values()].filter((e) => e.team === 2);
       expect(teamA.length).toBeGreaterThanOrEqual(1);
       expect(teamB.length).toBeGreaterThanOrEqual(1);
     }
@@ -97,10 +112,10 @@ describe('suggestBalanceMove', () => {
   it('prefers an improving swap when it beats staying put', () => {
     // 2v2 skew: Strong+WeakA on A vs Weak1+Mid on B → swap Strong with Mid improves
     const roster: BalanceRosterEntry[] = [
-      { playerId: 'strong', slot: 1, heroId: 1, nick: 'Strong' },
-      { playerId: 'weakA', slot: 2, heroId: 2, nick: 'WeakA' },
-      { playerId: 'w1', slot: 7, heroId: 7, nick: 'Weak1' },
-      { playerId: 'mid', slot: 8, heroId: 8, nick: 'Mid' },
+      { playerId: 'strong', slot: 1, team: 1, heroId: 1, nick: 'Strong' },
+      { playerId: 'weakA', slot: 2, team: 1, heroId: 2, nick: 'WeakA' },
+      { playerId: 'w1', slot: 7, team: 2, heroId: 7, nick: 'Weak1' },
+      { playerId: 'mid', slot: 8, team: 2, heroId: 8, nick: 'Mid' },
     ];
     const lookup = lookupFromMaps(
       {
@@ -126,10 +141,10 @@ describe('suggestBalanceMove', () => {
   it('can suggest a move into an empty slot when that improves balance', () => {
     // 1v3 skew: moving one B player onto empty A slot can help
     const roster: BalanceRosterEntry[] = [
-      { playerId: 'a1', slot: 1, heroId: 1, nick: 'A1' },
-      { playerId: 'b1', slot: 7, heroId: 7, nick: 'B1' },
-      { playerId: 'b2', slot: 8, heroId: 8, nick: 'B2' },
-      { playerId: 'b3', slot: 9, heroId: 9, nick: 'B3' },
+      { playerId: 'a1', slot: 1, team: 1, heroId: 1, nick: 'A1' },
+      { playerId: 'b1', slot: 7, team: 2, heroId: 7, nick: 'B1' },
+      { playerId: 'b2', slot: 8, team: 2, heroId: 8, nick: 'B2' },
+      { playerId: 'b3', slot: 9, team: 2, heroId: 9, nick: 'B3' },
     ];
     const lookup = lookupFromMaps(
       {

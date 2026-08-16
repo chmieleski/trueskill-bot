@@ -13,6 +13,7 @@ export type MuSigma = { mu: number; sigma: number };
 export type BalanceRosterEntry = {
   playerId: string;
   slot: number;
+  team: 1 | 2;
   heroId: number;
   nick: string;
 };
@@ -75,10 +76,10 @@ function applySwap(
   const b = roster.find((e) => e.slot === slotB)!;
   return roster.map((entry) => {
     if (entry.slot === slotA) {
-      return { playerId: b.playerId, nick: b.nick, slot: slotA, heroId: slotA };
+      return { playerId: b.playerId, nick: b.nick, slot: slotA, heroId: slotA, team: entry.team };
     }
     if (entry.slot === slotB) {
-      return { playerId: a.playerId, nick: a.nick, slot: slotB, heroId: slotB };
+      return { playerId: a.playerId, nick: a.nick, slot: slotB, heroId: slotB, team: entry.team };
     }
     return entry;
   });
@@ -91,7 +92,13 @@ function applyMove(
 ): BalanceRosterEntry[] {
   return roster.map((entry) =>
     entry.slot === fromSlot
-      ? { ...entry, slot: toSlot, heroId: toSlot }
+      ? {
+          ...entry,
+          slot: toSlot,
+          heroId: toSlot,
+          // Temporary UDBR inference until Task 5 persists profile teamForSlot.
+          team: toSlot <= TEAM_A_MAX ? 1 : 2,
+        }
       : entry,
   );
 }
@@ -129,8 +136,7 @@ export function suggestBalanceMove(
   const currentImbalance = imbalance(currentWinChance.teamAPercent);
   const occupied = new Set(roster.map((e) => e.slot));
   const emptySlots = ALL_SLOTS.filter((slot) => !occupied.has(slot));
-  const teamA = roster.filter((e) => e.slot <= TEAM_A_MAX);
-  const teamB = roster.filter((e) => e.slot > TEAM_A_MAX);
+  const { teamA, teamB } = splitRosterByTeam(roster);
 
   const candidates: BalanceSuggestion[] = [];
 

@@ -1,7 +1,5 @@
 import { rating, type Rating } from 'openskill';
 
-const TEAM_A_MAX_SLOT = 6;
-
 /** Display offset so cold-start OpenSkill ordinal 0 maps to ~1000 ki. */
 export const KI_OFFSET = 1000;
 
@@ -63,13 +61,13 @@ export function roundWinPercents(
   return { teamAPercent, teamBPercent: 100 - teamAPercent };
 }
 
-/** Split roster entries into Team A (slots 1–6) and Team B (slots 7–12). */
-export function splitRosterByTeam<T extends { slot: number }>(
+/** Split roster entries into Team A (`team === 1`) and Team B (`team === 2`). */
+export function splitRosterByTeam<T extends { slot: number; team: 1 | 2 }>(
   entries: T[],
 ): { teamA: T[]; teamB: T[] } {
   const sorted = [...entries].sort((a, b) => a.slot - b.slot);
   return {
-    teamA: sorted.filter((entry) => entry.slot <= TEAM_A_MAX_SLOT),
-    teamB: sorted.filter((entry) => entry.slot > TEAM_A_MAX_SLOT),
+    teamA: sorted.filter((entry) => entry.team === 1),
+    teamB: sorted.filter((entry) => entry.team === 2),
   };
 }

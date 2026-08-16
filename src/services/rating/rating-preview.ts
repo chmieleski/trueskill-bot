@@ -51,6 +51,7 @@ export interface LobbyRatingPreview {
 export type RatingPreviewRosterEntry = {
   playerId: string;
   slot: number;
+  team: 1 | 2;
   heroId: number;
   nick: string;
   isQuitter?: boolean;
@@ -305,6 +306,7 @@ export async function loadLobbyRatingPreview(
           sorted.map((entry) => ({
             playerId: entry.playerId,
             slot: entry.slot,
+            team: entry.team,
             heroId: entry.heroId,
             nick: entry.nick,
           })),
@@ -339,6 +341,7 @@ export function matchPlayersToRatingEntries(
   matchPlayers: {
     playerId: string;
     slot: number;
+    team: number;
     heroId: number;
     isQuitter?: boolean;
     player: { username: string };
@@ -347,6 +350,7 @@ export function matchPlayersToRatingEntries(
   return matchPlayers.map((entry) => ({
     playerId: entry.playerId,
     slot: entry.slot,
+    team: entry.team as 1 | 2,
     heroId: entry.heroId,
     nick: entry.player.username,
     isQuitter: entry.isQuitter,
