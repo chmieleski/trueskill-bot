@@ -12,6 +12,8 @@
 • `/lobby add` / `remove` / `swap` / `sync` / `start` / `cancel`
 
 **Match (host or mod)**
+• `/match history` — your completed matches (optional user/page)
+• `/match show` — open a completed match by id
 • `/match complete` — report winner (+ optional quitters)
 • `/match quitters` — mark quitters
 • `/match cancel` — cancel in-progress match
