@@ -5,6 +5,8 @@ import {
 
 export type HeroBinding = 'slot_bound' | 'optional_in_game';
 export type GameImportKind = 'none' | 'wc3stats';
+/** Persisted MatchPlayer.team / winning team: 1 or 2. */
+export type TeamId = 1 | 2;
 
 export type GameProfile = {
   gameId: string;
@@ -44,6 +46,11 @@ const GAME_PROFILES: Record<string, GameProfile> = {
   },
 };
 
+for (const profile of Object.values(GAME_PROFILES)) {
+  Object.freeze(profile.teamNames);
+  Object.freeze(profile);
+}
+
 /** Returns the catalog profile for a known game id. */
 export function getGameProfile(gameId: string): GameProfile {
   const profile = GAME_PROFILES[gameId];
@@ -53,13 +60,21 @@ export function getGameProfile(gameId: string): GameProfile {
   return profile;
 }
 
+/** Narrows a persisted team int to 1 | 2; throws if corrupt. */
+export function assertTeam(team: number): TeamId {
+  if (team === 1 || team === 2) {
+    return team;
+  }
+  throw new RangeError(`Invalid team: ${team}`);
+}
+
 /** True when slot is an integer in [1, profile.slotCount]. */
 export function isSlotInProfile(profile: GameProfile, slot: number): boolean {
   return Number.isInteger(slot) && slot >= 1 && slot <= profile.slotCount;
 }
 
 /** Returns team 1 or 2 for a valid slot; throws RangeError otherwise. */
-export function teamForSlot(profile: GameProfile, slot: number): 1 | 2 {
+export function teamForSlot(profile: GameProfile, slot: number): TeamId {
   if (!isSlotInProfile(profile, slot)) {
     throw new RangeError(`Slot ${slot} is out of range for ${profile.gameId}`);
   }

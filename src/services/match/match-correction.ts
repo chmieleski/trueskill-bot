@@ -13,6 +13,7 @@ import {
   matchPlayersToRatingEntries,
   type LobbyRatingPreview,
 } from '../rating/rating-preview.js';
+import { assertTeam } from '../../domain/game-profile.js';
 import {
   applyMatchRatings,
   applyQuitterPenalties,
@@ -443,7 +444,7 @@ function toRatingEntries(
   return match.players.map((player) => ({
     playerId: player.playerId,
     slot: player.slot,
-    team: player.team as 1 | 2,
+    team: assertTeam(player.team),
     heroId: player.heroId,
     isQuitter: quitterSet.has(player.slot),
   }));

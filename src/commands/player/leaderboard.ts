@@ -130,6 +130,27 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
     return;
   }
 
+  const resolved = await resolveLeagueIdFromInteraction(
+    interaction,
+    interaction.options.getString('league'),
+  );
+  if (!resolved.ok) {
+    await interaction.respond([]);
+    return;
+  }
+
+  try {
+    const profile = await getGameProfileForLeague(resolved.leagueId);
+    if (profile.heroBinding === 'optional_in_game') {
+      await interaction.respond([]);
+      return;
+    }
+  } catch (error) {
+    log.warn({ err: error }, 'leaderboard hero autocomplete profile lookup failed');
+    await interaction.respond([]);
+    return;
+  }
+
   const heroes = await listHeroNames();
   const query = focused.value.toLowerCase();
   const choices = heroes

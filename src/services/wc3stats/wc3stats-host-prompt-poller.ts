@@ -99,7 +99,10 @@ export async function listHostPromptReadyLeagues(): Promise<PromptReadyLeague[]>
         continue;
       }
     } catch (error) {
+      // Skip unknown gameId: a ticker must not abort the whole poll on one bad League row.
+      // Call sites that mutate matches still throw via getGameProfile.
       if (error instanceof UnknownGameIdError) {
+        log.warn({ gameId: row.gameId, leagueId: row.id }, 'Skipping host-prompt league with unknown gameId');
         continue;
       }
       throw error;

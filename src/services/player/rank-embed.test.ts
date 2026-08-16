@@ -71,4 +71,15 @@ describe('buildRankEmbed', () => {
     expect(data.description).not.toContain('Linked');
     expect(data.footer?.text).toBe('Not linked to Discord');
   });
+
+  it('omits the Heroes field when the player has no hero ratings', () => {
+    const data = buildRankEmbed({ ...baseProfile, heroes: [] }).toJSON();
+    expect(data.fields ?? []).toEqual([]);
+  });
+
+  it('includes the Heroes field when hero ratings exist', () => {
+    const data = buildRankEmbed(baseProfile).toJSON();
+    expect(data.fields?.[0]?.name).toBe('Heroes');
+    expect(data.fields?.[0]?.value).toContain('Goku');
+  });
 });
