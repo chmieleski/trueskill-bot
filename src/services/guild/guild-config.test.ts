@@ -27,11 +27,25 @@ import {
   BOT_OWNER_DISCORD_ID,
   assertCanConfigureBot,
   canConfigureBot,
+  clearQuitterLeaderboardDisplay,
+  clearQuitterLeaderboardSize,
+  clearQuitterLeaderboardSort,
   resolveGuildConfig,
   setMatchCreateRole,
   setMatchModRole,
+  setQuitterLeaderboardDisplay,
+  setQuitterLeaderboardSize,
+  setQuitterLeaderboardSort,
 } from './guild-config.js';
 import { MatchServiceError } from '../match/match-service.js';
+
+const quitterDefaults = {
+  quitterLeaderboardChannelId: undefined,
+  quitterLeaderboardMessageId: undefined,
+  quitterLeaderboardSize: 10,
+  quitterLeaderboardDisplay: 'both' as const,
+  quitterLeaderboardSort: 'count' as const,
+};
 
 describe('resolveGuildConfig', () => {
   beforeEach(() => {
@@ -52,6 +66,7 @@ describe('resolveGuildConfig', () => {
       matchModRoleId: 'env-mod',
       matchCreateRoleSource: 'env',
       matchModRoleSource: 'env',
+      ...quitterDefaults,
     });
   });
 
@@ -135,5 +150,62 @@ describe('assertCanConfigureBot', () => {
     expect(() =>
       assertCanConfigureBot({ userId: 'someone', memberPermissions: null }),
     ).toThrow('You do not have permission to configure this bot.');
+  });
+});
+
+describe('quitter leaderboard guild config', () => {
+  beforeEach(() => {
+    findUnique.mockReset();
+    upsert.mockReset();
+  });
+
+  it('resolves quitter board defaults when row missing', async () => {
+    findUnique.mockResolvedValue(null);
+    const resolved = await resolveGuildConfig('g1');
+    expect(resolved.quitterLeaderboardChannelId).toBeUndefined();
+    expect(resolved.quitterLeaderboardMessageId).toBeUndefined();
+    expect(resolved.quitterLeaderboardSize).toBe(10);
+    expect(resolved.quitterLeaderboardDisplay).toBe('both');
+    expect(resolved.quitterLeaderboardSort).toBe('count');
+  });
+
+  it('setQuitterLeaderboardSize upserts size', async () => {
+    upsert.mockResolvedValue({});
+    await setQuitterLeaderboardSize('g1', 50);
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { guildId: 'g1' },
+        create: expect.objectContaining({ guildId: 'g1', quitterLeaderboardSize: 50 }),
+        update: { quitterLeaderboardSize: 50 },
+      }),
+    );
+  });
+
+  it('clear helpers reset display/sort/size defaults', async () => {
+    upsert.mockResolvedValue({});
+    await clearQuitterLeaderboardSize('g1');
+    await clearQuitterLeaderboardDisplay('g1');
+    await clearQuitterLeaderboardSort('g1');
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { quitterLeaderboardSize: 10 } }),
+    );
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { quitterLeaderboardDisplay: 'both' } }),
+    );
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { quitterLeaderboardSort: 'count' } }),
+    );
+  });
+
+  it('setQuitterLeaderboardDisplay and sort upsert enums', async () => {
+    upsert.mockResolvedValue({});
+    await setQuitterLeaderboardDisplay('g1', 'rate');
+    await setQuitterLeaderboardSort('g1', 'rate');
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { quitterLeaderboardDisplay: 'rate' } }),
+    );
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { quitterLeaderboardSort: 'rate' } }),
+    );
   });
 });
