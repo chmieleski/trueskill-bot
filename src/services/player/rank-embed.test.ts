@@ -82,6 +82,11 @@ describe('buildRankEmbed', () => {
     expect(data.fields ?? []).toEqual([]);
   });
 
+  it('omits the Heroes field when showHeroes is false even if ratings exist', () => {
+    const data = buildRankEmbed(baseProfile, { showHeroes: false }).toJSON();
+    expect(data.fields ?? []).toEqual([]);
+  });
+
   it('includes the Heroes field when hero ratings exist', () => {
     const data = buildRankEmbed(baseProfile).toJSON();
     expect(data.fields?.[0]?.name).toBe('Heroes');

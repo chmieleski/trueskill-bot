@@ -2,6 +2,7 @@ import { MatchStatus, MatchResult } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { normalizeNick } from './player-nick.js';
 import { displayOrdinal } from '../rating/rating-math.js';
+import { getGameProfileForLeague } from '../league/league-profile.js';
 
 const DEFAULT_MU = 25;
 const DEFAULT_SIGMA = 8.333;
@@ -127,6 +128,9 @@ export async function loadPlayerProfile(
     throw new PlayerServiceError('Player not found.');
   }
 
+  const gameProfile = await getGameProfileForLeague(leagueId);
+  const includeHeroes = gameProfile.heroBinding === 'slot_bound';
+
   const [rating, allRatings, matchPlayers, quits, heroRatings, gameCounts] =
     await Promise.all([
       prisma.playerRating.findUnique({
@@ -156,10 +160,12 @@ export async function loadPlayerProfile(
           },
         },
       }),
-      prisma.playerHeroRating.findMany({
-        where: { leagueId, playerId: player.id, matchesPlayed: { gt: 0 } },
-        include: { hero: true },
-      }),
+      includeHeroes
+        ? prisma.playerHeroRating.findMany({
+            where: { leagueId, playerId: player.id, matchesPlayed: { gt: 0 } },
+            include: { hero: true },
+          })
+        : Promise.resolve([]),
       prisma.matchPlayer.groupBy({
         by: ['playerId'],
         where: {
