@@ -61,6 +61,7 @@ function refreshResultMessage(input: {
 type SuccessfulWc3statsImport = Extract<ImportWc3statsLobbyResult, { ok: true }>;
 
 async function assertWc3statsImportReady(leagueId: string): Promise<ResolvedLeagueConfig> {
+  await assertLeagueAllowsWc3stats(leagueId);
   const resolved = await resolveLeagueConfig(leagueId);
   if (!isLeagueWc3statsImportReady(resolved)) {
     throw new MatchServiceError(WC3STATS_IMPORT_DISABLED_MESSAGE);
