@@ -27,6 +27,7 @@ import {
   allowsEmptyMatchOnWc3statsFailure,
   parseWc3statsId,
   resolveRegisterLobbySource,
+  assertRegisterLobbyAllowedForProfile,
 } from '../../services/lobby/index.js';
 import {
   getLeagueOption,
@@ -195,6 +196,19 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   try {
     wc3statsId = parseWc3statsId(interaction.options.getString('wc3stats_id'));
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await interaction.editReply(error.message);
+      return;
+    }
+    throw error;
+  }
+
+  try {
+    assertRegisterLobbyAllowedForProfile(profile, {
+      hasScreenshot: Boolean(attachment),
+      hasWc3statsId: wc3statsId != null,
+    });
   } catch (error) {
     if (error instanceof MatchServiceError) {
       await interaction.editReply(error.message);

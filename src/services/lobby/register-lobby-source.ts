@@ -1,4 +1,39 @@
+import type { GameProfile } from '../../domain/game-profile.js';
+import { getGameProfileForLeague } from '../league/league-profile.js';
 import { MatchServiceError } from '../match/match-service.js';
+
+export const SCREENSHOT_UNSUPPORTED_MESSAGE =
+  'Lobby screenshots are not supported for this game yet.';
+export const WC3STATS_UNSUPPORTED_MESSAGE =
+  'Warcraft lobby import is not supported for this game.';
+export const WC3STATS_CONFIG_UNSUPPORTED_MESSAGE =
+  "This league's game does not use wc3stats import.";
+
+/**
+ * Games with `import: none` cannot start from a screenshot or wc3stats id.
+ */
+export function assertRegisterLobbyAllowedForProfile(
+  profile: GameProfile,
+  input: { hasScreenshot: boolean; hasWc3statsId: boolean },
+): void {
+  if (profile.import !== 'none') {
+    return;
+  }
+  if (input.hasScreenshot) {
+    throw new MatchServiceError(SCREENSHOT_UNSUPPORTED_MESSAGE);
+  }
+  if (input.hasWc3statsId) {
+    throw new MatchServiceError(WC3STATS_UNSUPPORTED_MESSAGE);
+  }
+}
+
+/** Reject wc3stats config/import when the league's game profile is not wc3stats. */
+export async function assertLeagueAllowsWc3stats(leagueId: string): Promise<void> {
+  const profile = await getGameProfileForLeague(leagueId);
+  if (profile.import !== 'wc3stats') {
+    throw new MatchServiceError(WC3STATS_CONFIG_UNSUPPORTED_MESSAGE);
+  }
+}
 
 export type RegisterLobbySource =
   | { kind: 'empty' }

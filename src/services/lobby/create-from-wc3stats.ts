@@ -1,5 +1,5 @@
 import type { LobbyPlayer } from './lobby-ocr.js';
-import { allowsEmptyMatchOnWc3statsFailure } from './register-lobby-source.js';
+import { allowsEmptyMatchOnWc3statsFailure, assertLeagueAllowsWc3stats } from './register-lobby-source.js';
 import { canStartLobby } from './lobby-preview.js';
 import { nickForDiscordId } from './lobby-identity.js';
 import { createLogger } from '../../lib/logger.js';
@@ -63,6 +63,7 @@ export async function createMatchFromWc3statsLobby(
     matchCreateRoleId: guildConfig.matchCreateRoleId,
   });
 
+  await assertLeagueAllowsWc3stats(input.leagueId);
   const leagueConfig = await resolveLeagueConfig(input.leagueId);
   const profile = await getGameProfileForLeague(input.leagueId);
   const wc3statsReady = isLeagueWc3statsImportReady(leagueConfig);

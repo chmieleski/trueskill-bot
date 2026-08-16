@@ -12,6 +12,12 @@ import {
   assertLiveLeaderboardSize,
 } from '../leaderboard/leaderboard.js';
 import { assertRankResetCooldownDays } from '../rating/rank-reset.js';
+import { assertLeagueAllowsWc3stats } from '../lobby/register-lobby-source.js';
+
+export {
+  assertLeagueAllowsWc3stats,
+  WC3STATS_CONFIG_UNSUPPORTED_MESSAGE,
+} from '../lobby/register-lobby-source.js';
 
 /** All IHL settings stored on the League row. */
 export interface ResolvedLeagueConfig {
@@ -86,6 +92,7 @@ export function isLeagueWc3statsHostPromptReady(
  * enables import, sets map filter, loads the UDBR slot layout.
  */
 export async function applyUdbrWc3statsPreset(leagueId: string): Promise<void> {
+  await assertLeagueAllowsWc3stats(leagueId);
   await prisma.league.update({
     where: { id: leagueId },
     data: {
@@ -102,6 +109,7 @@ export async function applyUdbrWc3statsPreset(leagueId: string): Promise<void> {
  * disables import, clears map filter and all slot mappings.
  */
 export async function clearLeagueWc3statsPackage(leagueId: string): Promise<void> {
+  await assertLeagueAllowsWc3stats(leagueId);
   await prisma.league.update({
     where: { id: leagueId },
     data: {
@@ -182,6 +190,9 @@ export async function setLeagueWc3statsHostPrompt(
   leagueId: string,
   input: { enabled: true; channelId: string } | { enabled: false },
 ): Promise<void> {
+  if (input.enabled) {
+    await assertLeagueAllowsWc3stats(leagueId);
+  }
   if (!input.enabled) {
     await prisma.league.update({
       where: { id: leagueId },
