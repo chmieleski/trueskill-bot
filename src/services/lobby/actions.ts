@@ -1,4 +1,5 @@
 import type { Client } from 'discord.js';
+import { getGameProfileForLeague, LeagueNotFoundError } from '../league/league-profile.js';
 import { MatchServiceError } from '../match/match-service.js';
 import { prisma } from '../../lib/prisma.js';
 import { nickForDiscordId } from './lobby-identity.js';
@@ -21,6 +22,17 @@ import type { LobbyPlayer } from './lobby-ocr.js';
 export type { LobbyActionResult };
 
 const PLAYER_CLAIM_DISABLED_MESSAGE = 'Player slot claim is disabled on this server.';
+
+async function profileForLeague(leagueId: string) {
+  try {
+    return await getGameProfileForLeague(leagueId);
+  } catch (error) {
+    if (error instanceof LeagueNotFoundError) {
+      throw new MatchServiceError(error.message);
+    }
+    throw error;
+  }
+}
 
 /**
  * Reject player claim/leave when the league has turned the feature off.
@@ -47,7 +59,8 @@ export async function addLobbyPlayer(input: {
     hostDiscordId: input.hostDiscordId,
     matchId: input.matchId,
   });
-  const next = addPlayer(players, input.nick, input.slot);
+  const profile = await profileForLeague(match.leagueId);
+  const next = addPlayer(players, input.nick, input.slot, profile);
   return applyRosterAndSync(input.client, match.id, next);
 }
 
@@ -86,7 +99,8 @@ export async function claimLobbySlot(input: {
   });
   await assertLobbyPlayerClaimEnabled(match.leagueId);
   const nick = await nickForDiscordId(input.discordId);
-  const next = rosterAfterClaim(players, nick, input.slot);
+  const profile = await profileForLeague(match.leagueId);
+  const next = rosterAfterClaim(players, nick, input.slot, profile);
   return applyRosterAndSync(input.client, match.id, next);
 }
 
@@ -104,7 +118,8 @@ export async function leaveLobbySlot(input: {
   });
   await assertLobbyPlayerClaimEnabled(match.leagueId);
   const nick = await nickForDiscordId(input.discordId);
-  const next = rosterAfterLeave(players, nick);
+  const profile = await profileForLeague(match.leagueId);
+  const next = rosterAfterLeave(players, nick, profile);
   return applyRosterAndSync(input.client, match.id, next);
 }
 
@@ -119,7 +134,8 @@ export async function removeLobbyPlayer(input: {
     hostDiscordId: input.hostDiscordId,
     matchId: input.matchId,
   });
-  const next = removePlayer(players, { nick: input.nick, slot: input.slot });
+  const profile = await profileForLeague(match.leagueId);
+  const next = removePlayer(players, { nick: input.nick, slot: input.slot }, profile);
   return applyRosterAndSync(input.client, match.id, next);
 }
 
@@ -134,7 +150,8 @@ export async function moveLobbyPlayer(input: {
     hostDiscordId: input.hostDiscordId,
     matchId: input.matchId,
   });
-  const next = movePlayer(players, input.fromSlot, input.toSlot);
+  const profile = await profileForLeague(match.leagueId);
+  const next = movePlayer(players, input.fromSlot, input.toSlot, profile);
   return applyRosterAndSync(input.client, match.id, next);
 }
 
@@ -149,7 +166,8 @@ export async function swapLobbyPlayers(input: {
     hostDiscordId: input.hostDiscordId,
     matchId: input.matchId,
   });
-  const next = swapPlayers(players, input.slotA, input.slotB);
+  const profile = await profileForLeague(match.leagueId);
+  const next = swapPlayers(players, input.slotA, input.slotB, profile);
   return applyRosterAndSync(input.client, match.id, next);
 }
 
@@ -164,7 +182,8 @@ export async function editLobbyPlayerNick(input: {
     hostDiscordId: input.hostDiscordId,
     matchId: input.matchId,
   });
-  const next = editPlayerNick(players, input.slot, input.nick);
+  const profile = await profileForLeague(match.leagueId);
+  const next = editPlayerNick(players, input.slot, input.nick, profile);
   return applyRosterAndSync(input.client, match.id, next);
 }
 

@@ -1,30 +1,32 @@
+import type { GameProfile } from '../../domain/game-profile.js';
+import { invalidSlotMessage, isSlotInProfile } from '../../domain/game-profile.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
 import { MatchServiceError } from '../match/match-service.js';
 import { normalizeNick } from '../player/player-nick.js';
-
-const MIN_SLOT = 1;
-const MAX_SLOT = 12;
 
 const ALREADY_IN_LOBBY_LEAVE_FIRST = (slot: number) =>
   `You are already in slot ${slot}. Leave first.`;
 const NOT_IN_LOBBY_MESSAGE = 'You are not in this lobby.';
 
-function assertSlotInRange(slot: number): void {
-  if (!Number.isInteger(slot) || slot < MIN_SLOT || slot > MAX_SLOT) {
-    throw new MatchServiceError(
-      `Invalid slot ${slot}. Slots must be between ${MIN_SLOT} and ${MAX_SLOT}.`,
-    );
+function assertSlotInRange(slot: number, profile: GameProfile): void {
+  if (!isSlotInProfile(profile, slot)) {
+    throw new MatchServiceError(invalidSlotMessage(profile));
   }
 }
 
-export function addPlayer(players: LobbyPlayer[], nickRaw: string, slot: number): LobbyPlayer[] {
+export function addPlayer(
+  players: LobbyPlayer[],
+  nickRaw: string,
+  slot: number,
+  profile: GameProfile,
+): LobbyPlayer[] {
   const nick = normalizeNick(nickRaw);
 
   if (nick === '') {
     throw new MatchServiceError('Nick cannot be empty.');
   }
 
-  assertSlotInRange(slot);
+  assertSlotInRange(slot, profile);
 
   if (players.some((player) => player.slot === slot)) {
     throw new MatchServiceError(`Slot ${slot} is already occupied.`);
@@ -40,6 +42,7 @@ export function addPlayer(players: LobbyPlayer[], nickRaw: string, slot: number)
 export function removePlayer(
   players: LobbyPlayer[],
   options: { nick?: string | null; slot?: number | null },
+  profile: GameProfile,
 ): LobbyPlayer[] {
   const nickRaw = options.nick?.trim() ?? '';
   const hasNick = nickRaw !== '';
@@ -53,7 +56,7 @@ export function removePlayer(
 
   if (hasSlot) {
     const slot = options.slot!;
-    assertSlotInRange(slot);
+    assertSlotInRange(slot, profile);
     target = players.find((player) => player.slot === slot);
 
     if (!target) {
@@ -85,9 +88,10 @@ export function movePlayer(
   players: LobbyPlayer[],
   fromSlot: number,
   toSlot: number,
+  profile: GameProfile,
 ): LobbyPlayer[] {
-  assertSlotInRange(fromSlot);
-  assertSlotInRange(toSlot);
+  assertSlotInRange(fromSlot, profile);
+  assertSlotInRange(toSlot, profile);
 
   if (fromSlot === toSlot) {
     throw new MatchServiceError('Choose a different slot to move into.');
@@ -97,9 +101,8 @@ export function movePlayer(
     throw new MatchServiceError(`Slot ${fromSlot} is empty.`);
   }
 
-  // Occupied destination → swap (Change Slot / relocate UX).
   if (players.some((player) => player.slot === toSlot)) {
-    return swapPlayers(players, fromSlot, toSlot);
+    return swapPlayers(players, fromSlot, toSlot, profile);
   }
 
   return players.map((player) =>
@@ -111,9 +114,10 @@ export function swapPlayers(
   players: LobbyPlayer[],
   slotA: number,
   slotB: number,
+  profile: GameProfile,
 ): LobbyPlayer[] {
-  assertSlotInRange(slotA);
-  assertSlotInRange(slotB);
+  assertSlotInRange(slotA, profile);
+  assertSlotInRange(slotB, profile);
 
   if (slotA === slotB) {
     throw new MatchServiceError('Choose two different slots to swap.');
@@ -147,8 +151,9 @@ export function editPlayerNick(
   players: LobbyPlayer[],
   slot: number,
   nickRaw: string,
+  profile: GameProfile,
 ): LobbyPlayer[] {
-  assertSlotInRange(slot);
+  assertSlotInRange(slot, profile);
 
   const nick = normalizeNick(nickRaw);
 
@@ -174,6 +179,7 @@ export function rosterAfterClaim(
   players: LobbyPlayer[],
   nickRaw: string,
   slot: number,
+  profile: GameProfile,
 ): LobbyPlayer[] {
   const nick = normalizeNick(nickRaw);
   const existing = players.find((player) => player.nick === nick);
@@ -192,13 +198,17 @@ export function rosterAfterClaim(
     throw new MatchServiceError(`Slot ${slot} is already occupied by "${occupant.nick}".`);
   }
 
-  return addPlayer(players, nickRaw, slot);
+  return addPlayer(players, nickRaw, slot, profile);
 }
 
 /**
  * Remove the linked nick from the lobby (self-leave).
  */
-export function rosterAfterLeave(players: LobbyPlayer[], nickRaw: string): LobbyPlayer[] {
+export function rosterAfterLeave(
+  players: LobbyPlayer[],
+  nickRaw: string,
+  profile: GameProfile,
+): LobbyPlayer[] {
   const nick = normalizeNick(nickRaw);
   const existing = players.find((player) => player.nick === nick);
 
@@ -206,5 +216,5 @@ export function rosterAfterLeave(players: LobbyPlayer[], nickRaw: string): Lobby
     throw new MatchServiceError(NOT_IN_LOBBY_MESSAGE);
   }
 
-  return removePlayer(players, { nick });
+  return removePlayer(players, { nick }, profile);
 }

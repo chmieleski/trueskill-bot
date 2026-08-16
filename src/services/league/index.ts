@@ -6,6 +6,8 @@ export {
   type League,
 } from './league.js';
 
+export { getGameProfileForLeague, LeagueNotFoundError } from './league-profile.js';
+
 export { bindDiscordToLeague, unbindDiscord, type LeagueBindingKind } from './league-binding.js';
 
 export {

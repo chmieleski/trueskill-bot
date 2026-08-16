@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getGameProfile } from '../../domain/game-profile.js';
+import { WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
 import { MatchServiceError } from '../match/match-service.js';
 
 const { leagueFindUnique } = vi.hoisted(() => ({
@@ -40,30 +42,34 @@ import {
 } from './index.js';
 
 describe('rosterAfterClaim', () => {
+  const udbr = getGameProfile(WARCRAFT3_UDBR_GAME_ID);
+
   it('adds the nick to an empty slot', () => {
-    expect(rosterAfterClaim([], 'Goku', 1)).toEqual([{ slot: 1, nick: 'goku' }]);
+    expect(rosterAfterClaim([], 'Goku', 1, udbr)).toEqual([{ slot: 1, nick: 'goku' }]);
   });
 
   it('rejects an occupied slot with the occupant nick', () => {
     expect(() =>
-      rosterAfterClaim([{ slot: 1, nick: 'vegeta' }], 'goku', 1),
+      rosterAfterClaim([{ slot: 1, nick: 'vegeta' }], 'goku', 1, udbr),
     ).toThrow('Slot 1 is already occupied by "vegeta".');
   });
 
   it('rejects when the nick is already in the same slot', () => {
     expect(() =>
-      rosterAfterClaim([{ slot: 1, nick: 'goku' }], 'goku', 1),
+      rosterAfterClaim([{ slot: 1, nick: 'goku' }], 'goku', 1, udbr),
     ).toThrow('You are already in slot 1.');
   });
 
   it('rejects when the nick is already in another slot', () => {
     expect(() =>
-      rosterAfterClaim([{ slot: 3, nick: 'goku' }], 'goku', 1),
+      rosterAfterClaim([{ slot: 3, nick: 'goku' }], 'goku', 1, udbr),
     ).toThrow('You are already in slot 3. Leave first.');
   });
 });
 
 describe('rosterAfterLeave', () => {
+  const udbr = getGameProfile(WARCRAFT3_UDBR_GAME_ID);
+
   it('removes the linked nick', () => {
     expect(
       rosterAfterLeave(
@@ -72,12 +78,13 @@ describe('rosterAfterLeave', () => {
           { slot: 7, nick: 'vegeta' },
         ],
         'Goku',
+        udbr,
       ),
     ).toEqual([{ slot: 7, nick: 'vegeta' }]);
   });
 
   it('rejects when the nick is not in the lobby', () => {
-    expect(() => rosterAfterLeave([{ slot: 1, nick: 'vegeta' }], 'goku')).toThrow(
+    expect(() => rosterAfterLeave([{ slot: 1, nick: 'vegeta' }], 'goku', udbr)).toThrow(
       'You are not in this lobby.',
     );
   });
