@@ -26,6 +26,7 @@ import {
 } from '../../services/leaderboard/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
 import {
+  getGameProfileForLeague,
   getLeagueOption,
   resolveLeagueIdFromInteraction,
   respondLeagueAutocomplete,
@@ -245,6 +246,14 @@ async function handleShowAllHeroes(interaction: ChatInputCommandInteraction): Pr
     const leagueId = await resolveLeagueOrReply(interaction);
     if (!leagueId) return;
 
+    const profile = await getGameProfileForLeague(leagueId);
+    if (profile.heroBinding === 'optional_in_game') {
+      await interaction.editReply({
+        content: 'Hero rankings are not available for this game.',
+      });
+      return;
+    }
+
     const slices = await loadAllHeroLeaderboards(leagueId);
     if (slices.length === 0) {
       await interaction.editReply({
@@ -265,6 +274,14 @@ async function handleShowSingleHero(interaction: ChatInputCommandInteraction): P
   try {
     const leagueId = await resolveLeagueOrReply(interaction);
     if (!leagueId) return;
+
+    const profile = await getGameProfileForLeague(leagueId);
+    if (profile.heroBinding === 'optional_in_game') {
+      await interaction.editReply({
+        content: 'Hero rankings are not available for this game.',
+      });
+      return;
+    }
 
     const resolved = await resolveHeroByName(heroName);
     if (!resolved) {

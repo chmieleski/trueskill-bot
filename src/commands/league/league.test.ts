@@ -1,6 +1,6 @@
 import { ApplicationCommandOptionType, ChannelType } from 'discord.js';
 import { describe, expect, it } from 'vitest';
-import { WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
+import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
 import { data } from './league.js';
 
 describe('league command data', () => {
@@ -20,8 +20,9 @@ describe('league command data', () => {
     const name = options.find((option) => option.name === 'name');
 
     expect(game?.required).toBe(true);
-    expect(game?.choices).toEqual([
+    expect(game?.choices?.map((choice) => ({ name: choice.name, value: choice.value }))).toEqual([
       { name: 'UDBR (Warcraft III)', value: WARCRAFT3_UDBR_GAME_ID },
+      { name: 'Anime Choice Arena', value: WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID },
     ]);
     expect(name?.required).toBe(true);
     expect(name?.type).toBe(ApplicationCommandOptionType.String);
