@@ -12,6 +12,12 @@
 • `/config set leaderboard_channel` / `/leaderboard setup`
 • `/config clear leaderboard_channel`
 • `/config set leaderboard_size` / `/config clear leaderboard_size`
+• `/config set quitter_leaderboard_channel` / `/leaderboard setup_quitters`
+• `/config clear quitter_leaderboard_channel`
+• `/config set quitter_leaderboard_size` / `/config clear quitter_leaderboard_size`
+• `/config set quitter_leaderboard_display` (`count` / `rate` / `both`) / `/config clear quitter_leaderboard_display`
+• `/config set quitter_leaderboard_sort` (`count` / `rate`) / `/config clear quitter_leaderboard_sort`
+• `/leaderboard quitters` — guild-wide paginated view (all leagues)
 • `/config set rank_reset` (optional `cooldown_days`) / `/config set rank_reset_cooldown`
 • `/config set wc3stats_map_preset` (UDBR)
 • `/config clear wc3stats`

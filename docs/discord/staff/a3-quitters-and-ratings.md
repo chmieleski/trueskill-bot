@@ -25,3 +25,6 @@ Use cancel for broken lobbies / wrong starts — not to hide a real loss.
 • Agree on the server’s quitter rules and stick to them
 • Prefer marking quitters with the buttons on the match message when possible
 • Double-check slot numbers before completing
+
+**Public board**
+Some servers expose a guild-wide quitter leaderboard via `/leaderboard quitters` or a live channel set up with `/leaderboard setup_quitters` (see setup guide).
