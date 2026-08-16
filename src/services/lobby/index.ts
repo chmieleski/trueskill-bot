@@ -15,6 +15,8 @@ export {
   addPlayer,
   editPlayerNick,
   movePlayer,
+  nextEmptySlotOnTeam,
+  parseTeamInput,
   removePlayer,
   rosterAfterClaim,
   rosterAfterLeave,

@@ -34,6 +34,8 @@ import {
   editPlayerNick,
   leaveLobbySlot,
   movePlayer,
+  nextEmptySlotOnTeam,
+  parseTeamInput,
   refreshLobbyFromWc3stats,
   removePlayer,
   resolvePendingMatchByMessageId,
@@ -44,13 +46,17 @@ import { loadHeroCatalog } from '../../services/guild/index.js';
 import { nickForDiscordId } from '../../services/lobby/index.js';
 import { resolveGuildConfig } from '../../services/guild/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
-import { teamDisplayNameForSlot } from '../../services/guild/index.js';
+import { teamDisplayName, teamDisplayNameForSlot } from '../../services/guild/index.js';
 import {
   getGameProfileForLeague,
   LeagueNotFoundError,
 } from '../../services/league/league-profile.js';
-import { invalidSlotMessage } from '../../domain/game-profile.js';
-import type { GameProfile } from '../../domain/game-profile.js';
+import {
+  invalidSlotMessage,
+  teamForSlot,
+  type GameProfile,
+  type TeamId,
+} from '../../domain/game-profile.js';
 
 const log = createLogger('lobby');
 
@@ -123,6 +129,10 @@ function destinationSlotSelectOptions(
   fromSlot: number,
   profile: GameProfile,
 ) {
+  if (profile.heroBinding === 'optional_in_game') {
+    return teamBasedDestinationOptions(players, fromSlot, profile);
+  }
+
   const bySlot = new Map(players.map((player) => [player.slot, player]));
   const options = [];
 
@@ -150,6 +160,70 @@ function destinationSlotSelectOptions(
   }
 
   return options;
+}
+
+/**
+ * ACA-style destinations: move to other team (next empty seat) or swap with a nick.
+ */
+function teamBasedDestinationOptions(
+  players: LobbyPlayer[],
+  fromSlot: number,
+  profile: GameProfile,
+) {
+  const options: { label: string; description?: string; value: string }[] = [];
+  const fromTeam = teamForSlot(profile, fromSlot);
+  const occupied = new Set(players.map((player) => player.slot));
+
+  for (const team of [1, 2] as const) {
+    if (team === fromTeam) {
+      continue;
+    }
+    const hasEmpty = Array.from({ length: profile.slotCount }, (_, i) => i + 1).some(
+      (slot) => teamForSlot(profile, slot) === team && !occupied.has(slot),
+    );
+    if (!hasEmpty) {
+      continue;
+    }
+    options.push({
+      label: `Move → ${teamDisplayName(team, profile)}`,
+      description: 'Empty seat',
+      value: `team:${team}`,
+    });
+  }
+
+  for (const other of players) {
+    if (other.slot === fromSlot) {
+      continue;
+    }
+    options.push({
+      label: `Swap → ${other.nick}`.slice(0, 100),
+      description: teamDisplayNameForSlot(other.slot, profile),
+      value: `slot:${other.slot}`,
+    });
+  }
+
+  return options;
+}
+
+/** Resolve move/swap destination custom_id value to a target slot. */
+function resolveDestinationSlot(
+  value: string,
+  players: LobbyPlayer[],
+  profile: GameProfile,
+): number {
+  if (value.startsWith('team:')) {
+    const team = Number(value.slice('team:'.length));
+    if (team !== 1 && team !== 2) {
+      throw new MatchServiceError('Invalid team destination.');
+    }
+    return nextEmptySlotOnTeam(players, profile, team as TeamId);
+  }
+
+  if (value.startsWith('slot:')) {
+    return Number(value.slice('slot:'.length));
+  }
+
+  return Number(value);
 }
 
 async function replyEphemeral(
@@ -383,17 +457,26 @@ async function handleAdd(interaction: ButtonInteraction): Promise<void> {
     .setRequired(true)
     .setMaxLength(32);
 
-  const slotInput = new TextInputBuilder()
-    .setCustomId('slot')
-    .setLabel(`Slot number (1-${profile.slotCount})`)
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMinLength(1)
-    .setMaxLength(2);
+  const secondInput =
+    profile.heroBinding === 'optional_in_game'
+      ? new TextInputBuilder()
+          .setCustomId('team')
+          .setLabel(`Team (1=${profile.teamNames[1]}, 2=${profile.teamNames[2]})`.slice(0, 45))
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setMinLength(1)
+          .setMaxLength(32)
+      : new TextInputBuilder()
+          .setCustomId('slot')
+          .setLabel(`Slot number (1-${profile.slotCount})`)
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setMinLength(1)
+          .setMaxLength(2);
 
   modal.addComponents(
     new ActionRowBuilder<TextInputBuilder>().addComponents(nickInput),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(slotInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(secondInput),
   );
 
   await interaction.showModal(modal);
@@ -628,24 +711,38 @@ async function handleSelectMovePlayer(
     return;
   }
 
+  const profile = await profileForMatch(result.match.leagueId);
   const destinations = destinationSlotSelectOptions(
     result.players,
     fromSlot,
-    await profileForMatch(result.match.leagueId),
+    profile,
   );
+
+  if (destinations.length === 0) {
+    await replyEphemeral(
+      interaction,
+      'No move or swap destinations available (other team may be full).',
+    );
+    return;
+  }
 
   const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(`lobby:select:move_slot:${messageId}:${fromSlot}`)
-      .setPlaceholder(`Move/swap ${player.nick} to…`)
+      .setPlaceholder(
+        profile.heroBinding === 'optional_in_game'
+          ? `Move/swap ${player.nick}…`
+          : `Move/swap ${player.nick} to…`,
+      )
       .addOptions(destinations),
   );
 
-  await updateEphemeral(
-    interaction,
-    `Select a new slot for **${player.nick}** (currently slot ${fromSlot}):`,
-    [row],
-  );
+  const prompt =
+    profile.heroBinding === 'optional_in_game'
+      ? `Select a destination for **${player.nick}**:`
+      : `Select a new slot for **${player.nick}** (currently slot ${fromSlot}):`;
+
+  await updateEphemeral(interaction, prompt, [row]);
 }
 
 async function handleSelectMoveSlot(
@@ -660,10 +757,11 @@ async function handleSelectMoveSlot(
     return;
   }
 
-  const toSlot = Number(interaction.values[0]);
+  const rawDestination = interaction.values[0]!;
 
   try {
     const profile = await profileForMatch(result.match.leagueId);
+    const toSlot = resolveDestinationSlot(rawDestination, result.players, profile);
     const nextPlayers = movePlayer(result.players, fromSlot, toSlot, profile);
     const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
@@ -791,11 +889,25 @@ async function handleModalAdd(
   }
 
   const nick = interaction.fields.getTextInputValue('nick');
-  const slotRaw = interaction.fields.getTextInputValue('slot').trim();
-  const slot = Number(slotRaw);
 
   try {
     const profile = await profileForMatch(result.match.leagueId);
+    let slot: number;
+
+    if (profile.heroBinding === 'optional_in_game') {
+      const team = parseTeamInput(interaction.fields.getTextInputValue('team'), profile);
+      slot = nextEmptySlotOnTeam(result.players, profile, team);
+    } else {
+      const slotRaw = interaction.fields.getTextInputValue('slot').trim();
+      slot = Number(slotRaw);
+      if (!Number.isInteger(slot)) {
+        await interaction.editReply({
+          content: invalidSlotMessage(profile),
+        });
+        return;
+      }
+    }
+
     const nextPlayers = addPlayer(result.players, nick, slot, profile);
     const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
@@ -804,14 +916,6 @@ async function handleModalAdd(
     }
   } catch (error) {
     if (error instanceof MatchServiceError) {
-      if (!Number.isInteger(slot)) {
-        const profile = await profileForMatch(result.match.leagueId);
-        await interaction.editReply({
-          content: invalidSlotMessage(profile),
-        });
-        return;
-      }
-
       await interaction.editReply({ content: error.message });
       return;
     }
