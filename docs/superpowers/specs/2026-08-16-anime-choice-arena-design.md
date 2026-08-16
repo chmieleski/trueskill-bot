@@ -175,7 +175,7 @@ The OpenSkill **shell** stays `applyMatchRatings(leagueId, entries, winningTeam)
 - `ensurePlayerRatings` creates `PlayerRating` always; creates `PlayerHeroRating` only when `heroId` is non-null.
 - `splitRosterByTeam` takes `team: 1 | 2` on each entry (not `slot <= 6`). Callers pass persisted `MatchPlayer.team`.
 - Preview, win %, and balance hint for ACA use **global rating only** (label from `profile.ratingLabel`, default preset `ki`). No hero line, no “move to destination hero”.
-- `/rank` omits the hero block when the player has no `PlayerHeroRating` rows in that league (empty block is already possible; do not invent placeholder heroes). Titles/lines that show the number use `profile.ratingLabel`.
+- `/rank` omits the hero block when `heroBinding === 'optional_in_game'` (ACA), and also when the player has no `PlayerHeroRating` rows with games. Do not invent placeholder heroes. Titles/lines that show the number use `profile.ratingLabel`.
 - `/leaderboard` hero subcommand (or hero option) on an `optional_in_game` league with no catalog: refuse — *Hero rankings are not available for this game.*
 
 Correction (`/match flip` / `void`) stays `general`. Restore GLOBAL snapshots; skip HERO restore when none were written.

@@ -22,9 +22,15 @@ export function formatHeroTable(heroes: PlayerProfileHero[]): string {
 
 export function buildRankEmbed(
   profile: PlayerProfile,
-  options?: { avatarUrl?: string | null; ratingLabel?: string },
+  options?: {
+    avatarUrl?: string | null;
+    ratingLabel?: string;
+    /** When false, never show the Heroes field (ACA / optional_in_game). Default true. */
+    showHeroes?: boolean;
+  },
 ): EmbedBuilder {
   const ratingLabel = options?.ratingLabel ?? 'ki';
+  const showHeroes = options?.showHeroes !== false;
   const record =
     profile.winRatePercent === null
       ? `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q`
@@ -42,7 +48,7 @@ export function buildRankEmbed(
     .setDescription(description);
 
   // Omit when empty (ACA has no hero ratings; UDBR players may also have none yet).
-  if (profile.heroes.length > 0) {
+  if (showHeroes && profile.heroes.length > 0) {
     embed.addFields({ name: 'Heroes', value: formatHeroTable(profile.heroes) });
   }
 

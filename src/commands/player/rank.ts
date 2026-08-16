@@ -90,6 +90,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         buildRankEmbed(profile, {
           avatarUrl,
           ratingLabel: gameProfile.ratingLabel,
+          showHeroes: gameProfile.heroBinding === 'slot_bound',
         }),
       ],
     };
