@@ -10,6 +10,7 @@ const {
   buildMatchCorrectionCancelCustomId,
   voidCompletedMatch,
   refreshLeagueLeaderboard,
+  refreshGuildQuitterLeaderboard,
   resolveGuildConfig,
   syncLobbyDiscordMessage,
 } = vi.hoisted(() => ({
@@ -20,6 +21,7 @@ const {
   buildMatchCorrectionCancelCustomId: vi.fn(),
   voidCompletedMatch: vi.fn(),
   refreshLeagueLeaderboard: vi.fn(),
+  refreshGuildQuitterLeaderboard: vi.fn(),
   resolveGuildConfig: vi.fn(),
   syncLobbyDiscordMessage: vi.fn(),
 }));
@@ -52,6 +54,7 @@ vi.mock('../../services/match/index.js', () => {
 
 vi.mock('../../services/leaderboard/index.js', () => ({
   refreshLeagueLeaderboard,
+  refreshGuildQuitterLeaderboard,
 }));
 
 vi.mock('../../services/guild/index.js', () => ({
@@ -226,6 +229,7 @@ describe('handleMatchCorrectionInteraction', () => {
       { ratingPreview: { players: [] } },
     );
     expect(refreshLeagueLeaderboard).toHaveBeenCalledWith(interaction.client, 'league-1');
+    expect(refreshGuildQuitterLeaderboard).toHaveBeenCalledWith(interaction.client, 'guild-1');
     expect(interaction.editReply).toHaveBeenCalledWith({
       content: 'Match `match-1` corrected.',
       components: [],
@@ -251,6 +255,7 @@ describe('handleMatchCorrectionInteraction', () => {
       { cancelReason: 'by a moderator' },
     );
     expect(refreshLeagueLeaderboard).toHaveBeenCalledWith(interaction.client, 'league-1');
+    expect(refreshGuildQuitterLeaderboard).toHaveBeenCalledWith(interaction.client, 'guild-1');
     expect(interaction.editReply).toHaveBeenCalledWith({
       content: 'Match `match-1` voided and ratings restored.',
       components: [],
@@ -268,5 +273,6 @@ describe('handleMatchCorrectionInteraction', () => {
       components: [],
     });
     expect(refreshLeagueLeaderboard).not.toHaveBeenCalled();
+    expect(refreshGuildQuitterLeaderboard).not.toHaveBeenCalled();
   });
 });

@@ -10,6 +10,7 @@ import {
   loadOverallLeaderboardTop,
 } from './leaderboard.js';
 import { buildOverallLiveLeaderboardEmbeds } from './leaderboard-embed.js';
+import { refreshAllQuitterLeaderboardChannels } from './quitter-leaderboard-channel.js';
 
 const log = createLogger('leaderboard_channel');
 const REFRESH_INTERVAL_MS = 15 * 60 * 1000;
@@ -146,6 +147,8 @@ export async function refreshAllLeaderboardChannels(client: Client): Promise<voi
   for (const league of leagues) {
     await refreshLeagueLeaderboard(client, league.id);
   }
+
+  await refreshAllQuitterLeaderboardChannels(client);
 }
 
 export function scheduleLeaderboardRefresh(client: Client): void {

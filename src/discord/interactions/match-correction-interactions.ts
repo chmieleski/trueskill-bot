@@ -7,7 +7,10 @@ import {
 } from 'discord.js';
 import type { ButtonInteraction, Interaction } from 'discord.js';
 import { resolveGuildConfig } from '../../services/guild/index.js';
-import { refreshLeagueLeaderboard } from '../../services/leaderboard/index.js';
+import {
+  refreshGuildQuitterLeaderboard,
+  refreshLeagueLeaderboard,
+} from '../../services/leaderboard/index.js';
 import {
   assertHasMatchModRole,
   flipCompletedMatch,
@@ -93,6 +96,9 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
     );
     await syncLobbyDiscordMessage(interaction.client, updated, 'completed', { ratingPreview });
     await refreshLeagueLeaderboard(interaction.client, updated.leagueId);
+    if (interaction.guildId) {
+      await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
+    }
     await interaction.editReply({
       content: `Match \`${updated.id}\` corrected.`,
       components: [],
@@ -103,6 +109,9 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
       cancelReason: 'by a moderator',
     });
     await refreshLeagueLeaderboard(interaction.client, updated.leagueId);
+    if (interaction.guildId) {
+      await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
+    }
     await interaction.editReply({
       content: `Match \`${updated.id}\` voided and ratings restored.`,
       components: [],
