@@ -5,6 +5,7 @@ import {
   clearLeagueLeaderboardChannel,
   setLeagueLeaderboardChannel,
 } from '../league/league-wc3stats.js';
+import { getGameProfileForLeague } from '../league/league-profile.js';
 import {
   LIVE_LEADERBOARD_DEFAULT_SIZE,
   loadOverallLeaderboardTop,
@@ -51,7 +52,8 @@ async function buildLiveOverallEmbeds(
     resolvedSize = row?.leaderboardSize ?? LIVE_LEADERBOARD_DEFAULT_SIZE;
   }
   const entries = await loadOverallLeaderboardTop(leagueId, resolvedSize);
-  return buildOverallLiveLeaderboardEmbeds(entries, new Date());
+  const gameProfile = await getGameProfileForLeague(leagueId);
+  return buildOverallLiveLeaderboardEmbeds(entries, new Date(), gameProfile.ratingLabel);
 }
 
 export async function setupLiveLeaderboard(

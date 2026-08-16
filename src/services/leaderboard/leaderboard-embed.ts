@@ -27,14 +27,21 @@ export function formatRankPrefix(rank: number): string {
   return `#${rank}`;
 }
 
-export function formatOverallTable(entries: OverallLeaderboardEntry[]): string {
+export function formatOverallTable(
+  entries: OverallLeaderboardEntry[],
+  ratingLabel = 'ki',
+): string {
   if (entries.length === 0) {
     return '_No ranked players yet._';
   }
 
+  const labelHeader =
+    ratingLabel.length === 0
+      ? 'Ki'
+      : ratingLabel.charAt(0).toUpperCase() + ratingLabel.slice(1);
   const nameWidth = Math.max(...entries.map((entry) => entry.username.length), 'Player'.length);
-  const kiWidth = Math.max(...entries.map((entry) => String(entry.ki).length), 'Ki'.length);
-  const header = `${'#'.padEnd(3)} ${'Player'.padEnd(nameWidth)}  ${'Ki'.padStart(kiWidth)}  G`;
+  const kiWidth = Math.max(...entries.map((entry) => String(entry.ki).length), labelHeader.length);
+  const header = `${'#'.padEnd(3)} ${'Player'.padEnd(nameWidth)}  ${labelHeader.padStart(kiWidth)}  G`;
   const lines = entries.map((entry) => {
     const prefix = formatRankPrefix(entry.rank).padEnd(3);
     const name = entry.username.padEnd(nameWidth, ' ');
@@ -62,13 +69,14 @@ function formatHeroCompactTable(entries: HeroLeaderboardEntry[]): string {
 
 export function buildOverallLeaderboardEmbed(
   page: OverallLeaderboardPage,
-  options?: { live?: boolean; updatedAt?: Date },
+  options?: { live?: boolean; updatedAt?: Date; ratingLabel?: string },
 ): EmbedBuilder {
+  const ratingLabel = options?.ratingLabel ?? 'ki';
   const embed = new EmbedBuilder().setColor(RANK_GOLD).setTitle('Global Leaderboard');
 
   if (options?.live) {
     // Discord parses <t:…> only in description/fields — footers are plain text.
-    let description = formatOverallTable(page.entries);
+    let description = formatOverallTable(page.entries, ratingLabel);
     if (options.updatedAt) {
       const unix = Math.floor(options.updatedAt.getTime() / 1000);
       description += `\n\nUpdated <t:${unix}:R>`;
@@ -76,7 +84,7 @@ export function buildOverallLeaderboardEmbed(
     embed.setDescription(description);
   } else {
     embed.setDescription(
-      `Page ${page.page} of ${page.totalPages} · ${page.totalPlayers} players\n\n${formatOverallTable(page.entries)}`,
+      `Page ${page.page} of ${page.totalPages} · ${page.totalPlayers} players\n\n${formatOverallTable(page.entries, ratingLabel)}`,
     );
     if (page.totalPages > 1) {
       embed.setFooter({
@@ -93,6 +101,7 @@ export function buildOverallLeaderboardEmbed(
 export function buildOverallLiveLeaderboardEmbeds(
   entries: OverallLeaderboardEntry[],
   updatedAt: Date,
+  ratingLabel = 'ki',
 ): EmbedBuilder[] {
   const unix = Math.floor(updatedAt.getTime() / 1000);
   const stamp = `\n\nUpdated <t:${unix}:R>`;
@@ -103,7 +112,7 @@ export function buildOverallLiveLeaderboardEmbeds(
     const isLast = index === chunks.length - 1;
     const title =
       index === 0 ? 'Global Leaderboard' : 'Global Leaderboard (continued)';
-    let description = formatOverallTable(chunk);
+    let description = formatOverallTable(chunk, ratingLabel);
     if (isLast) {
       description += stamp;
     }
@@ -114,6 +123,7 @@ export function buildOverallLiveLeaderboardEmbeds(
 export function buildHeroLeaderboardEmbed(
   heroName: string,
   entries: HeroLeaderboardEntry[],
+  ratingLabel = 'ki',
 ): EmbedBuilder {
   const description =
     entries.length === 0
@@ -127,6 +137,7 @@ export function buildHeroLeaderboardEmbed(
             games: entry.matchesPlayed,
             discordId: null,
           })),
+          ratingLabel,
         );
 
   return new EmbedBuilder()

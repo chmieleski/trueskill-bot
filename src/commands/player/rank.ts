@@ -8,6 +8,7 @@ import {
 } from '../../services/player/index.js';
 import { buildRankEmbed } from '../../services/player/index.js';
 import {
+  getGameProfileForLeague,
   getLeagueOption,
   resolveLeagueIdFromInteraction,
   respondLeagueAutocomplete,
@@ -66,6 +67,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
     const profile = await loadPlayerProfile(resolved.leagueId, lookup);
+    const gameProfile = await getGameProfileForLeague(resolved.leagueId);
 
     let avatarUrl: string | null = null;
     if (profile.discordId) {
@@ -83,7 +85,14 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       }
     }
 
-    const payload = { embeds: [buildRankEmbed(profile, { avatarUrl })] };
+    const payload = {
+      embeds: [
+        buildRankEmbed(profile, {
+          avatarUrl,
+          ratingLabel: gameProfile.ratingLabel,
+        }),
+      ],
+    };
     if (interaction.deferred) {
       await interaction.editReply(payload);
     } else {

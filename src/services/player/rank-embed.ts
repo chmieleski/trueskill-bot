@@ -22,8 +22,9 @@ export function formatHeroTable(heroes: PlayerProfileHero[]): string {
 
 export function buildRankEmbed(
   profile: PlayerProfile,
-  options?: { avatarUrl?: string | null },
+  options?: { avatarUrl?: string | null; ratingLabel?: string },
 ): EmbedBuilder {
+  const ratingLabel = options?.ratingLabel ?? 'ki';
   const record =
     profile.winRatePercent === null
       ? `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q`
@@ -37,7 +38,7 @@ export function buildRankEmbed(
   const embed = new EmbedBuilder()
     .setColor(RANK_GOLD)
     .setAuthor({ name: profile.username })
-    .setTitle(`Rank #${profile.rankPosition} · ${profile.globalKi} ki`)
+    .setTitle(`Rank #${profile.rankPosition} · ${profile.globalKi} ${ratingLabel}`)
     .setDescription(description);
 
   // Omit when empty (ACA has no hero ratings; UDBR players may also have none yet).

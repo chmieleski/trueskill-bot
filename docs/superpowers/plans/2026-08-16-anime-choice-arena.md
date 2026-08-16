@@ -4,7 +4,7 @@
 
 **Goal:** Add a second IHL (`warcraft3_anime_choice_arena`) where lobby slots are 5v5 team seats only, Discord-only fill, and OpenSkill updates league-global ratings with `heroId` null.
 
-**Architecture:** A code `GameProfile` keyed by `gameId` replaces hardcoded 12-slot / `heroId = slot` / Z Fighters assumptions at runtime. UDBR keeps `slot_bound` + wc3stats. Prisma only seeds the `Game` row and makes `MatchPlayer.heroId` nullable. Dual-entity `rate()` runs only when `heroId` is non-null.
+**Architecture:** A code `GameProfile` keyed by `gameId` replaces hardcoded 12-slot / `heroId = slot` / Z Fighters / `ki` assumptions at runtime. Flavor (`ratingLabel`, `teamNames`) is per-game and editable in the catalog. UDBR keeps `slot_bound` + wc3stats + `ki` / Z Fighters / Evil. ACA v1 uses `ki` / Team A / Team B. Prisma only seeds the `Game` row and makes `MatchPlayer.heroId` nullable. Dual-entity `rate()` runs only when `heroId` is non-null.
 
 **Tech Stack:** TypeScript ESM, Prisma, discord.js v14, Vitest, OpenSkill (existing `rating-update`)
 
@@ -15,7 +15,8 @@
 - Scope labels: `general` unless a task title says `game:warcraft3_anime_choice_arena`
 - English-only user-facing strings and errors (copy locked in the spec)
 - `gameId` `warcraft3_anime_choice_arena` is stable; never rename
-- UDBR behavior stays: 12 slots, `heroId = slot`, dual-entity OpenSkill, wc3stats, Z Fighters / Evil **at runtime**
+- UDBR behavior stays: 12 slots, `heroId = slot`, dual-entity OpenSkill, wc3stats, `ratingLabel: ki`, Z Fighters / Evil **at runtime**
+- ACA v1 flavor preset: `ratingLabel: ki`, Team A / Team B (change later by editing the ACA profile only)
 - Global slash metadata unchanged: slot min/max 1–12; winner choice **names** stay Z Fighters / Evil
 - No `GameHero` table; do not migrate global `Hero` / `PlayerHeroRating` FKs
 - Do not land or depend on `feature/game-scoped-heroes`
@@ -41,8 +42,9 @@
 | `src/services/match/match-correction.ts` | GLOBAL-only snapshots when `heroId` is null |
 | `src/services/lobby/roster.ts` | Slot range from profile |
 | `src/services/lobby/lobby-balance.ts` | Profile slotCount; no hero entity / no `heroId = slot` on ACA |
-| `src/services/lobby/lobby-preview.ts` | `slotCount`, team names, hide hero ki, claim labels |
+| `src/services/lobby/lobby-preview.ts` | `slotCount`, team names, `ratingLabel`, hide hero column, claim labels |
 | `src/services/guild/team-names.ts` | Optional profile → ACA Team A / Team B |
+| `src/services/player/rank-embed.ts` (and similar) | User-facing unit from `profile.ratingLabel` when league/profile is in scope |
 | `src/services/lobby/register-lobby-source.ts` | Refuse screenshot/wc3stats when `import: none` |
 | `src/commands/league/league.ts` | Create choice + allow ACA `gameId` |
 | `src/commands/config/config.ts` | Refuse wc3stats writes on `import: none` |
@@ -65,7 +67,7 @@
   - `KnownGameId` union includes both game ids
   - `export type HeroBinding = 'slot_bound' | 'optional_in_game'`
   - `export type GameImportKind = 'none' | 'wc3stats'`
-  - `export type GameProfile = { gameId: string; displayName: string; slotCount: number; teamAMaxSlot: number; heroBinding: HeroBinding; import: GameImportKind; teamNames: { 1: string; 2: string } }`
+  - `export type GameProfile = { gameId: string; displayName: string; slotCount: number; teamAMaxSlot: number; heroBinding: HeroBinding; import: GameImportKind; ratingLabel: string; teamNames: { 1: string; 2: string } }`
   - `export class UnknownGameIdError extends Error`
   - `export function getGameProfile(gameId: string): GameProfile`
   - `export function isSlotInProfile(profile: GameProfile, slot: number): boolean`
@@ -99,6 +101,7 @@ describe('getGameProfile', () => {
     expect(profile.teamAMaxSlot).toBe(6);
     expect(profile.heroBinding).toBe('slot_bound');
     expect(profile.import).toBe('wc3stats');
+    expect(profile.ratingLabel).toBe('ki');
     expect(profile.teamNames).toEqual({ 1: 'Z Fighters', 2: 'Evil' });
   });
 
@@ -110,6 +113,7 @@ describe('getGameProfile', () => {
     expect(profile.teamAMaxSlot).toBe(5);
     expect(profile.heroBinding).toBe('optional_in_game');
     expect(profile.import).toBe('none');
+    expect(profile.ratingLabel).toBe('ki');
     expect(profile.teamNames).toEqual({ 1: 'Team A', 2: 'Team B' });
   });
 
@@ -565,7 +569,7 @@ git commit -m "feat: drive match roster slots and heroId from the league game pr
 
 ---
 
-### Task 6: Runtime UX — team names, slot controls, hide hero ki (`general`)
+### Task 6: Runtime UX — flavor (team names + ratingLabel), slot controls, hide hero column (`general`)
 
 **Files:**
 - Modify: `src/services/guild/team-names.ts`
@@ -577,13 +581,14 @@ git commit -m "feat: drive match roster slots and heroId from the league game pr
 - Modify: `src/services/lobby/lobby-ocr.ts` — keep `teamDisplayName(1)` no-profile (UDBR OCR only)
 
 **Interfaces:**
-- Consumes: `GameProfile.teamNames`, `slotCount`, `heroBinding`
+- Consumes: `GameProfile.teamNames`, `ratingLabel`, `slotCount`, `heroBinding`
 - Produces:
   - `teamDisplayName(team: 1 | 2, profile?: GameProfile): string` — omit profile → UDBR names (slash registration + OCR)
   - `teamDisplayNameForSlot(slot: number, profile: GameProfile): string` — `teamForSlot` + profile names
   - Lobby buttons/selects/claim options iterate `1..profile.slotCount`
   - Claim label: if `heroBinding === 'slot_bound'` keep `Slot N · ${heroName}`; else `Slot N · ${teamDisplayNameForSlot(slot, profile)}`
-  - Embed footer: if any preview line has no hero, use `Per player: slot  nick  global (ki)` instead of `global / hero`
+  - User-facing rating unit: prefer `profile.ratingLabel` in lobby/rank/leaderboard copy when profile is available (both presets are `ki` today; do not hardcode `"ki"` in new match-scoped strings)
+  - Embed footer: if any preview line has no hero, use ``Per player: slot  nick  global (${profile.ratingLabel})`` instead of `global / hero`
   - Format roster lines: omit `/ heroKi` when `heroId` was null (pass a flag on `LobbyRatingPlayerLine`, e.g. `showHero?: boolean` default true; set `showHero: entry.heroId != null` in preview)
   - `suggestBalanceMove(roster, lookup, winChance, profile)`: empty slots `1..profile.slotCount`; `applySwap`/`applyMove` set `heroId: rosterHeroId(profile, destSlot)`; `winChanceForRoster` uses `ratingEntitiesForPlayer`
 
@@ -821,7 +826,7 @@ In `docs/dev/adding-a-new-game.md` **Known games**:
 | `warcraft3_anime_choice_arena` | Second game (v1: Discord-only, global rating, no in-game pick) | `src/domain/game-profile.ts` |
 ```
 
-In **When to invest in “full” generalization**, replace “wait until a second game forces shared patterns” with: the shared pattern is `GameProfile` in `src/domain/game-profile.ts` (`slotCount`, `heroBinding`, `import`). Full `src/games/<id>/` adapters still wait. `optional_in_game` is the second hero pattern; do not reuse UDBR `Hero` ids 1–12.
+In **When to invest in “full” generalization**, replace “wait until a second game forces shared patterns” with: the shared pattern is `GameProfile` in `src/domain/game-profile.ts` (`slotCount`, `heroBinding`, `import`, `ratingLabel`, `teamNames`). Full `src/games/<id>/` adapters still wait. `optional_in_game` is the second hero pattern; do not reuse UDBR `Hero` ids 1–12. Flavor (rating unit + team names) is per-game preset, not hardcoded Dragon Ball copy in core.
 
 Do not add ACA map SHA-1 or 1.26 notes to `.env.example`.
 
@@ -858,7 +863,7 @@ git commit -m "docs: register Anime Choice Arena as a known game profile"
 | Split by `team`, ACA 5v5 / slot 6 is team B | 3 |
 | Global-only OpenSkill; no `PlayerHeroRating` writes; GLOBAL-only snapshots | 4 |
 | Skip hero catalog; `heroId` null; slot 1–10 | 5 |
-| Team A/B runtime; 10 slot controls; hide hero ki; balance without slot=hero | 6 |
+| Team A/B + `ratingLabel` runtime; 10 slot controls; hide hero column; balance without slot=hero | 6 |
 | Refuse screenshot / wc3stats / preset / poller | 7 |
 | `/league create` choice; hero leaderboard copy | 8 |
 | adding-a-new-game Known games | 9 |

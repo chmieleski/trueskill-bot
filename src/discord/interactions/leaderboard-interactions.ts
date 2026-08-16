@@ -11,6 +11,7 @@ import {
   parseLeaderboardPageCustomId,
   parseQuitterPageCustomId,
 } from '../../services/leaderboard/index.js';
+import { getGameProfileForLeague } from '../../services/league/index.js';
 
 const NOT_YOUR_PAGE =
   'Only the person who ran the leaderboard command can change pages.';
@@ -59,7 +60,10 @@ export async function handleLeaderboardInteraction(
   }
 
   const pageData = await loadOverallLeaderboardPage(parsed.leagueId, parsed.page);
-  const embed = buildOverallLeaderboardEmbed(pageData);
+  const gameProfile = await getGameProfileForLeague(parsed.leagueId);
+  const embed = buildOverallLeaderboardEmbed(pageData, {
+    ratingLabel: gameProfile.ratingLabel,
+  });
   const components = buildLeaderboardPageButtons({
     invokerId: parsed.invokerId,
     leagueId: parsed.leagueId,

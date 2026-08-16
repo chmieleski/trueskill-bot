@@ -318,7 +318,10 @@ async function handleShowOverall(interaction: ChatInputCommandInteraction): Prom
 
     const pageData =
       requestedPage === 1 ? firstPage : await loadOverallLeaderboardPage(leagueId, requestedPage);
-    const embed = buildOverallLeaderboardEmbed(pageData);
+    const gameProfile = await getGameProfileForLeague(leagueId);
+    const embed = buildOverallLeaderboardEmbed(pageData, {
+      ratingLabel: gameProfile.ratingLabel,
+    });
     const components = buildLeaderboardPageButtons({
       invokerId: interaction.user.id,
       leagueId,
@@ -383,7 +386,7 @@ async function handleShowSingleHero(interaction: ChatInputCommandInteraction): P
 
     const board = await loadHeroLeaderboard(leagueId, resolved.heroId, HERO_SINGLE_TOP);
     await interaction.editReply({
-      embeds: [buildHeroLeaderboardEmbed(board.heroName, board.entries)],
+      embeds: [buildHeroLeaderboardEmbed(board.heroName, board.entries, profile.ratingLabel)],
     });
   } catch (error) {
     if (error instanceof HeroCatalogError) {

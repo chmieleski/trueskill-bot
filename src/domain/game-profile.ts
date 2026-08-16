@@ -15,6 +15,8 @@ export type GameProfile = {
   teamAMaxSlot: number;
   heroBinding: HeroBinding;
   import: GameImportKind;
+  /** User-facing rating unit (e.g. "ki"). Math unchanged; label is per game. */
+  ratingLabel: string;
   teamNames: { 1: string; 2: string };
 };
 
@@ -33,6 +35,7 @@ const GAME_PROFILES: Record<string, GameProfile> = {
     teamAMaxSlot: 6,
     heroBinding: 'slot_bound',
     import: 'wc3stats',
+    ratingLabel: 'ki',
     teamNames: { 1: 'Z Fighters', 2: 'Evil' },
   },
   [WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID]: {
@@ -42,6 +45,7 @@ const GAME_PROFILES: Record<string, GameProfile> = {
     teamAMaxSlot: 5,
     heroBinding: 'optional_in_game',
     import: 'none',
+    ratingLabel: 'ki',
     teamNames: { 1: 'Team A', 2: 'Team B' },
   },
 };
