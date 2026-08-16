@@ -28,6 +28,15 @@ export {
   stopLeaderboardRefreshScheduler,
 } from './leaderboard-channel.js';
 export {
+  buildQuitterLiveLeaderboardEmbeds,
+  buildQuitterLeaderboardEmbed,
+  buildQuitterPageButtons,
+  buildQuitterPageCustomId,
+  formatQuitRate,
+  formatQuitterTable,
+  parseQuitterPageCustomId,
+} from './quitter-leaderboard-embed.js';
+export {
   assertQuitterLeaderboardSize,
   assignCompetitionRanks,
   filterEligibleQuitterRows,
