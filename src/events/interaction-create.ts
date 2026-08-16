@@ -1,6 +1,7 @@
 import { Events, MessageFlags } from 'discord.js';
 import type { Interaction } from 'discord.js';
 import { handleLeaderboardInteraction } from '../discord/interactions/leaderboard-interactions.js';
+import { handleMatchHistoryInteraction } from '../discord/interactions/match-history-interactions.js';
 import { handleLobbyInteraction } from '../discord/interactions/lobby-interactions.js';
 import { handleMatchInteraction } from '../discord/interactions/match-interactions.js';
 import { handleMatchCorrectionInteraction } from '../discord/interactions/match-correction-interactions.js';
@@ -36,6 +37,11 @@ export async function execute(interaction: Interaction): Promise<void> {
 
     if (await handleWc3statsHostPromptInteraction(interaction)) {
       log.debug({ userId: interaction.user.id }, 'wc3stats host prompt interaction handled');
+      return;
+    }
+
+    if (await handleMatchHistoryInteraction(interaction)) {
+      log.debug({ userId: interaction.user.id }, 'Match history interaction handled');
       return;
     }
 
