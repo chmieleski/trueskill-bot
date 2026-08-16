@@ -78,6 +78,33 @@ describe('buildQuitterLiveLeaderboardEmbeds', () => {
     expect(embeds[1]!.data.description).toMatch(/Updated <t:/);
     expect(embeds[0]!.data.description).not.toMatch(/Updated <t:/);
   });
+
+  it('includes sort mode on every live embed footer', () => {
+    const embeds = buildQuitterLiveLeaderboardEmbeds(
+      [entry({ rank: 1, username: 'Goku' })],
+      'both',
+      'rate',
+      new Date('2026-08-16T00:00:00Z'),
+    );
+    expect(embeds).toHaveLength(1);
+    expect(embeds[0]!.data.footer?.text).toMatch(/Sorted by rate/i);
+    expect(embeds[0]!.data.description).toMatch(/Updated <t:/);
+
+    const multi = buildQuitterLiveLeaderboardEmbeds(
+      Array.from({ length: 26 }, (_, i) =>
+        entry({ rank: i + 1, username: `u${i}`, quitCount: 26 - i }),
+      ),
+      'count',
+      'count',
+      new Date('2026-08-16T00:00:00Z'),
+    );
+    expect(multi).toHaveLength(2);
+    for (const embed of multi) {
+      expect(embed.data.footer?.text).toMatch(/Sorted by quits/i);
+    }
+    expect(multi[1]!.data.description).toMatch(/Updated <t:/);
+    expect(multi[0]!.data.description).not.toMatch(/Updated <t:/);
+  });
 });
 
 describe('parseQuitterPageCustomId', () => {
