@@ -32,7 +32,7 @@ import {
   type MatchWithPlayers,
 } from '../../services/match/index.js';
 import { assertCanManageMatch } from '../../services/match/index.js';
-import type { GameProfile } from '../../domain/game-profile.js';
+import { assertTeam, type GameProfile } from '../../domain/game-profile.js';
 import { getGameProfileForLeague } from '../../services/league/index.js';
 import { resolveGuildConfig, winnerLabel } from '../../services/guild/index.js';
 
@@ -94,7 +94,7 @@ function sortedPlayers(match: MatchWithPlayers): MatchPlayer[] {
 
 function decodeTeam(teamRaw: string | undefined): 1 | 2 {
   if (teamRaw === '1' || teamRaw === '2') {
-    return Number(teamRaw) as 1 | 2;
+    return assertTeam(Number(teamRaw));
   }
 
   throw new MatchServiceError('Invalid winning team selection.');

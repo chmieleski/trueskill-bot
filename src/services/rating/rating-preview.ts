@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { MatchResult, MatchStatus } from '@prisma/client';
 import { predictWin } from 'openskill';
+import { assertTeam } from '../../domain/game-profile.js';
 import { listCatalogHeroIds } from '../guild/hero-catalog.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
 import { prisma } from '../../lib/prisma.js';
@@ -392,7 +393,7 @@ export function matchPlayersToRatingEntries(
   return matchPlayers.map((entry) => ({
     playerId: entry.playerId,
     slot: entry.slot,
-    team: entry.team as 1 | 2,
+    team: assertTeam(entry.team),
     heroId: entry.heroId,
     nick: entry.player.username,
     isQuitter: entry.isQuitter,

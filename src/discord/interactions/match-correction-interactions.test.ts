@@ -150,7 +150,7 @@ describe('handleMatchCorrectionInteraction', () => {
           action: 'flip',
           matchId: parts[3],
           actorDiscordId: parts[4],
-          winningTeam: 1 as 1 | 2,
+          winningTeam: 1,
           quitterSlots: [],
         };
       }

@@ -38,8 +38,12 @@ export function buildRankEmbed(
     .setColor(RANK_GOLD)
     .setAuthor({ name: profile.username })
     .setTitle(`Rank #${profile.rankPosition} · ${profile.globalKi} ki`)
-    .setDescription(description)
-    .addFields({ name: 'Heroes', value: formatHeroTable(profile.heroes) });
+    .setDescription(description);
+
+  // Omit when empty (ACA has no hero ratings; UDBR players may also have none yet).
+  if (profile.heroes.length > 0) {
+    embed.addFields({ name: 'Heroes', value: formatHeroTable(profile.heroes) });
+  }
 
   if (options?.avatarUrl) {
     embed.setThumbnail(options.avatarUrl);

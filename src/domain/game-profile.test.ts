@@ -4,6 +4,7 @@ import {
   WARCRAFT3_UDBR_GAME_ID,
 } from './games.js';
 import {
+  assertTeam,
   getGameProfile,
   invalidSlotMessage,
   isSlotInProfile,
@@ -35,6 +36,27 @@ describe('getGameProfile', () => {
 
   it('throws UnknownGameIdError for unknown ids', () => {
     expect(() => getGameProfile('valorant_custom')).toThrow(UnknownGameIdError);
+  });
+
+  it('returns frozen profile objects so callers cannot mutate the catalog', () => {
+    const profile = getGameProfile(WARCRAFT3_UDBR_GAME_ID);
+    expect(Object.isFrozen(profile)).toBe(true);
+    expect(Object.isFrozen(profile.teamNames)).toBe(true);
+    expect(() => {
+      (profile as { slotCount: number }).slotCount = 99;
+    }).toThrow();
+  });
+});
+
+describe('assertTeam', () => {
+  it('accepts 1 and 2', () => {
+    expect(assertTeam(1)).toBe(1);
+    expect(assertTeam(2)).toBe(2);
+  });
+
+  it('rejects other values', () => {
+    expect(() => assertTeam(0)).toThrow(RangeError);
+    expect(() => assertTeam(3)).toThrow(RangeError);
   });
 });
 
