@@ -30,8 +30,10 @@ export async function handleLeaderboardInteraction(
       return true;
     }
     if (!interaction.guildId) return true;
+    // Defer before the history scan so Discord does not time out the button.
+    await interaction.deferUpdate();
     const pageData = await loadQuitterLeaderboardPage(interaction.guildId, parsed.page);
-    await interaction.update({
+    await interaction.editReply({
       embeds: [buildQuitterLeaderboardEmbed(pageData)],
       components: buildQuitterPageButtons({
         invokerId: parsed.invokerId,

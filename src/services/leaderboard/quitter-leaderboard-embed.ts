@@ -114,6 +114,8 @@ export function buildQuitterLiveLeaderboardEmbeds(
   const stamp = `\n\nUpdated <t:${unix}:R>`;
   const chunks = entries.length === 0 ? [[]] : chunkLeaderboardEntries(entries);
 
+  const sortFooter = sortFooterLabel(sort);
+
   return chunks.map((chunk, index) => {
     const isLast = index === chunks.length - 1;
     const title = index === 0 ? 'Quitter Leaderboard' : 'Quitter Leaderboard (continued)';
@@ -122,7 +124,11 @@ export function buildQuitterLiveLeaderboardEmbeds(
     if (isLast) {
       description += stamp;
     }
-    return new EmbedBuilder().setColor(RANK_GOLD).setTitle(title).setDescription(description);
+    return new EmbedBuilder()
+      .setColor(RANK_GOLD)
+      .setTitle(title)
+      .setDescription(description)
+      .setFooter({ text: sortFooter });
   });
 }
 
