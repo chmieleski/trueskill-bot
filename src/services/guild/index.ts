@@ -13,4 +13,4 @@ export {
   loadHeroCatalog,
   resolveHeroByName,
 } from './hero-catalog.js';
-export { teamDisplayName, teamDisplayNameForSlot } from './team-names.js';
+export { teamDisplayName, teamDisplayNameForSlot, winnerLabel } from './team-names.js';

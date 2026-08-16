@@ -22,7 +22,7 @@ import { applyWc3statsRefresh } from '../wc3stats/wc3stats-roster.js';
 import { loadLeagueWc3statsHeroSlotMap } from '../wc3stats/wc3stats-slot-map.js';
 import { syncLobbyDiscordMessage, type LobbyActionResult } from './discord-sync.js';
 import { nickForDiscordId } from './lobby-identity.js';
-import { assertLeagueAllowsWc3stats } from './register-lobby-source.js';
+import { assertLeagueAllowsWc3statsImport } from './register-lobby-source.js';
 
 const NOT_FOUND_MESSAGE = 'This match lobby was not found. Run /register_lobby again.';
 const NOT_EDITABLE_MESSAGE = 'This match can no longer be edited.';
@@ -61,7 +61,7 @@ function refreshResultMessage(input: {
 type SuccessfulWc3statsImport = Extract<ImportWc3statsLobbyResult, { ok: true }>;
 
 async function assertWc3statsImportReady(leagueId: string): Promise<ResolvedLeagueConfig> {
-  await assertLeagueAllowsWc3stats(leagueId);
+  await assertLeagueAllowsWc3statsImport(leagueId);
   const resolved = await resolveLeagueConfig(leagueId);
   if (!isLeagueWc3statsImportReady(resolved)) {
     throw new MatchServiceError(WC3STATS_IMPORT_DISABLED_MESSAGE);
@@ -162,7 +162,7 @@ export async function refreshLobbyFromWc3stats(input: {
     throw new MatchServiceError(NOT_EDITABLE_MESSAGE);
   }
 
-  await assertLeagueAllowsWc3stats(match.leagueId);
+  await assertLeagueAllowsWc3statsImport(match.leagueId);
 
   assertCanManageMatch({
     hostDiscordId: match.hostDiscordId,

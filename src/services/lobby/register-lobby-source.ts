@@ -35,6 +35,21 @@ export async function assertLeagueAllowsWc3stats(leagueId: string): Promise<void
   }
 }
 
+/**
+ * Sync core for lobby import/sync/refresh: refuse games whose profile is not wc3stats.
+ */
+export function assertProfileAllowsWc3statsImport(profile: GameProfile): void {
+  if (profile.import !== 'wc3stats') {
+    throw new MatchServiceError(WC3STATS_UNSUPPORTED_MESSAGE);
+  }
+}
+
+/** Reject wc3stats lobby import/sync/refresh when the league's game is not wc3stats. */
+export async function assertLeagueAllowsWc3statsImport(leagueId: string): Promise<void> {
+  const profile = await getGameProfileForLeague(leagueId);
+  assertProfileAllowsWc3statsImport(profile);
+}
+
 export type RegisterLobbySource =
   | { kind: 'empty' }
   | { kind: 'screenshot'; url: string; mimeType: string }

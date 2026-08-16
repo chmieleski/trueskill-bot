@@ -60,6 +60,8 @@ export { nickForDiscordId } from './lobby-identity.js';
 export {
   allowsEmptyMatchOnWc3statsFailure,
   assertLeagueAllowsWc3stats,
+  assertLeagueAllowsWc3statsImport,
+  assertProfileAllowsWc3statsImport,
   assertRegisterLobbyAllowedForProfile,
   parseWc3statsId,
   resolveRegisterLobbySource,

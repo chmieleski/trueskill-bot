@@ -3,11 +3,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { MatchServiceError } from '../match/match-service.js';
 import { ensurePlayerRatings } from './rating-preview.js';
 import {
+  applyMatchRatings,
+  applyQuitterPenalties,
   applySyntheticLosses,
   assertBothTeamsHaveActivePlayers,
   buildDummyOpponentTeam,
   partitionRosterForRating,
   QUITTER_SYNTHETIC_LOSSES,
+  type RatingRosterEntry,
 } from './rating-update.js';
 
 describe('QUITTER_SYNTHETIC_LOSSES', () => {
@@ -124,5 +127,58 @@ describe('ensurePlayerRatings', () => {
       data: [{ leagueId: 'league-1', playerId: 'p2', heroId: 4 }],
       skipDuplicates: true,
     });
+  });
+});
+
+function heroNullDb() {
+  const playerRating = {
+    createMany: vi.fn().mockResolvedValue({ count: 2 }),
+    findMany: vi.fn().mockResolvedValue([
+      { playerId: 'p1', mu: 25, sigma: 8.333 },
+      { playerId: 'p2', mu: 25, sigma: 8.333 },
+    ]),
+    update: vi.fn().mockResolvedValue({}),
+  };
+  const playerHeroRating = {
+    createMany: vi.fn(),
+    findMany: vi.fn(),
+    update: vi.fn(),
+  };
+
+  return { playerRating, playerHeroRating };
+}
+
+const heroNullOneVOne: RatingRosterEntry[] = [
+  { playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: false },
+  { playerId: 'p2', slot: 6, team: 2, heroId: null, isQuitter: false },
+];
+
+describe('applyMatchRatings', () => {
+  it('updates global ratings only when heroId is null', async () => {
+    const db = heroNullDb();
+
+    await applyMatchRatings('league-1', heroNullOneVOne, 1, db as never);
+
+    expect(db.playerHeroRating.findMany).not.toHaveBeenCalled();
+    expect(db.playerHeroRating.update).not.toHaveBeenCalled();
+    expect(db.playerHeroRating.createMany).not.toHaveBeenCalled();
+    expect(db.playerRating.update).toHaveBeenCalled();
+  });
+});
+
+describe('applyQuitterPenalties', () => {
+  it('updates global ratings only for a quitter with heroId null', async () => {
+    const db = heroNullDb();
+
+    await applyQuitterPenalties(
+      'league-1',
+      [{ playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: true }],
+      db as never,
+    );
+
+    expect(db.playerHeroRating.findMany).not.toHaveBeenCalled();
+    expect(db.playerHeroRating.update).not.toHaveBeenCalled();
+    expect(db.playerHeroRating.createMany).not.toHaveBeenCalled();
+    expect(db.playerRating.update).toHaveBeenCalled();
   });
 });

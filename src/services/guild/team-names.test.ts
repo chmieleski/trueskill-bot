@@ -4,7 +4,7 @@ import {
   WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
   WARCRAFT3_UDBR_GAME_ID,
 } from '../../domain/games.js';
-import { teamDisplayName, teamDisplayNameForSlot } from './team-names.js';
+import { teamDisplayName, teamDisplayNameForSlot, winnerLabel } from './team-names.js';
 
 const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
 const udbr = getGameProfile(WARCRAFT3_UDBR_GAME_ID);
@@ -23,6 +23,18 @@ describe('teamDisplayName', () => {
 
   it('keeps Z Fighters / Evil without a profile (slash + UDBR OCR)', () => {
     expect(teamDisplayName(1)).toBe('Z Fighters');
+  });
+});
+
+describe('winnerLabel', () => {
+  it('uses ACA Team A / Team B when a profile is passed', () => {
+    expect(winnerLabel(1, aca)).toBe('Team A');
+    expect(winnerLabel(2, aca)).toBe('Team B');
+  });
+
+  it('keeps UDBR Z Fighters / Evil when that profile is passed', () => {
+    expect(winnerLabel(1, udbr)).toBe('Z Fighters');
+    expect(winnerLabel(2, udbr)).toBe('Evil');
   });
 });
 
