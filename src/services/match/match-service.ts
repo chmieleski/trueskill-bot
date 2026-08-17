@@ -147,9 +147,13 @@ async function resolvePlayersInTx(
   }
 
   const nicks = sorted.map((player) => player.nick);
+  const gameId = profile.gameId;
   const existing = await tx.player.findMany({
     where: {
-      OR: nicks.map((nick) => ({ username: { equals: nick, mode: 'insensitive' as const } })),
+      gameId,
+      OR: nicks.map((nick) => ({
+        username: { equals: nick, mode: 'insensitive' as const },
+      })),
     },
   });
   const byNick = new Map(existing.map((row) => [normalizeNick(row.username), row]));
@@ -157,11 +161,11 @@ async function resolvePlayersInTx(
   const missingNicks = nicks.filter((nick) => !byNick.has(nick));
   if (missingNicks.length > 0) {
     await tx.player.createMany({
-      data: missingNicks.map((username) => ({ username })),
+      data: missingNicks.map((username) => ({ username, gameId })),
       skipDuplicates: true,
     });
     const created = await tx.player.findMany({
-      where: { username: { in: missingNicks } },
+      where: { gameId, username: { in: missingNicks } },
     });
     for (const row of created) {
       byNick.set(normalizeNick(row.username), row);
