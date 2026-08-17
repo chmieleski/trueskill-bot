@@ -13,6 +13,7 @@ import {
 } from '../leaderboard/leaderboard.js';
 import { assertRankResetCooldownDays } from '../rating/rank-reset.js';
 import { assertLeagueAllowsWc3stats } from '../lobby/register-lobby-source.js';
+import { assertLobbyHostPromptChannelsCompatible } from './league-lobby-channel.js';
 
 export {
   assertLeagueAllowsWc3stats,
@@ -196,6 +197,16 @@ export async function setLeagueWc3statsHostPrompt(
 ): Promise<void> {
   if (input.enabled) {
     await assertLeagueAllowsWc3stats(leagueId);
+    const row = await prisma.league.findUnique({
+      where: { id: leagueId },
+      select: { lobbyChannelEnabled: true, lobbyChannelId: true },
+    });
+    assertLobbyHostPromptChannelsCompatible({
+      lobbyEnabled: row?.lobbyChannelEnabled === true,
+      lobbyChannelId: row?.lobbyChannelId?.trim() || undefined,
+      hostPromptEnabled: true,
+      hostPromptChannelId: input.channelId,
+    });
   }
   if (!input.enabled) {
     await prisma.league.update({
