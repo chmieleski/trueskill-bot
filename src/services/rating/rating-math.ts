@@ -15,6 +15,27 @@ export const KI_Z_END = 2.5;
 /** Completed games over which z slides from START → END. */
 export const KI_Z_BLEND_GAMES = 5;
 
+/** Public stand-in for ki while `isCalibrating` is true. */
+export const CALIBRATING_LABEL = 'Calibrating';
+
+/**
+ * True while the player has fewer than {@link KI_Z_BLEND_GAMES} completed
+ * league games. Display-only; does not affect OpenSkill rate().
+ */
+export function isCalibrating(matchesPlayed: number): boolean {
+  return Math.max(0, matchesPlayed) < KI_Z_BLEND_GAMES;
+}
+
+/**
+ * Public ki cell: the word Calibrating until 5 league games, then the number.
+ */
+export function formatPublicKi(ki: number, matchesPlayed: number): string {
+  if (isCalibrating(matchesPlayed)) {
+    return CALIBRATING_LABEL;
+  }
+  return String(ki);
+}
+
 /**
  * Public display conservatism: blend z from 3 → 2.5 over the first 5 games,
  * then hold at 2.5. Display-only; does not affect OpenSkill rate().
