@@ -124,17 +124,6 @@ export async function execute(interaction: Interaction): Promise<void> {
     return;
   }
 
-  const denial = await getLobbyChannelSlashDenial(
-    interaction.guildId,
-    interaction.channelId,
-    interaction.commandName,
-    interaction.options.getSubcommand(false),
-  );
-  if (denial) {
-    await interaction.reply({ content: denial, flags: MessageFlags.Ephemeral });
-    return;
-  }
-
   log.info(
     {
       command: interaction.commandName,
@@ -145,6 +134,17 @@ export async function execute(interaction: Interaction): Promise<void> {
   );
 
   try {
+    const denial = await getLobbyChannelSlashDenial(
+      interaction.guildId,
+      interaction.channelId,
+      interaction.commandName,
+      interaction.options.getSubcommand(false),
+    );
+    if (denial) {
+      await interaction.reply({ content: denial, flags: MessageFlags.Ephemeral });
+      return;
+    }
+
     await command.execute(interaction);
     log.debug({ command: interaction.commandName }, 'Slash command finished');
   } catch (error) {
