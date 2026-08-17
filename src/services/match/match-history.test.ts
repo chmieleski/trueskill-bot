@@ -75,8 +75,8 @@ import {
   buildMatchHistoryPageCustomId,
   clampMatchHistoryPage,
   formatMatchHistoryDelta,
+  formatMatchHistoryField,
   formatMatchHistoryResult,
-  formatMatchHistoryTable,
   loadCompletedMatchShow,
   loadMatchHistoryPage,
   parseMatchHistoryPageCustomId,
@@ -101,44 +101,45 @@ describe('formatMatchHistoryResult', () => {
   });
 });
 
-describe('formatMatchHistoryTable', () => {
-  it('renders an aligned monospace table with header and delta column', () => {
-    const table = formatMatchHistoryTable([
+describe('formatMatchHistoryField', () => {
+  it('builds an embed field with emoji, timestamp, hero, and copyable id', () => {
+    const field = formatMatchHistoryField(
       {
-        row: {
-          matchId: 'clxxxxxxxxxxxxxxxxxxxx',
-          completedAt: new Date('2026-08-16T12:00:00.000Z'),
-          result: 'WIN',
-          team: 1,
-          heroName: 'Goku',
-          isQuitter: true,
-          globalDelta: 186,
-        },
-        teamLabel: 'Z Fighters',
+        matchId: 'clxxxxxxxxxxxxxxxxxxxx',
+        completedAt: new Date('2026-08-16T12:00:00.000Z'),
+        result: 'WIN',
+        team: 1,
+        heroName: 'Goku',
+        isQuitter: true,
+        globalDelta: 186,
       },
-      {
-        row: {
-          matchId: 'm1',
-          completedAt: new Date('2026-01-02T00:00:00.000Z'),
-          result: 'LOSS',
-          team: 2,
-          heroName: null,
-          isQuitter: false,
-        },
-        teamLabel: 'Evil',
-      },
-    ]);
+      'Z Fighters',
+    );
 
-    expect(table.startsWith('```\n')).toBe(true);
-    expect(table.endsWith('\n```')).toBe(true);
-    expect(table).toContain('Δki');
-    expect(table).toContain('+186');
-    expect(table).toContain('WQ');
-    expect(table).toContain('—');
+    expect(field.inline).toBe(false);
+    expect(field.name).toBe('✅ Win · Quit · +186 ki');
+    expect(field.value).toContain('<t:1786881600:D>');
+    expect(field.value).toContain('**Goku**');
+    expect(field.value).toContain('Z Fighters');
+    expect(field.value).toContain('`clxxxxxxxxxxxxxxxxxxxx`');
   });
 
-  it('uses italic empty copy when there are no rows', () => {
-    expect(formatMatchHistoryTable([])).toBe('_No completed matches yet._');
+  it('omits delta when missing and uses Loss emoji', () => {
+    const field = formatMatchHistoryField(
+      {
+        matchId: 'm1',
+        completedAt: new Date('2026-01-02T00:00:00.000Z'),
+        result: 'LOSS',
+        team: 2,
+        heroName: null,
+        isQuitter: false,
+      },
+      'Evil',
+    );
+
+    expect(field.name).toBe('❌ Loss');
+    expect(field.value).toContain('**Unknown hero**');
+    expect(field.value).toContain('Evil');
   });
 });
 
@@ -272,7 +273,7 @@ describe('loadMatchHistoryPage', () => {
 });
 
 describe('buildMatchHistoryEmbed', () => {
-  it('shows empty copy', () => {
+  it('shows empty copy as a field', () => {
     const embed = buildMatchHistoryEmbed(
       {
         targetPlayerId: 'P1',
@@ -285,10 +286,12 @@ describe('buildMatchHistoryEmbed', () => {
       'L1',
       (t) => (t === 1 ? 'Z Fighters' : 'Evil'),
     );
-    expect(embed.data.description).toMatch(/No completed matches yet/i);
+    expect(embed.data.author?.name).toBe('alice');
+    expect(embed.data.title).toBe('Match history');
+    expect(embed.data.fields?.[0]?.value).toMatch(/No completed matches yet/i);
   });
 
-  it('wraps rows in a monospace code block', () => {
+  it('adds one embed field per match', () => {
     const embed = buildMatchHistoryEmbed(
       {
         targetPlayerId: 'P1',
@@ -304,15 +307,17 @@ describe('buildMatchHistoryEmbed', () => {
             team: 1,
             heroName: 'Goku',
             isQuitter: false,
+            globalDelta: 42,
           },
         ],
       },
       'L1',
       (t) => (t === 1 ? 'Z Fighters' : 'Evil'),
     );
-    expect(embed.data.description).toContain('```');
-    expect(embed.data.description).toContain('Match id');
-    expect(embed.data.description).toContain('mid1');
+    expect(embed.data.fields).toHaveLength(1);
+    expect(embed.data.fields?.[0]?.name).toBe('✅ Win · +42 ki');
+    expect(embed.data.fields?.[0]?.value).toContain('`mid1`');
+    expect(embed.data.fields?.[0]?.value).toContain('**Goku**');
   });
 });
 
