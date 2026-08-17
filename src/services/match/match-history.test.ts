@@ -195,16 +195,21 @@ describe('resolveHistoryPlayer', () => {
 
   it('throws self link message when missing', async () => {
     playerFindUnique.mockResolvedValue(null);
-    await expect(resolveHistoryPlayer('d1', 'self')).rejects.toThrow(
-      /not linked/i,
-    );
+    await expect(
+      resolveHistoryPlayer('warcraft3_udbr', 'd1', 'self'),
+    ).rejects.toThrow(/not linked/i);
+    expect(playerFindUnique).toHaveBeenCalledWith({
+      where: {
+        gameId_discordId: { gameId: 'warcraft3_udbr', discordId: 'd1' },
+      },
+    });
   });
 
   it('throws player not found for other user', async () => {
     playerFindUnique.mockResolvedValue(null);
-    await expect(resolveHistoryPlayer('d2', 'user')).rejects.toThrow(
-      'Player not found.',
-    );
+    await expect(
+      resolveHistoryPlayer('warcraft3_udbr', 'd2', 'user'),
+    ).rejects.toThrow('Player not found.');
   });
 });
 

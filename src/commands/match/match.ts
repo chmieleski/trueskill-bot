@@ -394,20 +394,30 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         throw new MatchServiceError('This command can only be used in a server.');
       }
       const discordId = historyUser?.id ?? interaction.user.id;
-      const player = await resolveHistoryPlayer(discordId, historyKind);
-
-      if (!interaction.deferred) {
-        await interaction.deferReply();
-      }
-
       const resolved = await resolveLeagueIdFromInteraction(
         interaction,
         getLeagueOption(interaction),
       );
       if (!resolved.ok) {
-        await replyMatchRead(interaction, { content: resolved.message });
+        await replyMatchRead(
+          interaction,
+          { content: resolved.message },
+          historyKind === 'self' && !interaction.deferred,
+        );
         return;
       }
+
+      const gameProfile = await getGameProfileForLeague(resolved.leagueId);
+      const player = await resolveHistoryPlayer(
+        gameProfile.gameId,
+        discordId,
+        historyKind,
+      );
+
+      if (!interaction.deferred) {
+        await interaction.deferReply();
+      }
+
       const pageNum = interaction.options.getInteger('page') ?? 1;
       const pageData = await loadMatchHistoryPage({
         leagueId: resolved.leagueId,
@@ -415,9 +425,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         username: player.username,
         page: pageNum,
       });
-      const profile = await getGameProfileForLeague(resolved.leagueId);
       const embed = buildMatchHistoryEmbed(pageData, resolved.leagueId, (team) =>
-        teamDisplayName(team, profile),
+        teamDisplayName(team, gameProfile),
       );
       const components = buildMatchHistoryPageButtons({
         invokerId: interaction.user.id,
