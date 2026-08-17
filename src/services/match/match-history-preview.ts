@@ -34,7 +34,7 @@ function winningTeamFromPlayers(
 /**
  * Count completed WIN/LOSS appearances before this match (for displayOrdinal soft-z).
  */
-async function loadGlobalGamesBeforeMatch(
+export async function loadGlobalGamesBeforeMatch(
   leagueId: string,
   playerIds: string[],
   completedAt: Date | null,

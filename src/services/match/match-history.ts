@@ -8,6 +8,7 @@ import { prisma } from '../../lib/prisma.js';
 import { loadHeroCatalog } from '../guild/hero-catalog.js';
 import { listLeaguesForGuild } from '../league/league.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
+import { CALIBRATING_LABEL, isCalibrating } from '../rating/rating-math.js';
 import { buildMatchCompletedEmbed } from '../lobby/lobby-preview.js';
 import {
   getMatchById,
@@ -16,6 +17,7 @@ import {
   type MatchWithPlayers,
 } from './match-service.js';
 import {
+  loadGlobalGamesBeforeMatch,
   loadPlayerGlobalDeltaForMatch,
   resolveCompletedRatingPreview,
 } from './match-history-preview.js';
@@ -31,6 +33,8 @@ export type MatchHistoryRow = {
   isQuitter: boolean;
   /** Global ki delta for the history target when snapshots exist. */
   globalDelta?: number;
+  /** After-match completed WIN/LOSS count for the Calibrating gate. */
+  leagueGames: number;
 };
 
 export type MatchHistoryPage = {
@@ -70,12 +74,14 @@ export function formatMatchHistoryField(
   const emoji = row.result === 'WIN' ? '✅' : '❌';
   const outcome = row.result === 'WIN' ? 'Win' : 'Loss';
   const hero = row.heroName ?? 'Unknown hero';
-  const delta = formatMatchHistoryDelta(row.globalDelta);
+  const ratingBit = isCalibrating(row.leagueGames)
+    ? CALIBRATING_LABEL
+    : `${formatMatchHistoryDelta(row.globalDelta)} ki`;
   const unix = Math.floor(row.completedAt.getTime() / 1000);
   const quit = row.isQuitter ? ' · Quit' : '';
 
   return {
-    name: `${hero} · ${emoji} ${delta} ki`,
+    name: `${hero} · ${emoji} ${ratingBit}`,
     value: `${outcome}${quit} · ${teamLabel} · <t:${unix}:D>\n\`${row.matchId}\``,
     inline: false,
   };
@@ -217,14 +223,23 @@ export async function loadMatchHistoryPage(input: {
       match as MatchWithPlayers,
       input.playerId,
     );
+    const completedAt = match.completedAt ?? match.createdAt;
+    const gamesBefore = await loadGlobalGamesBeforeMatch(
+      input.leagueId,
+      [input.playerId],
+      completedAt,
+      match.id,
+    );
+    const leagueGames = (gamesBefore.get(input.playerId) ?? 0) + 1;
     rows.push({
       matchId: match.id,
-      completedAt: match.completedAt ?? match.createdAt,
+      completedAt,
       result: mp.result,
       team: mp.team,
       heroName: mp.heroId != null ? (heroNameById.get(mp.heroId) ?? null) : null,
       isQuitter: mp.isQuitter,
       globalDelta,
+      leagueGames,
     });
   }
 
