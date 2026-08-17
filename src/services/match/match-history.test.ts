@@ -121,6 +121,7 @@ describe('formatMatchHistoryField', () => {
         heroName: 'Goku',
         isQuitter: true,
         globalDelta: 186,
+        leagueGames: 8,
       },
       'Z Fighters',
     );
@@ -141,6 +142,7 @@ describe('formatMatchHistoryField', () => {
         team: 2,
         heroName: null,
         isQuitter: false,
+        leagueGames: 8,
       },
       'Evil',
     );
@@ -148,6 +150,25 @@ describe('formatMatchHistoryField', () => {
     expect(field.name).toBe('Unknown hero · ❌ — ki');
     expect(field.value).toContain('Loss · Evil ·');
     expect(field.value).toContain('`m1`');
+  });
+
+  it('prints Calibrating instead of a ki delta under 5 games', () => {
+    const field = formatMatchHistoryField(
+      {
+        matchId: 'm2',
+        completedAt: new Date('2026-08-16T12:00:00.000Z'),
+        result: 'WIN',
+        team: 1,
+        heroName: 'Goku',
+        isQuitter: false,
+        globalDelta: 186,
+        leagueGames: 3,
+      },
+      'Z Fighters',
+    );
+    expect(field.name).toBe('Goku · ✅ Calibrating');
+    expect(field.name).not.toContain('186');
+    expect(field.name).not.toContain(' ki');
   });
 });
 
@@ -358,6 +379,7 @@ describe('buildMatchHistoryEmbed', () => {
             heroName: 'Goku',
             isQuitter: false,
             globalDelta: 42,
+            leagueGames: 8,
           },
         ],
       },
