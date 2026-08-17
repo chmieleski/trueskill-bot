@@ -6,13 +6,14 @@ const NOT_LINKED =
 
 /**
  * Read whether a linked player wants wc3stats host-lobby pings.
- * Returns null when no Player is linked to this Discord id.
+ * Returns null when no Player is linked to this Discord id for the game.
  */
 export async function getPlayerHostPromptPingsEnabled(
+  gameId: string,
   discordId: string,
 ): Promise<boolean | null> {
   const row = await prisma.player.findUnique({
-    where: { discordId },
+    where: { gameId_discordId: { gameId, discordId } },
     select: { username: true, wc3statsHostPromptPingsEnabled: true },
   });
   if (!row) {
@@ -23,14 +24,15 @@ export async function getPlayerHostPromptPingsEnabled(
 
 /**
  * Set whether the linked player receives wc3stats host-lobby prompt pings.
- * Preference is global (Player row), default true.
+ * Preference is per game (Player row), default true.
  */
 export async function setPlayerHostPromptPingsEnabled(
+  gameId: string,
   discordId: string,
   enabled: boolean,
 ): Promise<{ username: string; enabled: boolean }> {
   const player = await prisma.player.findUnique({
-    where: { discordId },
+    where: { gameId_discordId: { gameId, discordId } },
     select: { id: true, username: true },
   });
   if (!player) {
