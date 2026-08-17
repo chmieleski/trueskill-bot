@@ -54,6 +54,8 @@ Conservatism **z** blends over completed games for that rating entity (league-gl
 
 Cold start (0 games, z=3) ≈ 1000; after 5+ games the board is slightly less harsh (z=2.5). Elite (μ≈40, σ≈1.5, z=2.5) ≈ 8300. Never display raw μ. DTO fields may still be named `*Ordinal` but hold display ki.
 
+**Calibrating display (games < 5):** do not print public ki or Rank #. Show `Calibrating`. Leaderboards list those players after the ranked block with `—`, sorted by league games then username (not hidden ki). Gate is player-level (hides hero ki too). Does not change `rate()` or the formula above. Spec: `docs/superpowers/specs/2026-08-17-calibrating-ki-display-design.md`.
+
 ## Edge cases
 
 | Case | Rule |
@@ -62,6 +64,7 @@ Cold start (0 games, z=3) ≈ 1000; after 5+ games the board is slightly less ha
 | **Asymmetric lobbies** | Fewer humans → lower `Σ μ`. Upset underfill gets maximized reward. Empty slots are absent entities, not zero-μ fillers. |
 | **Quitters** | `MatchPlayer.isQuitter` → N=1 OpenSkill synthetic loss (`rate` vs **peer** dummy that mirrors the quitter’s league-global+hero μ/σ) on both tables; excluded from match Bayesian `rate()`. Hero `matchesPlayed` is **not** incremented (so hero display **z** may lag global after a quit LOSS). A strong fixed dummy under-punishes display ki (expected loss). Host/mod may still complete remaining players or cancel (cancel applies quit penalties if flagged). |
 | **Soft early ki (display z)** | See Public ki above. Global g = completed W/L count **since the player's latest `PlayerRankReset` in that league** (lifetime if never reset); hero g = `PlayerHeroRating.matchesPlayed` (hero rows deleted on reset). Spec: `docs/superpowers/specs/2026-08-15-soft-early-ki-design.md`. |
+| **Calibrating label** | Public surfaces hide ki until 5 completed league games (same g as soft-z, including after rank reset) |
 | **Rank reset + display** | Reset restores μ/σ defaults and deletes hero rows; public W/L/quits and soft-z game count restart after the reset timestamp. Match rows are not deleted. |
 | **Multi-league same player** | Same `playerId` in league A and B — ratings are independent; always pass `leagueId` into `applyMatchRatings`, `ensurePlayerRatings`, leaderboard loaders, and rank profile. |
 
