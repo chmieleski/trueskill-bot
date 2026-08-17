@@ -17,7 +17,8 @@ function fakeEntry(rank: number): OverallLeaderboardEntry {
     playerId: `p${rank}`,
     username: `Player${rank}`,
     ki: 1000 + rank,
-    games: rank,
+    games: 10,
+    leagueGames: 10,
     discordId: null,
   };
 }
@@ -29,6 +30,10 @@ describe('formatRankPrefix', () => {
     expect(formatRankPrefix(3)).toBe('🥉');
     expect(formatRankPrefix(4)).toBe('#4');
   });
+
+  it('uses an em dash when unranked', () => {
+    expect(formatRankPrefix(null)).toBe('—');
+  });
 });
 
 describe('formatOverallTable', () => {
@@ -36,6 +41,33 @@ describe('formatOverallTable', () => {
     const table = formatOverallTable([fakeEntry(1)], 'power');
     expect(table).toContain('Power');
     expect(table).not.toContain(' Ki');
+  });
+
+  it('prints Calibrating instead of ki when leagueGames < 5', () => {
+    const table = formatOverallTable([
+      {
+        rank: 1,
+        playerId: 'p1',
+        username: 'Vet',
+        ki: 4820,
+        games: 20,
+        leagueGames: 20,
+        discordId: null,
+      },
+      {
+        rank: null,
+        playerId: 'p2',
+        username: 'Rookie',
+        ki: 9000,
+        games: 2,
+        leagueGames: 2,
+        discordId: null,
+      },
+    ]);
+    expect(table).toContain('4820');
+    expect(table).toContain('Calibrating');
+    expect(table).not.toContain('9000');
+    expect(table).toContain('—');
   });
 });
 
@@ -49,6 +81,7 @@ describe('buildOverallLeaderboardEmbed', () => {
           username: 'Tinys',
           ki: 4820,
           games: 42,
+          leagueGames: 42,
           discordId: null,
         },
       ],
@@ -94,6 +127,21 @@ describe('buildHeroLeaderboardEmbed', () => {
     const embed = buildHeroLeaderboardEmbed('Goku', []);
     expect(embed.data.description).toBe('_No games yet for Goku._');
   });
+
+  it('prints Calibrating using leagueGames, not hero matchesPlayed', () => {
+    const embed = buildHeroLeaderboardEmbed('Goku', [
+      {
+        rank: null,
+        playerId: 'p1',
+        username: 'Rookie',
+        ki: 4200,
+        matchesPlayed: 3,
+        leagueGames: 2,
+      },
+    ]);
+    expect(embed.data.description).toContain('Calibrating');
+    expect(embed.data.description).not.toContain('4200');
+  });
 });
 
 describe('buildAllHeroLeaderboardsEmbed', () => {
@@ -109,6 +157,7 @@ describe('buildAllHeroLeaderboardsEmbed', () => {
             username: 'Tinys',
             ki: 4200,
             matchesPlayed: 8,
+            leagueGames: 8,
           },
         ],
       },
