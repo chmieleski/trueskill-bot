@@ -32,6 +32,8 @@ export interface ResolvedLeagueConfig {
   wc3statsHostPromptChannelId: string | undefined;
   rankResetEnabled: boolean;
   rankResetCooldownDays: number;
+  lobbyChannelEnabled: boolean;
+  lobbyChannelId: string | undefined;
 }
 
 /**
@@ -56,6 +58,8 @@ export async function resolveLeagueConfig(leagueId: string): Promise<ResolvedLea
     rankResetEnabled: row?.rankResetEnabled === true,
     rankResetCooldownDays:
       row?.rankResetCooldownDays != null ? row.rankResetCooldownDays : 30,
+    lobbyChannelEnabled: row?.lobbyChannelEnabled === true,
+    lobbyChannelId: row?.lobbyChannelId?.trim() || undefined,
   };
 }
 
