@@ -60,7 +60,11 @@ export {
   assertLeagueLobbyCreateChannel,
   clearLeagueLobbyChannel,
   formatLobbyChannelConfigLine,
+  getLobbyChannelSlashDenial,
+  isGuildLobbyChannel,
   isLeagueLobbyChannelReady,
+  isLobbyChannelAllowedCommand,
+  lobbyChannelCommandsLimitedMessage,
   lobbyCreationLimitedMessage,
   setLeagueLobbyChannel,
 } from './league-lobby-channel.js';
