@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CALIBRATING_LABEL,
   displayConservatismZ,
   displayOrdinal,
+  formatPublicKi,
+  isCalibrating,
   KI_Z_BLEND_GAMES,
   KI_Z_END,
   KI_Z_START,
@@ -75,5 +78,26 @@ describe('toOpenSkillRatings', () => {
     expect(ratings).toHaveLength(2);
     expect(ratings[0]!.mu).toBe(25);
     expect(ratings[1]!.mu).toBe(28);
+  });
+});
+
+describe('isCalibrating', () => {
+  it('is true below the blend window and false at/after 5', () => {
+    expect(isCalibrating(0)).toBe(true);
+    expect(isCalibrating(4)).toBe(true);
+    expect(isCalibrating(KI_Z_BLEND_GAMES)).toBe(false);
+    expect(isCalibrating(20)).toBe(false);
+  });
+});
+
+describe('formatPublicKi', () => {
+  it('returns Calibrating below 5 games', () => {
+    expect(formatPublicKi(1450, 0)).toBe(CALIBRATING_LABEL);
+    expect(formatPublicKi(1450, 4)).toBe(CALIBRATING_LABEL);
+  });
+
+  it('returns the ki number at 5+ games', () => {
+    expect(formatPublicKi(1450, 5)).toBe('1450');
+    expect(formatPublicKi(0, 5)).toBe('0');
   });
 });
