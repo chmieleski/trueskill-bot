@@ -1,7 +1,7 @@
 # Calibrating ki display — Design
 
 **Date:** 2026-08-17  
-**Status:** Approved  
+**Status:** Implemented  
 **Scope:** `general` (public ki / rank display only; all leagues)
 
 Does **not** change the soft-z formula in [`2026-08-15-soft-early-ki-design.md`](./2026-08-15-soft-early-ki-design.md). Display ki is still computed the same way; this spec only controls when that number is shown and how rank is assigned.
