@@ -44,6 +44,7 @@ When import is enabled, ping linked hosts (`/link`) when their matching Warcraft
 /config set wc3stats_host_prompt enabled:True channel:#lobbies
 /config clear wc3stats_host_prompt
 ```
+If `/config set lobby_channel` is on for the league, this prompt channel **must be the same channel** (the bot rejects a mismatch). Open lobby then happens in that lobby channel.
 Only the mentioned host can Open lobby / Dismiss. Open uses the same create-role rules as `/register_lobby`.
 
 Players can opt out of pings (still linked; just no auto-prompt):

@@ -9,6 +9,7 @@
 • `/config set create_role`
 • `/config set mod_role`
 • `/config set player_claim`
+• `/config set|clear lobby_channel` — optional per-league create-only channel
 • `/config set leaderboard_channel` / `/leaderboard setup`
 • `/config clear leaderboard_channel`
 • `/config set leaderboard_size` / `/config clear leaderboard_size`

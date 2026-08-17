@@ -8,6 +8,8 @@ Only people with the **create role** can open a ranked lobby.
 /register_lobby
 ```
 
+If the server turned on a **lobby channel**, run this command there (the bot will tell you which channel).
+
 Optional extras:
 • `print` — a lobby screenshot (the bot tries to read names)
 • `wc3stats_id` — a live lobby id from wc3stats (if that feature is on)

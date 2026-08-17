@@ -2,100 +2,51 @@
 
 Need **Manage Server** (or Administrator) for `/config` and `/league`.
 
-**0) Leagues (multi-IHL)**
-Each server can run one or more leagues (IHL instances). Create one, then bind lobby channels so `/register_lobby`, `/rank`, and `/leaderboard` know which league to use.
+**0) Leagues**
 ```
 /league create game:UDBR name:UDBR
 /league list
 /league bind target:#lobby-channel league:UDBR
 ```
-If the server has only one league, bind is optional for resolution; with multiple leagues, bind the lobby channel or pass `league:` on commands.
+One league → bind optional. Multiple → bind or pass `league:`.
 
-**1) Who may create lobbies**
+**1) Create role**
 ```
 /config set create_role role:@YourCreatorRole
 ```
-Without this, `/register_lobby` is disabled for everyone.
+Required for `/register_lobby`.
 
-**2) Who may act like the host on matches**
+**2) Mod role**
 ```
 /config set mod_role role:@YourModRole
 ```
-Mods can report / cancel in-progress matches and help with links.
+Report / cancel matches; help with links.
 
-**3) Player claim (Claim slot / Leave)**
+**3) Player claim**
 ```
 /config set player_claim enabled:True
 /config set player_claim enabled:False
 ```
-Default is on. Off = only hosts seat players (by nick or Discord user).
+Default on. Off = hosts only seat players.
 
-**4) Live overall leaderboard channel**
+**4) Dedicated lobby channel (optional, per league)**
+Default **off**. When on, `/register_lobby` and wc3stats **Open lobby** only in that channel. `/lobby` works anywhere.
 ```
-/config set leaderboard_channel channel:#ranks
+/config set lobby_channel enabled:True channel:#lobbies
+/config set lobby_channel enabled:False
+/config clear lobby_channel
 ```
-or in the channel:
-```
-/leaderboard setup
-```
-Keep **only** that bot message in that channel.
+Host prompts (if on) **must** use this channel. `/league bind` separately for auto league pick.
 
-Optional size (default 10, max 100; Discord splits every 25 ranks into another embed):
-```
-/config set leaderboard_size size:50
-```
-Reset: `/config clear leaderboard_size`
+**5) Live overall leaderboard**
+`/config set leaderboard_channel channel:#ranks` or `/leaderboard setup`. Only that bot message in-channel.
+Size (default 10, max 100): `/config set|clear leaderboard_size`
 
-**5) Player rank reset (optional)**
-Default is **off**. When enabled, linked players can wipe their overall and hero ki back to defaults via `/rank_reset` (with a cooldown).
-```
-/config set rank_reset enabled:True
-/config set rank_reset enabled:True cooldown_days:45
-/config set rank_reset enabled:False
-/config set rank_reset_cooldown days:30
-```
-Cooldown defaults to **30 days**; omit `cooldown_days` when enabling to keep that default. `rank_reset_cooldown` changes days without toggling on/off.
+**6) Rank reset (optional)**
+Default **off**. `/config set rank_reset enabled:True` (optional `cooldown_days`, default 30). Off: `enabled:False`. Days only: `/config set rank_reset_cooldown days:30`. Mods: `/rank_reset user:@Player`.
 
-Match mods can force-reset a linked player (bypasses cooldown):
-```
-/rank_reset user:@Player
-```
+**7) Live quitter leaderboard**
+`/config set quitter_leaderboard_channel channel:#quitters` or `/leaderboard setup_quitters`. Guild-wide. Size / display (`count`/`rate`/`both`) / sort — see `/config view`. Browse: `/leaderboard quitters`.
 
-**6) Live quitter leaderboard channel**
-```
-/config set quitter_leaderboard_channel channel:#quitters
-```
-or in the channel:
-```
-/leaderboard setup_quitters
-```
-Keep **only** that bot message in that channel.
-
-Guild-wide — counts quits across **all leagues** on this server (unlike the overall live board, which is per league).
-
-Optional size (default 10, max 100; Discord splits every 25 ranks into another embed):
-```
-/config set quitter_leaderboard_size size:25
-```
-Reset: `/config clear quitter_leaderboard_size`
-
-Columns and sort (defaults: display `both`, sort `count`):
-```
-/config set quitter_leaderboard_display display:count
-/config set quitter_leaderboard_display display:rate
-/config set quitter_leaderboard_display display:both
-/config set quitter_leaderboard_sort sort:count
-/config set quitter_leaderboard_sort sort:rate
-```
-Sort can differ from visible columns (e.g. sort by rate while only showing quit count).
-
-Reset display/sort: `/config clear quitter_leaderboard_display` · `/config clear quitter_leaderboard_sort`
-
-Players can also browse with `/leaderboard quitters`.
-
-**See everything**
-```
-/config view
-```
-
-Clear live boards: `/config clear leaderboard_channel` · `/config clear quitter_leaderboard_channel`
+**See everything:** `/config view`
+Clear boards: `/config clear leaderboard_channel` · `/config clear quitter_leaderboard_channel`
