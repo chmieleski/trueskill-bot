@@ -1,20 +1,33 @@
 import { EmbedBuilder } from 'discord.js';
 import type { PlayerProfile, PlayerProfileHero } from './player-profile.js';
+import {
+  CALIBRATING_LABEL,
+  formatPublicKi,
+  isCalibrating,
+} from '../rating/rating-math.js';
 
 const RANK_GOLD = 0xf0b232;
 
-export function formatHeroTable(heroes: PlayerProfileHero[]): string {
+export function formatHeroTable(
+  heroes: PlayerProfileHero[],
+  leagueGames: number,
+): string {
   if (heroes.length === 0) {
     return '_No hero games yet_';
   }
 
-  const nameWidth = Math.max(...heroes.map((hero) => hero.name.length));
-  const kiWidth = Math.max(...heroes.map((hero) => String(hero.ki).length));
+  const cells = heroes.map((hero) => ({
+    name: hero.name,
+    ki: formatPublicKi(hero.ki, leagueGames),
+    matchesPlayed: hero.matchesPlayed,
+  }));
+  const nameWidth = Math.max(...cells.map((cell) => cell.name.length));
+  const kiWidth = Math.max(...cells.map((cell) => cell.ki.length));
 
-  const lines = heroes.map((hero) => {
-    const name = hero.name.padEnd(nameWidth, ' ');
-    const ki = String(hero.ki).padStart(kiWidth, ' ');
-    return `${name}  ${ki} · ${hero.matchesPlayed}`;
+  const lines = cells.map((cell) => {
+    const name = cell.name.padEnd(nameWidth, ' ');
+    const ki = cell.ki.padStart(kiWidth, ' ');
+    return `${name}  ${ki} · ${cell.matchesPlayed}`;
   });
 
   return `\`\`\`\n${lines.join('\n')}\n\`\`\``;
@@ -31,6 +44,10 @@ export function buildRankEmbed(
 ): EmbedBuilder {
   const ratingLabel = options?.ratingLabel ?? 'ki';
   const showHeroes = options?.showHeroes !== false;
+  const leagueGames = profile.wins + profile.losses;
+  const title = isCalibrating(leagueGames)
+    ? CALIBRATING_LABEL
+    : `Rank #${profile.rankPosition} · ${profile.globalKi} ${ratingLabel}`;
   const record =
     profile.winRatePercent === null
       ? `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q`
@@ -44,12 +61,15 @@ export function buildRankEmbed(
   const embed = new EmbedBuilder()
     .setColor(RANK_GOLD)
     .setAuthor({ name: profile.username })
-    .setTitle(`Rank #${profile.rankPosition} · ${profile.globalKi} ${ratingLabel}`)
+    .setTitle(title)
     .setDescription(description);
 
   // Omit when empty (ACA has no hero ratings; UDBR players may also have none yet).
   if (showHeroes && profile.heroes.length > 0) {
-    embed.addFields({ name: 'Heroes', value: formatHeroTable(profile.heroes) });
+    embed.addFields({
+      name: 'Heroes',
+      value: formatHeroTable(profile.heroes, leagueGames),
+    });
   }
 
   if (options?.avatarUrl) {

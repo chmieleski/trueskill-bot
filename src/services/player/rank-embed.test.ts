@@ -20,14 +20,14 @@ const baseProfile: PlayerProfile = {
 
 describe('formatHeroTable', () => {
   it('aligns names and shows ki · matches', () => {
-    const table = formatHeroTable(baseProfile.heroes);
+    const table = formatHeroTable(baseProfile.heroes, 17);
     expect(table).toContain('Goku');
     expect(table).toContain('4200');
     expect(table).toContain('· 8');
   });
 
   it('returns italic empty copy when no heroes', () => {
-    expect(formatHeroTable([])).toBe('_No hero games yet_');
+    expect(formatHeroTable([], 17)).toBe('_No hero games yet_');
   });
 });
 
@@ -91,5 +91,24 @@ describe('buildRankEmbed', () => {
     const data = buildRankEmbed(baseProfile).toJSON();
     expect(data.fields?.[0]?.name).toBe('Heroes');
     expect(data.fields?.[0]?.value).toContain('Goku');
+  });
+
+  it('uses Calibrating title and hero cells when under 5 games', () => {
+    const embed = buildRankEmbed({
+      ...baseProfile,
+      globalKi: 1450,
+      rankPosition: null,
+      wins: 2,
+      losses: 1,
+      quits: 0,
+      winRatePercent: 66.7,
+      heroes: [{ heroId: 1, name: 'Goku', ki: 4200, matchesPlayed: 2 }],
+    });
+    const data = embed.toJSON();
+    expect(data.title).toBe('Calibrating');
+    expect(data.title).not.toContain('1450');
+    expect(data.fields?.[0]?.value).toContain('Calibrating');
+    expect(data.fields?.[0]?.value).not.toContain('4200');
+    expect(data.fields?.[0]?.value).toContain('· 2');
   });
 });
