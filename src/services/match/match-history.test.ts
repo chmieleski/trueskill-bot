@@ -6,6 +6,8 @@ const {
   matchCount,
   matchRatingSnapshotFindMany,
   matchPlayerGroupBy,
+  matchPlayerFindMany,
+  playerRankResetFindMany,
   getMatchById,
   listLeaguesForGuild,
   buildMatchCompletedEmbed,
@@ -15,6 +17,8 @@ const {
   matchCount: vi.fn(),
   matchRatingSnapshotFindMany: vi.fn(),
   matchPlayerGroupBy: vi.fn(),
+  matchPlayerFindMany: vi.fn(),
+  playerRankResetFindMany: vi.fn(),
   getMatchById: vi.fn(),
   listLeaguesForGuild: vi.fn(),
   buildMatchCompletedEmbed: vi.fn(),
@@ -30,8 +34,10 @@ vi.mock('../../lib/prisma.js', () => ({
     matchRatingSnapshot: { findMany: matchRatingSnapshotFindMany },
     matchPlayer: {
       groupBy: matchPlayerGroupBy,
+      findMany: matchPlayerFindMany,
       update: vi.fn(),
     },
+    playerRankReset: { findMany: playerRankResetFindMany },
   },
 }));
 
@@ -255,8 +261,12 @@ describe('loadMatchHistoryPage', () => {
     matchCount.mockReset();
     matchRatingSnapshotFindMany.mockReset();
     matchPlayerGroupBy.mockReset();
+    matchPlayerFindMany.mockReset();
+    playerRankResetFindMany.mockReset();
     matchRatingSnapshotFindMany.mockResolvedValue([]);
     matchPlayerGroupBy.mockResolvedValue([]);
+    matchPlayerFindMany.mockResolvedValue([]);
+    playerRankResetFindMany.mockResolvedValue([]);
   });
 
   it('returns empty page 1 when no matches', async () => {
@@ -382,8 +392,15 @@ describe('loadCompletedMatchShow', () => {
     buildMatchCompletedEmbed.mockReset();
     matchRatingSnapshotFindMany.mockReset();
     matchPlayerGroupBy.mockReset();
+    matchPlayerFindMany.mockReset();
+    playerRankResetFindMany.mockReset();
     matchRatingSnapshotFindMany.mockResolvedValue([]);
     matchPlayerGroupBy.mockResolvedValue([]);
+    matchPlayerFindMany.mockResolvedValue([
+      { playerId: 'P1', result: 'WIN', isQuitter: false, match: { completedAt: new Date('2026-08-10T00:00:00.000Z') } },
+      { playerId: 'P2', result: 'LOSS', isQuitter: false, match: { completedAt: new Date('2026-08-10T00:00:00.000Z') } },
+    ]);
+    playerRankResetFindMany.mockResolvedValue([]);
     buildMatchCompletedEmbed.mockImplementation(() => {
       const { EmbedBuilder } = require('discord.js');
       return new EmbedBuilder().setTitle('Match Completed');
