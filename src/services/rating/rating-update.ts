@@ -320,3 +320,114 @@ export async function applyMatchRatings(
     });
   }
 }
+
+export type MuSigma = { mu: number; sigma: number };
+
+/**
+ * Pure in-memory OpenSkill apply (quitters then match) from starting μ/σ maps.
+ * Used to rebuild completed-match ki deltas from pre-match snapshots without DB writes.
+ */
+export function simulatePostMatchRatings(
+  entries: RatingRosterEntry[],
+  winningTeam: 1 | 2,
+  startingGlobal: Map<string, MuSigma>,
+  startingHero: Map<string, MuSigma>,
+): { globalByPlayer: Map<string, MuSigma>; heroByKey: Map<string, MuSigma> } {
+  const globalByPlayer = new Map(startingGlobal);
+  const heroByKey = new Map(startingHero);
+  const sorted = [...entries].sort((left, right) => left.slot - right.slot);
+  const { quitters, active } = partitionRosterForRating(sorted);
+
+  for (const entry of quitters) {
+    const global = globalByPlayer.get(entry.playerId) ?? defaultRatingEntity();
+    const hero =
+      entry.heroId == null
+        ? defaultRatingEntity()
+        : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity());
+    const updated = applySyntheticLosses(
+      toOpenSkillRatings(ratingEntitiesForPlayer(global, hero, entry.heroId)),
+    );
+    const nextGlobal = updated[0];
+    if (!nextGlobal) {
+      continue;
+    }
+    globalByPlayer.set(entry.playerId, { mu: nextGlobal.mu, sigma: nextGlobal.sigma });
+    if (entry.heroId != null) {
+      const nextHero = updated[1];
+      if (nextHero) {
+        heroByKey.set(heroKey(entry.playerId, entry.heroId), {
+          mu: nextHero.mu,
+          sigma: nextHero.sigma,
+        });
+      }
+    }
+  }
+
+  if (active.length === 0) {
+    return { globalByPlayer, heroByKey };
+  }
+
+  assertBothTeamsHaveActivePlayers(active);
+
+  const { teamA, teamB } = splitRosterByTeam(active);
+  const winningRoster = winningTeam === 1 ? teamA : teamB;
+  const losingRoster = winningTeam === 1 ? teamB : teamA;
+
+  const [updatedWinningTeam, updatedLosingTeam] = rate(
+    [
+      buildTeamEntities(winningRoster, globalByPlayer, heroByKey),
+      buildTeamEntities(losingRoster, globalByPlayer, heroByKey),
+    ],
+    { rank: [1, 2] },
+  );
+
+  const updatedByPlayer = new Map<
+    string,
+    { global: Rating; hero?: Rating; heroId: number | null }
+  >();
+
+  const registerTeam = (team: RatingRosterEntry[], ratings: Rating[]): void => {
+    let offset = 0;
+    for (const entry of team) {
+      const stride = entry.heroId == null ? 1 : 2;
+      const global = ratings[offset];
+      const hero = stride === 2 ? ratings[offset + 1] : undefined;
+      offset += stride;
+
+      if (!global) {
+        continue;
+      }
+      if (stride === 2 && !hero) {
+        continue;
+      }
+
+      updatedByPlayer.set(entry.playerId, {
+        global,
+        hero,
+        heroId: entry.heroId,
+      });
+    }
+  };
+
+  registerTeam(winningRoster, updatedWinningTeam);
+  registerTeam(losingRoster, updatedLosingTeam);
+
+  for (const entry of active) {
+    const updated = updatedByPlayer.get(entry.playerId);
+    if (!updated) {
+      continue;
+    }
+    globalByPlayer.set(entry.playerId, {
+      mu: updated.global.mu,
+      sigma: updated.global.sigma,
+    });
+    if (entry.heroId != null && updated.hero) {
+      heroByKey.set(heroKey(entry.playerId, entry.heroId), {
+        mu: updated.hero.mu,
+        sigma: updated.hero.sigma,
+      });
+    }
+  }
+
+  return { globalByPlayer, heroByKey };
+}

@@ -24,6 +24,7 @@ export {
   buildMatchHistoryPageButtons,
   buildMatchHistoryPageCustomId,
   clampMatchHistoryPage,
+  formatMatchHistoryDelta,
   formatMatchHistoryResult,
   formatMatchHistoryTable,
   loadCompletedMatchShow,
@@ -35,6 +36,10 @@ export {
   type MatchHistoryPage,
   type MatchHistoryRow,
 } from './match-history.js';
+export {
+  loadPlayerGlobalDeltaForMatch,
+  rebuildCompletedRatingPreview,
+} from './match-history-preview.js';
 export {
   CORRECTION_WINDOW_MS,
   GLOBAL_SNAPSHOT_HERO_ID,
