@@ -427,9 +427,13 @@ export function buildMatchCompletedEmbed(
   const winnerLabel = teamDisplayName(options.winningTeam, profile);
   const color = options.winningTeam === 1 ? 0xf1c40f : 0x57f287;
 
+  const ratingNote = options.ratingPreview
+    ? ''
+    : '\n_Rating changes were not recorded for this match._';
+
   const embed = new EmbedBuilder()
     .setTitle('Match Completed')
-    .setDescription(`${winnerLabel} won the match.`)
+    .setDescription(`${winnerLabel} won the match.${ratingNote}`)
     .addFields(
       {
         name: `${TEAM_A_EMOJI} ${teamDisplayName(1, profile)} (${teamACount})`,
