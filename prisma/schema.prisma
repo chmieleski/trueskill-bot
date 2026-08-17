@@ -32,6 +32,8 @@ model League {
   wc3statsHostPromptChannelId   String?
   rankResetEnabled              Boolean  @default(false)
   rankResetCooldownDays         Int      @default(30)
+  lobbyChannelEnabled           Boolean  @default(false)
+  lobbyChannelId                String?
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt
 
