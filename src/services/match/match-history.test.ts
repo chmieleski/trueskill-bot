@@ -68,7 +68,8 @@ import {
   buildMatchHistoryPageButtons,
   buildMatchHistoryPageCustomId,
   clampMatchHistoryPage,
-  formatMatchHistoryRow,
+  formatMatchHistoryResult,
+  formatMatchHistoryTable,
   loadCompletedMatchShow,
   loadMatchHistoryPage,
   parseMatchHistoryPageCustomId,
@@ -77,37 +78,55 @@ import {
 } from './match-history.js';
 import { MatchServiceError } from './match-service.js';
 
-describe('formatMatchHistoryRow', () => {
-  it('formats summary with hero and quitter marker', () => {
-    const line = formatMatchHistoryRow(
+describe('formatMatchHistoryResult', () => {
+  it('marks quitters with Q', () => {
+    expect(formatMatchHistoryResult({ result: 'WIN', isQuitter: true })).toBe('WQ');
+    expect(formatMatchHistoryResult({ result: 'LOSS', isQuitter: false })).toBe('L');
+  });
+});
+
+describe('formatMatchHistoryTable', () => {
+  it('renders an aligned monospace table with header', () => {
+    const table = formatMatchHistoryTable([
       {
-        matchId: 'clxxxxxxxxxxxxxxxxxxxx',
-        completedAt: new Date('2026-08-16T12:00:00.000Z'),
-        result: 'WIN',
-        team: 1,
-        heroName: 'Goku',
-        isQuitter: true,
+        row: {
+          matchId: 'clxxxxxxxxxxxxxxxxxxxx',
+          completedAt: new Date('2026-08-16T12:00:00.000Z'),
+          result: 'WIN',
+          team: 1,
+          heroName: 'Goku',
+          isQuitter: true,
+        },
+        teamLabel: 'Z Fighters',
       },
-      'Z Fighters',
-    );
-    expect(line).toBe(
-      '`clxxxxxxxxxxxxxxxxxxxx` · 2026-08-16 · W · Z Fighters · Goku Q',
-    );
+      {
+        row: {
+          matchId: 'm1',
+          completedAt: new Date('2026-01-02T00:00:00.000Z'),
+          result: 'LOSS',
+          team: 2,
+          heroName: null,
+          isQuitter: false,
+        },
+        teamLabel: 'Evil',
+      },
+    ]);
+
+    expect(table.startsWith('```\n')).toBe(true);
+    expect(table.endsWith('\n```')).toBe(true);
+    expect(table).toContain('Date');
+    expect(table).toContain('Match id');
+    expect(table).toContain('2026-08-16');
+    expect(table).toContain('WQ');
+    expect(table).toContain('Z Fighters');
+    expect(table).toContain('Goku');
+    expect(table).toContain('clxxxxxxxxxxxxxxxxxxxx');
+    expect(table).toContain('—');
+    expect(table).toContain('Evil');
   });
 
-  it('uses em dash when hero missing and omits Q when not quitter', () => {
-    const line = formatMatchHistoryRow(
-      {
-        matchId: 'm1',
-        completedAt: new Date('2026-01-02T00:00:00.000Z'),
-        result: 'LOSS',
-        team: 2,
-        heroName: null,
-        isQuitter: false,
-      },
-      'Evil',
-    );
-    expect(line).toBe('`m1` · 2026-01-02 · L · Evil · —');
+  it('uses italic empty copy when there are no rows', () => {
+    expect(formatMatchHistoryTable([])).toBe('_No completed matches yet._');
   });
 });
 
@@ -246,6 +265,33 @@ describe('buildMatchHistoryEmbed', () => {
       (t) => (t === 1 ? 'Z Fighters' : 'Evil'),
     );
     expect(embed.data.description).toMatch(/No completed matches yet/i);
+  });
+
+  it('wraps rows in a monospace code block', () => {
+    const embed = buildMatchHistoryEmbed(
+      {
+        targetPlayerId: 'P1',
+        targetUsername: 'alice',
+        page: 1,
+        totalPages: 1,
+        totalMatches: 1,
+        rows: [
+          {
+            matchId: 'mid1',
+            completedAt: new Date('2026-08-16T00:00:00.000Z'),
+            result: 'WIN',
+            team: 1,
+            heroName: 'Goku',
+            isQuitter: false,
+          },
+        ],
+      },
+      'L1',
+      (t) => (t === 1 ? 'Z Fighters' : 'Evil'),
+    );
+    expect(embed.data.description).toContain('```');
+    expect(embed.data.description).toContain('Match id');
+    expect(embed.data.description).toContain('mid1');
   });
 });
 
