@@ -1,4 +1,8 @@
 import { prisma } from '../../lib/prisma.js';
+import {
+  gamesByPlayerFromStats,
+  loadMatchDisplayStatsByPlayer,
+} from '../rating/rank-reset-display.js';
 import { displayOrdinal } from '../rating/rating-math.js';
 import {
   buildCompletedRatingPreview,
@@ -151,14 +155,16 @@ export async function rebuildCompletedRatingPreview(
 
   const globalGames = await loadGlobalGamesBeforeMatch(
     match.leagueId,
-    match.players.map((player) => player.playerId),
+    playerIds,
     match.completedAt,
     match.id,
   );
 
+  const displayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds);
+  const leagueGamesByPlayer = gamesByPlayerFromStats(displayStats);
+
   const beforeBySlot = new Map<number, PlayerKiPair>();
   const afterBySlot = new Map<number, PlayerKiPair>();
-  const leagueGamesByPlayer = new Map<string, number>();
 
   for (const entry of previewEntries) {
     const heroSnap =
@@ -169,9 +175,6 @@ export async function rebuildCompletedRatingPreview(
     const heroGamesAfter =
       entry.heroId != null && !entry.isQuitter ? heroGamesBefore + 1 : heroGamesBefore;
     const games = globalGames.get(entry.playerId) ?? 0;
-    const result = match.players.find((player) => player.playerId === entry.playerId)?.result;
-    const afterGames = result === 'WIN' || result === 'LOSS' ? games + 1 : games;
-    leagueGamesByPlayer.set(entry.playerId, afterGames);
 
     beforeBySlot.set(
       entry.slot,
@@ -234,26 +237,15 @@ export async function persistMatchRatingPreviewToPlayers(
 }
 
 /**
- * After-match completed WIN/LOSS count per player (this match included).
- * Uses {@link loadGlobalGamesBeforeMatch} then +1 when the player has WIN/LOSS here.
+ * After-match completed WIN/LOSS count per player (this match included),
+ * respecting the latest {@link PlayerRankReset} cutoff per player.
  */
 async function loadLeagueGamesAfterMatch(
   match: MatchWithPlayers,
 ): Promise<Map<string, number>> {
   const playerIds = match.players.map((player) => player.playerId);
-  const before = await loadGlobalGamesBeforeMatch(
-    match.leagueId,
-    playerIds,
-    match.completedAt,
-    match.id,
-  );
-  const after = new Map<string, number>();
-  for (const player of match.players) {
-    const gamesBefore = before.get(player.playerId) ?? 0;
-    const counted = player.result === 'WIN' || player.result === 'LOSS';
-    after.set(player.playerId, counted ? gamesBefore + 1 : gamesBefore);
-  }
-  return after;
+  const displayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds);
+  return gamesByPlayerFromStats(displayStats);
 }
 
 /** Build rating preview from MatchPlayer ki columns written at complete time. */
