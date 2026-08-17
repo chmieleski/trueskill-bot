@@ -136,14 +136,17 @@ export function parseMatchHistoryPageCustomId(
 }
 
 export async function resolveHistoryPlayer(
+  gameId: string,
   discordId: string,
   kind: 'self' | 'user',
 ): Promise<{ id: string; username: string }> {
-  const player = await prisma.player.findUnique({ where: { discordId } });
+  const player = await prisma.player.findUnique({
+    where: { gameId_discordId: { gameId, discordId } },
+  });
   if (!player) {
     if (kind === 'self') {
       throw new MatchServiceError(
-        'Your Discord is not linked to an in-game nick. Use /link to bind it.',
+        "Your Discord is not linked to an in-game nick for this league's game. Use /link to bind it.",
       );
     }
     throw new MatchServiceError('Player not found.');
