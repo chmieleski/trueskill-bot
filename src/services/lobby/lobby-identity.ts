@@ -2,14 +2,19 @@ import { prisma } from '../../lib/prisma.js';
 import { MatchServiceError } from '../match/match-service.js';
 
 export const UNLINKED_DISCORD_MESSAGE =
-  'Your Discord is not linked to an in-game nick. Run /link or ask a moderator.';
+  'Your Discord is not linked to an in-game nick for this league’s game. Run /link or ask a moderator.';
 
 /**
- * Resolve the linked in-game nick for a Discord user.
- * Throws when the account has no Player.discordId bind.
+ * Resolve the linked in-game nick for a Discord user in a specific game.
+ * Throws when the account has no Player bind for that gameId.
  */
-export async function nickForDiscordId(discordId: string): Promise<string> {
-  const player = await prisma.player.findUnique({ where: { discordId } });
+export async function nickForDiscordId(
+  discordId: string,
+  gameId: string,
+): Promise<string> {
+  const player = await prisma.player.findUnique({
+    where: { gameId_discordId: { gameId, discordId } },
+  });
 
   if (!player) {
     throw new MatchServiceError(UNLINKED_DISCORD_MESSAGE);

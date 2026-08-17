@@ -74,14 +74,14 @@ export async function addLobbyPlayerFromDiscord(input: {
   discordId: string;
   slot: number;
 }): Promise<LobbyActionResult> {
-  const nick = await nickForDiscordId(input.discordId);
-  return addLobbyPlayer({
-    client: input.client,
+  const { match, players } = await resolveHostPendingMatch({
     hostDiscordId: input.hostDiscordId,
     matchId: input.matchId,
-    nick,
-    slot: input.slot,
   });
+  const profile = await profileForLeague(match.leagueId);
+  const nick = await nickForDiscordId(input.discordId, profile.gameId);
+  const next = addPlayer(players, nick, input.slot, profile);
+  return applyRosterAndSync(input.client, match.id, next);
 }
 
 /**
@@ -98,8 +98,8 @@ export async function claimLobbySlot(input: {
     messageId: input.messageId,
   });
   await assertLobbyPlayerClaimEnabled(match.leagueId);
-  const nick = await nickForDiscordId(input.discordId);
   const profile = await profileForLeague(match.leagueId);
+  const nick = await nickForDiscordId(input.discordId, profile.gameId);
   const next = rosterAfterClaim(players, nick, input.slot, profile);
   return applyRosterAndSync(input.client, match.id, next);
 }
@@ -117,8 +117,8 @@ export async function leaveLobbySlot(input: {
     messageId: input.messageId,
   });
   await assertLobbyPlayerClaimEnabled(match.leagueId);
-  const nick = await nickForDiscordId(input.discordId);
   const profile = await profileForLeague(match.leagueId);
+  const nick = await nickForDiscordId(input.discordId, profile.gameId);
   const next = rosterAfterLeave(players, nick, profile);
   return applyRosterAndSync(input.client, match.id, next);
 }
