@@ -1,5 +1,5 @@
 import { createLogger } from '../../lib/logger.js';
-import { assertCanManageMatch } from '../match/match-auth.js';
+import { assertCanManageMatch, hasMatchModRole } from '../match/match-auth.js';
 import {
   findPendingMatchesByHost,
   getMatchByDiscordMessageId,
@@ -18,10 +18,19 @@ const NO_PENDING_MESSAGE = 'You have no pending match lobby. Run /register_lobby
 const AMBIGUOUS_PENDING_MESSAGE =
   'You have more than one pending lobby. Pass match_id to choose which one.';
 const OWNER_ONLY_MESSAGE = 'Only the user who registered this lobby can do that.';
+const MOD_NEEDS_MATCH_ID_MESSAGE =
+  'Provide match_id when using the match moderator role.';
 
 export interface ResolveHostPendingMatchInput {
   hostDiscordId: string;
   matchId?: string | null;
+}
+
+export interface ResolvePendingMatchForManageInput {
+  actorDiscordId: string;
+  matchId?: string | null;
+  memberRoleIds: string[];
+  matchModRoleId?: string;
 }
 
 function assertHostOwnsPending(match: MatchWithPlayers, hostDiscordId: string): void {
@@ -65,6 +74,54 @@ export async function resolveHostPendingMatch(
 
   const match = pending[0]!;
   return { match, players: matchToLobbyPlayers(match) };
+}
+
+/**
+ * Resolve a PENDING match the actor may cancel: host of that lobby, or match mod.
+ * Without match_id, still prefers the actor's own sole PENDING lobby (host path).
+ */
+export async function resolvePendingMatchForManage(
+  input: ResolvePendingMatchForManageInput,
+): Promise<{ match: MatchWithPlayers; players: LobbyPlayer[] }> {
+  const { actorDiscordId, matchId, memberRoleIds, matchModRoleId } = input;
+
+  if (matchId) {
+    const match = await getMatchById(matchId);
+
+    if (!match) {
+      throw new MatchServiceError(NOT_FOUND_MESSAGE);
+    }
+
+    if (match.status !== 'PENDING') {
+      throw new MatchServiceError(NOT_EDITABLE_MESSAGE);
+    }
+
+    assertCanManageMatch({
+      hostDiscordId: match.hostDiscordId,
+      actorDiscordId,
+      memberRoleIds,
+      matchModRoleId,
+    });
+
+    return { match, players: matchToLobbyPlayers(match) };
+  }
+
+  const pending = await findPendingMatchesByHost(actorDiscordId);
+
+  if (pending.length === 1) {
+    const match = pending[0]!;
+    return { match, players: matchToLobbyPlayers(match) };
+  }
+
+  if (pending.length > 1) {
+    throw new MatchServiceError(AMBIGUOUS_PENDING_MESSAGE);
+  }
+
+  if (hasMatchModRole({ actorDiscordId, memberRoleIds, matchModRoleId })) {
+    throw new MatchServiceError(MOD_NEEDS_MATCH_ID_MESSAGE);
+  }
+
+  throw new MatchServiceError(NO_PENDING_MESSAGE);
 }
 
 /**

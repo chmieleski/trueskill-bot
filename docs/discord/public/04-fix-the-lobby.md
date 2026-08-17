@@ -26,6 +26,8 @@ The lobby message has buttons. Use them like toys that fix the board.
 /lobby cancel
 ```
 
+A **match moderator** can also `/lobby cancel` with `match_id` if the host is gone.
+
 **Start rules**
 • Both teams need ≥1 human
 • No duplicate slots / broken roster

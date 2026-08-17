@@ -2,6 +2,10 @@
 
 People with the **mod role** can help when the host is gone or stuck.
 
+**Pending lobbies**
+• `/lobby cancel match_id:…` — cancel a lobby that has not started yet
+• Pass `match_id` when you are not the host
+
 **Matches in progress**
 • `/match complete` — report winner (pass `match_id` if needed)
 • `/match quitters` — mark leavers

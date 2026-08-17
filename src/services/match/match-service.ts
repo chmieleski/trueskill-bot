@@ -563,7 +563,7 @@ export async function startMatch(matchId: string): Promise<MatchWithPlayers> {
 }
 
 /**
- * Flip a PENDING match to CANCELLED (host cancel).
+ * Flip a PENDING match to CANCELLED (host or match moderator).
  */
 export async function cancelMatch(matchId: string): Promise<MatchWithPlayers> {
   const match = await getMatchById(matchId);

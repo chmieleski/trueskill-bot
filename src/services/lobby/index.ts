@@ -1,6 +1,9 @@
 export type { LobbyPlayer } from './lobby-ocr.js';
 export { extractLobbyPlayers } from './lobby-ocr.js';
-export type { ResolveHostPendingMatchInput } from './resolve.js';
+export type {
+  ResolveHostPendingMatchInput,
+  ResolvePendingMatchForManageInput,
+} from './resolve.js';
 export type { LobbySyncMode, LobbyActionResult } from './discord-sync.js';
 export type { RefreshLobbyResult } from './wc3stats-refresh.js';
 export type {
@@ -25,6 +28,7 @@ export {
 export {
   resolveHostPendingMatch,
   resolvePendingMatchByMessageId,
+  resolvePendingMatchForManage,
   resolveInProgressMatchByMessageId,
   resolveHostPendingMatchByMessageId,
 } from './resolve.js';

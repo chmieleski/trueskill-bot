@@ -1,6 +1,7 @@
-import { MessageFlags, SlashCommandBuilder } from 'discord.js';
+import { GuildMember, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
+import { resolveGuildConfig } from '../../services/guild/index.js';
 import {
   addLobbyPlayer,
   addLobbyPlayerFromDiscord,
@@ -17,6 +18,31 @@ const log = createLogger('lobby_cmd');
 
 const MIN_SLOT = 1;
 const MAX_SLOT = 12;
+
+function memberRoleIds(interaction: { member: unknown }): string[] {
+  const member = interaction.member;
+
+  if (member instanceof GuildMember) {
+    return [...member.roles.cache.keys()];
+  }
+
+  if (member && typeof member === 'object' && 'roles' in member) {
+    const roles = (member as { roles: unknown }).roles;
+
+    if (Array.isArray(roles)) {
+      return roles;
+    }
+
+    if (roles && typeof roles === 'object' && 'cache' in roles) {
+      const cache = (roles as { cache?: Map<string, unknown> }).cache;
+      if (cache instanceof Map) {
+        return [...cache.keys()];
+      }
+    }
+  }
+
+  return [];
+}
 
 export const data = new SlashCommandBuilder()
   .setName('lobby')
@@ -101,11 +127,11 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName('cancel')
-      .setDescription('Cancel your pending match lobby')
+      .setDescription('Cancel a pending lobby (host or match moderator)')
       .addStringOption((option) =>
         option
           .setName('match_id')
-          .setDescription('Pending match id (required if you have more than one)')
+          .setDescription('Pending match id (required if several, or if you are not the host)')
           .setRequired(false),
       ),
   )
@@ -220,10 +246,15 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     if (subcommand === 'cancel') {
+      const matchModRoleId = interaction.guildId
+        ? (await resolveGuildConfig(interaction.guildId)).matchModRoleId
+        : undefined;
       const result = await cancelLobbyMatch({
         client: interaction.client,
-        hostDiscordId,
+        actorDiscordId: hostDiscordId,
         matchId,
+        memberRoleIds: memberRoleIds(interaction),
+        matchModRoleId,
       });
       await interaction.editReply({
         content: `Match \`${result.match.id}\` cancelled.`,

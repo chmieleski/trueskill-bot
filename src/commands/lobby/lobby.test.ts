@@ -28,4 +28,14 @@ describe('lobby command data', () => {
     expect(wc3statsId?.required).toBeFalsy();
     expect(wc3statsId?.type).toBe(ApplicationCommandOptionType.Integer);
   });
+
+  it('describes cancel as host or match moderator', () => {
+    const json = data.toJSON();
+    const cancel = json.options?.find((option) => option.name === 'cancel');
+
+    expect(cancel).toBeDefined();
+    expect(cancel && 'description' in cancel ? cancel.description : '').toMatch(
+      /moderator/i,
+    );
+  });
 });

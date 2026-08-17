@@ -16,6 +16,7 @@
 • `/match show` — open a completed match by id
 
 **Match (host or mod)**
+• `/lobby cancel` — cancel a pending lobby (pass `match_id` if you are not the host)
 • `/match complete` — report winner (+ optional quitters)
 • `/match quitters` — mark quitters
 • `/match cancel` — cancel in-progress match

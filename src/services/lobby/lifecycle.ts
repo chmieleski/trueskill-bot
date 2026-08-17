@@ -5,7 +5,11 @@ import {
   startMatch,
 } from '../match/match-service.js';
 import { type LobbyActionResult, syncLobbyDiscordMessage } from './discord-sync.js';
-import { resolveHostPendingMatch, resolvePendingMatchByMessageId } from './resolve.js';
+import {
+  resolveHostPendingMatch,
+  resolvePendingMatchByMessageId,
+  resolvePendingMatchForManage,
+} from './resolve.js';
 
 export async function startLobbyMatch(input: {
   client: Client;
@@ -35,14 +39,20 @@ export async function startLobbyMatchByMessageId(input: {
 
 export async function cancelLobbyMatch(input: {
   client: Client;
-  hostDiscordId: string;
+  actorDiscordId: string;
   matchId?: string | null;
+  memberRoleIds: string[];
+  matchModRoleId?: string;
 }): Promise<LobbyActionResult> {
-  const { match } = await resolveHostPendingMatch({
-    hostDiscordId: input.hostDiscordId,
+  const { match } = await resolvePendingMatchForManage({
+    actorDiscordId: input.actorDiscordId,
     matchId: input.matchId,
+    memberRoleIds: input.memberRoleIds,
+    matchModRoleId: input.matchModRoleId,
   });
   const cancelled = await cancelMatch(match.id);
-  await syncLobbyDiscordMessage(input.client, cancelled, 'cancelled');
+  const cancelReason =
+    match.hostDiscordId === input.actorDiscordId ? 'by the host' : 'by a moderator';
+  await syncLobbyDiscordMessage(input.client, cancelled, 'cancelled', { cancelReason });
   return { match: cancelled, players: matchToLobbyPlayers(cancelled) };
 }
