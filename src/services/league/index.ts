@@ -51,3 +51,16 @@ export {
   setLeagueWc3statsHostPrompt,
   type ResolvedLeagueConfig,
 } from './league-wc3stats.js';
+
+export {
+  LOBBY_CHANNEL_CHANNEL_ONLY_WHILE_DISABLED,
+  LOBBY_CHANNEL_ENABLE_NEEDS_CHANNEL,
+  LOBBY_CHANNEL_HOST_PROMPT_MISMATCH,
+  LOBBY_CHANNEL_SET_NEEDS_OPTION,
+  assertLeagueLobbyCreateChannel,
+  clearLeagueLobbyChannel,
+  formatLobbyChannelConfigLine,
+  isLeagueLobbyChannelReady,
+  lobbyCreationLimitedMessage,
+  setLeagueLobbyChannel,
+} from './league-lobby-channel.js';
