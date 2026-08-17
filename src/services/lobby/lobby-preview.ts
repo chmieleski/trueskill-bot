@@ -9,6 +9,7 @@ import {
 import type { LobbyPlayer, ValidatedLobby } from './lobby-ocr.js';
 import { formatBalanceHints } from './lobby-balance.js';
 import type { LobbyRatingPlayerLine, LobbyRatingPreview } from '../rating/rating-preview.js';
+import { formatPublicKi, isCalibrating } from '../rating/rating-math.js';
 import { teamDisplayName, teamDisplayNameForSlot } from '../guild/team-names.js';
 import {
   getGameProfile,
@@ -75,6 +76,21 @@ export function formatTeamLines(players: LobbyPlayer[]): string {
 }
 
 /**
+ * Public ki cell for a roster line. Calibrating players hide both the number
+ * and any signed delta (player-level gate for global and hero).
+ */
+function formatKiCell(
+  ki: number,
+  leagueGames: number,
+  delta: number | undefined,
+): string {
+  if (isCalibrating(leagueGames)) {
+    return formatPublicKi(ki, leagueGames);
+  }
+  return `${ki}${formatSignedDelta(delta)}`;
+}
+
+/**
  * Format roster lines with global / hero display ki (DTO *Ordinal fields).
  * Prefixes each occupied line with the lobby slot (1–12) so hosts can add/move
  * by number. Uses monospace padding so rating columns align. When deltas are
@@ -88,28 +104,28 @@ export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): st
 
   const nickWidth = Math.max(8, ...players.map((player) => player.nick.length));
   const showHeroColumn = players.some((player) => player.showHero !== false);
+  const cells = players.map((player) => ({
+    global: formatKiCell(player.globalOrdinal, player.leagueGames, player.globalDelta),
+    hero: formatKiCell(player.heroOrdinal, player.leagueGames, player.heroDelta),
+  }));
   const ratingWidth = Math.max(
     4,
-    ...players.flatMap((player) =>
-      showHeroColumn
-        ? [String(player.globalOrdinal).length, String(player.heroOrdinal).length]
-        : [String(player.globalOrdinal).length],
+    ...cells.flatMap((cell) =>
+      showHeroColumn ? [cell.global.length, cell.hero.length] : [cell.global.length],
     ),
   );
 
   return players
-    .map((player) => {
+    .map((player, index) => {
       const slotLabel = formatSlotLabel(player.slot);
       const nick = player.nick.padEnd(nickWidth, ' ');
-      const global = String(player.globalOrdinal).padStart(ratingWidth, ' ');
-      const globalDelta = formatSignedDelta(player.globalDelta);
+      const global = cells[index]!.global.padStart(ratingWidth, ' ');
       const quitterMark = player.isQuitter ? ' 🚪' : '';
       if (player.showHero === false) {
-        return `\`${slotLabel}  ${nick}   ${global}${globalDelta}\`${quitterMark}`;
+        return `\`${slotLabel}  ${nick}   ${global}\`${quitterMark}`;
       }
-      const hero = String(player.heroOrdinal).padStart(ratingWidth, ' ');
-      const heroDelta = formatSignedDelta(player.heroDelta);
-      return `\`${slotLabel}  ${nick}   ${global}${globalDelta} / ${hero}${heroDelta}\`${quitterMark}`;
+      const hero = cells[index]!.hero.padStart(ratingWidth, ' ');
+      return `\`${slotLabel}  ${nick}   ${global} / ${hero}\`${quitterMark}`;
     })
     .join('\n');
 }

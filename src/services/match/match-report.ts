@@ -22,6 +22,10 @@ import {
 } from '../rating/rating-update.js';
 import { writeMatchRatingSnapshots } from './match-correction.js';
 import { persistMatchRatingPreviewToPlayers } from './match-history-preview.js';
+import {
+  gamesByPlayerFromStats,
+  loadMatchDisplayStatsByPlayer,
+} from '../rating/rank-reset-display.js';
 
 const log = createLogger('match-report');
 
@@ -205,11 +209,17 @@ export async function completeMatch(
       data: { status: 'COMPLETED', completedAt: new Date() },
     });
 
+    const displayStats = await loadMatchDisplayStatsByPlayer(
+      match.leagueId,
+      previewEntries.map((entry) => entry.playerId),
+      tx,
+    );
     const afterBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
     ratingPreview = buildCompletedRatingPreview(
       previewEntries,
       beforeBySlot,
       afterBySlot,
+      gamesByPlayerFromStats(displayStats),
     );
     await persistMatchRatingPreviewToPlayers(
       matchId,

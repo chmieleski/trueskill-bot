@@ -23,6 +23,10 @@ import {
 import { resolveQuitterSlots } from './match-report.js';
 import type { CompleteMatchResult } from './match-report.js';
 import { persistMatchRatingPreviewToPlayers } from './match-history-preview.js';
+import {
+  gamesByPlayerFromStats,
+  loadMatchDisplayStatsByPlayer,
+} from '../rating/rank-reset-display.js';
 
 const log = createLogger('match-correction');
 
@@ -548,8 +552,18 @@ export async function flipCompletedMatch(
     await applyQuitterPenalties(match.leagueId, entries, tx);
     await applyMatchRatings(match.leagueId, entries, winningTeam, tx);
 
+    const displayStats = await loadMatchDisplayStatsByPlayer(
+      match.leagueId,
+      previewEntries.map((entry) => entry.playerId),
+      tx,
+    );
     const afterBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
-    ratingPreview = buildCompletedRatingPreview(previewEntries, beforeBySlot, afterBySlot);
+    ratingPreview = buildCompletedRatingPreview(
+      previewEntries,
+      beforeBySlot,
+      afterBySlot,
+      gamesByPlayerFromStats(displayStats),
+    );
     await persistMatchRatingPreviewToPlayers(matchId, ratingPreview, match.players, tx);
   });
 

@@ -43,8 +43,8 @@ describe('formatTeamLines', () => {
 describe('formatTeamLinesFromPreview', () => {
   it('prefixes occupied lines with slot numbers', () => {
     const value = formatTeamLinesFromPreview([
-      { slot: 1, nick: 'goku', globalOrdinal: 1100, heroOrdinal: 2200 },
-      { slot: 4, nick: 'gohan', globalOrdinal: 900, heroOrdinal: 950 },
+      { slot: 1, nick: 'goku', globalOrdinal: 1100, heroOrdinal: 2200, leagueGames: 8 },
+      { slot: 4, nick: 'gohan', globalOrdinal: 900, heroOrdinal: 950, leagueGames: 8 },
     ]);
     const lines = value.split('\n');
 
@@ -56,8 +56,8 @@ describe('formatTeamLinesFromPreview', () => {
 
   it('appends the quitter marker outside the code span', () => {
     const value = formatTeamLinesFromPreview([
-      { slot: 1, nick: 'goku', globalOrdinal: 1100, heroOrdinal: 2200, isQuitter: true },
-      { slot: 2, nick: 'vegeta', globalOrdinal: 3300, heroOrdinal: 4400 },
+      { slot: 1, nick: 'goku', globalOrdinal: 1100, heroOrdinal: 2200, isQuitter: true, leagueGames: 8 },
+      { slot: 2, nick: 'vegeta', globalOrdinal: 3300, heroOrdinal: 4400, leagueGames: 8 },
     ]);
     const [firstLine, secondLine] = value.split('\n');
 
@@ -78,6 +78,7 @@ describe('formatTeamLinesFromPreview', () => {
           heroOrdinal: 1200,
           globalDelta: 186,
           heroDelta: 200,
+          leagueGames: 8,
         },
         {
           slot: 7,
@@ -87,6 +88,7 @@ describe('formatTeamLinesFromPreview', () => {
           globalDelta: -100,
           heroDelta: -150,
           isQuitter: true,
+          leagueGames: 8,
         },
       ],
     );
@@ -101,14 +103,48 @@ describe('formatTeamLinesFromPreview', () => {
 
   it('omits the hero ki column when showHero is false', () => {
     const value = formatTeamLinesFromPreview([
-      { slot: 1, nick: 'alice', globalOrdinal: 1100, heroOrdinal: 1100, showHero: false },
-      { slot: 6, nick: 'bob', globalOrdinal: 900, heroOrdinal: 900, showHero: false },
+      { slot: 1, nick: 'alice', globalOrdinal: 1100, heroOrdinal: 1100, showHero: false, leagueGames: 8 },
+      { slot: 6, nick: 'bob', globalOrdinal: 900, heroOrdinal: 900, showHero: false, leagueGames: 8 },
     ]);
     const lines = value.split('\n');
 
     expect(lines[0]).toMatch(/^`\s*1\s+alice\s+1100`$/);
     expect(lines[1]).toMatch(/^`\s*6\s+bob\s+ 900`$/);
     expect(value).not.toContain('/');
+  });
+
+  it('prints Calibrating and omits deltas when leagueGames < 5', () => {
+    const value = formatTeamLinesFromPreview([
+      {
+        slot: 1,
+        nick: 'goku',
+        globalOrdinal: 1186,
+        heroOrdinal: 1200,
+        globalDelta: 186,
+        heroDelta: 200,
+        leagueGames: 4,
+      },
+    ]);
+    expect(value).toContain('Calibrating');
+    expect(value).not.toContain('1186');
+    expect(value).not.toContain('+186');
+    expect(value).not.toContain('1200');
+  });
+
+  it('shows ki and deltas when the completing match reaches 5', () => {
+    const value = formatTeamLinesFromPreview([
+      {
+        slot: 1,
+        nick: 'goku',
+        globalOrdinal: 1186,
+        heroOrdinal: 1200,
+        globalDelta: 186,
+        heroDelta: 200,
+        leagueGames: 5,
+      },
+    ]);
+    expect(value).toContain('1186 (+186) / 1200 (+200)');
+    expect(value).not.toContain('Calibrating');
   });
 });
 
@@ -127,6 +163,10 @@ describe('buildCompletedRatingPreview', () => {
         [1, { global: 1186, hero: 1200 }],
         [7, { global: 900, hero: 850 }],
       ]),
+      new Map([
+        ['p1', 5],
+        ['p2', 8],
+      ]),
     );
 
     expect(preview.players).toEqual([
@@ -139,6 +179,7 @@ describe('buildCompletedRatingPreview', () => {
         heroDelta: 200,
         isQuitter: false,
         showHero: true,
+        leagueGames: 5,
       },
       {
         slot: 7,
@@ -149,6 +190,7 @@ describe('buildCompletedRatingPreview', () => {
         heroDelta: -150,
         isQuitter: true,
         showHero: true,
+        leagueGames: 8,
       },
     ]);
   });
@@ -334,8 +376,8 @@ describe('balance hint on embeds', () => {
     ], {
       ratingPreview: {
         players: [
-          { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000 },
-          { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000 },
+          { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
+          { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
         ],
         winChance: { teamAPercent: 70, teamBPercent: 30 },
         balanceSuggestions: [
@@ -362,8 +404,8 @@ describe('balance hint on embeds', () => {
     ], {
       ratingPreview: {
         players: [
-          { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000 },
-          { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000 },
+          { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
+          { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
         ],
         winChance: { teamAPercent: 70, teamBPercent: 30 },
         balanceSuggestions: [
@@ -399,8 +441,8 @@ describe('balance hint on embeds', () => {
     ], {
       ratingPreview: {
         players: [
-          { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000 },
-          { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000 },
+          { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
+          { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
         ],
         winChance: { teamAPercent: 70, teamBPercent: 30 },
         balanceSuggestions: [
@@ -480,6 +522,7 @@ describe('buildMatchCompletedEmbed', () => {
               globalDelta: 186,
               heroDelta: 200,
               isQuitter: true,
+              leagueGames: 8,
             },
             {
               slot: 7,
@@ -488,6 +531,7 @@ describe('buildMatchCompletedEmbed', () => {
               heroOrdinal: 4400,
               globalDelta: -50,
               heroDelta: -80,
+              leagueGames: 8,
             },
           ],
         },
@@ -521,8 +565,8 @@ describe('buildMatchCompletedEmbed', () => {
         profile: aca,
         ratingPreview: {
           players: [
-            { slot: 1, nick: 'alice', globalOrdinal: 1100, heroOrdinal: 1100, showHero: false },
-            { slot: 6, nick: 'bob', globalOrdinal: 900, heroOrdinal: 900, showHero: false },
+            { slot: 1, nick: 'alice', globalOrdinal: 1100, heroOrdinal: 1100, showHero: false, leagueGames: 8 },
+            { slot: 6, nick: 'bob', globalOrdinal: 900, heroOrdinal: 900, showHero: false, leagueGames: 8 },
           ],
         },
       },
