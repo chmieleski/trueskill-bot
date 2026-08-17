@@ -108,4 +108,37 @@ describe('listHostPromptReadyLeagues', () => {
     expect(ready.map((league) => league.id)).toEqual(['udbr']);
     expect(ready[0]?.gameId).toBe(WARCRAFT3_UDBR_GAME_ID);
   });
+
+  it('skips a league when lobby channel is ready and differs from the host prompt channel', async () => {
+    const leagueFindMany = vi.mocked(prisma.league.findMany);
+    leagueFindMany.mockResolvedValue([
+      {
+        id: 'mismatch',
+        guildId: 'g1',
+        gameId: WARCRAFT3_UDBR_GAME_ID,
+        wc3statsHostPromptChannelId: 'prompt-chan',
+        wc3statsMapPattern: 'udbr',
+        wc3statsMapSha1: null,
+        wc3statsEnabled: true,
+        wc3statsHostPromptEnabled: true,
+        lobbyChannelEnabled: true,
+        lobbyChannelId: 'lobby-chan',
+      },
+      {
+        id: 'aligned',
+        guildId: 'g1',
+        gameId: WARCRAFT3_UDBR_GAME_ID,
+        wc3statsHostPromptChannelId: 'same-chan',
+        wc3statsMapPattern: 'udbr',
+        wc3statsMapSha1: null,
+        wc3statsEnabled: true,
+        wc3statsHostPromptEnabled: true,
+        lobbyChannelEnabled: true,
+        lobbyChannelId: 'same-chan',
+      },
+    ] as never);
+
+    const ready = await listHostPromptReadyLeagues();
+    expect(ready.map((league) => league.id)).toEqual(['aligned']);
+  });
 });
