@@ -174,6 +174,7 @@ describe('previewRankReset', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     leagueFindUnique.mockResolvedValue({
+      gameId: 'warcraft3_udbr',
       rankResetEnabled: true,
       rankResetCooldownDays: 30,
     });
@@ -184,6 +185,7 @@ describe('previewRankReset', () => {
 
   it('rejects when rank reset is disabled for the league', async () => {
     leagueFindUnique.mockResolvedValue({
+      gameId: 'warcraft3_udbr',
       rankResetEnabled: false,
       rankResetCooldownDays: 30,
     });
@@ -191,6 +193,19 @@ describe('previewRankReset', () => {
     await expect(previewRankReset(selfInput())).rejects.toThrow(
       'Rank reset is disabled for this league.',
     );
+  });
+
+  it('loads the target player by league gameId and Discord id', async () => {
+    await previewRankReset(selfInput());
+
+    expect(playerFindUnique).toHaveBeenCalledWith({
+      where: {
+        gameId_discordId: {
+          gameId: 'warcraft3_udbr',
+          discordId: 'discord-target',
+        },
+      },
+    });
   });
 
   it('tells an unlinked self to link before resetting', async () => {
@@ -271,6 +286,7 @@ describe('applyRankReset', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     leagueFindUnique.mockResolvedValue({
+      gameId: 'warcraft3_udbr',
       rankResetEnabled: true,
       rankResetCooldownDays: 30,
     });

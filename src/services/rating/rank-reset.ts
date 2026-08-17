@@ -182,7 +182,12 @@ export async function previewRankReset(
   const cooldownDays = assertRankResetCooldownDays(league.rankResetCooldownDays);
 
   const player = await prisma.player.findUnique({
-    where: { discordId: input.targetDiscordId },
+    where: {
+      gameId_discordId: {
+        gameId: league.gameId,
+        discordId: input.targetDiscordId,
+      },
+    },
   });
   if (!player) {
     throw new RankResetServiceError(
