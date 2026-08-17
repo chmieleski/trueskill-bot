@@ -10,6 +10,7 @@ export {
   loadAllHeroLeaderboards,
   loadHeroLeaderboard,
   loadOverallLeaderboardPage,
+  rankLeaderboardRows,
 } from './leaderboard.js';
 export {
   buildAllHeroLeaderboardsEmbed,

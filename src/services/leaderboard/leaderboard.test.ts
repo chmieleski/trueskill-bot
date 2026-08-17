@@ -7,6 +7,7 @@ import {
   chunkLeaderboardEntries,
   clampPage,
   paginateOverall,
+  rankLeaderboardRows,
   type OverallLeaderboardEntry,
 } from './leaderboard.js';
 
@@ -77,6 +78,45 @@ describe('assignSortedRanks', () => {
   });
 });
 
+describe('rankLeaderboardRows', () => {
+  it('ranks calibrated players then appends calibrating with null rank', () => {
+    const rows = rankLeaderboardRows(
+      [
+        { username: 'vetB', ki: 3000, games: 10 },
+        { username: 'newHighKi', ki: 9000, games: 2 },
+        { username: 'vetA', ki: 5000, games: 20 },
+        { username: 'newLowKi', ki: 800, games: 4 },
+        { username: 'newTiedGamesA', ki: 100, games: 3 },
+        { username: 'newTiedGamesB', ki: 9999, games: 3 },
+      ],
+      (row) => row.games,
+    );
+
+    expect(rows.map((row) => row.username)).toEqual([
+      'vetA',
+      'vetB',
+      'newLowKi',
+      'newTiedGamesA',
+      'newTiedGamesB',
+      'newHighKi',
+    ]);
+    expect(rows.map((row) => row.rank)).toEqual([1, 2, null, null, null, null]);
+  });
+
+  it('uses competition ranks among calibrated only', () => {
+    const rows = rankLeaderboardRows(
+      [
+        { username: 'a', ki: 4000, games: 5 },
+        { username: 'b', ki: 4000, games: 8 },
+        { username: 'c', ki: 3000, games: 6 },
+        { username: 'd', ki: 9999, games: 1 },
+      ],
+      (row) => row.games,
+    );
+    expect(rows.map((row) => row.rank)).toEqual([1, 1, 3, null]);
+  });
+});
+
 describe('paginateOverall', () => {
   const base: OverallLeaderboardEntry[] = Array.from({ length: 25 }, (_, i) => ({
     rank: i + 1,
@@ -84,6 +124,7 @@ describe('paginateOverall', () => {
     username: `user${i}`,
     ki: 5000 - i * 10,
     games: 5,
+    leagueGames: 5,
     discordId: null,
   }));
 
