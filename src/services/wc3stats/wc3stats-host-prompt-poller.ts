@@ -4,6 +4,7 @@ import { createLogger } from '../../lib/logger.js';
 import { env } from '../../config/env.js';
 import { findActiveMatchByWc3statsGameId } from '../match/match-service.js';
 import { isLeagueWc3statsHostPromptReady } from '../league/league-wc3stats.js';
+import { isLeagueLobbyChannelReady } from '../league/league-lobby-channel.js';
 import { getGameProfile, UnknownGameIdError } from '../../domain/game-profile.js';
 import { fetchGamelist, Wc3statsClientError } from './wc3stats-client.js';
 import { compileWc3statsMapConfig } from './wc3stats-map.js';
@@ -93,6 +94,8 @@ export async function listHostPromptReadyLeagues(): Promise<PromptReadyLeague[]>
       wc3statsMapSha1: true,
       wc3statsEnabled: true,
       wc3statsHostPromptEnabled: true,
+      lobbyChannelEnabled: true,
+      lobbyChannelId: true,
     },
   });
 
@@ -118,6 +121,24 @@ export async function listHostPromptReadyLeagues(): Promise<PromptReadyLeague[]>
       wc3statsHostPromptChannelId: row.wc3statsHostPromptChannelId?.trim() || undefined,
     };
     if (!isLeagueWc3statsHostPromptReady(config) || !config.wc3statsMapPattern || !config.wc3statsHostPromptChannelId) {
+      continue;
+    }
+
+    if (
+      isLeagueLobbyChannelReady({
+        lobbyChannelEnabled: row.lobbyChannelEnabled,
+        lobbyChannelId: row.lobbyChannelId,
+      }) &&
+      (row.lobbyChannelId?.trim() || undefined) !== config.wc3statsHostPromptChannelId
+    ) {
+      log.error(
+        {
+          leagueId: row.id,
+          lobbyChannelId: row.lobbyChannelId,
+          hostPromptChannelId: config.wc3statsHostPromptChannelId,
+        },
+        'Skipping host-prompt league: lobby channel and host prompt channel differ',
+      );
       continue;
     }
 
