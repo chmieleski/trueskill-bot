@@ -1,6 +1,6 @@
 import { loadHeroCatalog } from '../guild/hero-catalog.js';
 import { prisma } from '../../lib/prisma.js';
-import { displayOrdinal } from '../rating/rating-math.js';
+import { displayOrdinal, isCalibrating } from '../rating/rating-math.js';
 import {
   gamesByPlayerFromStats,
   loadMatchDisplayStatsByPlayer,
@@ -56,20 +56,22 @@ export function chunkLeaderboardEntries<T>(
 }
 
 export type OverallLeaderboardEntry = {
-  rank: number;
+  rank: number | null;
   playerId: string;
   username: string;
   ki: number;
   games: number;
+  leagueGames: number;
   discordId: string | null;
 };
 
 export type HeroLeaderboardEntry = {
-  rank: number;
+  rank: number | null;
   playerId: string;
   username: string;
   ki: number;
   matchesPlayed: number;
+  leagueGames: number;
 };
 
 export type OverallLeaderboardPage = {
@@ -109,6 +111,30 @@ export function assignSortedRanks<T extends { ki: number }>(
   return result;
 }
 
+/**
+ * Calibrated rows first (ki desc, competition rank), then calibrating
+ * (league games desc, username; rank null). Slice/paginate after this order.
+ */
+export function rankLeaderboardRows<T extends { ki: number; username: string }>(
+  rows: T[],
+  getLeagueGames: (row: T) => number,
+): (T & { rank: number | null })[] {
+  const calibrated = rows
+    .filter((row) => !isCalibrating(getLeagueGames(row)))
+    .sort((a, b) => b.ki - a.ki || a.username.localeCompare(b.username));
+  const calibrating = rows
+    .filter((row) => isCalibrating(getLeagueGames(row)))
+    .sort(
+      (a, b) =>
+        getLeagueGames(b) - getLeagueGames(a) || a.username.localeCompare(b.username),
+    );
+
+  return [
+    ...assignSortedRanks(calibrated),
+    ...calibrating.map((row) => ({ ...row, rank: null })),
+  ];
+}
+
 export function paginateOverall(
   rows: OverallLeaderboardEntry[],
   page: number,
@@ -138,7 +164,7 @@ async function loadEligibleOverallRows(leagueId: string): Promise<OverallLeaderb
 
   const gamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
 
-  const sorted = ratings
+  const mapped = ratings
     .map((row) => {
       const games = gamesByPlayer.get(row.playerId) ?? 0;
       return {
@@ -147,17 +173,18 @@ async function loadEligibleOverallRows(leagueId: string): Promise<OverallLeaderb
         discordId: row.player.discordId,
         ki: displayOrdinal(row.mu, row.sigma, games),
         games,
+        leagueGames: games,
       };
     })
-    .filter((row) => row.games >= 1)
-    .sort((a, b) => b.ki - a.ki || a.username.localeCompare(b.username));
+    .filter((row) => row.games >= 1);
 
-  return assignSortedRanks(sorted).map((row) => ({
+  return rankLeaderboardRows(mapped, (row) => row.leagueGames).map((row) => ({
     rank: row.rank,
     playerId: row.playerId,
     username: row.username,
     ki: row.ki,
     games: row.games,
+    leagueGames: row.leagueGames,
     discordId: row.discordId,
   }));
 }
@@ -186,26 +213,29 @@ function mapHeroRatings(
     matchesPlayed: number;
     player: { username: string };
   }[],
+  leagueGamesByPlayer: Map<string, number>,
   limit: number,
 ): HeroLeaderboardEntry[] {
-  const sorted = rows
+  const mapped = rows
     .filter((row) => row.matchesPlayed > 0)
     .map((row) => ({
       playerId: row.playerId,
       username: row.player.username,
       ki: displayOrdinal(row.mu, row.sigma, row.matchesPlayed),
       matchesPlayed: row.matchesPlayed,
-    }))
-    .sort((a, b) => b.ki - a.ki || a.username.localeCompare(b.username))
-    .slice(0, limit);
+      leagueGames: leagueGamesByPlayer.get(row.playerId) ?? 0,
+    }));
 
-  return assignSortedRanks(sorted).map((row) => ({
-    rank: row.rank,
-    playerId: row.playerId,
-    username: row.username,
-    ki: row.ki,
-    matchesPlayed: row.matchesPlayed,
-  }));
+  return rankLeaderboardRows(mapped, (row) => row.leagueGames)
+    .slice(0, limit)
+    .map((row) => ({
+      rank: row.rank,
+      playerId: row.playerId,
+      username: row.username,
+      ki: row.ki,
+      matchesPlayed: row.matchesPlayed,
+      leagueGames: row.leagueGames,
+    }));
 }
 
 export async function loadHeroLeaderboard(
@@ -218,16 +248,21 @@ export async function loadHeroLeaderboard(
     throw new LeaderboardServiceError('Unknown hero.');
   }
 
-  const rows = await prisma.playerHeroRating.findMany({
-    where: { leagueId, heroId, matchesPlayed: { gt: 0 } },
-    include: { player: { select: { username: true } } },
-  });
-
-  return { heroName: hero.name, entries: mapHeroRatings(rows, limit) };
+  const [rows, displayStatsByPlayer] = await Promise.all([
+    prisma.playerHeroRating.findMany({
+      where: { leagueId, heroId, matchesPlayed: { gt: 0 } },
+      include: { player: { select: { username: true } } },
+    }),
+    loadMatchDisplayStatsByPlayer(leagueId),
+  ]);
+  const leagueGamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
+  return { heroName: hero.name, entries: mapHeroRatings(rows, leagueGamesByPlayer, limit) };
 }
 
 export async function loadAllHeroLeaderboards(leagueId: string): Promise<HeroBoardSlice[]> {
   const heroes = await loadHeroCatalog();
+  const displayStatsByPlayer = await loadMatchDisplayStatsByPlayer(leagueId);
+  const leagueGamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
   const slices: HeroBoardSlice[] = [];
 
   for (const hero of heroes) {
@@ -238,7 +273,7 @@ export async function loadAllHeroLeaderboards(leagueId: string): Promise<HeroBoa
     slices.push({
       heroId: hero.id,
       heroName: hero.name,
-      entries: mapHeroRatings(rows, HERO_COMPACT_TOP),
+      entries: mapHeroRatings(rows, leagueGamesByPlayer, HERO_COMPACT_TOP),
     });
   }
 
