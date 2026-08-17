@@ -4,6 +4,7 @@ import {
   ButtonStyle,
   EmbedBuilder,
 } from 'discord.js';
+import { formatPublicKi } from '../rating/rating-math.js';
 import type {
   HeroBoardSlice,
   HeroLeaderboardEntry,
@@ -14,7 +15,10 @@ import { chunkLeaderboardEntries } from './leaderboard.js';
 
 const RANK_GOLD = 0xf0b232;
 
-export function formatRankPrefix(rank: number): string {
+export function formatRankPrefix(rank: number | null): string {
+  if (rank == null) {
+    return '—';
+  }
   if (rank === 1) {
     return '🥇';
   }
@@ -40,12 +44,15 @@ export function formatOverallTable(
       ? 'Ki'
       : ratingLabel.charAt(0).toUpperCase() + ratingLabel.slice(1);
   const nameWidth = Math.max(...entries.map((entry) => entry.username.length), 'Player'.length);
-  const kiWidth = Math.max(...entries.map((entry) => String(entry.ki).length), labelHeader.length);
+  const kiWidth = Math.max(
+    ...entries.map((entry) => formatPublicKi(entry.ki, entry.leagueGames).length),
+    labelHeader.length,
+  );
   const header = `${'#'.padEnd(3)} ${'Player'.padEnd(nameWidth)}  ${labelHeader.padStart(kiWidth)}  G`;
   const lines = entries.map((entry) => {
     const prefix = formatRankPrefix(entry.rank).padEnd(3);
     const name = entry.username.padEnd(nameWidth, ' ');
-    const ki = String(entry.ki).padStart(kiWidth, ' ');
+    const ki = formatPublicKi(entry.ki, entry.leagueGames).padStart(kiWidth, ' ');
     return `${prefix} ${name}  ${ki}  ${entry.games}`;
   });
   return `\`\`\`\n${header}\n${lines.join('\n')}\n\`\`\``;
@@ -57,11 +64,13 @@ function formatHeroCompactTable(entries: HeroLeaderboardEntry[]): string {
   }
 
   const nameWidth = Math.max(...entries.map((entry) => entry.username.length));
-  const kiWidth = Math.max(...entries.map((entry) => String(entry.ki).length));
+  const kiWidth = Math.max(
+    ...entries.map((entry) => formatPublicKi(entry.ki, entry.leagueGames).length),
+  );
   const lines = entries.map((entry) => {
     const prefix = formatRankPrefix(entry.rank).padEnd(3);
     const name = entry.username.padEnd(nameWidth, ' ');
-    const ki = String(entry.ki).padStart(kiWidth, ' ');
+    const ki = formatPublicKi(entry.ki, entry.leagueGames).padStart(kiWidth, ' ');
     return `${prefix} ${name}  ${ki}`;
   });
   return `\`\`\`\n${lines.join('\n')}\n\`\`\``;
@@ -135,6 +144,7 @@ export function buildHeroLeaderboardEmbed(
             username: entry.username,
             ki: entry.ki,
             games: entry.matchesPlayed,
+            leagueGames: entry.leagueGames,
             discordId: null,
           })),
           ratingLabel,
