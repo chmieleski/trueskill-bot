@@ -21,6 +21,8 @@ vi.mock('../../lib/prisma.js', () => {
 import { assertLinkAllowed, linkPlayer } from './player-link.js';
 import { PlayerServiceError } from './player-profile.js';
 
+const GAME_ID = 'warcraft3_udbr';
+
 const ALREADY_LINKED =
   'That nick or Discord account is already linked. Ask a moderator to relink.';
 
@@ -117,9 +119,9 @@ describe('linkPlayer', () => {
   });
 
   it('rejects an empty nick without creating', async () => {
-    await expect(linkPlayer({ nick: '   ', discordId: 'd1' })).rejects.toThrow(
-      'Nick cannot be empty.',
-    );
+    await expect(
+      linkPlayer({ gameId: GAME_ID, nick: '   ', discordId: 'd1' }),
+    ).rejects.toThrow('Nick cannot be empty.');
     expect(create).not.toHaveBeenCalled();
     expect(findUnique).not.toHaveBeenCalled();
   });
@@ -131,92 +133,124 @@ describe('linkPlayer', () => {
       id: 'new',
       username: 'ghost',
       discordId: 'd1',
+      gameId: GAME_ID,
     });
 
-    const linked = await linkPlayer({ nick: 'Ghost', discordId: 'd1' });
+    const linked = await linkPlayer({ gameId: GAME_ID, nick: 'Ghost', discordId: 'd1' });
 
-    expect(linked).toEqual({ username: 'ghost', discordId: 'd1' });
+    expect(linked).toEqual({ username: 'ghost', discordId: 'd1', gameId: GAME_ID });
     expect(create).toHaveBeenCalledWith({
-      data: { username: 'ghost', discordId: 'd1' },
+      data: { gameId: GAME_ID, username: 'ghost', discordId: 'd1' },
     });
     expect(update).not.toHaveBeenCalled();
   });
 
   it('does not create when the Discord account is already linked', async () => {
-    findUnique.mockImplementation(async ({ where }: { where: Record<string, string> }) => {
-      if (where.discordId === 'd9') {
-        return { id: '2', username: 'Other', discordId: 'd9' };
-      }
-      return null;
-    });
+    findUnique.mockImplementation(
+      async ({ where }: { where: Record<string, unknown> }) => {
+        const discordWhere = where.gameId_discordId as
+          | { gameId: string; discordId: string }
+          | undefined;
+        if (discordWhere?.discordId === 'd9') {
+          return { id: '2', username: 'Other', discordId: 'd9' };
+        }
+        return null;
+      },
+    );
     findMany.mockResolvedValue([]);
 
-    await expect(linkPlayer({ nick: 'Ghost', discordId: 'd9' })).rejects.toThrow(
-      ALREADY_LINKED,
-    );
+    await expect(
+      linkPlayer({ gameId: GAME_ID, nick: 'Ghost', discordId: 'd9' }),
+    ).rejects.toThrow(ALREADY_LINKED);
     expect(create).not.toHaveBeenCalled();
   });
 
   it('updates an existing unlinked player', async () => {
-    const player = { id: '1', username: 'Tinys', discordId: null };
-    findUnique.mockImplementation(async ({ where }: { where: Record<string, string> }) => {
-      if (where.username === 'tinys') {
-        return player;
-      }
-      return null;
-    });
-    update.mockResolvedValue({ id: '1', username: 'Tinys', discordId: 'd1' });
+    const player = { id: '1', username: 'Tinys', discordId: null, gameId: GAME_ID };
+    findUnique.mockImplementation(
+      async ({ where }: { where: Record<string, unknown> }) => {
+        const nickWhere = where.gameId_username as
+          | { gameId: string; username: string }
+          | undefined;
+        if (nickWhere?.username === 'tinys') {
+          return player;
+        }
+        return null;
+      },
+    );
+    update.mockResolvedValue({ id: '1', username: 'Tinys', discordId: 'd1', gameId: GAME_ID });
 
-    const linked = await linkPlayer({ nick: 'Tinys', discordId: 'd1' });
+    const linked = await linkPlayer({ gameId: GAME_ID, nick: 'Tinys', discordId: 'd1' });
 
-    expect(linked).toEqual({ username: 'Tinys', discordId: 'd1' });
+    expect(linked).toEqual({ username: 'Tinys', discordId: 'd1', gameId: GAME_ID });
     expect(update).toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
-    expect(findUnique).toHaveBeenCalledWith({ where: { username: 'tinys' } });
+    expect(findUnique).toHaveBeenCalledWith({
+      where: {
+        gameId_username: { gameId: GAME_ID, username: 'tinys' },
+      },
+    });
   });
 
   it('is a no-op when the same nick and discord are already linked', async () => {
-    const player = { id: '1', username: 'Tinys', discordId: 'd1' };
-    findUnique.mockImplementation(async ({ where }: { where: Record<string, string> }) => {
-      if (where.username === 'tinys' || where.discordId === 'd1') {
-        return player;
-      }
-      return null;
-    });
+    const player = { id: '1', username: 'Tinys', discordId: 'd1', gameId: GAME_ID };
+    findUnique.mockImplementation(
+      async ({ where }: { where: Record<string, unknown> }) => {
+        const nickWhere = where.gameId_username as
+          | { gameId: string; username: string }
+          | undefined;
+        const discordWhere = where.gameId_discordId as
+          | { gameId: string; discordId: string }
+          | undefined;
+        if (nickWhere?.username === 'tinys' || discordWhere?.discordId === 'd1') {
+          return player;
+        }
+        return null;
+      },
+    );
 
-    const linked = await linkPlayer({ nick: 'Tinys', discordId: 'd1' });
+    const linked = await linkPlayer({ gameId: GAME_ID, nick: 'Tinys', discordId: 'd1' });
 
-    expect(linked).toEqual({ username: 'Tinys', discordId: 'd1' });
+    expect(linked).toEqual({ username: 'Tinys', discordId: 'd1', gameId: GAME_ID });
     expect(update).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
   });
 
   it('moves an existing discord link when allowRelink is set', async () => {
-    const tinys = { id: '1', username: 'Tinys', discordId: null };
-    const other = { id: '2', username: 'Other', discordId: 'd9' };
-    findUnique.mockImplementation(async ({ where }: { where: Record<string, string> }) => {
-      if (where.username === 'tinys') {
-        return tinys;
-      }
-      if (where.discordId === 'd9') {
-        return other;
-      }
-      return null;
-    });
+    const tinys = { id: '1', username: 'Tinys', discordId: null, gameId: GAME_ID };
+    const other = { id: '2', username: 'Other', discordId: 'd9', gameId: GAME_ID };
+    findUnique.mockImplementation(
+      async ({ where }: { where: Record<string, unknown> }) => {
+        const nickWhere = where.gameId_username as
+          | { gameId: string; username: string }
+          | undefined;
+        const discordWhere = where.gameId_discordId as
+          | { gameId: string; discordId: string }
+          | undefined;
+        if (nickWhere?.username === 'tinys') {
+          return tinys;
+        }
+        if (discordWhere?.discordId === 'd9') {
+          return other;
+        }
+        return null;
+      },
+    );
     update.mockImplementation(async ({ where, data }: { where: { id: string }; data: object }) => {
       if (where.id === '2') {
         return { ...other, discordId: null };
       }
-      return { ...tinys, ...data };
+      return { ...tinys, ...data, gameId: GAME_ID };
     });
 
     const linked = await linkPlayer({
+      gameId: GAME_ID,
       nick: 'Tinys',
       discordId: 'd9',
       allowRelink: true,
     });
 
-    expect(linked).toEqual({ username: 'Tinys', discordId: 'd9' });
+    expect(linked).toEqual({ username: 'Tinys', discordId: 'd9', gameId: GAME_ID });
     expect(update).toHaveBeenNthCalledWith(1, {
       where: { id: '2' },
       data: { discordId: null },
@@ -228,25 +262,59 @@ describe('linkPlayer', () => {
   });
 
   it('overwrites a nick already linked to another discord when allowRelink is set', async () => {
-    const tinys = { id: '1', username: 'Tinys', discordId: 'd1' };
-    findUnique.mockImplementation(async ({ where }: { where: Record<string, string> }) => {
-      if (where.username === 'tinys') {
-        return tinys;
-      }
-      return null;
-    });
-    update.mockResolvedValue({ id: '1', username: 'Tinys', discordId: 'd2' });
+    const tinys = { id: '1', username: 'Tinys', discordId: 'd1', gameId: GAME_ID };
+    findUnique.mockImplementation(
+      async ({ where }: { where: Record<string, unknown> }) => {
+        const nickWhere = where.gameId_username as
+          | { gameId: string; username: string }
+          | undefined;
+        if (nickWhere?.username === 'tinys') {
+          return tinys;
+        }
+        return null;
+      },
+    );
+    update.mockResolvedValue({ id: '1', username: 'Tinys', discordId: 'd2', gameId: GAME_ID });
 
     const linked = await linkPlayer({
+      gameId: GAME_ID,
       nick: 'Tinys',
       discordId: 'd2',
       allowRelink: true,
     });
 
-    expect(linked).toEqual({ username: 'Tinys', discordId: 'd2' });
+    expect(linked).toEqual({ username: 'Tinys', discordId: 'd2', gameId: GAME_ID });
     expect(update).toHaveBeenCalledWith({
       where: { id: '1' },
       data: { discordId: 'd2' },
+    });
+  });
+
+  it('links the same discord to different nicks on different games', async () => {
+    findUnique
+      .mockResolvedValueOnce(null) // nick on anime
+      .mockResolvedValueOnce(null); // discord on anime
+    findMany.mockResolvedValue([]);
+    create.mockResolvedValue({
+      id: 'p2',
+      username: 'Vegeta',
+      discordId: 'd1',
+      gameId: 'warcraft3_anime_choice_arena',
+    });
+
+    const linked = await linkPlayer({
+      gameId: 'warcraft3_anime_choice_arena',
+      nick: 'Vegeta',
+      discordId: 'd1',
+    });
+
+    expect(linked.gameId).toBe('warcraft3_anime_choice_arena');
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        gameId: 'warcraft3_anime_choice_arena',
+        username: 'vegeta',
+        discordId: 'd1',
+      },
     });
   });
 });

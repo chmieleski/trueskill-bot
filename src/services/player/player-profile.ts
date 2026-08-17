@@ -82,28 +82,29 @@ export function parseRankOptions(input: {
   return { kind: 'self', discordId: input.selfDiscordId };
 }
 
-async function findPlayerByDiscordId(discordId: string) {
-  return prisma.player.findUnique({ where: { discordId } });
+async function findPlayerByDiscordId(gameId: string, discordId: string) {
+  return prisma.player.findUnique({
+    where: { gameId_discordId: { gameId, discordId } },
+  });
 }
 
-async function findPlayerByNick(nick: string) {
+async function findPlayerByNick(gameId: string, nick: string) {
   const exact = await prisma.player.findUnique({
-    where: { username: normalizeNick(nick) },
+    where: { gameId_username: { gameId, username: normalizeNick(nick) } },
   });
   if (exact) {
     return exact;
   }
 
   const matches = await prisma.player.findMany({
-    where: { username: { equals: normalizeNick(nick), mode: 'insensitive' } },
+    where: {
+      gameId,
+      username: { equals: normalizeNick(nick), mode: 'insensitive' },
+    },
     take: 2,
   });
 
-  if (matches.length === 1) {
-    return matches[0]!;
-  }
-
-  return null;
+  return matches.length === 1 ? matches[0]! : null;
 }
 
 export async function loadPlayerProfile(
@@ -116,22 +117,24 @@ export async function loadPlayerProfile(
     );
   }
 
+  const gameProfile = await getGameProfileForLeague(leagueId);
+  const gameId = gameProfile.gameId;
+
   let player =
     lookup.kind === 'nick'
-      ? await findPlayerByNick(lookup.nick)
-      : await findPlayerByDiscordId(lookup.discordId);
+      ? await findPlayerByNick(gameId, lookup.nick)
+      : await findPlayerByDiscordId(gameId, lookup.discordId);
 
   if (!player) {
     if (lookup.kind === 'self') {
       throw new PlayerServiceError(
-        'Your Discord is not linked to an in-game nick. Use /link to bind it.',
+        'Your Discord is not linked to an in-game nick for this league’s game. Use /link to bind it.',
         { ephemeral: true },
       );
     }
     throw new PlayerServiceError('Player not found.');
   }
 
-  const gameProfile = await getGameProfileForLeague(leagueId);
   const includeHeroes = gameProfile.heroBinding === 'slot_bound';
 
   const [rating, allRatings, heroRatings, displayStatsByPlayer] =

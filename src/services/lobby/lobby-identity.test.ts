@@ -20,17 +20,24 @@ describe('nickForDiscordId', () => {
     findUnique.mockReset();
   });
 
-  it('returns the linked username', async () => {
-    findUnique.mockResolvedValue({ id: 'p1', username: 'goku', discordId: 'd1' });
-
-    await expect(nickForDiscordId('d1')).resolves.toBe('goku');
-    expect(findUnique).toHaveBeenCalledWith({ where: { discordId: 'd1' } });
+  it('looks up by gameId and discordId', async () => {
+    findUnique.mockResolvedValue({ username: 'goku' });
+    await expect(nickForDiscordId('d1', 'warcraft3_udbr')).resolves.toBe('goku');
+    expect(findUnique).toHaveBeenCalledWith({
+      where: {
+        gameId_discordId: { gameId: 'warcraft3_udbr', discordId: 'd1' },
+      },
+    });
   });
 
   it('throws when Discord is not linked', async () => {
     findUnique.mockResolvedValue(null);
 
-    await expect(nickForDiscordId('d-missing')).rejects.toThrow(MatchServiceError);
-    await expect(nickForDiscordId('d-missing')).rejects.toThrow(UNLINKED_DISCORD_MESSAGE);
+    await expect(nickForDiscordId('d-missing', 'warcraft3_udbr')).rejects.toThrow(
+      MatchServiceError,
+    );
+    await expect(nickForDiscordId('d-missing', 'warcraft3_udbr')).rejects.toThrow(
+      UNLINKED_DISCORD_MESSAGE,
+    );
   });
 });

@@ -13,6 +13,7 @@ model Game {
   id          String   @id // e.g. "warcraft3_udbr"
   displayName String
   leagues     League[]
+  players     Player[]
 }
 
 model League {
@@ -77,21 +78,24 @@ enum LeagueBindingKind {
   CATEGORY
 }
 
-// Player - Identified by username (Ghost Profile pattern)
-// Discord linking is optional - players can exist without Discord
 model Player {
   id                             String             @id @default(uuid())
-  username                       String             @unique // Battletag/nick in-game (PRIMARY identifier)
-  discordId                      String?            @unique // Optional - for account linking
+  gameId                         String
+  username                       String
+  discordId                      String?
   wc3statsHostPromptPingsEnabled Boolean            @default(true)
   createdAt                      DateTime           @default(now())
   updatedAt                      DateTime           @updatedAt
+  game                           Game               @relation(fields: [gameId], references: [id])
   matches                        MatchPlayer[]
   ratings                        PlayerRating[]
   heroRatings                    PlayerHeroRating[]
   rankResets                     PlayerRankReset[]
   ratingSnapshots                MatchRatingSnapshot[]
 
+  @@unique([gameId, username])
+  @@unique([gameId, discordId])
+  @@index([gameId])
   @@index([username])
   @@index([discordId])
 }

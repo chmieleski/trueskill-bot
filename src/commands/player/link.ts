@@ -1,7 +1,14 @@
 import { GuildMember, MessageFlags, SlashCommandBuilder } from 'discord.js';
-import type { ChatInputCommandInteraction } from 'discord.js';
+import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import { resolveGuildConfig } from '../../services/guild/index.js';
+import {
+  getGameProfileForLeague,
+  getLeagueOption,
+  resolveLeagueIdFromInteraction,
+  respondLeagueAutocomplete,
+  withOptionalLeagueOption,
+} from '../../services/league/index.js';
 import { assertHasMatchModRole, hasMatchModRole } from '../../services/match/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
 import { linkPlayer } from '../../services/player/index.js';
@@ -29,18 +36,24 @@ function memberRoleIds(interaction: { member: unknown }): string[] {
   return [];
 }
 
-export const data = new SlashCommandBuilder()
-  .setName('link')
-  .setDescription('Link an in-game nick to a Discord account')
-  .addStringOption((option) =>
-    option.setName('nick').setDescription('In-game nick').setRequired(true),
-  )
-  .addUserOption((option) =>
-    option
-      .setName('user')
-      .setDescription('Discord user to bind (default: you; others require a moderator)')
-      .setRequired(false),
-  );
+export const data = withOptionalLeagueOption(
+  new SlashCommandBuilder()
+    .setName('link')
+    .setDescription('Link an in-game nick to a Discord account')
+    .addStringOption((option) =>
+      option.setName('nick').setDescription('In-game nick').setRequired(true),
+    )
+    .addUserOption((option) =>
+      option
+        .setName('user')
+        .setDescription('Discord user to bind (default: you; others require a moderator)')
+        .setRequired(false),
+    ),
+);
+
+export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
+  await respondLeagueAutocomplete(interaction);
+}
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -67,13 +80,24 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       assertHasMatchModRole(roleInput);
     }
 
+    const resolved = await resolveLeagueIdFromInteraction(
+      interaction,
+      getLeagueOption(interaction),
+    );
+    if (!resolved.ok) {
+      await interaction.editReply({ content: resolved.message });
+      return;
+    }
+
+    const gameProfile = await getGameProfileForLeague(resolved.leagueId);
     const linked = await linkPlayer({
+      gameId: gameProfile.gameId,
       nick,
       discordId: target.id,
       allowRelink: isMod,
     });
     await interaction.editReply({
-      content: `Linked **${linked.username}** to <@${linked.discordId}>.`,
+      content: `Linked **${linked.username}** to <@${linked.discordId}> for \`${linked.gameId}\`.`,
     });
   } catch (error) {
     if (error instanceof PlayerServiceError || error instanceof MatchServiceError) {

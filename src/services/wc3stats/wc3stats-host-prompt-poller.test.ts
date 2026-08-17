@@ -27,16 +27,17 @@ describe('loadLinkedPlayersByNick', () => {
     findMany.mockReset();
   });
 
-  it('queries only linked players who opted into host prompt pings', async () => {
+  it('queries only linked players who opted into host prompt pings for the given game', async () => {
     findMany.mockResolvedValue([
       { username: 'Goku', discordId: 'd-goku' },
       { username: 'Vegeta', discordId: 'd-vegeta' },
     ]);
 
-    const map = await loadLinkedPlayersByNick();
+    const map = await loadLinkedPlayersByNick(WARCRAFT3_UDBR_GAME_ID);
 
     expect(findMany).toHaveBeenCalledWith({
       where: {
+        gameId: WARCRAFT3_UDBR_GAME_ID,
         discordId: { not: null },
         wc3statsHostPromptPingsEnabled: true,
       },
@@ -75,6 +76,7 @@ describe('listHostPromptReadyLeagues', () => {
 
     const ready = await listHostPromptReadyLeagues();
     expect(ready.map((league) => league.id)).toEqual(['udbr']);
+    expect(ready[0]?.gameId).toBe(WARCRAFT3_UDBR_GAME_ID);
   });
 
   it('skips leagues with an unknown gameId without failing the tick', async () => {
@@ -104,5 +106,6 @@ describe('listHostPromptReadyLeagues', () => {
 
     const ready = await listHostPromptReadyLeagues();
     expect(ready.map((league) => league.id)).toEqual(['udbr']);
+    expect(ready[0]?.gameId).toBe(WARCRAFT3_UDBR_GAME_ID);
   });
 });

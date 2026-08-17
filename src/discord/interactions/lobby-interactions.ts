@@ -581,9 +581,11 @@ async function handleClaim(interaction: ButtonInteraction): Promise<void> {
     return;
   }
 
+  let profile: GameProfile;
   try {
     await assertLobbyPlayerClaimEnabled(result.match.leagueId);
-    const nick = await nickForDiscordId(interaction.user.id);
+    profile = await profileForMatch(result.match.leagueId);
+    const nick = await nickForDiscordId(interaction.user.id, profile.gameId);
     const existing = result.players.find((player) => player.nick === nick);
 
     if (existing) {
@@ -604,7 +606,6 @@ async function handleClaim(interaction: ButtonInteraction): Promise<void> {
 
   const catalog = await loadHeroCatalog();
   const heroNameById = new Map(catalog.map((hero) => [hero.id, hero.name]));
-  const profile = await profileForMatch(result.match.leagueId);
   const options = claimSlotSelectOptions(
     result.players,
     (slot) => heroNameById.get(slot) ?? `Hero ${slot}`,

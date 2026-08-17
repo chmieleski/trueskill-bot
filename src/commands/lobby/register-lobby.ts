@@ -259,7 +259,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   if (wc3statsReady && (source.kind === 'wc3stats' || wc3statsId)) {
     let hostNick: string | null = null;
     try {
-      hostNick = await nickForDiscordId(interaction.user.id);
+      hostNick = await nickForDiscordId(interaction.user.id, profile.gameId);
     } catch (error) {
       if (!(error instanceof MatchServiceError)) {
         throw error;

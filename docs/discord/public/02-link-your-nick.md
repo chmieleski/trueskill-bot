@@ -14,9 +14,13 @@ That’s it. Now Discord ↔ your WC3 nick are friends.
 ```
 
 **Rules (easy version)**
-• One Discord account ↔ one nick
-• If your nick is already linked to someone else, ask a **mod**
+• Link is **per game** (the channel’s league picks the game — e.g. UDBR vs Anime Choice)
+• One Discord account ↔ one nick **per game**, shared across all servers for that game
+• Different games can use different nicks
+• If your nick is already linked to someone else on that game, ask a **mod**
 • Mods can `/link` or `/unlink` **other people** if something is wrong
+
+Use `/link` in a channel bound to the right league (or pass `league:` when you have more than one).
 
 **Why link?**
 • Your name shows correctly in lobbies

@@ -4,6 +4,7 @@ import {
   resolveLeagueConfig,
   type ResolvedLeagueConfig,
 } from '../league/league-wc3stats.js';
+import { getGameProfileForLeague, LeagueNotFoundError } from '../league/league-profile.js';
 import { assertCanManageMatch } from '../match/match-auth.js';
 import {
   getMatchByDiscordMessageId,
@@ -59,6 +60,18 @@ function refreshResultMessage(input: {
 }
 
 type SuccessfulWc3statsImport = Extract<ImportWc3statsLobbyResult, { ok: true }>;
+
+async function profileGameIdForLeague(leagueId: string): Promise<string> {
+  try {
+    const profile = await getGameProfileForLeague(leagueId);
+    return profile.gameId;
+  } catch (error) {
+    if (error instanceof LeagueNotFoundError) {
+      throw new MatchServiceError(error.message);
+    }
+    throw error;
+  }
+}
 
 async function assertWc3statsImportReady(leagueId: string): Promise<ResolvedLeagueConfig> {
   await assertLeagueAllowsWc3statsImport(leagueId);
@@ -118,7 +131,10 @@ async function importAndMaybeLinkWc3stats(input: {
     return { match: working, imported, boundNow: false };
   }
 
-  const hostNick = await nickForDiscordId(working.hostDiscordId);
+  const hostNick = await nickForDiscordId(
+    working.hostDiscordId,
+    await profileGameIdForLeague(working.leagueId),
+  );
   const imported = await importWc3statsLobby({
     hostNick,
     requireNickInLobby: true,
@@ -177,7 +193,10 @@ export async function refreshLobbyFromWc3stats(input: {
   const leagueConfig = await assertWc3statsImportReady(match.leagueId);
 
   if (!explicitId && !storedId) {
-    await nickForDiscordId(match.hostDiscordId);
+    await nickForDiscordId(
+      match.hostDiscordId,
+      await profileGameIdForLeague(match.leagueId),
+    );
   }
 
   const lastRefreshAt = lastRefreshAtByMatchId.get(match.id);

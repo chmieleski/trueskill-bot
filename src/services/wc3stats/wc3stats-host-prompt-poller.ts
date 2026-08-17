@@ -40,11 +40,14 @@ function isSendableTextChannel(channel: unknown): channel is TextChannel {
 }
 
 /**
- * Load linked Players who accept host-lobby pings, keyed by normalized username.
+ * Load linked Players who accept host-lobby pings for a game, keyed by normalized username.
  */
-export async function loadLinkedPlayersByNick(): Promise<Map<string, string>> {
+export async function loadLinkedPlayersByNick(
+  gameId: string,
+): Promise<Map<string, string>> {
   const rows = await prisma.player.findMany({
     where: {
+      gameId,
       discordId: { not: null },
       wc3statsHostPromptPingsEnabled: true,
     },
@@ -64,6 +67,7 @@ export async function loadLinkedPlayersByNick(): Promise<Map<string, string>> {
 type PromptReadyLeague = {
   id: string;
   guildId: string;
+  gameId: string;
   channelId: string;
   mapPattern: string;
   mapSha1: string[];
@@ -120,6 +124,7 @@ export async function listHostPromptReadyLeagues(): Promise<PromptReadyLeague[]>
     ready.push({
       id: row.id,
       guildId: row.guildId,
+      gameId: row.gameId,
       channelId: config.wc3statsHostPromptChannelId,
       mapPattern: config.wc3statsMapPattern,
       mapSha1: parseWc3statsMapSha1(row.wc3statsMapSha1),
@@ -149,16 +154,21 @@ export async function runWc3statsHostPromptTick(client: Client): Promise<number>
     throw error;
   }
 
-  const linkedByNick = await loadLinkedPlayersByNick();
-  if (linkedByNick.size === 0) {
-    return 0;
-  }
-
+  const linkedByGameId = new Map<string, Map<string, string>>();
   let posted = 0;
 
   for (const league of leagues) {
     if (posted >= MAX_PROMPTS_PER_TICK) {
       break;
+    }
+
+    let linkedByNick = linkedByGameId.get(league.gameId);
+    if (!linkedByNick) {
+      linkedByNick = await loadLinkedPlayersByNick(league.gameId);
+      linkedByGameId.set(league.gameId, linkedByNick);
+    }
+    if (linkedByNick.size === 0) {
+      continue;
     }
 
     let mapConfig;

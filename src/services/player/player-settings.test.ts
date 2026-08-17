@@ -17,6 +17,8 @@ import {
 } from './player-settings.js';
 import { PlayerServiceError } from './player-profile.js';
 
+const GAME_ID = 'warcraft3_udbr';
+
 describe('getPlayerHostPromptPingsEnabled', () => {
   beforeEach(() => {
     findUnique.mockReset();
@@ -24,7 +26,13 @@ describe('getPlayerHostPromptPingsEnabled', () => {
 
   it('returns null when no linked player exists', async () => {
     findUnique.mockResolvedValue(null);
-    await expect(getPlayerHostPromptPingsEnabled('d1')).resolves.toBeNull();
+    await expect(
+      getPlayerHostPromptPingsEnabled(GAME_ID, 'd1'),
+    ).resolves.toBeNull();
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { gameId_discordId: { gameId: GAME_ID, discordId: 'd1' } },
+      select: { username: true, wc3statsHostPromptPingsEnabled: true },
+    });
   });
 
   it('returns true by default when the flag is true', async () => {
@@ -32,7 +40,9 @@ describe('getPlayerHostPromptPingsEnabled', () => {
       username: 'goku',
       wc3statsHostPromptPingsEnabled: true,
     });
-    await expect(getPlayerHostPromptPingsEnabled('d1')).resolves.toBe(true);
+    await expect(
+      getPlayerHostPromptPingsEnabled(GAME_ID, 'd1'),
+    ).resolves.toBe(true);
   });
 
   it('returns false when the player opted out', async () => {
@@ -40,7 +50,23 @@ describe('getPlayerHostPromptPingsEnabled', () => {
       username: 'goku',
       wc3statsHostPromptPingsEnabled: false,
     });
-    await expect(getPlayerHostPromptPingsEnabled('d1')).resolves.toBe(false);
+    await expect(
+      getPlayerHostPromptPingsEnabled(GAME_ID, 'd1'),
+    ).resolves.toBe(false);
+  });
+
+  it('reads host prompt preference for game-scoped link', async () => {
+    findUnique.mockResolvedValue({
+      username: 'Goku',
+      wc3statsHostPromptPingsEnabled: false,
+    });
+    await expect(
+      getPlayerHostPromptPingsEnabled(GAME_ID, 'd1'),
+    ).resolves.toBe(false);
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { gameId_discordId: { gameId: GAME_ID, discordId: 'd1' } },
+      select: { username: true, wc3statsHostPromptPingsEnabled: true },
+    });
   });
 });
 
@@ -52,12 +78,18 @@ describe('setPlayerHostPromptPingsEnabled', () => {
 
   it('rejects when the Discord user is not linked', async () => {
     findUnique.mockResolvedValue(null);
-    await expect(setPlayerHostPromptPingsEnabled('d1', false)).rejects.toThrow(
-      PlayerServiceError,
-    );
-    await expect(setPlayerHostPromptPingsEnabled('d1', false)).rejects.toThrow(
+    await expect(
+      setPlayerHostPromptPingsEnabled(GAME_ID, 'd1', false),
+    ).rejects.toThrow(PlayerServiceError);
+    await expect(
+      setPlayerHostPromptPingsEnabled(GAME_ID, 'd1', false),
+    ).rejects.toThrow(
       'Link your nick with /link before changing host lobby prompt settings.',
     );
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { gameId_discordId: { gameId: GAME_ID, discordId: 'd1' } },
+      select: { id: true, username: true },
+    });
   });
 
   it('persists the preference for a linked player', async () => {
@@ -67,11 +99,17 @@ describe('setPlayerHostPromptPingsEnabled', () => {
       wc3statsHostPromptPingsEnabled: false,
     });
 
-    await expect(setPlayerHostPromptPingsEnabled('d1', false)).resolves.toEqual({
+    await expect(
+      setPlayerHostPromptPingsEnabled(GAME_ID, 'd1', false),
+    ).resolves.toEqual({
       username: 'goku',
       enabled: false,
     });
 
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { gameId_discordId: { gameId: GAME_ID, discordId: 'd1' } },
+      select: { id: true, username: true },
+    });
     expect(update).toHaveBeenCalledWith({
       where: { id: 'p1' },
       data: { wc3statsHostPromptPingsEnabled: false },

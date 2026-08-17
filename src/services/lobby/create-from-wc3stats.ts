@@ -73,7 +73,7 @@ export async function createMatchFromWc3statsLobby(
 
   let hostNick: string | null = null;
   try {
-    hostNick = await nickForDiscordId(input.hostDiscordId);
+    hostNick = await nickForDiscordId(input.hostDiscordId, profile.gameId);
   } catch (error) {
     if (!(error instanceof MatchServiceError)) {
       throw error;

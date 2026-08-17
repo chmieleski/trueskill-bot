@@ -13,11 +13,11 @@ alwaysApply: false
 - **LeagueChannelBinding** — maps a Discord channel or category (`discordId`, `kind`) to a `leagueId`. Used by `resolveLeagueContext`.
 - **GuildConfig** — guild-wide only: create/mod role ids, claim defaults at guild level where still used. **Not** wc3stats or leaderboard (those live on `League`).
 
-Ratings and matches **never** cross `leagueId`. `Player.username` / `Player.discordId` stay **globally** unique (one Discord link across all leagues).
+Ratings and matches **never** cross `leagueId`. `Player` identity is **`(gameId, username)`**; Discord link is unique per **`(gameId, discordId)`** (worldwide for that game — not per guild/league). See `docs/superpowers/specs/2026-08-17-per-game-player-identity-design.md`.
 
 ## Tables
 
-- **Player** — `username` (battletag/nick); optional `discordId` (Ghost Profile)
+- **Player** — `(gameId, username)` nick identity; optional `discordId` bind for that game
 - **PlayerRating** — League-scoped overall skill (μ/σ). PK `(leagueId, playerId)`
 - **Hero** — IDs 1–12, tied to lobby slots (WC3 UDBR catalog; not universal for future games)
 - **PlayerHeroRating** — League-scoped hero μ/σ + `matchesPlayed`. PK `(leagueId, playerId, heroId)`
