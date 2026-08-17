@@ -17,7 +17,7 @@ import {
 } from './match-service.js';
 import {
   loadPlayerGlobalDeltaForMatch,
-  rebuildCompletedRatingPreview,
+  resolveCompletedRatingPreview,
 } from './match-history-preview.js';
 
 export const MATCH_HISTORY_PAGE_SIZE = 10;
@@ -319,10 +319,11 @@ export async function loadCompletedMatchShow(input: {
 
   const profile = await getGameProfileForLeague(match.leagueId);
   const winningTeam = winningTeamFromPlayers(match.players);
-  const ratingPreview = await rebuildCompletedRatingPreview(match);
+  const ratingPreview = await resolveCompletedRatingPreview(match);
   const embed = buildMatchCompletedEmbed(match.id, matchToLobbyPlayers(match), {
     winningTeam,
     profile,
+    timestamp: match.completedAt ?? undefined,
     ...(ratingPreview ? { ratingPreview } : {}),
   });
 

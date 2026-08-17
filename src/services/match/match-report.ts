@@ -21,6 +21,7 @@ import {
   type RatingRosterEntry,
 } from '../rating/rating-update.js';
 import { writeMatchRatingSnapshots } from './match-correction.js';
+import { persistMatchRatingPreviewToPlayers } from './match-history-preview.js';
 
 const log = createLogger('match-report');
 
@@ -209,6 +210,12 @@ export async function completeMatch(
       previewEntries,
       beforeBySlot,
       afterBySlot,
+    );
+    await persistMatchRatingPreviewToPlayers(
+      matchId,
+      ratingPreview,
+      match.players,
+      tx,
     );
   });
 

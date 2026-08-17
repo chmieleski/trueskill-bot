@@ -28,7 +28,10 @@ vi.mock('../../lib/prisma.js', () => ({
       count: matchCount,
     },
     matchRatingSnapshot: { findMany: matchRatingSnapshotFindMany },
-    matchPlayer: { groupBy: matchPlayerGroupBy },
+    matchPlayer: {
+      groupBy: matchPlayerGroupBy,
+      update: vi.fn(),
+    },
   },
 }));
 
@@ -396,12 +399,13 @@ describe('loadCompletedMatchShow', () => {
     ).rejects.toThrow('This match was not found.');
   });
 
-  it('returns match and embed; omits ratingPreview when snapshots missing', async () => {
+  it('returns match and embed; omits ratingPreview when snapshots and stored ki missing', async () => {
+    const completedAt = new Date('2026-08-10T00:00:00.000Z');
     const match = {
       id: 'm1',
       status: 'COMPLETED',
       leagueId: 'L1',
-      completedAt: new Date('2026-08-10T00:00:00.000Z'),
+      completedAt,
       players: [
         {
           playerId: 'P1',
@@ -410,6 +414,10 @@ describe('loadCompletedMatchShow', () => {
           slot: 1,
           heroId: 1,
           isQuitter: false,
+          globalKi: null,
+          globalKiDelta: null,
+          heroKi: null,
+          heroKiDelta: null,
           player: { username: 'alice' },
         },
       ],
@@ -428,7 +436,69 @@ describe('loadCompletedMatchShow', () => {
     const embedOptions = buildMatchCompletedEmbed.mock.calls[0]![2] as Record<string, unknown>;
     expect(embedOptions).not.toHaveProperty('ratingPreview');
     expect(embedOptions.winningTeam).toBe(1);
+    expect(embedOptions.timestamp).toBe(completedAt);
     expect(result.embed.data.title).toBe('Match Completed');
+  });
+
+  it('passes stored MatchPlayer ki as ratingPreview for all players', async () => {
+    const match = {
+      id: 'm1',
+      status: 'COMPLETED',
+      leagueId: 'L1',
+      completedAt: new Date('2026-08-10T00:00:00.000Z'),
+      players: [
+        {
+          playerId: 'P1',
+          team: 1,
+          result: 'WIN',
+          slot: 3,
+          heroId: 3,
+          isQuitter: false,
+          globalKi: 4100,
+          globalKiDelta: 80,
+          heroKi: 4050,
+          heroKiDelta: 40,
+          player: { username: 'alice' },
+        },
+        {
+          playerId: 'P2',
+          team: 2,
+          result: 'LOSS',
+          slot: 8,
+          heroId: 8,
+          isQuitter: false,
+          globalKi: 3900,
+          globalKiDelta: -60,
+          heroKi: 3880,
+          heroKiDelta: -30,
+          player: { username: 'bob' },
+        },
+      ],
+    };
+    getMatchById.mockResolvedValue(match);
+    listLeaguesForGuild.mockResolvedValue([{ id: 'L1' }]);
+
+    await loadCompletedMatchShow({ matchId: 'm1', guildId: 'g1' });
+
+    const embedOptions = buildMatchCompletedEmbed.mock.calls[0]![2] as {
+      ratingPreview?: { players: Array<{ slot: number; globalDelta?: number }> };
+    };
+    expect(embedOptions.ratingPreview?.players).toEqual([
+      expect.objectContaining({
+        slot: 3,
+        nick: 'alice',
+        globalOrdinal: 4100,
+        globalDelta: 80,
+        heroOrdinal: 4050,
+        heroDelta: 40,
+      }),
+      expect.objectContaining({
+        slot: 8,
+        nick: 'bob',
+        globalOrdinal: 3900,
+        globalDelta: -60,
+      }),
+    ]);
   });
 
   it('throws MatchServiceError for tenancy failures', async () => {

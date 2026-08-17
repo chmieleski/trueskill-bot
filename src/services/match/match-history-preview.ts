@@ -10,7 +10,6 @@ import {
   simulatePostMatchRatings,
   type RatingRosterEntry,
 } from '../rating/rating-update.js';
-import { expectedSnapshotCount } from './match-correction.js';
 import type { MatchWithPlayers } from './match-service.js';
 
 type SnapshotRow = {
@@ -107,7 +106,7 @@ function kiPairFromState(
 
 /**
  * Rebuild completed-match rating preview (with deltas) from pre-match snapshots
- * by replaying OpenSkill in memory. Returns undefined when snapshots are missing.
+ * by replaying OpenSkill in memory. Returns undefined when GLOBAL snapshots are missing.
  */
 export async function rebuildCompletedRatingPreview(
   match: MatchWithPlayers,
@@ -116,7 +115,9 @@ export async function rebuildCompletedRatingPreview(
     where: { matchId: match.id },
   });
 
-  if (snapshots.length !== expectedSnapshotCount(match.players)) {
+  const playerIds = match.players.map((player) => player.playerId);
+  const globalSnaps = snapshots.filter((snap) => snap.entityKind === 'GLOBAL');
+  if (!playerIds.every((playerId) => globalSnaps.some((snap) => snap.playerId === playerId))) {
     return undefined;
   }
 
@@ -130,18 +131,23 @@ export async function rebuildCompletedRatingPreview(
     isQuitter: player.isQuitter,
   }));
 
-  const winningTeam = winningTeamFromPlayers(match.players);
-  const afterMaps = simulatePostMatchRatings(
-    rosterEntries,
-    winningTeam,
-    globalByPlayer,
-    new Map(
-      [...heroByKey.entries()].map(([key, value]) => [
-        key,
-        { mu: value.mu, sigma: value.sigma },
-      ]),
-    ),
-  );
+  let afterMaps: ReturnType<typeof simulatePostMatchRatings>;
+  try {
+    const winningTeam = winningTeamFromPlayers(match.players);
+    afterMaps = simulatePostMatchRatings(
+      rosterEntries,
+      winningTeam,
+      globalByPlayer,
+      new Map(
+        [...heroByKey.entries()].map(([key, value]) => [
+          key,
+          { mu: value.mu, sigma: value.sigma },
+        ]),
+      ),
+    );
+  } catch {
+    return undefined;
+  }
 
   const globalGames = await loadGlobalGamesBeforeMatch(
     match.leagueId,
@@ -190,12 +196,92 @@ export async function rebuildCompletedRatingPreview(
   return buildCompletedRatingPreview(previewEntries, beforeBySlot, afterBySlot);
 }
 
-/** Target player's global ki delta for a completed match, if snapshots allow. */
+/** Persist completed-match display ki onto MatchPlayer rows for history/show. */
+export async function persistMatchRatingPreviewToPlayers(
+  matchId: string,
+  preview: LobbyRatingPreview,
+  matchPlayers: Array<{ playerId: string; slot: number; heroId: number | null }>,
+  db: { matchPlayer: { update: typeof prisma.matchPlayer.update } } = prisma,
+): Promise<void> {
+  const bySlot = new Map(preview.players.map((line) => [line.slot, line]));
+
+  for (const player of matchPlayers) {
+    const line = bySlot.get(player.slot);
+    if (!line) {
+      continue;
+    }
+
+    const showHero = line.showHero !== false && player.heroId != null;
+    await db.matchPlayer.update({
+      where: { matchId_playerId: { matchId, playerId: player.playerId } },
+      data: {
+        globalKi: line.globalOrdinal,
+        globalKiDelta: line.globalDelta ?? null,
+        heroKi: showHero ? line.heroOrdinal : null,
+        heroKiDelta: showHero ? (line.heroDelta ?? null) : null,
+      },
+    });
+  }
+}
+
+/** Build rating preview from MatchPlayer ki columns written at complete time. */
+export function ratingPreviewFromStoredMatchPlayers(
+  match: MatchWithPlayers,
+): LobbyRatingPreview | undefined {
+  if (match.players.some((player) => player.globalKi == null)) {
+    return undefined;
+  }
+
+  return {
+    players: match.players.map((player) => ({
+      slot: player.slot,
+      nick: player.player.username,
+      globalOrdinal: player.globalKi!,
+      heroOrdinal: player.heroKi ?? player.globalKi!,
+      globalDelta: player.globalKiDelta ?? undefined,
+      heroDelta: player.heroKiDelta ?? undefined,
+      isQuitter: player.isQuitter,
+      showHero: player.heroId != null && player.heroKi != null,
+    })),
+  };
+}
+
+/**
+ * Prefer stored MatchPlayer ki, else rebuild from snapshots (and backfill store).
+ */
+export async function resolveCompletedRatingPreview(
+  match: MatchWithPlayers,
+): Promise<LobbyRatingPreview | undefined> {
+  const stored = ratingPreviewFromStoredMatchPlayers(match);
+  if (stored) {
+    return stored;
+  }
+
+  const rebuilt = await rebuildCompletedRatingPreview(match);
+  if (!rebuilt) {
+    return undefined;
+  }
+
+  try {
+    await persistMatchRatingPreviewToPlayers(match.id, rebuilt, match.players);
+  } catch {
+    // Display still works even if backfill write fails.
+  }
+
+  return rebuilt;
+}
+
+/** Target player's global ki delta for a completed match, if available. */
 export async function loadPlayerGlobalDeltaForMatch(
   match: MatchWithPlayers,
   playerId: string,
 ): Promise<number | undefined> {
-  const preview = await rebuildCompletedRatingPreview(match);
+  const stored = match.players.find((player) => player.playerId === playerId)?.globalKiDelta;
+  if (stored != null) {
+    return stored;
+  }
+
+  const preview = await resolveCompletedRatingPreview(match);
   if (!preview) {
     return undefined;
   }

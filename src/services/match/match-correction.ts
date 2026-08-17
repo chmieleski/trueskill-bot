@@ -22,6 +22,7 @@ import {
 } from '../rating/rating-update.js';
 import { resolveQuitterSlots } from './match-report.js';
 import type { CompleteMatchResult } from './match-report.js';
+import { persistMatchRatingPreviewToPlayers } from './match-history-preview.js';
 
 const log = createLogger('match-correction');
 
@@ -549,6 +550,7 @@ export async function flipCompletedMatch(
 
     const afterBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
     ratingPreview = buildCompletedRatingPreview(previewEntries, beforeBySlot, afterBySlot);
+    await persistMatchRatingPreviewToPlayers(matchId, ratingPreview, match.players, tx);
   });
 
   const updated = await getMatchById(matchId);

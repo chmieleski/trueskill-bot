@@ -38,7 +38,10 @@ export {
 } from './match-history.js';
 export {
   loadPlayerGlobalDeltaForMatch,
+  persistMatchRatingPreviewToPlayers,
+  ratingPreviewFromStoredMatchPlayers,
   rebuildCompletedRatingPreview,
+  resolveCompletedRatingPreview,
 } from './match-history-preview.js';
 export {
   CORRECTION_WINDOW_MS,
