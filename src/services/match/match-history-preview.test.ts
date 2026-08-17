@@ -1,24 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { loadMatchDisplayStatsByPlayer } = vi.hoisted(() => ({
-  loadMatchDisplayStatsByPlayer: vi.fn(),
+const { matchPlayerFindMany, playerRankResetFindMany } = vi.hoisted(() => ({
+  matchPlayerFindMany: vi.fn(),
+  playerRankResetFindMany: vi.fn(),
 }));
-
-vi.mock('../rating/rank-reset-display.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../rating/rank-reset-display.js')>();
-  return {
-    ...actual,
-    loadMatchDisplayStatsByPlayer,
-  };
-});
 
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
     matchRatingSnapshot: { findMany: vi.fn() },
     matchPlayer: {
       groupBy: vi.fn(),
+      findMany: matchPlayerFindMany,
       update: vi.fn(),
     },
+    playerRankReset: { findMany: playerRankResetFindMany },
   },
 }));
 
@@ -27,6 +22,7 @@ import {
   resolveCompletedRatingPreview,
 } from './match-history-preview.js';
 import type { MatchWithPlayers } from './match-service.js';
+import { CALIBRATING_LABEL, formatPublicKi } from '../rating/rating-math.js';
 
 function storedMatchFixture(): MatchWithPlayers {
   return {
@@ -67,6 +63,41 @@ function storedMatchFixture(): MatchWithPlayers {
   } as MatchWithPlayers;
 }
 
+/** Build WIN/LOSS rows: first `throughCount` at/before match time, rest after. */
+function completedRowsForPlayer(
+  playerId: string,
+  throughCount: number,
+  totalCount: number,
+  matchCompletedAt: Date,
+): Array<{
+  playerId: string;
+  result: 'WIN' | 'LOSS';
+  match: { completedAt: Date; createdAt: Date };
+}> {
+  const rows = [];
+  for (let i = 0; i < throughCount; i += 1) {
+    rows.push({
+      playerId,
+      result: 'WIN' as const,
+      match: {
+        completedAt: new Date(matchCompletedAt.getTime() - (throughCount - i) * 86_400_000),
+        createdAt: new Date(matchCompletedAt.getTime() - (throughCount - i) * 86_400_000),
+      },
+    });
+  }
+  for (let i = throughCount; i < totalCount; i += 1) {
+    rows.push({
+      playerId,
+      result: 'WIN' as const,
+      match: {
+        completedAt: new Date(matchCompletedAt.getTime() + (i - throughCount + 1) * 86_400_000),
+        createdAt: new Date(matchCompletedAt.getTime() + (i - throughCount + 1) * 86_400_000),
+      },
+    });
+  }
+  return rows;
+}
+
 describe('ratingPreviewFromStoredMatchPlayers', () => {
   it('attaches leagueGames from the display-stats map', () => {
     const leagueGamesByPlayer = new Map([
@@ -88,23 +119,34 @@ describe('ratingPreviewFromStoredMatchPlayers', () => {
 
 describe('resolveCompletedRatingPreview', () => {
   beforeEach(() => {
-    loadMatchDisplayStatsByPlayer.mockReset();
+    matchPlayerFindMany.mockReset();
+    playerRankResetFindMany.mockReset();
+    playerRankResetFindMany.mockResolvedValue([]);
   });
 
-  it('loads reset-aware after-match games for the calibrating gate', async () => {
-    loadMatchDisplayStatsByPlayer.mockResolvedValue(
-      new Map([
-        ['P1', { games: 2, wins: 2, losses: 0, quits: 0 }],
-        ['P2', { games: 2, wins: 0, losses: 2, quits: 0 }],
-      ]),
-    );
+  it('uses point-in-time after-match games, not current league totals', async () => {
+    const match = storedMatchFixture();
+    const completedAt = match.completedAt!;
 
-    const preview = await resolveCompletedRatingPreview(storedMatchFixture());
-
-    expect(loadMatchDisplayStatsByPlayer).toHaveBeenCalledWith('L1', ['P1', 'P2']);
-    expect(preview?.players).toEqual([
-      expect.objectContaining({ slot: 3, leagueGames: 2 }),
-      expect.objectContaining({ slot: 8, leagueGames: 2 }),
+    matchPlayerFindMany.mockResolvedValue([
+      ...completedRowsForPlayer('P1', 3, 10, completedAt),
+      ...completedRowsForPlayer('P2', 3, 10, completedAt),
     ]);
+
+    const preview = await resolveCompletedRatingPreview(match);
+
+    expect(playerRankResetFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ leagueId: 'L1', playerId: { in: ['P1', 'P2'] } }),
+      }),
+    );
+    expect(matchPlayerFindMany).toHaveBeenCalled();
+    expect(preview?.players).toEqual([
+      expect.objectContaining({ slot: 3, leagueGames: 3 }),
+      expect.objectContaining({ slot: 8, leagueGames: 3 }),
+    ]);
+    for (const line of preview?.players ?? []) {
+      expect(formatPublicKi(line.globalOrdinal, line.leagueGames)).toBe(CALIBRATING_LABEL);
+    }
   });
 });

@@ -1,7 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
 import {
-  gamesByPlayerFromStats,
-  loadMatchDisplayStatsByPlayer,
+  countCompletedGamesThrough,
+  loadLatestRankResetAtByPlayer,
 } from '../rating/rank-reset-display.js';
 import { displayOrdinal } from '../rating/rating-math.js';
 import {
@@ -160,8 +160,7 @@ export async function rebuildCompletedRatingPreview(
     match.id,
   );
 
-  const displayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds);
-  const leagueGamesByPlayer = gamesByPlayerFromStats(displayStats);
+  const leagueGamesByPlayer = await loadLeagueGamesAfterMatch(match);
 
   const beforeBySlot = new Map<number, PlayerKiPair>();
   const afterBySlot = new Map<number, PlayerKiPair>();
@@ -238,14 +237,55 @@ export async function persistMatchRatingPreviewToPlayers(
 
 /**
  * After-match completed WIN/LOSS count per player (this match included),
- * respecting the latest {@link PlayerRankReset} cutoff per player.
+ * at the match's completion time, respecting the latest {@link PlayerRankReset}
+ * cutoff per player.
  */
 async function loadLeagueGamesAfterMatch(
   match: MatchWithPlayers,
 ): Promise<Map<string, number>> {
   const playerIds = match.players.map((player) => player.playerId);
-  const displayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds);
-  return gamesByPlayerFromStats(displayStats);
+  if (playerIds.length === 0) {
+    return new Map();
+  }
+
+  const throughAt = match.completedAt ?? match.createdAt;
+
+  const [resetAtByPlayer, completedMatchRows] = await Promise.all([
+    loadLatestRankResetAtByPlayer(match.leagueId, playerIds),
+    prisma.matchPlayer.findMany({
+      where: {
+        playerId: { in: playerIds },
+        result: { in: ['WIN', 'LOSS'] },
+        match: { leagueId: match.leagueId, status: 'COMPLETED' },
+      },
+      select: {
+        playerId: true,
+        result: true,
+        match: { select: { completedAt: true, createdAt: true } },
+      },
+    }),
+  ]);
+
+  const gamesCountRows = completedMatchRows.map((row) => ({
+    playerId: row.playerId,
+    result: row.result,
+    completedAt: row.match.completedAt ?? row.match.createdAt,
+  }));
+
+  const leagueGamesByPlayer = new Map<string, number>();
+  for (const playerId of playerIds) {
+    leagueGamesByPlayer.set(
+      playerId,
+      countCompletedGamesThrough(
+        gamesCountRows,
+        playerId,
+        throughAt,
+        resetAtByPlayer.get(playerId),
+      ),
+    );
+  }
+
+  return leagueGamesByPlayer;
 }
 
 /** Build rating preview from MatchPlayer ki columns written at complete time. */
