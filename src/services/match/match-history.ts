@@ -17,7 +17,10 @@ import {
   type MatchWithPlayers,
 } from './match-service.js';
 import {
-  loadGlobalGamesBeforeMatch,
+  countCompletedGamesThrough,
+  loadLatestRankResetAtByPlayer,
+} from '../rating/rank-reset-display.js';
+import {
   loadPlayerGlobalDeltaForMatch,
   resolveCompletedRatingPreview,
 } from './match-history-preview.js';
@@ -210,6 +213,29 @@ export async function loadMatchHistoryPage(input: {
   const catalog = await loadHeroCatalog();
   const heroNameById = new Map(catalog.map((h) => [h.id, h.name]));
 
+  const [resetAtByPlayer, completedMatchRows] = await Promise.all([
+    loadLatestRankResetAtByPlayer(input.leagueId, [input.playerId]),
+    prisma.matchPlayer.findMany({
+      where: {
+        playerId: input.playerId,
+        result: { in: ['WIN', 'LOSS'] },
+        match: { leagueId: input.leagueId, status: 'COMPLETED' },
+      },
+      select: {
+        playerId: true,
+        result: true,
+        match: { select: { completedAt: true, createdAt: true } },
+      },
+    }),
+  ]);
+
+  const resetAt = resetAtByPlayer.get(input.playerId);
+  const gamesCountRows = completedMatchRows.map((row) => ({
+    playerId: row.playerId,
+    result: row.result,
+    completedAt: row.match.completedAt ?? row.match.createdAt,
+  }));
+
   const rows: MatchHistoryRow[] = [];
   for (const match of matches) {
     const mp = match.players.find((player) => player.playerId === input.playerId);
@@ -224,13 +250,12 @@ export async function loadMatchHistoryPage(input: {
       input.playerId,
     );
     const completedAt = match.completedAt ?? match.createdAt;
-    const gamesBefore = await loadGlobalGamesBeforeMatch(
-      input.leagueId,
-      [input.playerId],
+    const leagueGames = countCompletedGamesThrough(
+      gamesCountRows,
+      input.playerId,
       completedAt,
-      match.id,
+      resetAt,
     );
-    const leagueGames = (gamesBefore.get(input.playerId) ?? 0) + 1;
     rows.push({
       matchId: match.id,
       completedAt,

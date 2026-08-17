@@ -8,6 +8,13 @@ export type MatchDisplayStatRow = {
   completedAt: Date | null;
 };
 
+/** Row shape for point-in-time completed-game counts (e.g. match history). */
+export type CompletedGamesCountRow = {
+  playerId: string;
+  result: MatchResult | null;
+  completedAt: Date | null;
+};
+
 export type PlayerMatchDisplayStats = {
   games: number;
   wins: number;
@@ -32,6 +39,41 @@ export function isMatchCountedAfterRankReset(
     return false;
   }
   return completedAt.getTime() > resetAt.getTime();
+}
+
+/**
+ * After-match WIN/LOSS count for one player through a completion timestamp,
+ * including every row at or before that time (respecting rank-reset cutoff).
+ */
+export function countCompletedGamesThrough(
+  matchRows: CompletedGamesCountRow[],
+  playerId: string,
+  throughCompletedAt: Date,
+  resetAt: Date | undefined,
+): number {
+  let count = 0;
+  const throughMs = throughCompletedAt.getTime();
+
+  for (const row of matchRows) {
+    if (row.playerId !== playerId) {
+      continue;
+    }
+    if (row.result !== MatchResult.WIN && row.result !== MatchResult.LOSS) {
+      continue;
+    }
+    if (!row.completedAt) {
+      continue;
+    }
+    if (row.completedAt.getTime() > throughMs) {
+      continue;
+    }
+    if (!isMatchCountedAfterRankReset(row.completedAt, resetAt)) {
+      continue;
+    }
+    count += 1;
+  }
+
+  return count;
 }
 
 /** Aggregate W/L/games/quits, applying each player's latest rank-reset cutoff. */
