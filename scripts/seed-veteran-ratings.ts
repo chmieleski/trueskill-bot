@@ -1,8 +1,8 @@
 /**
- * One-shot seed: create veteran players (if missing) and set global OpenSkill
- * μ/σ so public ki matches the starting boost tiers.
+ * One-shot seed: create veteran players (if missing) and set OpenSkill
+ * μ/σ on the oldest UDBR league so public ki matches the starting boost tiers.
  *
- * Only touches Player + PlayerRating (global). Hero ratings stay cold-start.
+ * Only touches Player + PlayerRating. Hero ratings stay cold-start.
  *
  * Run: npx tsx scripts/seed-veteran-ratings.ts
  * Dry: npx tsx scripts/seed-veteran-ratings.ts --dry-run
@@ -10,8 +10,9 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
-import { normalizeNick } from '../src/services/player-nick.js';
-import { displayOrdinal } from '../src/services/rating-math.js';
+import { WARCRAFT3_UDBR_GAME_ID } from '../src/domain/games.js';
+import { normalizeNick } from '../src/services/player/player-nick.js';
+import { displayOrdinal } from '../src/services/rating/rating-math.js';
 
 /** Group 1 — strong veterans → 4200 ki (μ 31, σ 5). */
 const GROUP_1 = {
@@ -63,17 +64,25 @@ function assertKi(mu: number, sigma: number, expected: number, label: string): v
 
 async function upsertVeteran(
   db: PrismaClient,
+  leagueId: string,
   username: string,
   mu: number,
   sigma: number,
   targetKi: number,
 ): Promise<{ username: string; created: boolean; ki: number }> {
   const nick = normalizeNick(username);
-  let player = await db.player.findUnique({ where: { username: nick } });
+  let player = await db.player.findUnique({
+    where: {
+      gameId_username: { gameId: WARCRAFT3_UDBR_GAME_ID, username: nick },
+    },
+  });
 
   if (!player) {
     const matches = await db.player.findMany({
-      where: { username: { equals: nick, mode: 'insensitive' } },
+      where: {
+        gameId: WARCRAFT3_UDBR_GAME_ID,
+        username: { equals: nick, mode: 'insensitive' },
+      },
       take: 2,
     });
     player = matches.length === 1 ? matches[0]! : null;
@@ -83,15 +92,19 @@ async function upsertVeteran(
 
   if (!player) {
     if (!DRY_RUN) {
-      player = await db.player.create({ data: { username: nick } });
+      player = await db.player.create({
+        data: { gameId: WARCRAFT3_UDBR_GAME_ID, username: nick },
+      });
     }
     created = true;
   }
 
   if (!DRY_RUN && player) {
     await db.playerRating.upsert({
-      where: { playerId: player.id },
-      create: { playerId: player.id, mu, sigma },
+      where: {
+        leagueId_playerId: { leagueId, playerId: player.id },
+      },
+      create: { leagueId, playerId: player.id, mu, sigma },
       update: { mu, sigma },
     });
   }
@@ -116,9 +129,21 @@ async function main(): Promise<void> {
     adapter: new PrismaPg({ connectionString: databaseUrl }),
   });
 
-  console.log(DRY_RUN ? 'Dry run — no writes.\n' : 'Seeding veteran global ratings…\n');
+  console.log(DRY_RUN ? 'Dry run — no writes.\n' : 'Seeding veteran UDBR ratings…\n');
 
   try {
+    const league = await prisma.league.findFirst({
+      where: { gameId: WARCRAFT3_UDBR_GAME_ID },
+      select: { id: true, name: true, guildId: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!league) {
+      throw new Error(
+        `No league found for game ${WARCRAFT3_UDBR_GAME_ID}. Create one before seeding.`,
+      );
+    }
+    console.log(`League: ${league.name} (${league.id}) guild=${league.guildId}\n`);
+
     const tiers = [
       { label: 'Group 1 (4200 ki)', ...GROUP_1 },
       { label: 'Group 2 (3000 ki)', ...GROUP_2 },
@@ -129,6 +154,7 @@ async function main(): Promise<void> {
       for (const username of tier.usernames) {
         const result = await upsertVeteran(
           prisma,
+          league.id,
           username,
           tier.mu,
           tier.sigma,

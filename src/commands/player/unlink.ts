@@ -1,7 +1,14 @@
 import { GuildMember, MessageFlags, SlashCommandBuilder } from 'discord.js';
-import type { ChatInputCommandInteraction } from 'discord.js';
+import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import { resolveGuildConfig } from '../../services/guild/index.js';
+import {
+  getGameProfileForLeague,
+  getLeagueOption,
+  resolveLeagueIdFromInteraction,
+  respondLeagueAutocomplete,
+  withOptionalLeagueOption,
+} from '../../services/league/index.js';
 import { assertHasMatchModRole } from '../../services/match/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
 import { unlinkByDiscordId } from '../../services/player/index.js';
@@ -29,15 +36,21 @@ function memberRoleIds(interaction: { member: unknown }): string[] {
   return [];
 }
 
-export const data = new SlashCommandBuilder()
-  .setName('unlink')
-  .setDescription('Unlink a Discord account from an in-game nick')
-  .addUserOption((option) =>
-    option
-      .setName('user')
-      .setDescription('Discord user to unlink (moderators only)')
-      .setRequired(false),
-  );
+export const data = withOptionalLeagueOption(
+  new SlashCommandBuilder()
+    .setName('unlink')
+    .setDescription('Unlink a Discord account from an in-game nick')
+    .addUserOption((option) =>
+      option
+        .setName('user')
+        .setDescription('Discord user to unlink (moderators only)')
+        .setRequired(false),
+    ),
+);
+
+export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
+  await respondLeagueAutocomplete(interaction);
+}
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -47,11 +60,12 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   const discordId = self ? interaction.user.id : target!.id;
 
   try {
+    if (!interaction.guildId) {
+      await interaction.editReply({ content: 'This command can only be used in a server.' });
+      return;
+    }
+
     if (!self) {
-      if (!interaction.guildId) {
-        await interaction.editReply({ content: 'This command can only be used in a server.' });
-        return;
-      }
       const config = await resolveGuildConfig(interaction.guildId);
       assertHasMatchModRole({
         actorDiscordId: interaction.user.id,
@@ -60,11 +74,21 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       });
     }
 
-    const result = await unlinkByDiscordId(discordId, { self });
+    const resolved = await resolveLeagueIdFromInteraction(
+      interaction,
+      getLeagueOption(interaction),
+    );
+    if (!resolved.ok) {
+      await interaction.editReply({ content: resolved.message });
+      return;
+    }
+
+    const gameProfile = await getGameProfileForLeague(resolved.leagueId);
+    const result = await unlinkByDiscordId(gameProfile.gameId, discordId, { self });
     await interaction.editReply({
       content: self
-        ? `Unlinked your Discord from **${result.username}**.`
-        : `Unlinked <@${discordId}> from **${result.username}**.`,
+        ? `Unlinked your Discord from **${result.username}** for \`${gameProfile.gameId}\`.`
+        : `Unlinked <@${discordId}> from **${result.username}** for \`${gameProfile.gameId}\`.`,
     });
   } catch (error) {
     if (error instanceof PlayerServiceError || error instanceof MatchServiceError) {
