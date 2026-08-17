@@ -15,6 +15,10 @@ import {
   MatchServiceError,
   type MatchWithPlayers,
 } from './match-service.js';
+import {
+  loadPlayerGlobalDeltaForMatch,
+  rebuildCompletedRatingPreview,
+} from './match-history-preview.js';
 
 export const MATCH_HISTORY_PAGE_SIZE = 10;
 
@@ -25,6 +29,8 @@ export type MatchHistoryRow = {
   team: 1 | 2;
   heroName: string | null;
   isQuitter: boolean;
+  /** Global ki delta for the history target when snapshots exist. */
+  globalDelta?: number;
 };
 
 export type MatchHistoryPage = {
@@ -51,7 +57,7 @@ export function formatMatchHistoryResult(
 
 /**
  * Monospace history table (same pattern as leaderboard embeds).
- * Columns: Date, R (W/L/WQ/LQ), Team, Hero, Match id.
+ * Columns: Date, R (W/L/WQ/LQ), Δki, Team, Hero, Match id.
  */
 export function formatMatchHistoryTable(
   rows: Array<{ row: MatchHistoryRow; teamLabel: string }>,
@@ -62,18 +68,21 @@ export function formatMatchHistoryTable(
 
   const dates = rows.map(({ row }) => formatHistoryDate(row.completedAt));
   const results = rows.map(({ row }) => formatMatchHistoryResult(row));
+  const deltas = rows.map(({ row }) => formatMatchHistoryDelta(row.globalDelta));
   const teams = rows.map(({ teamLabel }) => teamLabel);
   const heroes = rows.map(({ row }) => row.heroName ?? '—');
   const ids = rows.map(({ row }) => row.matchId);
 
   const dateW = Math.max(...dates.map((value) => value.length), 'Date'.length);
   const resW = Math.max(...results.map((value) => value.length), 'R'.length);
+  const deltaW = Math.max(...deltas.map((value) => value.length), 'Δki'.length);
   const teamW = Math.max(...teams.map((value) => value.length), 'Team'.length);
   const heroW = Math.max(...heroes.map((value) => value.length), 'Hero'.length);
 
   const header = [
     'Date'.padEnd(dateW),
     'R'.padEnd(resW),
+    'Δki'.padStart(deltaW),
     'Team'.padEnd(teamW),
     'Hero'.padEnd(heroW),
     'Match id',
@@ -83,6 +92,7 @@ export function formatMatchHistoryTable(
     [
       dates[index]!.padEnd(dateW),
       results[index]!.padEnd(resW),
+      deltas[index]!.padStart(deltaW),
       teams[index]!.padEnd(teamW),
       heroes[index]!.padEnd(heroW),
       ids[index]!,
@@ -90,6 +100,15 @@ export function formatMatchHistoryTable(
   );
 
   return `\`\`\`\n${header}\n${lines.join('\n')}\n\`\`\``;
+}
+
+/** Compact signed ki delta for table cells. */
+export function formatMatchHistoryDelta(delta: number | undefined): string {
+  if (delta === undefined) {
+    return '—';
+  }
+  const sign = delta > 0 ? '+' : '';
+  return `${sign}${delta}`;
 }
 
 export function clampMatchHistoryPage(page: number, totalPages: number): number {
@@ -182,18 +201,10 @@ export async function loadMatchHistoryPage(input: {
     orderBy: [{ completedAt: 'desc' }, { createdAt: 'desc' }],
     skip,
     take: MATCH_HISTORY_PAGE_SIZE,
-    select: {
-      id: true,
-      completedAt: true,
-      createdAt: true,
+    include: {
       players: {
-        where: { playerId: input.playerId },
-        select: {
-          team: true,
-          result: true,
-          heroId: true,
-          isQuitter: true,
-        },
+        include: { player: true },
+        orderBy: { slot: 'asc' },
       },
     },
   });
@@ -203,13 +214,17 @@ export async function loadMatchHistoryPage(input: {
 
   const rows: MatchHistoryRow[] = [];
   for (const match of matches) {
-    const mp = match.players[0];
+    const mp = match.players.find((player) => player.playerId === input.playerId);
     if (!mp || (mp.result !== 'WIN' && mp.result !== 'LOSS')) {
       continue;
     }
     if (mp.team !== 1 && mp.team !== 2) {
       continue;
     }
+    const globalDelta = await loadPlayerGlobalDeltaForMatch(
+      match as MatchWithPlayers,
+      input.playerId,
+    );
     rows.push({
       matchId: match.id,
       completedAt: match.completedAt ?? match.createdAt,
@@ -217,6 +232,7 @@ export async function loadMatchHistoryPage(input: {
       team: mp.team,
       heroName: mp.heroId != null ? (heroNameById.get(mp.heroId) ?? null) : null,
       isQuitter: mp.isQuitter,
+      globalDelta,
     });
   }
 
@@ -325,9 +341,11 @@ export async function loadCompletedMatchShow(input: {
 
   const profile = await getGameProfileForLeague(match.leagueId);
   const winningTeam = winningTeamFromPlayers(match.players);
+  const ratingPreview = await rebuildCompletedRatingPreview(match);
   const embed = buildMatchCompletedEmbed(match.id, matchToLobbyPlayers(match), {
     winningTeam,
     profile,
+    ...(ratingPreview ? { ratingPreview } : {}),
   });
 
   return { match, embed };

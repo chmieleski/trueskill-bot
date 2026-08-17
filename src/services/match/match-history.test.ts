@@ -4,6 +4,8 @@ const {
   playerFindUnique,
   matchFindMany,
   matchCount,
+  matchRatingSnapshotFindMany,
+  matchPlayerGroupBy,
   getMatchById,
   listLeaguesForGuild,
   buildMatchCompletedEmbed,
@@ -11,6 +13,8 @@ const {
   playerFindUnique: vi.fn(),
   matchFindMany: vi.fn(),
   matchCount: vi.fn(),
+  matchRatingSnapshotFindMany: vi.fn(),
+  matchPlayerGroupBy: vi.fn(),
   getMatchById: vi.fn(),
   listLeaguesForGuild: vi.fn(),
   buildMatchCompletedEmbed: vi.fn(),
@@ -23,6 +27,8 @@ vi.mock('../../lib/prisma.js', () => ({
       findMany: matchFindMany,
       count: matchCount,
     },
+    matchRatingSnapshot: { findMany: matchRatingSnapshotFindMany },
+    matchPlayer: { groupBy: matchPlayerGroupBy },
   },
 }));
 
@@ -68,6 +74,7 @@ import {
   buildMatchHistoryPageButtons,
   buildMatchHistoryPageCustomId,
   clampMatchHistoryPage,
+  formatMatchHistoryDelta,
   formatMatchHistoryResult,
   formatMatchHistoryTable,
   loadCompletedMatchShow,
@@ -78,6 +85,15 @@ import {
 } from './match-history.js';
 import { MatchServiceError } from './match-service.js';
 
+describe('formatMatchHistoryDelta', () => {
+  it('formats signed deltas and em dash when missing', () => {
+    expect(formatMatchHistoryDelta(undefined)).toBe('—');
+    expect(formatMatchHistoryDelta(186)).toBe('+186');
+    expect(formatMatchHistoryDelta(-50)).toBe('-50');
+    expect(formatMatchHistoryDelta(0)).toBe('0');
+  });
+});
+
 describe('formatMatchHistoryResult', () => {
   it('marks quitters with Q', () => {
     expect(formatMatchHistoryResult({ result: 'WIN', isQuitter: true })).toBe('WQ');
@@ -86,7 +102,7 @@ describe('formatMatchHistoryResult', () => {
 });
 
 describe('formatMatchHistoryTable', () => {
-  it('renders an aligned monospace table with header', () => {
+  it('renders an aligned monospace table with header and delta column', () => {
     const table = formatMatchHistoryTable([
       {
         row: {
@@ -96,6 +112,7 @@ describe('formatMatchHistoryTable', () => {
           team: 1,
           heroName: 'Goku',
           isQuitter: true,
+          globalDelta: 186,
         },
         teamLabel: 'Z Fighters',
       },
@@ -114,15 +131,10 @@ describe('formatMatchHistoryTable', () => {
 
     expect(table.startsWith('```\n')).toBe(true);
     expect(table.endsWith('\n```')).toBe(true);
-    expect(table).toContain('Date');
-    expect(table).toContain('Match id');
-    expect(table).toContain('2026-08-16');
+    expect(table).toContain('Δki');
+    expect(table).toContain('+186');
     expect(table).toContain('WQ');
-    expect(table).toContain('Z Fighters');
-    expect(table).toContain('Goku');
-    expect(table).toContain('clxxxxxxxxxxxxxxxxxxxx');
     expect(table).toContain('—');
-    expect(table).toContain('Evil');
   });
 
   it('uses italic empty copy when there are no rows', () => {
@@ -200,6 +212,10 @@ describe('loadMatchHistoryPage', () => {
   beforeEach(() => {
     matchFindMany.mockReset();
     matchCount.mockReset();
+    matchRatingSnapshotFindMany.mockReset();
+    matchPlayerGroupBy.mockReset();
+    matchRatingSnapshotFindMany.mockResolvedValue([]);
+    matchPlayerGroupBy.mockResolvedValue([]);
   });
 
   it('returns empty page 1 when no matches', async () => {
@@ -222,7 +238,9 @@ describe('loadMatchHistoryPage', () => {
     matchFindMany.mockResolvedValue([
       {
         id: 'm2',
+        leagueId: 'L1',
         completedAt: new Date('2026-08-10T00:00:00.000Z'),
+        createdAt: new Date('2026-08-10T00:00:00.000Z'),
         players: [
           {
             playerId: 'P1',
@@ -230,6 +248,8 @@ describe('loadMatchHistoryPage', () => {
             result: 'WIN',
             heroId: 1,
             isQuitter: false,
+            slot: 1,
+            player: { username: 'alice' },
           },
         ],
       },
@@ -246,6 +266,7 @@ describe('loadMatchHistoryPage', () => {
       matchId: 'm2',
       result: 'WIN',
       heroName: 'Goku',
+      globalDelta: undefined,
     });
   });
 });
@@ -314,6 +335,10 @@ describe('loadCompletedMatchShow', () => {
     getMatchById.mockReset();
     listLeaguesForGuild.mockReset();
     buildMatchCompletedEmbed.mockReset();
+    matchRatingSnapshotFindMany.mockReset();
+    matchPlayerGroupBy.mockReset();
+    matchRatingSnapshotFindMany.mockResolvedValue([]);
+    matchPlayerGroupBy.mockResolvedValue([]);
     buildMatchCompletedEmbed.mockImplementation(() => {
       const { EmbedBuilder } = require('discord.js');
       return new EmbedBuilder().setTitle('Match Completed');
@@ -366,16 +391,20 @@ describe('loadCompletedMatchShow', () => {
     ).rejects.toThrow('This match was not found.');
   });
 
-  it('returns match and embed without ratingPreview for completed match', async () => {
+  it('returns match and embed; omits ratingPreview when snapshots missing', async () => {
     const match = {
       id: 'm1',
       status: 'COMPLETED',
       leagueId: 'L1',
+      completedAt: new Date('2026-08-10T00:00:00.000Z'),
       players: [
         {
+          playerId: 'P1',
           team: 1,
           result: 'WIN',
           slot: 1,
+          heroId: 1,
+          isQuitter: false,
           player: { username: 'alice' },
         },
       ],
