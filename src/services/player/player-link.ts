@@ -44,16 +44,22 @@ export function assertLinkAllowed(input: {
   }
 }
 
-async function findPlayerByNick(nick: string): Promise<LinkPlayerRow | null> {
+async function findPlayerByNick(
+  gameId: string,
+  nick: string,
+): Promise<LinkPlayerRow | null> {
   const exact = await prisma.player.findUnique({
-    where: { username: normalizeNick(nick) },
+    where: { gameId_username: { gameId, username: normalizeNick(nick) } },
   });
   if (exact) {
     return exact;
   }
 
   const matches = await prisma.player.findMany({
-    where: { username: { equals: normalizeNick(nick), mode: 'insensitive' } },
+    where: {
+      gameId,
+      username: { equals: normalizeNick(nick), mode: 'insensitive' },
+    },
     take: 2,
   });
 
@@ -66,18 +72,23 @@ async function findPlayerByNick(nick: string): Promise<LinkPlayerRow | null> {
  * Pass `allowRelink` to move an existing link (moderator override).
  */
 export async function linkPlayer(input: {
+  gameId: string;
   nick: string;
   discordId: string;
   allowRelink?: boolean;
-}): Promise<{ username: string; discordId: string }> {
+}): Promise<{ username: string; discordId: string; gameId: string }> {
   const nick = normalizeNick(input.nick);
   if (!nick) {
     throw new PlayerServiceError('Nick cannot be empty.');
   }
 
   const [player, existingByDiscord] = await Promise.all([
-    findPlayerByNick(nick),
-    prisma.player.findUnique({ where: { discordId: input.discordId } }),
+    findPlayerByNick(input.gameId, nick),
+    prisma.player.findUnique({
+      where: {
+        gameId_discordId: { gameId: input.gameId, discordId: input.discordId },
+      },
+    }),
   ]);
 
   assertLinkAllowed({
@@ -88,7 +99,11 @@ export async function linkPlayer(input: {
   });
 
   if (player?.discordId === input.discordId) {
-    return { username: player.username, discordId: input.discordId };
+    return {
+      username: player.username,
+      discordId: input.discordId,
+      gameId: input.gameId,
+    };
   }
 
   return prisma.$transaction(async (tx) => {
@@ -101,10 +116,17 @@ export async function linkPlayer(input: {
 
     if (!player) {
       const created = await tx.player.create({
-        data: { username: nick, discordId: input.discordId },
+        data: {
+          gameId: input.gameId,
+          username: nick,
+          discordId: input.discordId,
+        },
       });
-
-      return { username: created.username, discordId: created.discordId! };
+      return {
+        username: created.username,
+        discordId: created.discordId!,
+        gameId: created.gameId,
+      };
     }
 
     const updated = await tx.player.update({
@@ -112,23 +134,30 @@ export async function linkPlayer(input: {
       data: { discordId: input.discordId },
     });
 
-    return { username: updated.username, discordId: updated.discordId! };
+    return {
+      username: updated.username,
+      discordId: updated.discordId!,
+      gameId: updated.gameId,
+    };
   });
 }
 
 /** Clears the Discord link for the given account. */
 export async function unlinkByDiscordId(
+  gameId: string,
   discordId: string,
   options: { self?: boolean } = {},
 ): Promise<{ username: string }> {
   const self = options.self ?? false;
-  const player = await prisma.player.findUnique({ where: { discordId } });
+  const player = await prisma.player.findUnique({
+    where: { gameId_discordId: { gameId, discordId } },
+  });
 
   if (!player) {
     throw new PlayerServiceError(
       self
-        ? 'Your Discord is not linked.'
-        : 'That Discord account is not linked.',
+        ? 'Your Discord is not linked for this game.'
+        : 'That Discord account is not linked for this game.',
     );
   }
 
