@@ -168,3 +168,75 @@ export function formatLobbyChannelConfigLine(
   }
   return `**Lobby channel:** \`on\` · <#${channelId}>`;
 }
+
+const LOBBY_CHANNEL_ALLOWED_MATCH_SUBCOMMANDS = new Set([
+  'complete',
+  'cancel',
+  'quitters',
+]);
+
+/** User-facing copy when a non-allowlisted slash command is used in a ready lobby channel. */
+export function lobbyChannelCommandsLimitedMessage(channelId: string): string {
+  return `Only lobby and match commands can be used in <#${channelId}>.`;
+}
+
+/**
+ * Slash commands permitted inside a ready league lobby channel.
+ * `/match` is limited to in-progress ops; missing/unknown subcommand is denied.
+ */
+export function isLobbyChannelAllowedCommand(
+  commandName: string,
+  subcommand?: string | null,
+): boolean {
+  if (commandName === 'register_lobby' || commandName === 'lobby') {
+    return true;
+  }
+  if (commandName === 'match') {
+    return (
+      typeof subcommand === 'string' &&
+      LOBBY_CHANNEL_ALLOWED_MATCH_SUBCOMMANDS.has(subcommand)
+    );
+  }
+  return false;
+}
+
+/**
+ * True when any league in the guild has the lobby channel gate ready on this channel id.
+ * Stored ids are trimmed on write; query uses the interaction channel id as-is.
+ */
+export async function isGuildLobbyChannel(
+  guildId: string,
+  channelId: string,
+): Promise<boolean> {
+  const row = await prisma.league.findFirst({
+    where: {
+      guildId,
+      lobbyChannelEnabled: true,
+      lobbyChannelId: channelId,
+    },
+    select: { id: true },
+  });
+  return row != null;
+}
+
+/**
+ * If this slash/autocomplete must be blocked in the current channel, return the deny message.
+ * Otherwise null (proceed). Allowed commands skip the DB lookup.
+ */
+export async function getLobbyChannelSlashDenial(
+  guildId: string | null,
+  channelId: string | null,
+  commandName: string,
+  subcommand?: string | null,
+): Promise<string | null> {
+  if (!guildId || !channelId) {
+    return null;
+  }
+  if (isLobbyChannelAllowedCommand(commandName, subcommand)) {
+    return null;
+  }
+  if (!(await isGuildLobbyChannel(guildId, channelId))) {
+    return null;
+  }
+  return lobbyChannelCommandsLimitedMessage(channelId);
+}

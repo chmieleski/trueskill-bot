@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { findUnique, update } = vi.hoisted(() => ({
+const { findUnique, findFirst, update } = vi.hoisted(() => ({
   findUnique: vi.fn(),
+  findFirst: vi.fn(),
   update: vi.fn(),
 }));
 
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
-    league: { findUnique, update },
+    league: { findUnique, findFirst, update },
   },
 }));
 
@@ -22,7 +23,11 @@ import {
   assertLobbyHostPromptChannelsCompatible,
   clearLeagueLobbyChannel,
   formatLobbyChannelConfigLine,
+  getLobbyChannelSlashDenial,
+  isGuildLobbyChannel,
   isLeagueLobbyChannelReady,
+  isLobbyChannelAllowedCommand,
+  lobbyChannelCommandsLimitedMessage,
   lobbyCreationLimitedMessage,
   setLeagueLobbyChannel,
 } from './league-lobby-channel.js';
@@ -276,5 +281,106 @@ describe('clearLeagueLobbyChannel', () => {
       where: { id: 'L1' },
       data: { lobbyChannelEnabled: false, lobbyChannelId: null },
     });
+  });
+});
+
+describe('isLobbyChannelAllowedCommand', () => {
+  it('allows register_lobby and lobby regardless of subcommand', () => {
+    expect(isLobbyChannelAllowedCommand('register_lobby')).toBe(true);
+    expect(isLobbyChannelAllowedCommand('lobby', 'add')).toBe(true);
+    expect(isLobbyChannelAllowedCommand('lobby', null)).toBe(true);
+  });
+
+  it('allows only match complete, cancel, and quitters', () => {
+    expect(isLobbyChannelAllowedCommand('match', 'complete')).toBe(true);
+    expect(isLobbyChannelAllowedCommand('match', 'cancel')).toBe(true);
+    expect(isLobbyChannelAllowedCommand('match', 'quitters')).toBe(true);
+    expect(isLobbyChannelAllowedCommand('match', 'history')).toBe(false);
+    expect(isLobbyChannelAllowedCommand('match', 'show')).toBe(false);
+    expect(isLobbyChannelAllowedCommand('match', 'flip')).toBe(false);
+    expect(isLobbyChannelAllowedCommand('match', 'void')).toBe(false);
+    expect(isLobbyChannelAllowedCommand('match', null)).toBe(false);
+    expect(isLobbyChannelAllowedCommand('match')).toBe(false);
+  });
+
+  it('blocks other root commands', () => {
+    expect(isLobbyChannelAllowedCommand('rank')).toBe(false);
+    expect(isLobbyChannelAllowedCommand('config', 'view')).toBe(false);
+    expect(isLobbyChannelAllowedCommand('leaderboard', 'show')).toBe(false);
+  });
+});
+
+describe('lobbyChannelCommandsLimitedMessage', () => {
+  it('uses the locked English copy', () => {
+    expect(lobbyChannelCommandsLimitedMessage('chan-1')).toBe(
+      'Only lobby and match commands can be used in <#chan-1>.',
+    );
+  });
+});
+
+describe('isGuildLobbyChannel', () => {
+  beforeEach(() => {
+    findFirst.mockReset();
+  });
+
+  it('is true when a ready league row matches guild + channel', async () => {
+    findFirst.mockResolvedValue({ id: 'L1' });
+    await expect(isGuildLobbyChannel('g1', 'lobby')).resolves.toBe(true);
+    expect(findFirst).toHaveBeenCalledWith({
+      where: {
+        guildId: 'g1',
+        lobbyChannelEnabled: true,
+        lobbyChannelId: 'lobby',
+      },
+      select: { id: true },
+    });
+  });
+
+  it('is false when no row matches', async () => {
+    findFirst.mockResolvedValue(null);
+    await expect(isGuildLobbyChannel('g1', 'other')).resolves.toBe(false);
+  });
+});
+
+describe('getLobbyChannelSlashDenial', () => {
+  beforeEach(() => {
+    findFirst.mockReset();
+  });
+
+  it('returns null without guild or channel', async () => {
+    await expect(
+      getLobbyChannelSlashDenial(null, 'c', 'rank'),
+    ).resolves.toBeNull();
+    await expect(
+      getLobbyChannelSlashDenial('g', null, 'rank'),
+    ).resolves.toBeNull();
+    expect(findFirst).not.toHaveBeenCalled();
+  });
+
+  it('returns null for allowed commands without hitting the DB', async () => {
+    await expect(
+      getLobbyChannelSlashDenial('g', 'lobby', 'lobby', 'add'),
+    ).resolves.toBeNull();
+    await expect(
+      getLobbyChannelSlashDenial('g', 'lobby', 'match', 'complete'),
+    ).resolves.toBeNull();
+    expect(findFirst).not.toHaveBeenCalled();
+  });
+
+  it('returns null when the channel is not a ready lobby channel', async () => {
+    findFirst.mockResolvedValue(null);
+    await expect(
+      getLobbyChannelSlashDenial('g', 'chat', 'rank'),
+    ).resolves.toBeNull();
+  });
+
+  it('returns the locked message when blocked in a ready lobby channel', async () => {
+    findFirst.mockResolvedValue({ id: 'L1' });
+    await expect(
+      getLobbyChannelSlashDenial('g', 'lobby', 'match', 'history'),
+    ).resolves.toBe(lobbyChannelCommandsLimitedMessage('lobby'));
+    await expect(
+      getLobbyChannelSlashDenial('g', 'lobby', 'rank'),
+    ).resolves.toBe(lobbyChannelCommandsLimitedMessage('lobby'));
   });
 });
