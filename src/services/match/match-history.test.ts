@@ -105,7 +105,7 @@ describe('formatMatchHistoryResult', () => {
 });
 
 describe('formatMatchHistoryField', () => {
-  it('builds an embed field with emoji, timestamp, hero, and copyable id', () => {
+  it('puts hero and delta in the name; outcome, team, date, id in the value', () => {
     const field = formatMatchHistoryField(
       {
         matchId: 'clxxxxxxxxxxxxxxxxxxxx',
@@ -120,14 +120,13 @@ describe('formatMatchHistoryField', () => {
     );
 
     expect(field.inline).toBe(false);
-    expect(field.name).toBe('✅ Win · Quit · +186 ki');
-    expect(field.value).toContain('<t:1786881600:D>');
-    expect(field.value).toContain('**Goku**');
-    expect(field.value).toContain('Z Fighters');
-    expect(field.value).toContain('`clxxxxxxxxxxxxxxxxxxxx`');
+    expect(field.name).toBe('Goku · ✅ +186 ki');
+    expect(field.value).toBe(
+      'Win · Quit · Z Fighters · <t:1786881600:D>\n`clxxxxxxxxxxxxxxxxxxxx`',
+    );
   });
 
-  it('omits delta when missing and uses Loss emoji', () => {
+  it('shows em dash delta and Unknown hero when missing', () => {
     const field = formatMatchHistoryField(
       {
         matchId: 'm1',
@@ -140,9 +139,9 @@ describe('formatMatchHistoryField', () => {
       'Evil',
     );
 
-    expect(field.name).toBe('❌ Loss');
-    expect(field.value).toContain('**Unknown hero**');
-    expect(field.value).toContain('Evil');
+    expect(field.name).toBe('Unknown hero · ❌ — ki');
+    expect(field.value).toContain('Loss · Evil ·');
+    expect(field.value).toContain('`m1`');
   });
 });
 
@@ -323,9 +322,9 @@ describe('buildMatchHistoryEmbed', () => {
       (t) => (t === 1 ? 'Z Fighters' : 'Evil'),
     );
     expect(embed.data.fields).toHaveLength(1);
-    expect(embed.data.fields?.[0]?.name).toBe('✅ Win · +42 ki');
+    expect(embed.data.fields?.[0]?.name).toBe('Goku · ✅ +42 ki');
     expect(embed.data.fields?.[0]?.value).toContain('`mid1`');
-    expect(embed.data.fields?.[0]?.value).toContain('**Goku**');
+    expect(embed.data.fields?.[0]?.value).toContain('Win · Z Fighters');
   });
 });
 
@@ -504,6 +503,39 @@ describe('loadCompletedMatchShow', () => {
         globalDelta: -60,
       }),
     ]);
+  });
+
+  it('falls back to createdAt when completedAt is null', async () => {
+    const createdAt = new Date('2026-08-15T01:00:00.000Z');
+    const match = {
+      id: 'm1',
+      status: 'COMPLETED',
+      leagueId: 'L1',
+      completedAt: null,
+      createdAt,
+      players: [
+        {
+          playerId: 'P1',
+          team: 1,
+          result: 'WIN',
+          slot: 1,
+          heroId: 1,
+          isQuitter: false,
+          globalKi: null,
+          globalKiDelta: null,
+          heroKi: null,
+          heroKiDelta: null,
+          player: { username: 'alice' },
+        },
+      ],
+    };
+    getMatchById.mockResolvedValue(match);
+    listLeaguesForGuild.mockResolvedValue([{ id: 'L1' }]);
+
+    await loadCompletedMatchShow({ matchId: 'm1', guildId: 'g1' });
+
+    const embedOptions = buildMatchCompletedEmbed.mock.calls[0]![2] as Record<string, unknown>;
+    expect(embedOptions.timestamp).toBe(createdAt);
   });
 
   it('throws MatchServiceError for tenancy failures', async () => {

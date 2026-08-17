@@ -60,7 +60,8 @@ export function formatMatchHistoryDelta(delta: number | undefined): string {
 }
 
 /**
- * One Discord embed field per match (native fields, timestamps, copyable id).
+ * One Discord embed field per match.
+ * Name = what you scan (hero + Δ); value = outcome, team, date, copyable id.
  */
 export function formatMatchHistoryField(
   row: MatchHistoryRow,
@@ -68,17 +69,14 @@ export function formatMatchHistoryField(
 ): { name: string; value: string; inline: boolean } {
   const emoji = row.result === 'WIN' ? '✅' : '❌';
   const outcome = row.result === 'WIN' ? 'Win' : 'Loss';
-  const quit = row.isQuitter ? ' · Quit' : '';
-  const deltaBit =
-    row.globalDelta === undefined
-      ? ''
-      : ` · ${formatMatchHistoryDelta(row.globalDelta)} ki`;
   const hero = row.heroName ?? 'Unknown hero';
+  const delta = formatMatchHistoryDelta(row.globalDelta);
   const unix = Math.floor(row.completedAt.getTime() / 1000);
+  const quit = row.isQuitter ? ' · Quit' : '';
 
   return {
-    name: `${emoji} ${outcome}${quit}${deltaBit}`,
-    value: `<t:${unix}:D> · **${hero}** · ${teamLabel}\n\`${row.matchId}\``,
+    name: `${hero} · ${emoji} ${delta} ki`,
+    value: `${outcome}${quit} · ${teamLabel} · <t:${unix}:D>\n\`${row.matchId}\``,
     inline: false,
   };
 }
@@ -173,7 +171,8 @@ export async function loadMatchHistoryPage(input: {
 
   const matches = await prisma.match.findMany({
     where,
-    orderBy: [{ completedAt: 'desc' }, { createdAt: 'desc' }],
+    // Null completedAt (legacy rows) must not float above newer completed matches.
+    orderBy: [{ completedAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
     skip,
     take: MATCH_HISTORY_PAGE_SIZE,
     include: {
@@ -326,7 +325,7 @@ export async function loadCompletedMatchShow(input: {
   const embed = buildMatchCompletedEmbed(match.id, matchToLobbyPlayers(match), {
     winningTeam,
     profile,
-    timestamp: match.completedAt ?? undefined,
+    timestamp: match.completedAt ?? match.createdAt,
     ...(ratingPreview ? { ratingPreview } : {}),
   });
 
