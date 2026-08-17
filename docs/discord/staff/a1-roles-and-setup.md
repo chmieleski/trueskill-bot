@@ -36,6 +36,7 @@ Default **off**. When on, `/register_lobby` and wc3stats **Open lobby** only in 
 /config set lobby_channel enabled:False
 /config clear lobby_channel
 ```
+When the lobby channel is on, only `/register_lobby`, `/lobby`, and `/match complete|cancel|quitters` work in that channel; other slash commands are refused there.
 Host prompts (if on) **must** use this channel. `/league bind` separately for auto league pick.
 
 **5) Live overall leaderboard**
