@@ -8,6 +8,7 @@ import { handleMatchCorrectionInteraction } from '../discord/interactions/match-
 import { handleRankResetInteraction } from '../discord/interactions/rank-reset-interactions.js';
 import { handleWc3statsHostPromptInteraction } from '../discord/interactions/wc3stats-host-prompt-interactions.js';
 import { createLogger } from '../lib/logger.js';
+import { getLobbyChannelSlashDenial } from '../services/league/index.js';
 
 const log = createLogger('interaction');
 
@@ -87,16 +88,27 @@ export async function execute(interaction: Interaction): Promise<void> {
   }
 
   if (interaction.isAutocomplete()) {
-    const command = interaction.client.commands.get(interaction.commandName);
-    if (command?.autocomplete) {
-      try {
-        await command.autocomplete(interaction);
-      } catch (error) {
-        log.error(
-          { err: error, command: interaction.commandName, userId: interaction.user.id },
-          'Failed to handle autocomplete',
-        );
+    try {
+      const denial = await getLobbyChannelSlashDenial(
+        interaction.guildId,
+        interaction.channelId,
+        interaction.commandName,
+        interaction.options.getSubcommand(false),
+      );
+      if (denial) {
+        await interaction.respond([]);
+        return;
       }
+
+      const command = interaction.client.commands.get(interaction.commandName);
+      if (command?.autocomplete) {
+        await command.autocomplete(interaction);
+      }
+    } catch (error) {
+      log.error(
+        { err: error, command: interaction.commandName, userId: interaction.user.id },
+        'Failed to handle autocomplete',
+      );
     }
     return;
   }
@@ -109,6 +121,17 @@ export async function execute(interaction: Interaction): Promise<void> {
 
   if (!command) {
     log.error({ commandName: interaction.commandName }, 'Command not found');
+    return;
+  }
+
+  const denial = await getLobbyChannelSlashDenial(
+    interaction.guildId,
+    interaction.channelId,
+    interaction.commandName,
+    interaction.options.getSubcommand(false),
+  );
+  if (denial) {
+    await interaction.reply({ content: denial, flags: MessageFlags.Ephemeral });
     return;
   }
 
