@@ -62,7 +62,7 @@ Do **not** change these for game-specific behavior except via narrow hooks:
 - `resolveLeagueContext` / `resolveLeagueFromInteraction` (binding → single league → autocomplete)
 - Match status machine (`PENDING` / `IN_PROGRESS` / `COMPLETED` / `CANCELLED`)
 - OpenSkill apply **shell** (`applyMatchRatings(leagueId, …)`, `ensurePlayerRatings(leagueId, …)`); game only supplies roster and results
-- Global `Player` identity + Discord link (`username` / `discordId` stay globally unique)
+- `Player` identity is `(gameId, username)`; Discord link is unique per `(gameId, discordId)` (selected via `league.gameId`). See `docs/superpowers/specs/2026-08-17-per-game-player-identity-design.md`.
 - Slash command **registration** (`registerCommands` — global unless dev `GUILD_ID` is set)
 
 ### 3. Create a game module
