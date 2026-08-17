@@ -35,6 +35,7 @@ import {
   respondLeagueAutocomplete,
   withOptionalLeagueOption,
   getGameProfileForLeague,
+  assertLeagueLobbyCreateChannel,
 } from '../../services/league/index.js';
 import {
   isLeagueWc3statsImportReady,
@@ -185,6 +186,17 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
   const leagueId = leagueResolved.leagueId;
+
+  try {
+    await assertLeagueLobbyCreateChannel(leagueId, interaction.channelId);
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await interaction.editReply(error.message);
+      return;
+    }
+    throw error;
+  }
+
   const leagueConfig = await resolveLeagueConfig(leagueId);
   const profile = await getGameProfileForLeague(leagueId);
   const wc3statsReady = isLeagueWc3statsImportReady(leagueConfig);
