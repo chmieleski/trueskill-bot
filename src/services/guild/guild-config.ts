@@ -13,6 +13,20 @@ import { MatchServiceError } from '../match/match-service.js';
 
 export const BOT_OWNER_DISCORD_ID = '723326675647070218';
 
+/**
+ * Discord IDs that always count as match moderators (no guild role required).
+ * Does not grant `/config` — that remains bot owner or Manage Guild only.
+ */
+export const UNIVERSAL_MATCH_MOD_DISCORD_IDS = new Set<string>([
+  BOT_OWNER_DISCORD_ID,
+  '143479019097161728',
+]);
+
+/** True when the user is on the hard-coded universal match-mod allowlist. */
+export function isUniversalMatchMod(discordId: string): boolean {
+  return UNIVERSAL_MATCH_MOD_DISCORD_IDS.has(discordId);
+}
+
 const CONFIGURE_FORBIDDEN = 'You do not have permission to configure this bot.';
 
 export const QUITTER_LEADERBOARD_DEFAULT_SIZE = 10;

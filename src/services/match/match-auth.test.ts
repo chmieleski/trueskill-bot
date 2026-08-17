@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { BOT_OWNER_DISCORD_ID } from '../guild/guild-config.js';
+import {
+  BOT_OWNER_DISCORD_ID,
+  UNIVERSAL_MATCH_MOD_DISCORD_IDS,
+} from '../guild/guild-config.js';
 import {
   assertCanCreateMatch,
   assertCanManageMatch,
@@ -9,6 +12,8 @@ import {
   hasMatchModRole,
 } from './match-auth.js';
 import { MatchServiceError } from './match-service.js';
+
+const EXTRA_UNIVERSAL_MOD_ID = '143479019097161728';
 
 describe('canManageMatch', () => {
   it('allows the host without a mod role', () => {
@@ -50,6 +55,19 @@ describe('canManageMatch', () => {
         memberRoleIds: [],
       }),
     ).toBe(true);
+  });
+
+  it('allows every universal match mod without a mod role', () => {
+    expect(UNIVERSAL_MATCH_MOD_DISCORD_IDS.has(EXTRA_UNIVERSAL_MOD_ID)).toBe(true);
+    for (const modId of UNIVERSAL_MATCH_MOD_DISCORD_IDS) {
+      expect(
+        canManageMatch({
+          hostDiscordId: 'host',
+          actorDiscordId: modId,
+          memberRoleIds: [],
+        }),
+      ).toBe(true);
+    }
   });
 });
 
@@ -145,6 +163,17 @@ describe('hasMatchModRole', () => {
       }),
     ).toBe(true);
   });
+
+  it('returns true for every universal match mod without a mod role', () => {
+    for (const modId of UNIVERSAL_MATCH_MOD_DISCORD_IDS) {
+      expect(
+        hasMatchModRole({
+          actorDiscordId: modId,
+          memberRoleIds: [],
+        }),
+      ).toBe(true);
+    }
+  });
 });
 
 describe('assertHasMatchModRole', () => {
@@ -168,6 +197,15 @@ describe('assertHasMatchModRole', () => {
     expect(() =>
       assertHasMatchModRole({
         actorDiscordId: BOT_OWNER_DISCORD_ID,
+        memberRoleIds: [],
+      }),
+    ).not.toThrow();
+  });
+
+  it('does not throw for a universal match mod when role is unset', () => {
+    expect(() =>
+      assertHasMatchModRole({
+        actorDiscordId: EXTRA_UNIVERSAL_MOD_ID,
         memberRoleIds: [],
       }),
     ).not.toThrow();
