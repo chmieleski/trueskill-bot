@@ -30,11 +30,15 @@ import {
   setLeagueWc3statsHostPrompt,
 } from '../../services/league/league-wc3stats.js';
 import {
+  clearLeagueLobbyChannel,
+  formatLobbyChannelConfigLine,
   getLeagueOption,
   leagueResolveFailureMessage,
+  LOBBY_CHANNEL_SET_NEEDS_OPTION,
   resolveLeagueFromInteraction,
   resolveLeagueIdFromInteraction,
   respondLeagueAutocomplete,
+  setLeagueLobbyChannel,
   withSubcommandLeagueOption,
 } from '../../services/league/index.js';
 import {
@@ -283,6 +287,25 @@ export const data = new SlashCommandBuilder()
       .addSubcommand((subcommand) =>
         withSubcommandLeagueOption(
           subcommand
+            .setName('lobby_channel')
+            .setDescription('Require lobby creation in a dedicated channel')
+            .addBooleanOption((option) =>
+              option
+                .setName('enabled')
+                .setDescription('On: only create lobbies in the chosen channel')
+                .setRequired(false),
+            )
+            .addChannelOption((option) =>
+              option
+                .setName('channel')
+                .setDescription('Dedicated lobby channel (required when first enabling)')
+                .setRequired(false),
+            ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
             .setName('rank_reset')
             .setDescription('Enable or disable player rank reset for this league')
             .addBooleanOption((option) =>
@@ -422,6 +445,13 @@ export const data = new SlashCommandBuilder()
           subcommand
             .setName('leaderboard_size')
             .setDescription('Reset live leaderboard size to 10'),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('lobby_channel')
+            .setDescription('Disable the lobby channel gate and forget the channel'),
         ),
       )
       .addSubcommand((subcommand) =>
@@ -574,6 +604,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
             leagueConfig.leaderboardSize,
           ),
           formatPlayerClaimLine(leagueConfig.lobbyPlayerClaimEnabled),
+          formatLobbyChannelConfigLine(
+            leagueConfig.lobbyChannelEnabled,
+            leagueConfig.lobbyChannelId,
+          ),
           formatRankResetLine(
             leagueConfig.rankResetEnabled,
             leagueConfig.rankResetCooldownDays,
@@ -729,6 +763,61 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           content: enabled
             ? 'Player slot claim enabled.'
             : 'Player slot claim disabled. Hosts can still add players by nick or Discord user.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'lobby_channel') {
+        const leagueId = await requireLeagueId(interaction);
+        if (!leagueId) return;
+
+        const enabled = interaction.options.getBoolean('enabled');
+        const channel = interaction.options.getChannel('channel', false);
+
+        if (enabled === null && !channel) {
+          await interaction.reply({
+            content: LOBBY_CHANNEL_SET_NEEDS_OPTION,
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
+        if (channel) {
+          const allowedTypes = new Set([
+            ChannelType.GuildText,
+            ChannelType.GuildAnnouncement,
+          ]);
+          if (!allowedTypes.has(channel.type)) {
+            await interaction.reply({
+              content: 'Choose a server text channel for lobbies.',
+              flags: MessageFlags.Ephemeral,
+            });
+            return;
+          }
+        }
+
+        await setLeagueLobbyChannel(leagueId, {
+          ...(enabled !== null ? { enabled } : {}),
+          ...(channel ? { channelId: channel.id } : {}),
+        });
+
+        const updated = await resolveLeagueConfig(leagueId);
+        log.info(
+          {
+            guildId: interaction.guildId,
+            leagueId,
+            enabled: updated.lobbyChannelEnabled,
+            channelId: updated.lobbyChannelId,
+            userId: interaction.user.id,
+          },
+          'Lobby channel setting updated',
+        );
+        await interaction.reply({
+          content: formatLobbyChannelConfigLine(
+            updated.lobbyChannelEnabled,
+            updated.lobbyChannelId,
+          ).replace('**Lobby channel:** ', 'Lobby channel: '),
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -1083,6 +1172,22 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         );
         await interaction.reply({
           content: 'Live leaderboard size reset to `10`.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'lobby_channel') {
+        const leagueId = await requireLeagueId(interaction);
+        if (!leagueId) return;
+
+        await clearLeagueLobbyChannel(leagueId);
+        log.info(
+          { guildId: interaction.guildId, leagueId, userId: interaction.user.id },
+          'Lobby channel cleared',
+        );
+        await interaction.reply({
+          content: 'Lobby channel disabled and channel cleared.',
           flags: MessageFlags.Ephemeral,
         });
         return;
