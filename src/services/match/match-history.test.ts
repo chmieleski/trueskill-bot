@@ -186,6 +186,39 @@ describe('match history page custom ids', () => {
     });
   });
 
+  it('stays under 100 chars for UUID player + UUID league + snowflake', () => {
+    const invokerId = '1234567890123456789';
+    const playerId = '1f21c92e-925a-4aef-b27f-9c4385b252fb';
+    const leagueId = 'e5863052-d453-48db-b67a-14d1175c298b';
+    const next = buildMatchHistoryPageCustomId(invokerId, playerId, leagueId, 'next', 12);
+    const prev = buildMatchHistoryPageCustomId(invokerId, playerId, leagueId, 'prev', 12);
+    expect(next.length).toBeLessThanOrEqual(100);
+    expect(prev.length).toBeLessThanOrEqual(100);
+    expect(parseMatchHistoryPageCustomId(next)).toEqual({
+      invokerId,
+      playerId,
+      leagueId,
+      page: 13,
+    });
+    expect(parseMatchHistoryPageCustomId(prev)).toEqual({
+      invokerId,
+      playerId,
+      leagueId,
+      page: 11,
+    });
+  });
+
+  it('parses legacy hyphenated next/prev custom ids', () => {
+    const customId =
+      'mh:p:123456789012345678:1f21c92e-925a-4aef-b27f-9c4385b252fb:e5863052-d453-48db-b67a-14d1175c298b:next:1';
+    expect(parseMatchHistoryPageCustomId(customId)).toEqual({
+      invokerId: '123456789012345678',
+      playerId: '1f21c92e-925a-4aef-b27f-9c4385b252fb',
+      leagueId: 'e5863052-d453-48db-b67a-14d1175c298b',
+      page: 2,
+    });
+  });
+
   it('returns null for garbage', () => {
     expect(parseMatchHistoryPageCustomId('leaderboard:page:x')).toBeNull();
   });
