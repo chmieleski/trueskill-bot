@@ -40,6 +40,8 @@
 | Command registration | Production: global `applicationCommands`; dev: optional guild deploy via `GUILD_ID` |
 | Create/mod roles (v1) | Stay on `GuildConfig` for this slice unless a follow-up moves them per-league; document as follow-up |
 
+> **Superseded (identity only, 2026-08-17):** Player identity and Discord links are per `Game.id` — see [per-game player identity](./2026-08-17-per-game-player-identity-design.md). Ratings/matches remain league-scoped; the non-goal “per-league Discord link” still holds.
+
 ## Architecture
 
 ```text
