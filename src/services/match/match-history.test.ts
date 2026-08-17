@@ -528,12 +528,14 @@ describe('loadCompletedMatchShow', () => {
         globalDelta: 80,
         heroOrdinal: 4050,
         heroDelta: 40,
+        leagueGames: 1,
       }),
       expect.objectContaining({
         slot: 8,
         nick: 'bob',
         globalOrdinal: 3900,
         globalDelta: -60,
+        leagueGames: 1,
       }),
     ]);
   });

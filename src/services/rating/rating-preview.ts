@@ -44,6 +44,8 @@ export interface LobbyRatingPlayerLine {
   isQuitter?: boolean;
   /** When false, lobby embeds omit the hero ki column. Default true. */
   showHero?: boolean;
+  /** League completed WIN/LOSS count used for the Calibrating gate. */
+  leagueGames: number;
 }
 
 export interface LobbyRatingPreview {
@@ -183,6 +185,7 @@ export function buildCompletedRatingPreview(
   entries: RatingPreviewRosterEntry[],
   beforeBySlot: Map<number, PlayerKiPair>,
   afterBySlot: Map<number, PlayerKiPair>,
+  leagueGamesByPlayer: Map<string, number>,
 ): LobbyRatingPreview {
   const players: LobbyRatingPlayerLine[] = [...entries]
     .sort((a, b) => a.slot - b.slot)
@@ -201,6 +204,7 @@ export function buildCompletedRatingPreview(
         heroDelta: after.hero - before.hero,
         isQuitter: entry.isQuitter,
         showHero: entry.heroId != null,
+        leagueGames: leagueGamesByPlayer.get(entry.playerId) ?? 0,
       };
     });
 
@@ -275,6 +279,7 @@ export async function loadLobbyRatingPreview(
           heroOrdinal: globalOrdinal,
           isQuitter: entry.isQuitter,
           showHero: false,
+          leagueGames: globalGames,
         };
       }
 
@@ -288,6 +293,7 @@ export async function loadLobbyRatingPreview(
         heroOrdinal: displayOrdinal(hero.mu, hero.sigma, heroGames),
         isQuitter: entry.isQuitter,
         showHero: true,
+        leagueGames: globalGames,
       };
     });
 
@@ -361,6 +367,7 @@ export async function loadLobbyRatingPreview(
         globalOrdinal: displayOrdinal(DEFAULT_MU, DEFAULT_SIGMA),
         heroOrdinal: displayOrdinal(DEFAULT_MU, DEFAULT_SIGMA),
         showHero: entry.heroId != null,
+        leagueGames: 0,
       })),
     };
   }
