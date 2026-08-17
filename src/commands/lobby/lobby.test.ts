@@ -18,6 +18,17 @@ describe('lobby command data', () => {
     expect(slot?.required).toBe(true);
   });
 
+  it('requires a screenshot attachment on screenshot', () => {
+    const json = data.toJSON();
+    const screenshot = json.options?.find((option) => option.name === 'screenshot');
+    const options = screenshot && 'options' in screenshot ? screenshot.options ?? [] : [];
+    const print = options.find((option) => option.name === 'print');
+
+    expect(screenshot).toBeDefined();
+    expect(print?.required).toBe(true);
+    expect(print?.type).toBe(ApplicationCommandOptionType.Attachment);
+  });
+
   it('exposes sync with optional wc3stats_id', () => {
     const json = data.toJSON();
     const sync = json.options?.find((option) => option.name === 'sync');

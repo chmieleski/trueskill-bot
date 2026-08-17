@@ -6,9 +6,12 @@ import {
   addLobbyPlayer,
   addLobbyPlayerFromDiscord,
   cancelLobbyMatch,
+  isImageAttachment,
+  refreshLobbyFromScreenshot,
   refreshLobbyFromWc3stats,
   removeLobbyPlayer,
   resolveHostPendingMatch,
+  resolveMimeType,
   startLobbyMatch,
   swapLobbyPlayers,
 } from '../../services/lobby/index.js';
@@ -148,6 +151,23 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand((subcommand) =>
     subcommand
+      .setName('screenshot')
+      .setDescription('Replace the lobby roster from a Warcraft lobby screenshot')
+      .addAttachmentOption((option) =>
+        option
+          .setName('print')
+          .setDescription('Lobby screenshot')
+          .setRequired(true),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('match_id')
+          .setDescription('Pending match id (required if you have more than one)')
+          .setRequired(false),
+      ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
       .setName('sync')
       .setDescription('Attach or refresh the live Warcraft lobby from wc3stats')
       .addIntegerOption((option) =>
@@ -271,6 +291,26 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       await interaction.editReply({
         content: `Match \`${result.match.id}\` started.`,
       });
+      return;
+    }
+
+    if (subcommand === 'screenshot') {
+      const attachment = interaction.options.getAttachment('print', true);
+
+      if (!isImageAttachment(attachment)) {
+        throw new MatchServiceError(
+          'Please attach a valid lobby screenshot image (PNG, JPG, WEBP, or GIF).',
+        );
+      }
+
+      const result = await refreshLobbyFromScreenshot({
+        client: interaction.client,
+        hostDiscordId,
+        matchId,
+        attachmentUrl: attachment.url,
+        mimeType: resolveMimeType(attachment),
+      });
+      await interaction.editReply({ content: result.message });
       return;
     }
 

@@ -6,6 +6,7 @@ export type {
 } from './resolve.js';
 export type { LobbySyncMode, LobbyActionResult } from './discord-sync.js';
 export type { RefreshLobbyResult } from './wc3stats-refresh.js';
+export type { RefreshLobbyScreenshotResult } from './lobby-screenshot.js';
 export type {
   CreateMatchFromWc3statsInput,
   CreateMatchFromWc3statsResult,
@@ -39,6 +40,12 @@ export {
   cancelLobbyMatch,
 } from './lifecycle.js';
 export { refreshLobbyFromWc3stats } from './wc3stats-refresh.js';
+export {
+  isImageAttachment,
+  refreshLobbyFromScreenshot,
+  resolveMimeType,
+  tryExtractLobbyPlayers,
+} from './lobby-screenshot.js';
 export {
   assertLobbyPlayerClaimEnabled,
   addLobbyPlayer,

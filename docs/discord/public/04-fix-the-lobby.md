@@ -21,10 +21,15 @@ The lobby message has buttons. Use them like toys that fix the board.
 /lobby remove nick:SomeNick
 /lobby remove slot:3
 /lobby swap slot_a:1 slot_b:7
+/lobby screenshot print:<attach lobby image>
 /lobby sync
 /lobby start
 /lobby cancel
 ```
+
+**Update from screenshot**
+• `/lobby screenshot` with a lobby image replaces the whole roster (like registering with a print)
+• If OCR reads nothing, your current roster is kept
 
 A **match moderator** can also `/lobby cancel` with `match_id` if the host is gone.
 

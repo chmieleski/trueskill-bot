@@ -1,7 +1,7 @@
-import { Attachment, GuildMember, SlashCommandBuilder } from 'discord.js';
+import { GuildMember, SlashCommandBuilder } from 'discord.js';
 import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
-import { extractLobbyPlayers, type LobbyPlayer } from '../../services/lobby/index.js';
+import type { LobbyPlayer } from '../../services/lobby/index.js';
 import {
   buildLobbyButtons,
   buildMatchLobbyEmbed,
@@ -25,9 +25,12 @@ import {
 } from '../../services/rating/index.js';
 import {
   allowsEmptyMatchOnWc3statsFailure,
+  isImageAttachment,
   parseWc3statsId,
+  resolveMimeType,
   resolveRegisterLobbySource,
   assertRegisterLobbyAllowedForProfile,
+  tryExtractLobbyPlayers,
 } from '../../services/lobby/index.js';
 import {
   getLeagueOption,
@@ -69,67 +72,6 @@ function memberRoleIds(interaction: { member: unknown }): string[] {
   }
 
   return [];
-}
-
-const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
-
-function isImageAttachment(attachment: Attachment): boolean {
-  if (attachment.contentType?.startsWith('image/')) {
-    return true;
-  }
-
-  const name = attachment.name?.toLowerCase() ?? '';
-  const dotIndex = name.lastIndexOf('.');
-
-  if (dotIndex === -1) {
-    return false;
-  }
-
-  return IMAGE_EXTENSIONS.has(name.slice(dotIndex));
-}
-
-function resolveMimeType(attachment: Attachment): string {
-  if (attachment.contentType?.startsWith('image/')) {
-    return attachment.contentType.split(';')[0]!.trim();
-  }
-
-  const name = attachment.name?.toLowerCase() ?? '';
-
-  if (name.endsWith('.png')) {
-    return 'image/png';
-  }
-
-  if (name.endsWith('.jpg') || name.endsWith('.jpeg')) {
-    return 'image/jpeg';
-  }
-
-  if (name.endsWith('.webp')) {
-    return 'image/webp';
-  }
-
-  if (name.endsWith('.gif')) {
-    return 'image/gif';
-  }
-
-  return 'image/png';
-}
-
-/**
- * Soft OCR: return extracted players when possible, otherwise [].
- * Keep partial lobbies even when both-teams validation fails.
- */
-async function tryExtractLobbyPlayers(
-  url: string,
-  mimeType: string,
-): Promise<LobbyPlayer[]> {
-  try {
-    const players = await extractLobbyPlayers(url, mimeType);
-    log.debug({ playerCount: players.length, players }, 'OCR players extracted');
-    return players;
-  } catch (error) {
-    log.warn({ err: error }, 'OCR failed; continuing with empty lobby');
-    return [];
-  }
 }
 
 export const data = withOptionalLeagueOption(
