@@ -198,6 +198,14 @@ model MatchPlayer {
   heroId    Int? // slot_bound: equals slot; optional_in_game: null until pick (phase 2)
   result    MatchResult? // Null until match ends
   isQuitter Boolean      @default(false) // Quitter penalty flag
+  /// Display ki after this match (null until completed with preview written).
+  globalKi      Int?
+  /// after − before global display ki for this match.
+  globalKiDelta Int?
+  /// Hero display ki after this match (null when no hero / not written).
+  heroKi        Int?
+  /// after − before hero display ki for this match.
+  heroKiDelta   Int?
 
   match  Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)

@@ -414,6 +414,8 @@ export function buildMatchCompletedEmbed(
     ratingPreview?: LobbyRatingPreview;
     winningTeam: 1 | 2;
     profile?: GameProfile;
+    /** Defaults to now; prefer match.completedAt for historical show. */
+    timestamp?: Date;
   },
 ): EmbedBuilder {
   const profile = resolvedProfile(options.profile);
@@ -446,7 +448,7 @@ export function buildMatchCompletedEmbed(
     matchId,
     ratingPreview: options.ratingPreview,
     profile,
-    timestamp: new Date(),
+    timestamp: options.timestamp ?? new Date(),
   });
 }
 
