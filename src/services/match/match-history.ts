@@ -42,11 +42,6 @@ export type MatchHistoryPage = {
   rows: MatchHistoryRow[];
 };
 
-/** UTC calendar date YYYY-MM-DD for history rows. */
-function formatHistoryDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
 /** Compact result cell: W / L, with Q when the player quit. */
 export function formatMatchHistoryResult(
   row: Pick<MatchHistoryRow, 'result' | 'isQuitter'>,
@@ -55,60 +50,37 @@ export function formatMatchHistoryResult(
   return row.isQuitter ? `${base}Q` : base;
 }
 
-/**
- * Monospace history table (same pattern as leaderboard embeds).
- * Columns: Date, R (W/L/WQ/LQ), Δki, Team, Hero, Match id.
- */
-export function formatMatchHistoryTable(
-  rows: Array<{ row: MatchHistoryRow; teamLabel: string }>,
-): string {
-  if (rows.length === 0) {
-    return '_No completed matches yet._';
-  }
-
-  const dates = rows.map(({ row }) => formatHistoryDate(row.completedAt));
-  const results = rows.map(({ row }) => formatMatchHistoryResult(row));
-  const deltas = rows.map(({ row }) => formatMatchHistoryDelta(row.globalDelta));
-  const teams = rows.map(({ teamLabel }) => teamLabel);
-  const heroes = rows.map(({ row }) => row.heroName ?? '—');
-  const ids = rows.map(({ row }) => row.matchId);
-
-  const dateW = Math.max(...dates.map((value) => value.length), 'Date'.length);
-  const resW = Math.max(...results.map((value) => value.length), 'R'.length);
-  const deltaW = Math.max(...deltas.map((value) => value.length), 'Δki'.length);
-  const teamW = Math.max(...teams.map((value) => value.length), 'Team'.length);
-  const heroW = Math.max(...heroes.map((value) => value.length), 'Hero'.length);
-
-  const header = [
-    'Date'.padEnd(dateW),
-    'R'.padEnd(resW),
-    'Δki'.padStart(deltaW),
-    'Team'.padEnd(teamW),
-    'Hero'.padEnd(heroW),
-    'Match id',
-  ].join('  ');
-
-  const lines = rows.map((_, index) =>
-    [
-      dates[index]!.padEnd(dateW),
-      results[index]!.padEnd(resW),
-      deltas[index]!.padStart(deltaW),
-      teams[index]!.padEnd(teamW),
-      heroes[index]!.padEnd(heroW),
-      ids[index]!,
-    ].join('  '),
-  );
-
-  return `\`\`\`\n${header}\n${lines.join('\n')}\n\`\`\``;
-}
-
-/** Compact signed ki delta for table cells. */
+/** Compact signed ki delta for display. */
 export function formatMatchHistoryDelta(delta: number | undefined): string {
   if (delta === undefined) {
     return '—';
   }
   const sign = delta > 0 ? '+' : '';
   return `${sign}${delta}`;
+}
+
+/**
+ * One Discord embed field per match (native fields, timestamps, copyable id).
+ */
+export function formatMatchHistoryField(
+  row: MatchHistoryRow,
+  teamLabel: string,
+): { name: string; value: string; inline: boolean } {
+  const emoji = row.result === 'WIN' ? '✅' : '❌';
+  const outcome = row.result === 'WIN' ? 'Win' : 'Loss';
+  const quit = row.isQuitter ? ' · Quit' : '';
+  const deltaBit =
+    row.globalDelta === undefined
+      ? ''
+      : ` · ${formatMatchHistoryDelta(row.globalDelta)} ki`;
+  const hero = row.heroName ?? 'Unknown hero';
+  const unix = Math.floor(row.completedAt.getTime() / 1000);
+
+  return {
+    name: `${emoji} ${outcome}${quit}${deltaBit}`,
+    value: `<t:${unix}:D> · **${hero}** · ${teamLabel}\n\`${row.matchId}\``,
+    inline: false,
+  };
 }
 
 export function clampMatchHistoryPage(page: number, totalPages: number): number {
@@ -251,23 +223,29 @@ export function buildMatchHistoryEmbed(
   _leagueId: string,
   teamLabelFor: (team: 1 | 2) => string,
 ): EmbedBuilder {
-  const table = formatMatchHistoryTable(
-    page.rows.map((row) => ({ row, teamLabel: teamLabelFor(row.team) })),
-  );
-
   const embed = new EmbedBuilder()
-    .setTitle(`Match history — ${page.targetUsername}`)
-    .setDescription(
-      `Page ${page.page} of ${page.totalPages} · ${page.totalMatches} matches\n\n${table}`,
-    )
-    .setColor(0xf0b232);
+    .setColor(0xf0b232)
+    .setAuthor({ name: page.targetUsername })
+    .setTitle('Match history')
+    .setDescription(`Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`);
+
+  if (page.rows.length === 0) {
+    embed.addFields({
+      name: 'Matches',
+      value: '_No completed matches yet._',
+    });
+  } else {
+    embed.addFields(
+      ...page.rows.map((row) => formatMatchHistoryField(row, teamLabelFor(row.team))),
+    );
+  }
 
   if (page.totalPages > 1) {
     embed.setFooter({
-      text: 'Copy Match id → /match show · Only you can use the buttons',
+      text: 'Tap an id → /match show · Only you can use the buttons',
     });
   } else if (page.totalMatches > 0) {
-    embed.setFooter({ text: 'Copy Match id → /match show match_id:…' });
+    embed.setFooter({ text: 'Copy an id → /match show match_id:…' });
   }
 
   return embed;
