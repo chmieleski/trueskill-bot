@@ -92,6 +92,7 @@ import {
   resolveHistoryPlayer,
   winningTeamFromPlayers,
 } from './match-history.js';
+import { CALIBRATING_LABEL } from '../rating/rating-math.js';
 import { MatchServiceError } from './match-service.js';
 
 describe('formatMatchHistoryDelta', () => {
@@ -340,6 +341,69 @@ describe('loadMatchHistoryPage', () => {
       heroName: 'Goku',
       globalDelta: undefined,
     });
+  });
+
+  it('uses post-reset game count so calibrating rows hide ki delta', async () => {
+    const resetAt = new Date('2026-08-10T12:00:00.000Z');
+    const matchCompletedAt = new Date('2026-08-12T12:00:00.000Z');
+
+    matchCount.mockResolvedValue(1);
+    matchFindMany.mockResolvedValue([
+      {
+        id: 'm-post-reset',
+        leagueId: 'L1',
+        completedAt: matchCompletedAt,
+        createdAt: matchCompletedAt,
+        players: [
+          {
+            playerId: 'P1',
+            team: 1,
+            result: 'WIN',
+            heroId: 1,
+            isQuitter: false,
+            slot: 1,
+            globalKiDelta: 186,
+            player: { username: 'alice' },
+          },
+        ],
+      },
+    ]);
+    playerRankResetFindMany.mockResolvedValue([
+      { playerId: 'P1', createdAt: resetAt },
+    ]);
+    matchPlayerFindMany.mockResolvedValue([
+      {
+        playerId: 'P1',
+        result: 'WIN',
+        match: {
+          completedAt: new Date('2026-08-01T12:00:00.000Z'),
+          createdAt: new Date('2026-08-01T12:00:00.000Z'),
+        },
+      },
+      {
+        playerId: 'P1',
+        result: 'LOSS',
+        match: { completedAt: new Date('2026-08-11T12:00:00.000Z'), createdAt: new Date('2026-08-11T12:00:00.000Z') },
+      },
+      {
+        playerId: 'P1',
+        result: 'WIN',
+        match: { completedAt: matchCompletedAt, createdAt: matchCompletedAt },
+      },
+    ]);
+
+    const page = await loadMatchHistoryPage({
+      leagueId: 'L1',
+      playerId: 'P1',
+      username: 'alice',
+      page: 1,
+    });
+
+    expect(page.rows).toHaveLength(1);
+    expect(page.rows[0]?.leagueGames).toBe(2);
+    const field = formatMatchHistoryField(page.rows[0]!, 'Z Fighters');
+    expect(field.name).toBe(`Goku · ✅ ${CALIBRATING_LABEL}`);
+    expect(field.name).not.toContain('+186');
   });
 });
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MatchResult } from '@prisma/client';
 import {
   aggregateMatchDisplayStats,
+  countCompletedGamesThrough,
   gamesByPlayerFromStats,
   isMatchCountedAfterRankReset,
 } from './rank-reset-display.js';
@@ -24,6 +25,83 @@ describe('isMatchCountedAfterRankReset', () => {
 
   it('excludes matches with no completedAt after a reset', () => {
     expect(isMatchCountedAfterRankReset(null, RESET)).toBe(false);
+  });
+});
+
+describe('countCompletedGamesThrough', () => {
+  const playerId = 'p1';
+
+  it('counts WIN/LOSS rows through the given completion time', () => {
+    const count = countCompletedGamesThrough(
+      [
+        {
+          playerId,
+          result: MatchResult.WIN,
+          completedAt: new Date('2026-08-01T12:00:00.000Z'),
+        },
+        {
+          playerId,
+          result: MatchResult.LOSS,
+          completedAt: new Date('2026-08-05T12:00:00.000Z'),
+        },
+        {
+          playerId,
+          result: MatchResult.WIN,
+          completedAt: new Date('2026-08-12T12:00:00.000Z'),
+        },
+      ],
+      playerId,
+      new Date('2026-08-05T12:00:00.000Z'),
+      undefined,
+    );
+    expect(count).toBe(2);
+  });
+
+  it('ignores pre-reset matches after a rank reset', () => {
+    const count = countCompletedGamesThrough(
+      [
+        {
+          playerId,
+          result: MatchResult.WIN,
+          completedAt: BEFORE,
+        },
+        {
+          playerId,
+          result: MatchResult.WIN,
+          completedAt: AFTER,
+        },
+        {
+          playerId,
+          result: MatchResult.LOSS,
+          completedAt: new Date('2026-08-13T12:00:00.000Z'),
+        },
+      ],
+      playerId,
+      new Date('2026-08-13T12:00:00.000Z'),
+      RESET,
+    );
+    expect(count).toBe(2);
+  });
+
+  it('excludes matches completed after the through timestamp', () => {
+    const count = countCompletedGamesThrough(
+      [
+        {
+          playerId,
+          result: MatchResult.WIN,
+          completedAt: AFTER,
+        },
+        {
+          playerId,
+          result: MatchResult.LOSS,
+          completedAt: new Date('2026-08-20T12:00:00.000Z'),
+        },
+      ],
+      playerId,
+      AFTER,
+      RESET,
+    );
+    expect(count).toBe(1);
   });
 });
 
