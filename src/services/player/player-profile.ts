@@ -1,6 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { normalizeNick } from './player-nick.js';
-import { displayOrdinal } from '../rating/rating-math.js';
+import { displayOrdinal, isCalibrating } from '../rating/rating-math.js';
 import {
   gamesByPlayerFromStats,
   loadMatchDisplayStatsByPlayer,
@@ -32,7 +32,7 @@ export type PlayerProfile = {
   username: string;
   discordId: string | null;
   globalKi: number;
-  rankPosition: number;
+  rankPosition: number | null;
   wins: number;
   losses: number;
   /** Completed or cancelled matches where this player was marked a quitter. */
@@ -169,14 +169,18 @@ export async function loadPlayerProfile(
     ? displayOrdinal(rating.mu, rating.sigma, games)
     : coldStartKi();
 
-  const allKis = allRatings.map((row) =>
-    displayOrdinal(row.mu, row.sigma, gamesByPlayer.get(row.playerId) ?? 0),
-  );
-  if (!rating) {
-    allKis.push(globalKi);
+  const calibratedKis = allRatings
+    .filter((row) => !isCalibrating(gamesByPlayer.get(row.playerId) ?? 0))
+    .map((row) =>
+      displayOrdinal(row.mu, row.sigma, gamesByPlayer.get(row.playerId) ?? 0),
+    );
+  if (!rating && !isCalibrating(games)) {
+    calibratedKis.push(globalKi);
   }
 
-  const rankPosition = competitionRank(globalKi, allKis);
+  const rankPosition = isCalibrating(games)
+    ? null
+    : competitionRank(globalKi, calibratedKis);
   const winRatePercent =
     games > 0 ? Math.round((wins / games) * 1000) / 10 : null;
   const heroes: PlayerProfileHero[] = heroRatings
