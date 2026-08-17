@@ -10,6 +10,7 @@ import {
   createMatchFromWc3statsLobby,
 } from '../../services/lobby/create-from-wc3stats.js';
 import { MatchServiceError } from '../../services/match/index.js';
+import { assertLeagueLobbyCreateChannel } from '../../services/league/index.js';
 import {
   buildHostPromptDismissEphemeral,
   parseHostPromptCustomId,
@@ -67,6 +68,16 @@ async function handleOpen(interaction: ButtonInteraction): Promise<void> {
   if (!interaction.guildId || !interaction.channelId) {
     await replyEphemeral(interaction, 'This action can only be used in a server channel.');
     return;
+  }
+
+  try {
+    await assertLeagueLobbyCreateChannel(parsed.leagueId, interaction.channelId);
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await replyEphemeral(interaction, error.message);
+      return;
+    }
+    throw error;
   }
 
   await interaction.deferUpdate();
