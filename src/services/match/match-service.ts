@@ -211,6 +211,47 @@ export function duplicateWc3statsMatchMessage(matchId: string): string {
   return `That Warcraft lobby is already registered as match ${matchId}.`;
 }
 
+export function hostLobbyCapMessage(
+  status: 'PENDING' | 'IN_PROGRESS',
+  matchId: string,
+): string {
+  if (status === 'IN_PROGRESS') {
+    return `You already have a match in progress (${matchId}). Report or cancel it before opening another lobby.`;
+  }
+
+  return `You already have a pending lobby (${matchId}). Cancel it before opening another.`;
+}
+
+export async function assertHostLobbyCapInTx(
+  tx: Prisma.TransactionClient,
+  input: {
+    leagueId: string;
+    hostDiscordId: string;
+    bypassHostLobbyCap?: boolean;
+  },
+): Promise<void> {
+  if (input.bypassHostLobbyCap === true) {
+    return;
+  }
+
+  const existing = await tx.match.findFirst({
+    where: {
+      leagueId: input.leagueId,
+      hostDiscordId: input.hostDiscordId,
+      status: { in: ['PENDING', 'IN_PROGRESS'] },
+    },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, status: true },
+  });
+
+  if (!existing) {
+    return;
+  }
+
+  const status = existing.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING';
+  throw new MatchServiceError(hostLobbyCapMessage(status, existing.id));
+}
+
 export async function findActiveMatchByWc3statsGameId(
   leagueId: string,
   wc3statsGameId: string,
