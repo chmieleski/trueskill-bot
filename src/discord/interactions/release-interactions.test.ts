@@ -43,6 +43,8 @@ vi.mock('../../services/release/release-publish.js', () => ({
   dismissRelease,
   EMPTY_PLAYER_NOTES:
     'Write player notes before publishing. Use Dismiss if this version should not be announced.',
+  ALREADY_PUBLISHED: 'This version is already published.',
+  ALREADY_SKIPPED: 'This version was dismissed.',
 }));
 
 vi.mock('../../services/release/release-config.js', () => ({
@@ -51,7 +53,10 @@ vi.mock('../../services/release/release-config.js', () => ({
 
 import { MatchServiceError } from '../../services/match/index.js';
 import { ReleaseServiceError } from '../../services/release/errors.js';
-import { EMPTY_PLAYER_NOTES } from '../../services/release/release-publish.js';
+import {
+  ALREADY_PUBLISHED,
+  EMPTY_PLAYER_NOTES,
+} from '../../services/release/release-publish.js';
 import { handleReleaseInteraction } from './release-interactions.js';
 
 const DRAFT = {
@@ -141,6 +146,18 @@ describe('handleReleaseInteraction', () => {
     expect(interaction.deferUpdate).not.toHaveBeenCalled();
   });
 
+  it('refuses Edit when the version is already published', async () => {
+    findUniqueRelease.mockResolvedValue({ ...DRAFT, status: 'published' });
+    const interaction = releaseInteraction('changelog:edit:1.4.0');
+
+    await expect(handleReleaseInteraction(interaction)).resolves.toBe(true);
+    expect(interaction.showModal).not.toHaveBeenCalled();
+    expect(interaction.reply).toHaveBeenCalledWith({
+      content: ALREADY_PUBLISHED,
+      flags: MessageFlags.Ephemeral,
+    });
+  });
+
   it('opens an edit modal with player_notes capped at 4000', async () => {
     const longNotes = 'n'.repeat(4010);
     findUniqueRelease.mockResolvedValue({ ...DRAFT, playerNotes: longNotes });
@@ -190,6 +207,23 @@ describe('handleReleaseInteraction', () => {
     expect(payload.embeds[0]?.data.title).toBe('Draft · v1.4.0');
     expect(payload.embeds[0]?.data.fields?.[0]?.value).toBe('Rewritten notes');
     expect(payload.components).toHaveLength(1);
+  });
+
+  it('does not restore draft buttons when the modal is submitted after publish', async () => {
+    findUniqueRelease.mockResolvedValue({ ...DRAFT, status: 'published' });
+    const interaction = releaseInteraction('changelog:modal:1.4.0', {
+      fields: { getTextInputValue: vi.fn().mockReturnValue('Too late') },
+    });
+
+    await expect(handleReleaseInteraction(interaction)).resolves.toBe(true);
+    expect(savePlayerNotes).not.toHaveBeenCalled();
+    expect(interaction.update).toHaveBeenCalledOnce();
+    const payload = (interaction.update as ReturnType<typeof vi.fn>).mock.calls[0]![0] as {
+      embeds: Array<{ data: { title?: string } }>;
+      components: unknown[];
+    };
+    expect(payload.embeds[0]?.data.title).toBe('Published · v1.4.0');
+    expect(payload.components).toEqual([]);
   });
 
   it('refuses Publish when player notes are empty', async () => {
