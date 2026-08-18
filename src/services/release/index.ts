@@ -15,3 +15,4 @@ export {
   setChangelogChannel,
   setChangelogDraftChannel,
 } from './release-config.js';
+export { ensureDraftForVersion } from './release-draft.js';
