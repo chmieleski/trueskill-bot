@@ -24,6 +24,8 @@ export {
   ALREADY_PUBLISHED,
   ALREADY_SKIPPED,
   EMPTY_PLAYER_NOTES,
+  PLAYER_NOTES_MAX,
+  PLAYER_NOTES_TOO_LONG,
   assertCanPublish,
   dismissRelease,
   markReleasePublished,

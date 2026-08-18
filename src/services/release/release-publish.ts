@@ -3,13 +3,15 @@ import { ReleaseServiceError } from './errors.js';
 
 export const EMPTY_PLAYER_NOTES =
   'Write player notes before publishing. Use Dismiss if this version should not be announced.';
+export const PLAYER_NOTES_TOO_LONG =
+  'Player notes must be 4000 characters or fewer. Edit the notes and try again.';
 export const ALREADY_PUBLISHED = 'This version is already published.';
 export const ALREADY_SKIPPED = 'This version was dismissed.';
 
-const PLAYER_NOTES_MAX = 4000;
+export const PLAYER_NOTES_MAX = 4000;
 
 /**
- * Refuse Publish when the version is already closed or player notes are empty.
+ * Refuse Publish when the version is already closed, notes are empty, or notes exceed the embed cap.
  */
 export function assertCanPublish(release: {
   status: 'draft' | 'published' | 'skipped';
@@ -21,8 +23,12 @@ export function assertCanPublish(release: {
   if (release.status === 'skipped') {
     throw new ReleaseServiceError(ALREADY_SKIPPED);
   }
-  if (release.playerNotes.trim() === '') {
+  const notes = release.playerNotes.trim();
+  if (notes === '') {
     throw new ReleaseServiceError(EMPTY_PLAYER_NOTES);
+  }
+  if (notes.length > PLAYER_NOTES_MAX) {
+    throw new ReleaseServiceError(PLAYER_NOTES_TOO_LONG);
   }
 }
 

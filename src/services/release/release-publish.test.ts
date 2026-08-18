@@ -19,6 +19,7 @@ import {
   ALREADY_PUBLISHED,
   ALREADY_SKIPPED,
   EMPTY_PLAYER_NOTES,
+  PLAYER_NOTES_TOO_LONG,
   assertCanPublish,
   dismissRelease,
   markReleasePublished,
@@ -65,6 +66,21 @@ describe('assertCanPublish', () => {
     expect(() =>
       assertCanPublish({ status: 'draft', playerNotes: 'Player-facing notes' }),
     ).not.toThrow();
+  });
+
+  it('does not throw for a draft with 4000-character notes', () => {
+    expect(() =>
+      assertCanPublish({ status: 'draft', playerNotes: 'x'.repeat(4000) }),
+    ).not.toThrow();
+  });
+
+  it('throws when trimmed player notes exceed 4000 characters', () => {
+    expect(() =>
+      assertCanPublish({ status: 'draft', playerNotes: 'x'.repeat(4001) }),
+    ).toThrow(ReleaseServiceError);
+    expect(() =>
+      assertCanPublish({ status: 'draft', playerNotes: 'x'.repeat(4001) }),
+    ).toThrow(PLAYER_NOTES_TOO_LONG);
   });
 });
 

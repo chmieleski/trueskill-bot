@@ -9,6 +9,7 @@ import {
 } from './changelog.js';
 import { findChangelogDraftChannel } from './release-config.js';
 import { buildStaffReleaseButtons, buildStaffReleaseEmbed } from './release-embed.js';
+import { PLAYER_NOTES_MAX } from './release-publish.js';
 
 const log = createLogger('release-draft');
 
@@ -37,7 +38,7 @@ export async function ensureDraftForVersion(input: {
     data: {
       version: input.version,
       engineeringNotes: notes,
-      playerNotes: notes,
+      playerNotes: notes.slice(0, PLAYER_NOTES_MAX),
       status: 'draft',
     },
   });
