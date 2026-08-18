@@ -62,6 +62,13 @@ import {
 } from '../../services/leaderboard/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
 import { RankResetServiceError } from '../../services/rating/index.js';
+import {
+  clearChangelogChannel,
+  clearChangelogDraftChannel,
+  ReleaseServiceError,
+  setChangelogChannel,
+  setChangelogDraftChannel,
+} from '../../services/release/index.js';
 
 const log = createLogger('config_cmd');
 
@@ -148,6 +155,18 @@ function formatQuitterLeaderboardLine(
     return `**Quitter leaderboard:** \`unset\` · size \`${size}\` · display \`${display}\` · sort \`${sort}\``;
   }
   return `**Quitter leaderboard:** <#${channelId}> · message \`${messageId}\` · size \`${size}\` · display \`${display}\` · sort \`${sort}\``;
+}
+
+function formatChangelogChannelLine(channelId: string | undefined): string {
+  return channelId
+    ? `**Changelog channel:** <#${channelId}>`
+    : '**Changelog channel:** `unset`';
+}
+
+function formatChangelogDraftLine(channelId: string | undefined): string {
+  return channelId
+    ? `**Changelog draft channel:** <#${channelId}>`
+    : '**Changelog draft channel:** `unset`';
 }
 
 function formatLeagueLine(name: string | undefined): string {
@@ -241,6 +260,28 @@ export const data = new SlashCommandBuilder()
                 { name: 'count', value: 'count' },
                 { name: 'rate', value: 'rate' },
               ),
+          ),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('changelog_channel')
+          .setDescription('Set the channel for player changelog posts')
+          .addChannelOption((option) =>
+            option
+              .setName('channel')
+              .setDescription('Channel where player changelogs are posted')
+              .setRequired(true),
+          ),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('changelog_draft_channel')
+          .setDescription('Set the staff channel for changelog drafts')
+          .addChannelOption((option) =>
+            option
+              .setName('channel')
+              .setDescription('Channel where staff changelog drafts are posted')
+              .setRequired(true),
           ),
       )
       .addSubcommand((subcommand) =>
@@ -434,6 +475,16 @@ export const data = new SlashCommandBuilder()
           .setDescription('Reset quitter leaderboard sort to count'),
       )
       .addSubcommand((subcommand) =>
+        subcommand
+          .setName('changelog_channel')
+          .setDescription('Remove the player changelog channel'),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('changelog_draft_channel')
+          .setDescription('Remove the staff changelog draft channel'),
+      )
+      .addSubcommand((subcommand) =>
         withSubcommandLeagueOption(
           subcommand
             .setName('leaderboard_channel')
@@ -598,6 +649,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
             resolved.quitterLeaderboardDisplay,
             resolved.quitterLeaderboardSort,
           ),
+          formatChangelogChannelLine(resolved.changelogChannelId),
+          formatChangelogDraftLine(resolved.changelogDraftChannelId),
           formatLeaderboardLine(
             leagueConfig.leaderboardChannelId,
             leagueConfig.leaderboardMessageId,
@@ -744,6 +797,66 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         );
         await interaction.reply({
           content: `Quitter leaderboard sort set to \`${sort}\`.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'changelog_channel') {
+        const channel = interaction.options.getChannel('channel', true);
+        const allowedTypes = new Set([
+          ChannelType.GuildText,
+          ChannelType.GuildAnnouncement,
+        ]);
+        if (!allowedTypes.has(channel.type)) {
+          await interaction.reply({
+            content: 'Choose a server text or announcement channel for changelogs.',
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
+        await setChangelogChannel(interaction.guildId, channel.id);
+        log.info(
+          {
+            guildId: interaction.guildId,
+            channelId: channel.id,
+            userId: interaction.user.id,
+          },
+          'Changelog channel updated',
+        );
+        await interaction.reply({
+          content: `Changelog channel set to <#${channel.id}>.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'changelog_draft_channel') {
+        const channel = interaction.options.getChannel('channel', true);
+        const allowedTypes = new Set([
+          ChannelType.GuildText,
+          ChannelType.GuildAnnouncement,
+        ]);
+        if (!allowedTypes.has(channel.type)) {
+          await interaction.reply({
+            content: 'Choose a server text or announcement channel for changelog drafts.',
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
+        await setChangelogDraftChannel(interaction.guildId, channel.id);
+        log.info(
+          {
+            guildId: interaction.guildId,
+            channelId: channel.id,
+            userId: interaction.user.id,
+          },
+          'Changelog draft channel updated',
+        );
+        await interaction.reply({
+          content: `Changelog draft channel set to <#${channel.id}>. Pending drafts will post there.`,
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -1144,6 +1257,32 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         return;
       }
 
+      if (subcommand === 'changelog_channel') {
+        await clearChangelogChannel(interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, userId: interaction.user.id },
+          'Changelog channel cleared',
+        );
+        await interaction.reply({
+          content: 'Changelog channel cleared.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'changelog_draft_channel') {
+        await clearChangelogDraftChannel(interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, userId: interaction.user.id },
+          'Changelog draft channel cleared',
+        );
+        await interaction.reply({
+          content: 'Changelog draft channel cleared.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
       if (subcommand === 'leaderboard_channel') {
         const leagueId = await requireLeagueId(interaction);
         if (!leagueId) return;
@@ -1270,7 +1409,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       flags: MessageFlags.Ephemeral,
     });
   } catch (error) {
-    if (error instanceof MatchServiceError) {
+    if (error instanceof MatchServiceError || error instanceof ReleaseServiceError) {
       await interaction.reply({
         content: error.message,
         flags: MessageFlags.Ephemeral,
