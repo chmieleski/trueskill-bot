@@ -15,7 +15,11 @@ export {
   setChangelogChannel,
   setChangelogDraftChannel,
 } from './release-config.js';
-export { ensureDraftForVersion } from './release-draft.js';
+export {
+  ensureDraftForVersion,
+  postPendingStaffCards,
+  syncCurrentReleaseDraft,
+} from './release-draft.js';
 export {
   ALREADY_PUBLISHED,
   ALREADY_SKIPPED,

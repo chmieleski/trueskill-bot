@@ -65,6 +65,7 @@ import { RankResetServiceError } from '../../services/rating/index.js';
 import {
   clearChangelogChannel,
   clearChangelogDraftChannel,
+  postPendingStaffCards,
   ReleaseServiceError,
   setChangelogChannel,
   setChangelogDraftChannel,
@@ -859,6 +860,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           content: `Changelog draft channel set to <#${channel.id}>. Pending drafts will post there.`,
           flags: MessageFlags.Ephemeral,
         });
+        await postPendingStaffCards(interaction.client);
         return;
       }
 

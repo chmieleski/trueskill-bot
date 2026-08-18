@@ -1,11 +1,13 @@
 import type { Client } from 'discord.js';
 import { Events } from 'discord.js';
+import { env } from '../config/env.js';
 import { createLogger } from '../lib/logger.js';
 import { startMatchCleanupScheduler } from '../services/match/index.js';
 import {
   refreshAllLeaderboardChannels,
   scheduleLeaderboardRefresh,
 } from '../services/leaderboard/index.js';
+import { syncCurrentReleaseDraft } from '../services/release/index.js';
 import { startWc3statsHostPromptScheduler } from '../services/wc3stats/index.js';
 
 const log = createLogger('ready');
@@ -22,4 +24,10 @@ export async function execute(client: Client<true>): Promise<void> {
   });
   scheduleLeaderboardRefresh(client);
   startWc3statsHostPromptScheduler(client);
+
+  if (!env.isDev) {
+    void syncCurrentReleaseDraft(client).catch((error) => {
+      log.warn({ err: error }, 'Release draft sync failed');
+    });
+  }
 }
