@@ -16,3 +16,13 @@ export {
   setChangelogDraftChannel,
 } from './release-config.js';
 export { ensureDraftForVersion } from './release-draft.js';
+export {
+  ALREADY_PUBLISHED,
+  ALREADY_SKIPPED,
+  EMPTY_PLAYER_NOTES,
+  assertCanPublish,
+  dismissRelease,
+  markReleasePublished,
+  recordReleasePost,
+  savePlayerNotes,
+} from './release-publish.js';
