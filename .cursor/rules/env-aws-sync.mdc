@@ -11,7 +11,7 @@ Production `.env` is **fully rewritten** on every deploy from SSM (`deploy/aws/r
 
 Any new or renamed variable that the **running bot** reads in production (`src/config/env.ts`, `process.env`, Prisma URLs, feature flags).
 
-Skip for **local-only** keys (e.g. `PROD_DIRECT_URL` for `db:clone`).
+Skip for **local-only** keys (e.g. `PROD_DIRECT_URL` for `db:clone`, `CLICKUP_API_TOKEN` for agent ClickUp REST fallback).
 
 ## Checklist (plan, then implement — do not ship half)
 

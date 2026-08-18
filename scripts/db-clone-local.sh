@@ -233,6 +233,7 @@ dump_prod() {
       --no-owner \
       --no-privileges \
       --exclude-table=_prisma_migrations \
+      --exclude-table='"Game"' \
       >"$DUMP_FILE"
   fi
 
@@ -241,6 +242,18 @@ dump_prod() {
     exit 1
   fi
   echo "Wrote $(wc -c <"$DUMP_FILE") bytes to ${DUMP_FILE}"
+}
+
+# Migration-seeded catalog tables are applied by prisma migrate deploy before restore.
+# Older dumps may still include COPY blocks for these tables — strip them so PK inserts
+# from migrations are not duplicated.
+filter_migration_seeded_tables() {
+  awk '
+    /^COPY public\."Game"/ { skip=1; next }
+    skip && /^\\\.$/ { skip=0; next }
+    skip { next }
+    { print }
+  '
 }
 
 restore_dump() {
@@ -252,7 +265,7 @@ restore_dump() {
   echo "Restoring ${DUMP_FILE} into local dbzbot…"
   {
     echo "SET session_replication_role = replica;"
-    cat "$DUMP_FILE"
+    filter_migration_seeded_tables <"$DUMP_FILE"
     echo "SET session_replication_role = DEFAULT;"
   } | docker exec -i "$CONTAINER" psql -U postgres -d dbzbot -v ON_ERROR_STOP=1 >/dev/null
 

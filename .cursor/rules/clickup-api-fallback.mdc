@@ -1,0 +1,28 @@
+---
+description: Use ClickUp REST API with CLICKUP_API_TOKEN when the ClickUp MCP is rate-limited
+alwaysApply: true
+---
+
+# ClickUp MCP → REST API fallback
+
+Prefer the ClickUp MCP (`plugin-clickup-clickup`) for normal list/task work.
+
+If MCP returns a **rate limit** (e.g. `Rate limit exceeded. Please wait N minutes`):
+
+1. **Stop retrying MCP.** Do not wait out the timer.
+2. Load `CLICKUP_API_TOKEN` from `.env` (local-only; never print or commit it).
+3. Call **ClickUp REST API v2** until the job is done.
+
+## REST API
+
+- Base: `https://api.clickup.com/api/v2`
+- Header: `Authorization: <CLICKUP_API_TOKEN>` — **no** `Bearer` prefix
+- Create task: `POST /list/{list_id}/task` JSON `{ "name", "markdown_content", "status?", "parent?" }`
+- List tasks: `GET /list/{list_id}/task`
+- Engineering Specs list id: `901220443128`
+
+## Do not
+
+- Put this token in AWS SSM / `refresh-env.sh` — the **bot** does not read it
+- Echo the token in chat, logs, or commit diffs
+- Ask the user for the token again if `.env` already has `CLICKUP_API_TOKEN`

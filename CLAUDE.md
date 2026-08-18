@@ -10,6 +10,7 @@ Project guidance for AI agents lives in **Cursor rules** (single source of truth
 | `model-selection.mdc` | Always — Cursor Auto for impl; Grok 4.6 for architecture reviews |
 | `feature-scope-game-vs-general.mdc` | Always — declare `general` vs `game:<id>` before coding |
 | `scripts-and-env.mdc` | Always — npm scripts and env vars |
+| `clickup-api-fallback.mdc` | Always — ClickUp REST API when MCP is rate-limited |
 | `env-aws-sync.mdc` | Env / infra / deploy — new production env vars must update SSM + refresh-env |
 | `project-structure.mdc` | `src/**/*.ts` |
 | `database-domain.mdc` | Prisma / domain TypeScript |
