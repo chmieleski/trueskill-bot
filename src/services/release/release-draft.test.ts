@@ -93,6 +93,25 @@ describe('ensureDraftForVersion', () => {
       },
     });
   });
+
+  it('caps playerNotes at 4000 and keeps full engineering notes', async () => {
+    findUnique.mockResolvedValue(null);
+    create.mockResolvedValue({});
+    const body = 'a'.repeat(4500);
+    const changelog = `# [1.0.0](https://example.com) (2026-08-18)\n\n${body}\n`;
+
+    await expect(
+      ensureDraftForVersion({ version: '1.0.0', changelogMarkdown: changelog }),
+    ).resolves.toBe('created');
+
+    const data = create.mock.calls[0]![0].data as {
+      playerNotes: string;
+      engineeringNotes: string;
+    };
+    expect(data.playerNotes.length).toBeLessThanOrEqual(4000);
+    expect(data.playerNotes).toBe('a'.repeat(4000));
+    expect(data.engineeringNotes).toBe(body);
+  });
 });
 
 const DRAFT_ROW = {
