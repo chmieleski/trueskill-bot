@@ -215,8 +215,8 @@ function ratingPreviewFields(preview: LobbyRatingPreview | undefined, profile?: 
   ];
 }
 
-/** Shown under Balance hint(s). Suggestions are advisory; the host decides seating. */
-export const BALANCE_HINT_DISCLAIMER = '_Just a guess — the host has the last word._';
+/** Shown under Balance hint(s). Suggestions come from ratings; the host decides seating. */
+export const BALANCE_HINT_DISCLAIMER = '_Based on ratings — the host has the last word._';
 
 function balanceHintFields(preview: LobbyRatingPreview | undefined) {
   const suggestions = preview?.balanceSuggestions;
