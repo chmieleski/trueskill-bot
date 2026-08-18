@@ -49,6 +49,8 @@ export interface ResolvedGuildConfig {
   quitterLeaderboardSize: number;
   quitterLeaderboardDisplay: QuitterLeaderboardDisplayValue;
   quitterLeaderboardSort: QuitterLeaderboardSortValue;
+  changelogChannelId: string | undefined;
+  changelogDraftChannelId: string | undefined;
 }
 
 function resolveField(
@@ -90,6 +92,8 @@ export async function resolveGuildConfig(guildId: string): Promise<ResolvedGuild
       row?.quitterLeaderboardDisplay ?? QUITTER_LEADERBOARD_DEFAULT_DISPLAY,
     quitterLeaderboardSort:
       row?.quitterLeaderboardSort ?? QUITTER_LEADERBOARD_DEFAULT_SORT,
+    changelogChannelId: trimOptionalId(row?.changelogChannelId),
+    changelogDraftChannelId: trimOptionalId(row?.changelogDraftChannelId),
   };
 }
 

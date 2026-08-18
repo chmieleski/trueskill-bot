@@ -45,6 +45,8 @@ const quitterDefaults = {
   quitterLeaderboardSize: 10,
   quitterLeaderboardDisplay: 'both' as const,
   quitterLeaderboardSort: 'count' as const,
+  changelogChannelId: undefined,
+  changelogDraftChannelId: undefined,
 };
 
 describe('resolveGuildConfig', () => {
