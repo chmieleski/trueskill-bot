@@ -17,7 +17,6 @@ import {
   loadMatchDisplayStatsByPlayer,
 } from './rank-reset-display.js';
 import {
-  isUnbalancedWinChance,
   suggestBalanceMoves,
   type BalanceRatingLookup,
   type BalanceSuggestion,
@@ -337,20 +336,18 @@ export async function loadLobbyRatingPreview(
     }));
 
     let balanceSuggestions: BalanceSuggestion[] | undefined;
-    if (isUnbalancedWinChance(winChance.teamAPercent)) {
-      try {
-        const suggestions = suggestBalanceMoves(
-          balanceRoster,
-          lookup,
-          winChance,
-          profile,
-        );
-        if (suggestions.length > 0) {
-          balanceSuggestions = suggestions;
-        }
-      } catch (error) {
-        log.warn({ err: error }, 'Failed to compute balance suggestions');
+    try {
+      const suggestions = suggestBalanceMoves(
+        balanceRoster,
+        lookup,
+        winChance,
+        profile,
+      );
+      if (suggestions.length > 0) {
+        balanceSuggestions = suggestions;
       }
+    } catch (error) {
+      log.warn({ err: error }, 'Failed to compute balance suggestions');
     }
 
     return {

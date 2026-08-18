@@ -6,7 +6,6 @@ import {
   dedupeEmptySlotMoves,
   formatBalanceHint,
   formatBalanceHints,
-  isUnbalancedWinChance,
   suggestBalanceMove,
   suggestBalanceMoves,
   type BalanceRatingLookup,
@@ -27,18 +26,8 @@ function lookupFromMaps(
   };
 }
 
-describe('isUnbalancedWinChance', () => {
-  it('is true outside 45–55 inclusive band edges', () => {
-    expect(isUnbalancedWinChance(44)).toBe(true);
-    expect(isUnbalancedWinChance(56)).toBe(true);
-    expect(isUnbalancedWinChance(45)).toBe(false);
-    expect(isUnbalancedWinChance(55)).toBe(false);
-    expect(isUnbalancedWinChance(50)).toBe(false);
-  });
-});
-
 describe('suggestBalanceMove', () => {
-  it('returns undefined when current win chance is balanced', () => {
+  it('returns undefined at 50/50 when no swap or move can improve', () => {
     const roster: BalanceRosterEntry[] = [
       { playerId: 'a', slot: 1, team: 1, heroId: 1, nick: 'Alice' },
       { playerId: 'b', slot: 7, team: 2, heroId: 7, nick: 'Bob' },
@@ -47,6 +36,37 @@ describe('suggestBalanceMove', () => {
     expect(
       suggestBalanceMove(roster, lookup, { teamAPercent: 50, teamBPercent: 50 }),
     ).toBeUndefined();
+  });
+
+  it('still suggests when win chance is inside the old 45–55 band if a move improves', () => {
+    const roster: BalanceRosterEntry[] = [
+      { playerId: 's1', slot: 1, team: 1, heroId: 1, nick: 'S1' },
+      { playerId: 's2', slot: 2, team: 1, heroId: 2, nick: 'S2' },
+      { playerId: 'w1', slot: 3, team: 1, heroId: 3, nick: 'W1' },
+      { playerId: 'm1', slot: 7, team: 2, heroId: 7, nick: 'M1' },
+      { playerId: 'm2', slot: 8, team: 2, heroId: 8, nick: 'M2' },
+      { playerId: 'm3', slot: 9, team: 2, heroId: 9, nick: 'M3' },
+    ];
+    const lookup = lookupFromMaps(
+      {
+        s1: { mu: 27, sigma: 3 },
+        s2: { mu: 26, sigma: 3 },
+        w1: { mu: 24, sigma: 6 },
+        m1: { mu: 25, sigma: 5 },
+        m2: { mu: 25, sigma: 5 },
+        m3: { mu: 25, sigma: 5 },
+      },
+      {},
+    );
+    const suggestion = suggestBalanceMove(roster, lookup, {
+      teamAPercent: 53,
+      teamBPercent: 47,
+    });
+    expect(suggestion).toBeDefined();
+    expect(suggestion!.kind).toBe('swap');
+    expect(
+      Math.abs(50 - suggestion!.resultingWinChance.teamAPercent),
+    ).toBeLessThan(3);
   });
 
   it('returns undefined when all players are on one team even if win chance is unbalanced', () => {
