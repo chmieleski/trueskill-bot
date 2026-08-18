@@ -3,8 +3,16 @@ import { rating, rate, type Rating } from 'openskill';
 import { prisma } from '../../lib/prisma.js';
 import { MatchServiceError } from '../match/match-service.js';
 import { ratingEntitiesForPlayer } from './rating-entities.js';
+import {
+  computeLobbyAvgKi,
+  scaleAppliedMu,
+} from './lobby-relative-scale.js';
+import { displayOrdinal, splitRosterByTeam, toOpenSkillRatings } from './rating-math.js';
 import { ensurePlayerRatings } from './rating-preview.js';
-import { splitRosterByTeam, toOpenSkillRatings } from './rating-math.js';
+import {
+  gamesByPlayerFromStats,
+  loadMatchDisplayStatsByPlayer,
+} from './rank-reset-display.js';
 
 const DEFAULT_MU = 25;
 const DEFAULT_SIGMA = 8.333;
@@ -178,6 +186,102 @@ export async function applyQuitterPenalties(
   }
 }
 
+type UpdatedPlayerRating = {
+  global: Rating;
+  hero?: Rating;
+  heroId: number | null;
+};
+
+function snapshotPreMatchMuSigma(
+  active: RatingRosterEntry[],
+  globalByPlayer: Map<string, MuSigma>,
+  heroByKey: Map<string, MuSigma>,
+): { preGlobal: Map<string, MuSigma>; preHero: Map<string, MuSigma> } {
+  const preGlobal = new Map<string, MuSigma>();
+  const preHero = new Map<string, MuSigma>();
+
+  for (const entry of active) {
+    const global = globalByPlayer.get(entry.playerId) ?? defaultRatingEntity();
+    preGlobal.set(entry.playerId, { mu: global.mu, sigma: global.sigma });
+
+    if (entry.heroId == null) {
+      continue;
+    }
+
+    const hero =
+      heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity();
+    preHero.set(heroKey(entry.playerId, entry.heroId), {
+      mu: hero.mu,
+      sigma: hero.sigma,
+    });
+  }
+
+  return { preGlobal, preHero };
+}
+
+/**
+ * Scale OpenSkill μ deltas by each player's offset from lobby-average global ki.
+ * Mutates `updatedByPlayer` in place; σ is unchanged.
+ */
+function applyLobbyRelativeScalingToResults(
+  active: RatingRosterEntry[],
+  winningTeam: 1 | 2,
+  preGlobal: Map<string, MuSigma>,
+  preHero: Map<string, MuSigma>,
+  updatedByPlayer: Map<string, UpdatedPlayerRating>,
+  globalGamesByPlayer: Map<string, number>,
+): void {
+  const preKis: number[] = [];
+  const preKiByPlayer = new Map<string, number>();
+
+  for (const entry of active) {
+    const before = preGlobal.get(entry.playerId);
+    if (!before) {
+      continue;
+    }
+    const games = globalGamesByPlayer.get(entry.playerId) ?? 0;
+    const ki = displayOrdinal(before.mu, before.sigma, games);
+    preKiByPlayer.set(entry.playerId, ki);
+    preKis.push(ki);
+  }
+
+  const lobbyAvg = computeLobbyAvgKi(preKis);
+
+  for (const entry of active) {
+    const beforeGlobal = preGlobal.get(entry.playerId);
+    const updated = updatedByPlayer.get(entry.playerId);
+    if (!beforeGlobal || !updated) {
+      continue;
+    }
+
+    const playerKi = preKiByPlayer.get(entry.playerId) ?? lobbyAvg;
+    const offsetKi = playerKi - lobbyAvg;
+    const won = entry.team === winningTeam;
+
+    const scaledGlobalMu = scaleAppliedMu(
+      beforeGlobal.mu,
+      updated.global.mu,
+      won,
+      offsetKi,
+    );
+    updated.global = rating({ mu: scaledGlobalMu, sigma: updated.global.sigma });
+
+    if (entry.heroId == null || !updated.hero) {
+      continue;
+    }
+
+    const heroBefore =
+      preHero.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity();
+    const scaledHeroMu = scaleAppliedMu(
+      heroBefore.mu,
+      updated.hero.mu,
+      won,
+      offsetKi,
+    );
+    updated.hero = rating({ mu: scaledHeroMu, sigma: updated.hero.sigma });
+  }
+}
+
 function buildTeamEntities(
   team: RatingRosterEntry[],
   globalByPlayer: Map<string, { mu: number; sigma: number }>,
@@ -242,6 +346,10 @@ export async function applyMatchRatings(
     heroRatings.map((row) => [heroKey(row.playerId, row.heroId), row]),
   );
 
+  const displayStats = await loadMatchDisplayStatsByPlayer(leagueId, playerIds, db);
+  const globalGamesByPlayer = gamesByPlayerFromStats(displayStats);
+  const { preGlobal, preHero } = snapshotPreMatchMuSigma(active, globalByPlayer, heroByKey);
+
   const { teamA, teamB } = splitRosterByTeam(active);
   const winningRoster = winningTeam === 1 ? teamA : teamB;
   const losingRoster = winningTeam === 1 ? teamB : teamA;
@@ -254,10 +362,7 @@ export async function applyMatchRatings(
     { rank: [1, 2] },
   );
 
-  const updatedByPlayer = new Map<
-    string,
-    { global: Rating; hero?: Rating; heroId: number | null }
-  >();
+  const updatedByPlayer = new Map<string, UpdatedPlayerRating>();
 
   const registerTeam = (team: RatingRosterEntry[], ratings: Rating[]): void => {
     let offset = 0;
@@ -284,6 +389,15 @@ export async function applyMatchRatings(
 
   registerTeam(winningRoster, updatedWinningTeam);
   registerTeam(losingRoster, updatedLosingTeam);
+
+  applyLobbyRelativeScalingToResults(
+    active,
+    winningTeam,
+    preGlobal,
+    preHero,
+    updatedByPlayer,
+    globalGamesByPlayer,
+  );
 
   for (const entry of active) {
     const updated = updatedByPlayer.get(entry.playerId);
@@ -332,6 +446,7 @@ export function simulatePostMatchRatings(
   winningTeam: 1 | 2,
   startingGlobal: Map<string, MuSigma>,
   startingHero: Map<string, MuSigma>,
+  globalGamesByPlayer: Map<string, number> = new Map(),
 ): { globalByPlayer: Map<string, MuSigma>; heroByKey: Map<string, MuSigma> } {
   const globalByPlayer = new Map(startingGlobal);
   const heroByKey = new Map(startingHero);
@@ -372,6 +487,7 @@ export function simulatePostMatchRatings(
   const { teamA, teamB } = splitRosterByTeam(active);
   const winningRoster = winningTeam === 1 ? teamA : teamB;
   const losingRoster = winningTeam === 1 ? teamB : teamA;
+  const { preGlobal, preHero } = snapshotPreMatchMuSigma(active, globalByPlayer, heroByKey);
 
   const [updatedWinningTeam, updatedLosingTeam] = rate(
     [
@@ -381,10 +497,7 @@ export function simulatePostMatchRatings(
     { rank: [1, 2] },
   );
 
-  const updatedByPlayer = new Map<
-    string,
-    { global: Rating; hero?: Rating; heroId: number | null }
-  >();
+  const updatedByPlayer = new Map<string, UpdatedPlayerRating>();
 
   const registerTeam = (team: RatingRosterEntry[], ratings: Rating[]): void => {
     let offset = 0;
@@ -411,6 +524,15 @@ export function simulatePostMatchRatings(
 
   registerTeam(winningRoster, updatedWinningTeam);
   registerTeam(losingRoster, updatedLosingTeam);
+
+  applyLobbyRelativeScalingToResults(
+    active,
+    winningTeam,
+    preGlobal,
+    preHero,
+    updatedByPlayer,
+    globalGamesByPlayer,
+  );
 
   for (const entry of active) {
     const updated = updatedByPlayer.get(entry.playerId);

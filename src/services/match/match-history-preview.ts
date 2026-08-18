@@ -135,6 +135,13 @@ export async function rebuildCompletedRatingPreview(
     isQuitter: player.isQuitter,
   }));
 
+  const globalGames = await loadGlobalGamesBeforeMatch(
+    match.leagueId,
+    playerIds,
+    match.completedAt,
+    match.id,
+  );
+
   let afterMaps: ReturnType<typeof simulatePostMatchRatings>;
   try {
     const winningTeam = winningTeamFromPlayers(match.players);
@@ -148,17 +155,11 @@ export async function rebuildCompletedRatingPreview(
           { mu: value.mu, sigma: value.sigma },
         ]),
       ),
+      globalGames,
     );
   } catch {
     return undefined;
   }
-
-  const globalGames = await loadGlobalGamesBeforeMatch(
-    match.leagueId,
-    playerIds,
-    match.completedAt,
-    match.id,
-  );
 
   const leagueGamesByPlayer = await loadLeagueGamesAfterMatch(match);
 
