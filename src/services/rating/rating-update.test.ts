@@ -144,8 +144,14 @@ function heroNullDb() {
     findMany: vi.fn(),
     update: vi.fn(),
   };
+  const matchPlayer = {
+    findMany: vi.fn().mockResolvedValue([]),
+  };
+  const playerRankReset = {
+    findMany: vi.fn().mockResolvedValue([]),
+  };
 
-  return { playerRating, playerHeroRating };
+  return { playerRating, playerHeroRating, matchPlayer, playerRankReset };
 }
 
 const heroNullOneVOne: RatingRosterEntry[] = [
