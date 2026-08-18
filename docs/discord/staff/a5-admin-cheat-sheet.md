@@ -24,6 +24,12 @@
 • `/config clear wc3stats`
 • `/config set|clear wc3stats_slot` / `wc3stats_map`
 • `/config set|clear wc3stats_host_prompt` — ping linked hosts for live matching lobbies
+• `/config set|clear changelog_channel` — player patch notes for this server
+• `/config set|clear changelog_draft_channel` — one staff draft channel for the whole bot (second server is rejected)
+
+**Releases (Manage Server on the draft server)**
+• After a version deploys, a Draft card appears in the draft channel
+• Edit the player summary, then Publish (all changelog channels) or Dismiss (no player post)
 
 **Mod role**
 • `/match complete|quitters|cancel` (+ `match_id`)
