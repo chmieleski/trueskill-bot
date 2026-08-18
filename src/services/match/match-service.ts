@@ -46,6 +46,7 @@ export interface CreatePendingMatchInput {
   discordChannelId: string;
   players: LobbyPlayer[];
   wc3statsGameId?: string | null;
+  bypassHostLobbyCap?: boolean;
 }
 
 function mapHeroCatalogError(error: unknown): never {
@@ -347,6 +348,12 @@ export async function createPendingMatch(
   const wc3statsGameId = input.wc3statsGameId?.trim() || null;
 
   const created = await prisma.$transaction(async (tx) => {
+    await assertHostLobbyCapInTx(tx, {
+      leagueId: input.leagueId,
+      hostDiscordId: input.hostDiscordId,
+      bypassHostLobbyCap: input.bypassHostLobbyCap === true,
+    });
+
     if (wc3statsGameId) {
       const existing = await tx.match.findFirst({
         where: {
