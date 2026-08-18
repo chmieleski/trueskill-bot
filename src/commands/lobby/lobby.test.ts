@@ -49,4 +49,19 @@ describe('lobby command data', () => {
       /moderator/i,
     );
   });
+
+  it('describes screenshot as host or match moderator', () => {
+    const json = data.toJSON();
+    const screenshot = json.options?.find((option) => option.name === 'screenshot');
+    const options = screenshot && 'options' in screenshot ? screenshot.options ?? [] : [];
+    const matchId = options.find((option) => option.name === 'match_id');
+
+    expect(screenshot).toBeDefined();
+    expect(
+      screenshot && 'description' in screenshot ? screenshot.description : '',
+    ).toMatch(/moderator/i);
+    expect(matchId && 'description' in matchId ? matchId.description : '').toMatch(
+      /not the host/i,
+    );
+  });
 });

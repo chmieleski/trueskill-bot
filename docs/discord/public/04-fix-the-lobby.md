@@ -31,7 +31,7 @@ The lobby message has buttons. Use them like toys that fix the board.
 • `/lobby screenshot` with a lobby image replaces the whole roster (like registering with a print)
 • If OCR reads nothing, your current roster is kept
 
-A **match moderator** can also `/lobby cancel` with `match_id` if the host is gone.
+A **match moderator** can also `/lobby screenshot` or `/lobby cancel` with `match_id` if the host is gone.
 
 **Start rules**
 • Both teams need ≥1 human

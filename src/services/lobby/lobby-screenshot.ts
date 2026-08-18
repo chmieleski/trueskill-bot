@@ -5,7 +5,7 @@ import { MatchServiceError } from '../match/match-service.js';
 import { applyRosterAndSync, type LobbyActionResult } from './discord-sync.js';
 import { extractLobbyPlayers, type LobbyPlayer } from './lobby-ocr.js';
 import { assertRegisterLobbyAllowedForProfile } from './register-lobby-source.js';
-import { resolveHostPendingMatch } from './resolve.js';
+import { resolvePendingMatchForManage } from './resolve.js';
 
 const log = createLogger('lobby-screenshot');
 
@@ -93,19 +93,23 @@ async function profileForLeague(leagueId: string) {
 }
 
 /**
- * Host replaces a PENDING lobby roster from a Warcraft lobby screenshot.
+ * Host or match moderator replaces a PENDING lobby roster from a Warcraft lobby screenshot.
  * When OCR finds no players, the current roster is kept.
  */
 export async function refreshLobbyFromScreenshot(input: {
   client: Client;
-  hostDiscordId: string;
+  actorDiscordId: string;
+  memberRoleIds: string[];
+  matchModRoleId?: string;
   matchId?: string | null;
   attachmentUrl: string;
   mimeType: string;
 }): Promise<RefreshLobbyScreenshotResult> {
-  const { match, players: current } = await resolveHostPendingMatch({
-    hostDiscordId: input.hostDiscordId,
+  const { match, players: current } = await resolvePendingMatchForManage({
+    actorDiscordId: input.actorDiscordId,
     matchId: input.matchId,
+    memberRoleIds: input.memberRoleIds,
+    matchModRoleId: input.matchModRoleId,
   });
 
   const profile = await profileForLeague(match.leagueId);

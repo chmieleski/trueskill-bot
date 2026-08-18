@@ -152,7 +152,9 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName('screenshot')
-      .setDescription('Replace the lobby roster from a Warcraft lobby screenshot')
+      .setDescription(
+        'Replace the lobby roster from a Warcraft lobby screenshot (host or match moderator)',
+      )
       .addAttachmentOption((option) =>
         option
           .setName('print')
@@ -162,7 +164,7 @@ export const data = new SlashCommandBuilder()
       .addStringOption((option) =>
         option
           .setName('match_id')
-          .setDescription('Pending match id (required if you have more than one)')
+          .setDescription('Pending match id (required if several, or if you are not the host)')
           .setRequired(false),
       ),
   )
@@ -303,10 +305,15 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         );
       }
 
+      const matchModRoleId = interaction.guildId
+        ? (await resolveGuildConfig(interaction.guildId)).matchModRoleId
+        : undefined;
       const result = await refreshLobbyFromScreenshot({
         client: interaction.client,
-        hostDiscordId,
+        actorDiscordId: hostDiscordId,
         matchId,
+        memberRoleIds: memberRoleIds(interaction),
+        matchModRoleId,
         attachmentUrl: attachment.url,
         mimeType: resolveMimeType(attachment),
       });
