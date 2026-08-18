@@ -24,6 +24,8 @@ import {
 } from '../../services/release/release-embed.js';
 import { listPlayerChangelogChannels } from '../../services/release/release-config.js';
 import {
+  ALREADY_PUBLISHED,
+  ALREADY_SKIPPED,
   assertCanPublish,
   dismissRelease,
   markReleasePublished,
@@ -120,6 +122,8 @@ async function handleEdit(interaction: ButtonInteraction, version: string): Prom
     return;
   }
 
+  assertReleaseIsDraft(release.status);
+
   const notes = release.playerNotes.slice(0, PLAYER_NOTES_MAX);
   const input = new TextInputBuilder()
     .setCustomId(PLAYER_NOTES_FIELD)
@@ -149,6 +153,11 @@ async function handleModalSubmit(
     return;
   }
 
+  if (release.status !== 'draft') {
+    await finishClosedModal(interaction, release);
+    return;
+  }
+
   const playerNotes = interaction.fields.getTextInputValue(PLAYER_NOTES_FIELD);
   await savePlayerNotes(version, playerNotes);
   const updated = (await loadRelease(version)) ?? {
@@ -156,13 +165,18 @@ async function handleModalSubmit(
     playerNotes: playerNotes.trim().slice(0, PLAYER_NOTES_MAX),
   };
 
+  if (updated.status !== 'draft') {
+    await finishClosedModal(interaction, updated);
+    return;
+  }
+
   const payload = {
     embeds: [
       buildStaffReleaseEmbed({
         version: updated.version,
         playerNotes: updated.playerNotes,
         engineeringNotes: updated.engineeringNotes,
-        status: 'draft' as const,
+        status: 'draft',
       }),
     ],
     components: buildStaffReleaseButtons(updated.version, 'draft'),
@@ -174,6 +188,42 @@ async function handleModalSubmit(
   }
 
   await interaction.update(payload);
+}
+
+/**
+ * Restore the staff card to published/dismissed with no buttons. Skip when the
+ * modal is no longer bound to that message.
+ */
+async function finishClosedModal(
+  interaction: ModalSubmitInteraction,
+  release: ReleaseRow,
+): Promise<void> {
+  if (!interaction.isFromMessage()) {
+    await replyEphemeral(interaction, closedReleaseMessage(release.status));
+    return;
+  }
+
+  await interaction.update({
+    embeds: [
+      buildStaffReleaseEmbed({
+        version: release.version,
+        playerNotes: release.playerNotes,
+        engineeringNotes: release.engineeringNotes,
+        status: release.status,
+      }),
+    ],
+    components: [],
+  });
+}
+
+function assertReleaseIsDraft(status: ReleaseRow['status']): void {
+  if (status !== 'draft') {
+    throw new ReleaseServiceError(closedReleaseMessage(status));
+  }
+}
+
+function closedReleaseMessage(status: ReleaseRow['status']): string {
+  return status === 'published' ? ALREADY_PUBLISHED : ALREADY_SKIPPED;
 }
 
 async function handlePublish(interaction: ButtonInteraction, version: string): Promise<void> {
