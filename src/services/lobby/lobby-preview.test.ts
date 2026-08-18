@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BALANCE_HINT_DISCLAIMER,
   buildLobbyButtons,
   buildMatchCompletedEmbed,
   buildMatchInProgressEmbed,
@@ -394,7 +395,9 @@ describe('balance hint on embeds', () => {
     });
     const fields = embed.data.fields ?? [];
     const hint = fields.find((f) => f.name === 'Balance hint');
-    expect(hint?.value).toBe('Swap Alice (1) ↔ Bob (7) → ~52% / 48%');
+    expect(hint?.value).toBe(
+      `Swap Alice (1) ↔ Bob (7) → ~52% / 48%\n${BALANCE_HINT_DISCLAIMER}`,
+    );
   });
 
   it('lists up to three numbered balance hints', () => {
@@ -430,7 +433,7 @@ describe('balance hint on embeds', () => {
     const fields = embed.data.fields ?? [];
     const hint = fields.find((f) => f.name === 'Balance hint');
     expect(hint?.value).toBe(
-      '1. Swap Alice (1) ↔ Bob (7) → ~52% / 48%\n2. Move Bob (7) → empty slot 2 → ~51% / 49%',
+      `1. Swap Alice (1) ↔ Bob (7) → ~52% / 48%\n2. Move Bob (7) → empty slot 2 → ~51% / 49%\n${BALANCE_HINT_DISCLAIMER}`,
     );
   });
 

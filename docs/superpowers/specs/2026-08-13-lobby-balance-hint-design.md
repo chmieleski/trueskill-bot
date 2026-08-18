@@ -1,12 +1,13 @@
 # Lobby Balance Hint (OpenSkill) — Design
 
 **Date:** 2026-08-13  
+**Updated:** 2026-08-18 — always search; no 45–55% gate  
 **Status:** Approved for implementation planning  
-**Scope:** Advisory single-move balance suggestion on Match Lobby when win chance is outside 45–55%
+**Scope:** Advisory single-move (up to three) balance suggestion on Match Lobby whenever a strictly improving swap/move exists
 
 ## Goal
 
-When the Match Lobby rating preview shows an unbalanced win chance, show **one** suggested move that most improves fairness. The host applies it manually via existing Move/Swap controls. After each lobby sync, recompute; if still unbalanced, show the next best single move.
+On the Match Lobby rating preview, show suggested moves that most improve fairness. The host applies them manually via existing Move/Swap controls. After each lobby sync, recompute; if a strictly better single move exists, show it (up to three).
 
 This is **read-only advice**. Do not auto-apply roster changes. Do not use an LLM for this feature (may revisit later for copy only).
 
@@ -34,9 +35,9 @@ Unbalanced human fills (e.g. 4v6) are valid. Suggestions **may** change team siz
 
 | Topic | Choice |
 |-------|--------|
-| Algorithm | Greedy best **single** move (exhaustive candidates) |
+| Algorithm | Greedy best **single** move (exhaustive candidates; up to 3 shown) |
 | AI | None for now |
-| Unbalanced gate | Show only if win % outside **45–55%** (either team) |
+| Unbalanced gate | **None** — always search. Show if a strictly improving swap/move exists |
 | UX | Always on Match Lobby embed when a suggestion exists |
 | Apply | Advisory only — host uses Move/Swap |
 | Team size | Allow moves into empty slots (size may change) |
@@ -46,11 +47,12 @@ Unbalanced human fills (e.g. 4v6) are valid. Suggestions **may** change team siz
 
 ### Gate
 
-Run suggestion search only when:
+Run suggestion search when:
 
 1. Both teams have ≥1 human
 2. Current `winChance` exists
-3. `teamAPercent < 45` or `teamAPercent > 55` (equivalently either side outside 45–55)
+
+There is **no** 45–55% band. A 52/48 lobby still gets hints if a swap/move gets closer to 50/50. A true 50/50 (or any roster with no strictly improving candidate) omits the field.
 
 ### Candidates
 
@@ -84,11 +86,11 @@ If none improve, omit the hint.
 loadLobbyRatingPreview(roster)
   → ensure ratings (existing)
   → predictWin → winChance
-  → if unbalanced: suggestBalanceMove(rosterSnapshot, ratingLookup)
+  → suggestBalanceMoves(rosterSnapshot, ratingLookup)  // always, if both teams ≥1
       → enumerate swaps + empty-slot moves
       → score with predictWin (pure / in-memory)
-      → return BalanceSuggestion | undefined
-  → LobbyRatingPreview.balanceSuggestion?
+      → return BalanceSuggestion[] (empty if none improve)
+  → LobbyRatingPreview.balanceSuggestions?
   → buildMatchLobbyEmbed → optional Balance hint field
 ```
 
@@ -162,7 +164,7 @@ Do not show the Balance hint field (even if DTO carries it — prefer not comput
 
 | Case | Behavior |
 |------|----------|
-| Win % in 45–55 | No hint |
+| Win % 50/50 (or no improving move) | No hint |
 | Unbalanced but no improving move | No hint |
 | Move would empty a team | Skip candidate |
 | Missing destination hero rating | Cold-start defaults in lookup |
@@ -173,7 +175,7 @@ Do not show the Balance hint field (even if DTO carries it — prefer not comput
 
 Vitest unit tests for `lobby-balance` (and formatting if non-trivial):
 
-- Gate: 44/56 eligible, 45/55 not
+- Gate: always search when both teams have ≥1 human; 50/50 with no improving move omits; 52/48 still eligible
 - Improving swap/move selected; non-improving ignored
 - Candidates that empty a team rejected
 - Tie-break: swap over move; then lower `fromSlot`
@@ -196,3 +198,8 @@ No Discord integration tests.
 - Showing multiple alternative moves
 - Balance hint after match start
 - Global optimum full assignment search
+
+## References
+
+- ClickUp: [869ek4w9b](https://app.clickup.com/t/869ek4w9b) — *Always show lobby balance hint (no 45–55% gate)*
+- Original feature: [869ek4pwr](https://app.clickup.com/t/869ek4pwr) — *Lobby Balance Hint (OpenSkill)*

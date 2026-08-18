@@ -51,10 +51,6 @@ function emptySlotsForProfile(profile: GameProfile, occupied: Set<number>): numb
   return empty;
 }
 
-export function isUnbalancedWinChance(teamAPercent: number): boolean {
-  return teamAPercent < 45 || teamAPercent > 55;
-}
-
 function imbalance(teamAPercent: number): number {
   return Math.abs(50 - teamAPercent);
 }
@@ -181,7 +177,8 @@ export function dedupeEmptySlotMoves(candidates: BalanceSuggestion[]): BalanceSu
 
 /**
  * Returns up to {@link MAX_BALANCE_SUGGESTIONS} improving single moves, best first.
- * Same-player empty-slot destinations collapse to one entry (best free slot).
+ * Always searches (no win-chance band). Same-player empty-slot destinations
+ * collapse to one entry (best free slot).
  */
 export function suggestBalanceMoves(
   roster: BalanceRosterEntry[],
@@ -189,10 +186,6 @@ export function suggestBalanceMoves(
   currentWinChance: { teamAPercent: number; teamBPercent: number },
   profile?: GameProfile,
 ): BalanceSuggestion[] {
-  if (!isUnbalancedWinChance(currentWinChance.teamAPercent)) {
-    return [];
-  }
-
   if (!teamCountsOk(roster)) {
     return [];
   }
