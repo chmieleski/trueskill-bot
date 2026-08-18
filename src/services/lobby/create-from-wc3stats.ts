@@ -8,6 +8,7 @@ import {
   attachDiscordMessage,
   createPendingMatch,
   getMatchById,
+  hasMatchModRole,
   MatchServiceError,
 } from '../match/index.js';
 import {
@@ -123,6 +124,11 @@ export async function createMatchFromWc3statsLobby(
     discordChannelId: input.discordChannelId,
     players,
     wc3statsGameId,
+    bypassHostLobbyCap: hasMatchModRole({
+      actorDiscordId: input.hostDiscordId,
+      memberRoleIds: input.memberRoleIds,
+      matchModRoleId: guildConfig.matchModRoleId,
+    }),
   });
 
   const match = await getMatchById(created.matchId);

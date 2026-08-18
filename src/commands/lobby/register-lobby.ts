@@ -12,7 +12,7 @@ import {
   type ResolvedGuildConfig,
 } from '../../services/guild/index.js';
 import { nickForDiscordId } from '../../services/lobby/index.js';
-import { assertCanCreateMatch } from '../../services/match/index.js';
+import { assertCanCreateMatch, hasMatchModRole } from '../../services/match/index.js';
 import {
   attachDiscordMessage,
   createPendingMatch,
@@ -268,6 +268,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       discordChannelId: interaction.channelId,
       players,
       wc3statsGameId,
+      bypassHostLobbyCap: hasMatchModRole({
+        actorDiscordId: interaction.user.id,
+        memberRoleIds: memberRoleIds(interaction),
+        matchModRoleId: guildConfig?.matchModRoleId,
+      }),
     });
 
     const match = await getMatchById(created.matchId);
