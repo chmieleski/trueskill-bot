@@ -265,7 +265,7 @@ enum QuitterLeaderboardSort {
   rate
 }
 
-// GuildConfig - per-server bot settings (role overrides only; IHL fields moved to League)
+// GuildConfig - per-server bot settings (roles, quitter leaderboard, changelog channels). IHL fields stay on League.
 model GuildConfig {
   guildId                      String                     @id
   matchCreateRoleId            String?
@@ -275,6 +275,40 @@ model GuildConfig {
   quitterLeaderboardSize       Int                        @default(10)
   quitterLeaderboardDisplay    QuitterLeaderboardDisplay  @default(both)
   quitterLeaderboardSort       QuitterLeaderboardSort     @default(count)
+  changelogChannelId           String?
+  changelogDraftChannelId      String?
   createdAt                    DateTime                   @default(now())
   updatedAt                    DateTime                   @updatedAt
+}
+
+enum BotReleaseStatus {
+  draft
+  published
+  skipped
+}
+
+// Process-wide product version (not league-scoped). Staff draft → player fan-out.
+model BotRelease {
+  version           String           @id
+  engineeringNotes  String
+  playerNotes       String
+  status            BotReleaseStatus @default(draft)
+  draftGuildId      String?
+  draftChannelId    String?
+  draftMessageId    String?
+  publishedAt       DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  posts             BotReleasePost[]
+}
+
+model BotReleasePost {
+  version   String
+  guildId   String
+  channelId String
+  messageId String
+  release   BotRelease @relation(fields: [version], references: [version], onDelete: Cascade)
+
+  @@id([version, guildId])
+  @@index([guildId])
 }
