@@ -1,3 +1,10 @@
+## [1.6.1](https://github.com/chmieleski/trueskill-bot/compare/v1.6.0...v1.6.1) (2026-08-19)
+
+
+### Bug Fixes
+
+* **ci:** unblock deploy and format checks on main ([#54](https://github.com/chmieleski/trueskill-bot/issues/54)) ([b0d5b5f](https://github.com/chmieleski/trueskill-bot/commit/b0d5b5fd4a6de7fec38d8fa847cfa632e5f31a08))
+
 # [1.6.0](https://github.com/chmieleski/trueskill-bot/compare/v1.5.2...v1.6.0) (2026-08-19)
 
 
