@@ -23,7 +23,7 @@ const ROLLOVER_CANCEL_ACTION = 'x';
 
 const ACTIVE_MATCH_STATUSES = ['PENDING', 'IN_PROGRESS'] as const;
 
-export type LeagueResetMode = 'hard' | 'soft';
+export type LeagueResetMode = 'hard' | 'soft' | 'continue';
 
 export type SoftResetEntity = { mu: number; sigma: number };
 export type SoftResetHeroEntity = SoftResetEntity & {
@@ -155,6 +155,42 @@ export function seedSoftHeroRatings(
       matchesPlayed: 0,
     };
   });
+}
+
+/** Copy global μ and σ onto the successor with no compression or σ bump. */
+export function seedContinueGlobalRatings(
+  rows: Array<{ playerId: string; mu: number; sigma: number }>,
+): Array<{ playerId: string; mu: number; sigma: number }> {
+  return rows.map((row) => ({
+    playerId: row.playerId,
+    mu: row.mu,
+    sigma: row.sigma,
+  }));
+}
+
+/** Copy hero μ, σ, and matchesPlayed onto the successor unchanged. */
+export function seedContinueHeroRatings(
+  rows: Array<{
+    playerId: string;
+    heroId: number;
+    mu: number;
+    sigma: number;
+    matchesPlayed: number;
+  }>,
+): Array<{
+  playerId: string;
+  heroId: number;
+  mu: number;
+  sigma: number;
+  matchesPlayed: number;
+}> {
+  return rows.map((row) => ({
+    playerId: row.playerId,
+    heroId: row.heroId,
+    mu: row.mu,
+    sigma: row.sigma,
+    matchesPlayed: row.matchesPlayed,
+  }));
 }
 
 function rolloverActionCode(action: RolloverButtonAction): string {
@@ -304,7 +340,7 @@ function successorLeagueCreateData(source: League, successorName: string) {
 }
 
 function parseResetMode(value: string): LeagueResetMode {
-  if (value === 'hard' || value === 'soft') {
+  if (value === 'hard' || value === 'soft' || value === 'continue') {
     return value;
   }
   throw new LeagueRolloverError('That rollover confirmation is no longer valid.');
@@ -342,6 +378,10 @@ export async function previewLeagueRollover(
     input.sourceLeagueId,
     input.guildId,
   );
+
+  if (input.resetMode !== 'soft' && input.compression !== undefined) {
+    throw new LeagueRolloverError('Compression is only used with reset:soft.');
+  }
 
   const compression =
     input.resetMode === 'soft'
@@ -457,6 +497,48 @@ export async function applyLeagueRollover(
             playerId,
             mu: DEFAULT_MU,
             sigma: DEFAULT_SIGMA,
+          })),
+        });
+      }
+    } else if (resetMode === 'continue') {
+      const seededGlobals = seedContinueGlobalRatings(
+        globalRatings.map((row) => ({
+          playerId: row.playerId,
+          mu: row.mu,
+          sigma: row.sigma,
+        })),
+      );
+
+      if (seededGlobals.length > 0) {
+        await tx.playerRating.createMany({
+          data: seededGlobals.map((row) => ({
+            leagueId: successor.id,
+            playerId: row.playerId,
+            mu: row.mu,
+            sigma: row.sigma,
+          })),
+        });
+      }
+
+      const seededHeroes = seedContinueHeroRatings(
+        heroRatings.map((row) => ({
+          playerId: row.playerId,
+          heroId: row.heroId,
+          mu: row.mu,
+          sigma: row.sigma,
+          matchesPlayed: row.matchesPlayed,
+        })),
+      );
+
+      if (seededHeroes.length > 0) {
+        await tx.playerHeroRating.createMany({
+          data: seededHeroes.map((row) => ({
+            leagueId: successor.id,
+            playerId: row.playerId,
+            heroId: row.heroId,
+            mu: row.mu,
+            sigma: row.sigma,
+            matchesPlayed: row.matchesPlayed,
           })),
         });
       }
