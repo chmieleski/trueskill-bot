@@ -23,6 +23,7 @@ import {
   listLeaguesForGuild,
   previewLeagueRollover,
   resolveLeagueIdFromInteraction,
+  unbindDiscord,
   type LeagueBindingKind,
   type LeagueRolloverPreview,
   type LeagueResetMode,
