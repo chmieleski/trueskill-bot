@@ -2,7 +2,8 @@
 
 **Date:** 2026-08-19  
 **Status:** Approved  
-**Scope:** `general` (pending lobby cancel; same for every game/league)
+**Scope:** `general` (pending lobby cancel; same for every game/league)  
+**Plan:** `docs/superpowers/plans/2026-08-19-lobby-cancel-button.md`
 
 ## Goal
 
