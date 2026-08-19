@@ -28,6 +28,7 @@ export const LOBBY_CUSTOM_IDS = {
   claim: 'lobby:claim',
   leave: 'lobby:leave',
   refresh: 'lobby:refresh',
+  cancel: 'lobby:cancel',
   reportWinner: 'match:report',
   quitters: 'match:quitters',
   cancelInProgress: 'match:cancel',
@@ -610,6 +611,15 @@ export function buildLobbyButtons(
 
     rows.push(claimRow);
   }
+
+  rows.push(
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(LOBBY_CUSTOM_IDS.cancel)
+        .setLabel('Cancel')
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  );
 
   return rows;
 }
