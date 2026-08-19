@@ -6,16 +6,19 @@ const {
   applyLeagueRollover,
   cancelLeagueRolloverDraft,
   getLeagueById,
-  refreshLeagueLeaderboard,
+  deleteMessageBestEffort,
+  setupLiveLeaderboard,
 } = vi.hoisted(() => ({
   applyLeagueRollover: vi.fn(),
   cancelLeagueRolloverDraft: vi.fn(),
   getLeagueById: vi.fn(),
-  refreshLeagueLeaderboard: vi.fn(),
+  deleteMessageBestEffort: vi.fn(),
+  setupLiveLeaderboard: vi.fn(),
 }));
 
 vi.mock('../../services/leaderboard/index.js', () => ({
-  refreshLeagueLeaderboard,
+  deleteMessageBestEffort,
+  setupLiveLeaderboard,
 }));
 
 vi.mock('../../services/league/index.js', () => {
@@ -89,6 +92,8 @@ const rolloverResult = {
   compression: 0.5,
   playersSeeded: 12,
   bindingsMoved: 2,
+  sourceLeaderboardChannelId: 'channel-1',
+  sourceLeaderboardMessageId: 'msg-old',
 };
 
 describe('buildRolloverConfirmComponents', () => {
@@ -172,7 +177,7 @@ describe('handleLeagueRolloverInteraction', () => {
     });
   });
 
-  it('applies the rollover and refreshes the successor leaderboard when configured', async () => {
+  it('applies the rollover and posts the successor live board when configured', async () => {
     const interaction = buttonInteraction('lv:c:draft-1:actor-1');
 
     await expect(handleLeagueRolloverInteraction(interaction)).resolves.toBe(true);
@@ -182,10 +187,16 @@ describe('handleLeagueRolloverInteraction', () => {
       draftId: 'draft-1',
       actorDiscordId: 'actor-1',
     });
+    expect(deleteMessageBestEffort).toHaveBeenCalledWith(
+      interaction.client,
+      'channel-1',
+      'msg-old',
+    );
     expect(getLeagueById).toHaveBeenCalledWith('league-new');
-    expect(refreshLeagueLeaderboard).toHaveBeenCalledWith(
+    expect(setupLiveLeaderboard).toHaveBeenCalledWith(
       interaction.client,
       'league-new',
+      'channel-1',
     );
     expect(interaction.editReply).toHaveBeenCalledWith({
       content: [
@@ -200,7 +211,7 @@ describe('handleLeagueRolloverInteraction', () => {
     });
   });
 
-  it('skips leaderboard refresh when the successor has no channel configured', async () => {
+  it('skips live board setup when the successor has no channel configured', async () => {
     getLeagueById.mockResolvedValue({
       id: 'league-new',
       leaderboardChannelId: null,
@@ -208,10 +219,10 @@ describe('handleLeagueRolloverInteraction', () => {
     const interaction = buttonInteraction('lv:c:draft-1:actor-1');
 
     await expect(handleLeagueRolloverInteraction(interaction)).resolves.toBe(true);
-    expect(refreshLeagueLeaderboard).not.toHaveBeenCalled();
+    expect(setupLiveLeaderboard).not.toHaveBeenCalled();
   });
 
-  it('applies rollover and refreshes the successor leaderboard', async () => {
+  it('applies continue rollover and posts the successor live board', async () => {
     applyLeagueRollover.mockResolvedValue({
       archivedLeagueId: 'src',
       archivedLeagueName: 'Season 1',
@@ -221,6 +232,8 @@ describe('handleLeagueRolloverInteraction', () => {
       compression: null,
       playersSeeded: 4,
       bindingsMoved: 2,
+      sourceLeaderboardChannelId: 'channel-1',
+      sourceLeaderboardMessageId: 'msg-old',
     });
     getLeagueById.mockResolvedValue({
       id: 'dst',
@@ -234,7 +247,16 @@ describe('handleLeagueRolloverInteraction', () => {
       draftId: 'draft-1',
       actorDiscordId: 'actor-1',
     });
-    expect(refreshLeagueLeaderboard).toHaveBeenCalledWith(interaction.client, 'dst');
+    expect(deleteMessageBestEffort).toHaveBeenCalledWith(
+      interaction.client,
+      'channel-1',
+      'msg-old',
+    );
+    expect(setupLiveLeaderboard).toHaveBeenCalledWith(
+      interaction.client,
+      'dst',
+      'channel-1',
+    );
     expect(interaction.editReply).toHaveBeenCalledWith({
       content: [
         'Rollover complete.',
@@ -274,7 +296,7 @@ describe('handleLeagueRolloverInteraction', () => {
       content: 'That rollover confirmation is no longer valid.',
       components: [],
     });
-    expect(refreshLeagueLeaderboard).not.toHaveBeenCalled();
+    expect(setupLiveLeaderboard).not.toHaveBeenCalled();
   });
 
   it('shows duplicate name message when confirm hits a P2002 constraint', async () => {
@@ -287,6 +309,6 @@ describe('handleLeagueRolloverInteraction', () => {
         'A league with that name already exists for this game on this server.',
       components: [],
     });
-    expect(refreshLeagueLeaderboard).not.toHaveBeenCalled();
+    expect(setupLiveLeaderboard).not.toHaveBeenCalled();
   });
 });

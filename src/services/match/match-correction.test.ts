@@ -1,4 +1,24 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { leagueFindUnique, matchFindUnique, snapshotCount, matchPlayerFindFirst } = vi.hoisted(
+  () => ({
+    leagueFindUnique: vi.fn(),
+    matchFindUnique: vi.fn(),
+    snapshotCount: vi.fn(),
+    matchPlayerFindFirst: vi.fn(),
+  }),
+);
+
+vi.mock('../../lib/prisma.js', () => ({
+  prisma: {
+    league: { findUnique: leagueFindUnique },
+    match: { findUnique: matchFindUnique },
+    matchRatingSnapshot: { count: snapshotCount },
+    matchPlayer: { findFirst: matchPlayerFindFirst },
+  },
+}));
+
+import { LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
 import { MatchServiceError } from './match-service.js';
 import {
   CORRECTION_WINDOW_MS,
@@ -8,6 +28,7 @@ import {
   isWithinCorrectionWindow,
   parseMatchCorrectionButtonCustomId,
   buildMatchCorrectionConfirmCustomId,
+  previewMatchCorrection,
   writeMatchRatingSnapshots,
 } from './match-correction.js';
 
@@ -237,5 +258,30 @@ describe('assertSnapshotsComplete', () => {
 
     const complete = mockCorrectionDb({ snapshotCount: 4 });
     await expect(assertSnapshotsComplete('match-1', roster, complete.db)).resolves.toBeUndefined();
+  });
+});
+
+describe('previewMatchCorrection', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    matchFindUnique.mockResolvedValue({
+      id: 'match-1',
+      leagueId: 'league-1',
+      status: 'COMPLETED',
+      completedAt: new Date(),
+      players: [{ playerId: 'p1', heroId: 1 }],
+    });
+    snapshotCount.mockResolvedValue(2);
+    matchPlayerFindFirst.mockResolvedValue(null);
+  });
+
+  it('refuses when the match league is archived', async () => {
+    leagueFindUnique.mockResolvedValue({ status: 'ARCHIVED' });
+
+    const preview = await previewMatchCorrection('match-1');
+
+    expect(preview.canCorrect).toBe(false);
+    expect(preview.correctionBlockReason).toBe(LEAGUE_ARCHIVED_MESSAGE);
+    expect(snapshotCount).not.toHaveBeenCalled();
   });
 });

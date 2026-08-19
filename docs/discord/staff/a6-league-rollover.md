@@ -85,9 +85,9 @@ Example: a 5000 ki player and a 1200 ki player with `compression:0.5` both move 
 ✅ Rank-reset enable & cooldown  
 ✅ Host-prompt settings  
 ✅ Channel & category bindings  
+✅ Live leaderboard (old Discord message is removed; a new one is posted in the same channel)  
 
 ❌ Match history (stays on archived league)  
-❌ Live leaderboard message (re-run `/leaderboard setup` on the new league or wait for post-match refresh)  
 ❌ Per-player rank-reset cooldown history  
 
 ---
@@ -96,8 +96,9 @@ Example: a 5000 ki player and a 1200 ki player with `compression:0.5` both move 
 
 • `/league list` shows **Active** and **Archived** sections.  
 • Players use the same channels — bindings already point at the new league.  
+• Confirm **posts a new live board** on the successor (continue looks like the freeze; soft/hard show the reset). You do not need to wait for a match or re-run `/leaderboard setup`.  
 • View old season: `/match list` or `/leaderboard` with the **archived** league selected.  
-• Archived leagues **cannot** register lobbies, import wc3stats, or run `/rank_reset`.
+• Archived leagues **cannot** register lobbies, import wc3stats, run `/rank_reset`, correct matches, or `/leaderboard setup`.
 
 ---
 

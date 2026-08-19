@@ -66,6 +66,8 @@ export type LeagueRolloverResult = {
   compression: number | null;
   playersSeeded: number;
   bindingsMoved: number;
+  sourceLeaderboardChannelId: string | null;
+  sourceLeaderboardMessageId: string | null;
 };
 
 export type RolloverButtonAction = 'confirm' | 'cancel';
@@ -465,6 +467,9 @@ export async function applyLeagueRollover(
     );
   }
 
+  const sourceLeaderboardChannelId = source.leaderboardChannelId;
+  const sourceLeaderboardMessageId = source.leaderboardMessageId;
+
   const resetMode = parseResetMode(draft.resetMode);
   const compression = draft.compression;
 
@@ -634,6 +639,8 @@ export async function applyLeagueRollover(
       compression,
       playersSeeded: playerIds.size,
       bindingsMoved: bindingsMoved.count,
+      sourceLeaderboardChannelId,
+      sourceLeaderboardMessageId,
     };
   });
 
