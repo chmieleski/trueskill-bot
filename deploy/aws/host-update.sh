@@ -68,6 +68,12 @@ fi
 echo "==> Stopping dbz-bot for install/build"
 systemctl stop dbz-bot || true
 
+# package-lock.json may still reference git+ssh:// for GitHub deps; EC2 has no deploy keys.
+echo "==> Configuring git for HTTPS GitHub deps (openskill, etc.)"
+sudo -u "${APP_USER}" git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+sudo -u "${APP_USER}" git config --global url."https://github.com/".insteadOf git@github.com:
+sudo -u "${APP_USER}" git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
+
 echo "==> Installing, migrating, building, registering commands"
 sudo -u "${APP_USER}" bash -lc "cd '${APP_DIR}' && npm ci && npx prisma migrate deploy && npm run build && npm run deploy-commands"
 
