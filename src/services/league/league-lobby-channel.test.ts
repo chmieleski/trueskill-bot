@@ -296,6 +296,7 @@ describe('isLobbyChannelAllowedCommand', () => {
     expect(isLobbyChannelAllowedCommand('match', 'cancel')).toBe(true);
     expect(isLobbyChannelAllowedCommand('match', 'quitters')).toBe(true);
     expect(isLobbyChannelAllowedCommand('match', 'history')).toBe(false);
+    expect(isLobbyChannelAllowedCommand('match', 'list')).toBe(false);
     expect(isLobbyChannelAllowedCommand('match', 'show')).toBe(false);
     expect(isLobbyChannelAllowedCommand('match', 'flip')).toBe(false);
     expect(isLobbyChannelAllowedCommand('match', 'void')).toBe(false);
