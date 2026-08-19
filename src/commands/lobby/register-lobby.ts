@@ -267,6 +267,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       discordChannelId: interaction.channelId,
       players,
       wc3statsGameId,
+      lobbyRosterAuthorityAt: attachment ? new Date() : undefined,
       bypassHostLobbyCap: hasMatchModRole({
         actorDiscordId: interaction.user.id,
         memberRoleIds: memberRoleIds(interaction),

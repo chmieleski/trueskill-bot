@@ -1,8 +1,12 @@
 import type { Attachment, Client } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import { getGameProfileForLeague, LeagueNotFoundError } from '../league/league-profile.js';
-import { MatchServiceError } from '../match/match-service.js';
-import { applyRosterAndSync, type LobbyActionResult } from './discord-sync.js';
+import { MatchServiceError, touchLobbyRosterAuthority } from '../match/match-service.js';
+import {
+  applyRosterAndSync,
+  syncLobbyDiscordMessage,
+  type LobbyActionResult,
+} from './discord-sync.js';
 import { extractLobbyPlayers, type LobbyPlayer } from './lobby-ocr.js';
 import { assertRegisterLobbyAllowedForProfile } from './register-lobby-source.js';
 import { resolvePendingMatchForManage } from './resolve.js';
@@ -121,12 +125,14 @@ export async function refreshLobbyFromScreenshot(input: {
   const extracted = await tryExtractLobbyPlayers(input.attachmentUrl, input.mimeType);
 
   if (extracted.length === 0) {
+    const touched = await touchLobbyRosterAuthority(match.id);
+    await syncLobbyDiscordMessage(input.client, touched, 'pending');
     log.info(
       { matchId: match.id, previousCount: current.length },
-      'Screenshot OCR empty; kept existing roster',
+      'Screenshot OCR empty; kept existing roster and marked authority',
     );
     return {
-      match,
+      match: touched,
       players: current,
       keptExisting: true,
       message: OCR_EMPTY_MESSAGE,

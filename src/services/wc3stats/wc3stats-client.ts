@@ -1,3 +1,5 @@
+import { parseWc3statsRosterObservedAt } from './wc3stats-freshness.js';
+
 export class Wc3statsClientError extends Error {
   constructor(message: string) {
     super(message);
@@ -37,6 +39,7 @@ export type Wc3statsGameDetail = {
     isObserver?: boolean;
     player?: { name?: string | null; battleTag?: string | null } | null;
   }>;
+  rosterObservedAt?: Date | null;
 };
 
 const LIST_URL = 'https://api.wc3stats.com/gamelist';
@@ -160,6 +163,7 @@ function parseGameDetail(value: unknown): Wc3statsGameDetail | null {
     slotsTaken: asNumber(row.slotsTaken ?? row.numPlayers),
     numSlots: asNumber(row.numSlots ?? row.num_slots) || undefined,
     slots,
+    rosterObservedAt: parseWc3statsRosterObservedAt(row.rosterObservedAt ?? row.roster_observed_at),
   };
 }
 

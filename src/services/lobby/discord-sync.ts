@@ -168,7 +168,9 @@ export async function applyRosterAndSync(
   matchId: string,
   nextPlayers: LobbyPlayer[],
 ): Promise<LobbyActionResult> {
-  const updated = await replaceMatchRoster(matchId, nextPlayers);
+  const updated = await replaceMatchRoster(matchId, nextPlayers, {
+    markLobbyRosterAuthority: true,
+  });
   await syncLobbyDiscordMessage(client, updated, 'pending');
   return { match: updated, players: matchToLobbyPlayers(updated) };
 }

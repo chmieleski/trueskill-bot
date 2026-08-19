@@ -49,7 +49,14 @@ export interface CreatePendingMatchInput {
   players: LobbyPlayer[];
   wc3statsGameId?: string | null;
   bypassHostLobbyCap?: boolean;
+  /** Set when roster authority comes from a screenshot at register time. */
+  lobbyRosterAuthorityAt?: Date | null;
 }
+
+export type ReplaceMatchRosterOptions = {
+  /** Record screenshot/manual edit time so wc3stats cannot overwrite with older data. */
+  markLobbyRosterAuthority?: boolean;
+};
 
 function mapHeroCatalogError(error: unknown): never {
   if (error instanceof HeroCatalogError) {
@@ -385,6 +392,7 @@ export async function createPendingMatch(
         hostDiscordId: input.hostDiscordId,
         discordChannelId: input.discordChannelId,
         wc3statsGameId,
+        lobbyRosterAuthorityAt: input.lobbyRosterAuthorityAt ?? undefined,
         players: {
           create: resolved.map((entry) => ({
             playerId: entry.playerId,
@@ -504,6 +512,7 @@ export function matchToLobbyPlayers(match: MatchWithPlayers): LobbyPlayer[] {
 export async function replaceMatchRoster(
   matchId: string,
   players: LobbyPlayer[],
+  options: ReplaceMatchRosterOptions = {},
 ): Promise<MatchWithPlayers> {
   const existingMatch = await prisma.match.findUnique({ where: { id: matchId } });
   if (!existingMatch) {
@@ -558,6 +567,13 @@ export async function replaceMatchRoster(
       });
     }
 
+    if (options.markLobbyRosterAuthority) {
+      await tx.match.update({
+        where: { id: matchId },
+        data: { lobbyRosterAuthorityAt: new Date() },
+      });
+    }
+
     return tx.match.findUniqueOrThrow({
       where: { id: matchId },
       include: {
@@ -575,6 +591,40 @@ export async function replaceMatchRoster(
   );
 
   return updated;
+}
+
+/**
+ * Mark manual/screenshot roster authority without changing players (e.g. OCR found nothing).
+ */
+export async function touchLobbyRosterAuthority(matchId: string): Promise<MatchWithPlayers> {
+  const existing = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: {
+      players: {
+        include: { player: true },
+        orderBy: { slot: 'asc' },
+      },
+    },
+  });
+
+  if (!existing) {
+    throw new MatchServiceError('This match lobby was not found.');
+  }
+
+  if (existing.status !== 'PENDING') {
+    throw new MatchServiceError('This match can no longer be edited.');
+  }
+
+  return prisma.match.update({
+    where: { id: matchId },
+    data: { lobbyRosterAuthorityAt: new Date() },
+    include: {
+      players: {
+        include: { player: true },
+        orderBy: { slot: 'asc' },
+      },
+    },
+  });
 }
 
 /**
