@@ -18,12 +18,17 @@ jobs:
       DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
       DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/ci
       GEMINI_API_KEY: ci
+      HUSKY: "0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
+      - run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+      - run: 'git config --global url."https://github.com/".insteadOf git@github.com:'
+      - run: git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
+      - run: npm install -g npm@11
       - run: npm ci
       - run: npx prisma generate
       - run: npm test
@@ -34,12 +39,18 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      HUSKY: "0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
+      - run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+      - run: 'git config --global url."https://github.com/".insteadOf git@github.com:'
+      - run: git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
+      - run: npm install -g npm@11
       - run: npm ci
       - name: Lint PR title
         env:
@@ -55,6 +66,8 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
+    env:
+      HUSKY: "0"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -64,6 +77,10 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+      - run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+      - run: 'git config --global url."https://github.com/".insteadOf git@github.com:'
+      - run: git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
+      - run: npm install -g npm@11
       - run: npm ci
       - run: npx semantic-release
         env:
