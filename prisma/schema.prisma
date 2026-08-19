@@ -198,6 +198,8 @@ model Match {
   discordChannelId String
   discordMessageId String?       @unique
   wc3statsGameId   String?
+  /// Last screenshot upload or manual roster edit; wc3stats Refresh must beat this.
+  lobbyRosterAuthorityAt DateTime?
   leagueId         String
   completedAt      DateTime?
   createdAt        DateTime      @default(now())

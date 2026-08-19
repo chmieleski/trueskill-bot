@@ -43,7 +43,7 @@ export type ResolveWc3statsLobbyResult =
     };
 
 export type ImportWc3statsLobbyResult =
-  | { ok: true; gameId: string; roster: Wc3statsRosterResult }
+  | { ok: true; gameId: string; roster: Wc3statsRosterResult; rosterObservedAt: Date | null }
   | {
       ok: false;
       code: 'not_found' | 'ambiguous' | 'not_udbr' | 'unavailable';
@@ -216,6 +216,7 @@ function importFromLoadedDetail(
     ok: true,
     gameId: String(detail.id),
     roster: extractWc3statsRoster(detail, { slotMap }),
+    rosterObservedAt: detail.rosterObservedAt ?? null,
   };
 }
 

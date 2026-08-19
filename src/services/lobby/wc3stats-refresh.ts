@@ -20,6 +20,10 @@ import {
   type ImportWc3statsLobbyResult,
 } from '../wc3stats/wc3stats-resolve.js';
 import { applyWc3statsRefresh } from '../wc3stats/wc3stats-roster.js';
+import {
+  isWc3statsRosterFresh,
+  wc3statsStaleRefreshMessage,
+} from '../wc3stats/wc3stats-freshness.js';
 import { loadLeagueWc3statsHeroSlotMap } from '../wc3stats/wc3stats-slot-map.js';
 import { syncLobbyDiscordMessage, type LobbyActionResult } from './discord-sync.js';
 import { nickForDiscordId } from './lobby-identity.js';
@@ -215,6 +219,30 @@ export async function refreshLobbyFromWc3stats(input: {
   const current = matchToLobbyPlayers(linked);
   const applied = applyWc3statsRefresh(current, imported.roster);
   const gameId = linked.wc3statsGameId;
+  const rosterFresh = isWc3statsRosterFresh({
+    rosterObservedAt: imported.rosterObservedAt,
+    lobbyRosterAuthorityAt: linked.lobbyRosterAuthorityAt,
+  });
+
+  if (!rosterFresh && !applied.keptExisting) {
+    const staleMessage = wc3statsStaleRefreshMessage({
+      rosterObservedAt: imported.rosterObservedAt,
+      lobbyRosterAuthorityAt: linked.lobbyRosterAuthorityAt,
+    });
+    await syncLobbyDiscordMessage(input.client, linked, 'pending');
+    return {
+      match: linked,
+      players: current,
+      keptExisting: true,
+      warning: staleMessage,
+      boundNow,
+      message: refreshResultMessage({
+        boundNow,
+        gameId,
+        warning: staleMessage,
+      }),
+    };
+  }
 
   if (applied.keptExisting) {
     await syncLobbyDiscordMessage(input.client, linked, 'pending');

@@ -72,6 +72,7 @@ describe('wc3stats client', () => {
               sha1: 'abc',
             },
             numPlayers: 2,
+            rosterObservedAt: '2026-08-19T18:30:00.000Z',
             slots: [{ status: 'occupied', player: { name: 'Alice' } }],
           },
         }),
@@ -87,6 +88,7 @@ describe('wc3stats client', () => {
       name: undefined,
     });
     expect(detail.slots).toHaveLength(1);
+    expect(detail.rosterObservedAt?.toISOString()).toBe('2026-08-19T18:30:00.000Z');
   });
 
   it('throws on non-OK responses', async () => {
