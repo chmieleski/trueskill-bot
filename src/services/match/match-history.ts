@@ -16,6 +16,7 @@ import {
   MatchServiceError,
   type MatchWithPlayers,
 } from './match-service.js';
+import { compactUuidForCustomId, expandUuidFromCustomId } from './compact-custom-id.js';
 import {
   countCompletedGamesThrough,
   loadLatestRankResetAtByPlayer,
@@ -103,23 +104,6 @@ export function winningTeamFromPlayers(
   return players.some((player) => player.result === 'WIN' && player.team === 1) ? 1 : 2;
 }
 
-const UUID_HYPHENATED =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const UUID_COMPACT = /^[0-9a-f]{32}$/i;
-
-/** Strip UUID hyphens so two 36-char ids + snowflake fit Discord's 100-char customId. */
-function compactHistoryId(id: string): string {
-  return UUID_HYPHENATED.test(id) ? id.replace(/-/g, '') : id;
-}
-
-/** Restore hyphenated UUID form for Prisma lookups. */
-function expandHistoryId(id: string): string {
-  if (!UUID_COMPACT.test(id)) {
-    return id;
-  }
-  return `${id.slice(0, 8)}-${id.slice(8, 12)}-${id.slice(12, 16)}-${id.slice(16, 20)}-${id.slice(20)}`;
-}
-
 /** Discord customId max 100. Player ids are UUIDs; some league ids are too (legacy). */
 export function buildMatchHistoryPageCustomId(
   invokerId: string,
@@ -129,7 +113,7 @@ export function buildMatchHistoryPageCustomId(
   currentPage: number,
 ): string {
   const dirToken = direction === 'prev' ? 'p' : 'n';
-  return `mh:p:${invokerId}:${compactHistoryId(playerId)}:${compactHistoryId(leagueId)}:${dirToken}:${currentPage}`;
+  return `mh:p:${invokerId}:${compactUuidForCustomId(playerId)}:${compactUuidForCustomId(leagueId)}:${dirToken}:${currentPage}`;
 }
 
 export function parseMatchHistoryPageCustomId(
@@ -146,8 +130,8 @@ export function parseMatchHistoryPageCustomId(
     return null;
   }
   const invokerId = parts[2]!;
-  const playerId = expandHistoryId(parts[3]!);
-  const leagueId = expandHistoryId(parts[4]!);
+  const playerId = expandUuidFromCustomId(parts[3]!);
+  const leagueId = expandUuidFromCustomId(parts[4]!);
   if (!invokerId || !playerId || !leagueId) {
     return null;
   }
