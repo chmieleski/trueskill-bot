@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/chmieleski/trueskill-bot/compare/v1.2.0...v1.3.0) (2026-08-19)
+
+
+### Features
+
+* **league:** season rollover with hard and soft reset ([#44](https://github.com/chmieleski/trueskill-bot/issues/44)) ([392f0b5](https://github.com/chmieleski/trueskill-bot/commit/392f0b5bc299ecd88adb646b3d6b0cfa6224aa01))
+
 # [1.2.0](https://github.com/chmieleski/trueskill-bot/compare/v1.1.0...v1.2.0) (2026-08-19)
 
 
