@@ -3,7 +3,7 @@
 **Date:** 2026-08-19  
 **Status:** Approved  
 **Scope:** `general` (host lobby roster; keyed by `leagueId` via existing pending-match resolve)  
-**Plan:** written after this spec is signed off (`docs/superpowers/plans/2026-08-19-lobby-swap-pairs.md`)
+**Plan:** `docs/superpowers/plans/2026-08-19-lobby-swap-pairs.md`
 
 ## Goal
 
