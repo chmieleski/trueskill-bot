@@ -7,7 +7,12 @@ import {
 import { MatchServiceError } from '../match/match-service.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
 import { movePlayer } from './roster.js';
-import { applyRemapPairs, parseRemapPairs, resolveRemapSide } from './remap.js';
+import {
+  applyRemapPairs,
+  parseRemapPairs,
+  resolveRemapSide,
+  resolveSwapForm,
+} from './remap.js';
 
 const udbr = getGameProfile(WARCRAFT3_UDBR_GAME_ID);
 const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
@@ -157,5 +162,48 @@ describe('applyRemapPairs', () => {
     const snapshot = structuredClone(players);
     expect(() => applyRemapPairs(players, '1-7, 99-1', udbr)).toThrow(MatchServiceError);
     expect(players).toEqual(snapshot);
+  });
+});
+
+describe('resolveSwapForm', () => {
+  it('returns classic when both slots are set and pairs is blank', () => {
+    expect(resolveSwapForm({ slotA: 1, slotB: 7, pairs: null })).toEqual({
+      kind: 'classic',
+      slotA: 1,
+      slotB: 7,
+    });
+    expect(resolveSwapForm({ slotA: 1, slotB: 7, pairs: '  ' })).toEqual({
+      kind: 'classic',
+      slotA: 1,
+      slotB: 7,
+    });
+  });
+
+  it('returns pairs when only pairs is set', () => {
+    expect(resolveSwapForm({ slotA: null, slotB: null, pairs: ' 1-7 ' })).toEqual({
+      kind: 'pairs',
+      pairs: '1-7',
+    });
+  });
+
+  it('rejects neither form', () => {
+    expect(() => resolveSwapForm({ slotA: null, slotB: null, pairs: null })).toThrow(
+      'Provide slot_a and slot_b, or pairs.',
+    );
+  });
+
+  it('rejects both forms', () => {
+    expect(() => resolveSwapForm({ slotA: 1, slotB: 7, pairs: '1-7' })).toThrow(
+      'Use either slot_a and slot_b, or pairs, not both.',
+    );
+  });
+
+  it('rejects a single slot option', () => {
+    expect(() => resolveSwapForm({ slotA: 1, slotB: null, pairs: null })).toThrow(
+      'Provide both slot_a and slot_b, or use pairs instead.',
+    );
+    expect(() => resolveSwapForm({ slotA: null, slotB: 7, pairs: '1-7' })).toThrow(
+      'Use either slot_a and slot_b, or pairs, not both.',
+    );
   });
 });
