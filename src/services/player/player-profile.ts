@@ -3,7 +3,9 @@ import { normalizeNick } from './player-nick.js';
 import { displayOrdinal, isCalibrating } from '../rating/rating-math.js';
 import {
   gamesByPlayerFromStats,
-  loadMatchDisplayStatsByPlayer,
+  heroStatsFor,
+  loadMatchDisplayStats,
+  winRatePercent,
 } from '../rating/rank-reset-display.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
 
@@ -25,6 +27,9 @@ export type PlayerProfileHero = {
   name: string;
   ki: number;
   matchesPlayed: number;
+  wins: number;
+  losses: number;
+  winRatePercent: number | null;
 };
 
 export type PlayerProfile = {
@@ -137,25 +142,25 @@ export async function loadPlayerProfile(
 
   const includeHeroes = gameProfile.heroBinding === 'slot_bound';
 
-  const [rating, allRatings, heroRatings, displayStatsByPlayer] =
-    await Promise.all([
-      prisma.playerRating.findUnique({
-        where: { leagueId_playerId: { leagueId, playerId: player.id } },
-      }),
-      prisma.playerRating.findMany({
-        where: { leagueId },
-        select: { playerId: true, mu: true, sigma: true },
-      }),
-      includeHeroes
-        ? prisma.playerHeroRating.findMany({
-            where: { leagueId, playerId: player.id, matchesPlayed: { gt: 0 } },
-            include: { hero: true },
-          })
-        : Promise.resolve([]),
-      // W/L/games/quits and soft-ki z restart after the player's latest rank reset.
-      loadMatchDisplayStatsByPlayer(leagueId),
-    ]);
+  const [rating, allRatings, heroRatings, displayStats] = await Promise.all([
+    prisma.playerRating.findUnique({
+      where: { leagueId_playerId: { leagueId, playerId: player.id } },
+    }),
+    prisma.playerRating.findMany({
+      where: { leagueId },
+      select: { playerId: true, mu: true, sigma: true },
+    }),
+    includeHeroes
+      ? prisma.playerHeroRating.findMany({
+          where: { leagueId, playerId: player.id, matchesPlayed: { gt: 0 } },
+          include: { hero: true },
+        })
+      : Promise.resolve([]),
+    // W/L/games/quits and soft-ki z restart after the player's latest rank reset.
+    loadMatchDisplayStats(leagueId),
+  ]);
 
+  const displayStatsByPlayer = displayStats.byPlayer;
   const gamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
   const mine = displayStatsByPlayer.get(player.id) ?? {
     games: 0,
@@ -181,15 +186,20 @@ export async function loadPlayerProfile(
   const rankPosition = isCalibrating(games)
     ? null
     : competitionRank(globalKi, calibratedKis);
-  const winRatePercent =
-    games > 0 ? Math.round((wins / games) * 1000) / 10 : null;
+  const winRatePercentValue = winRatePercent(wins, losses);
   const heroes: PlayerProfileHero[] = heroRatings
-    .map((row) => ({
-      heroId: row.heroId,
-      name: row.hero.name,
-      ki: displayOrdinal(row.mu, row.sigma, row.matchesPlayed),
-      matchesPlayed: row.matchesPlayed,
-    }))
+    .map((row) => {
+      const heroWl = heroStatsFor(displayStats.byHero, player.id, row.heroId);
+      return {
+        heroId: row.heroId,
+        name: row.hero.name,
+        ki: displayOrdinal(row.mu, row.sigma, row.matchesPlayed),
+        matchesPlayed: row.matchesPlayed,
+        wins: heroWl.wins,
+        losses: heroWl.losses,
+        winRatePercent: winRatePercent(heroWl.wins, heroWl.losses),
+      };
+    })
     .sort((a, b) => b.ki - a.ki || a.name.localeCompare(b.name));
 
   return {
@@ -201,7 +211,7 @@ export async function loadPlayerProfile(
     wins,
     losses,
     quits,
-    winRatePercent,
+    winRatePercent: winRatePercentValue,
     heroes,
   };
 }
