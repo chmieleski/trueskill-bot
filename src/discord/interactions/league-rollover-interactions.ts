@@ -50,7 +50,7 @@ export function buildRolloverConfirmComponents(input: {
         .setCustomId(
           buildRolloverConfirmCustomId(input.draftId, input.actorDiscordId),
         )
-        .setLabel('Confirm')
+        .setLabel('Confirm rollover')
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId(

@@ -92,7 +92,7 @@ const rolloverResult = {
 };
 
 describe('buildRolloverConfirmComponents', () => {
-  it('builds confirm and cancel buttons', () => {
+  it('builds actor-bound confirm and cancel buttons', () => {
     const [row] = buildRolloverConfirmComponents({
       draftId: 'draft-1',
       actorDiscordId: 'actor-1',
@@ -104,7 +104,7 @@ describe('buildRolloverConfirmComponents', () => {
         {
           type: 2,
           custom_id: 'lv:c:draft-1:actor-1',
-          label: 'Confirm',
+          label: 'Confirm rollover',
           style: ButtonStyle.Danger,
         },
         {
@@ -129,6 +129,12 @@ describe('handleLeagueRolloverInteraction', () => {
     });
   });
 
+  it('returns false for non-lv custom ids', async () => {
+    expect(await handleLeagueRolloverInteraction(buttonInteraction('rr:c:x:y:z'))).toBe(
+      false,
+    );
+  });
+
   it('ignores unrelated interactions', async () => {
     const interaction = buttonInteraction('leaderboard:overall:1');
 
@@ -142,20 +148,23 @@ describe('handleLeagueRolloverInteraction', () => {
     expect(interaction.reply).not.toHaveBeenCalled();
   });
 
-  it('rejects a click from someone other than the initiating actor', async () => {
-    const interaction = buttonInteraction('lv:c:draft-1:actor-2');
+  it('rejects a different actor', async () => {
+    const interaction = buttonInteraction('lv:c:draft-1:actor-1', {
+      user: { id: 'other' },
+    });
 
-    await expect(handleLeagueRolloverInteraction(interaction)).resolves.toBe(true);
+    expect(await handleLeagueRolloverInteraction(interaction)).toBe(true);
     expect(interaction.reply).toHaveBeenCalledWith({
       content: 'Only the person who ran /league rollover can use these buttons.',
       flags: MessageFlags.Ephemeral,
     });
+    expect(applyLeagueRollover).not.toHaveBeenCalled();
   });
 
-  it('cancels and removes the confirmation buttons', async () => {
+  it('cancels the draft', async () => {
     const interaction = buttonInteraction('lv:x:draft-1:actor-1');
 
-    await expect(handleLeagueRolloverInteraction(interaction)).resolves.toBe(true);
+    await handleLeagueRolloverInteraction(interaction);
     expect(cancelLeagueRolloverDraft).toHaveBeenCalledWith('draft-1', 'actor-1');
     expect(interaction.update).toHaveBeenCalledWith({
       content: 'Rollover cancelled.',
@@ -200,6 +209,43 @@ describe('handleLeagueRolloverInteraction', () => {
 
     await expect(handleLeagueRolloverInteraction(interaction)).resolves.toBe(true);
     expect(refreshLeagueLeaderboard).not.toHaveBeenCalled();
+  });
+
+  it('applies rollover and refreshes the successor leaderboard', async () => {
+    applyLeagueRollover.mockResolvedValue({
+      archivedLeagueId: 'src',
+      archivedLeagueName: 'Season 1',
+      successorLeagueId: 'dst',
+      successorLeagueName: 'Season 1.5',
+      resetMode: 'continue',
+      compression: null,
+      playersSeeded: 4,
+      bindingsMoved: 2,
+    });
+    getLeagueById.mockResolvedValue({
+      id: 'dst',
+      leaderboardChannelId: 'channel-1',
+    });
+    const interaction = buttonInteraction('lv:c:draft-1:actor-1');
+
+    await handleLeagueRolloverInteraction(interaction);
+
+    expect(applyLeagueRollover).toHaveBeenCalledWith({
+      draftId: 'draft-1',
+      actorDiscordId: 'actor-1',
+    });
+    expect(refreshLeagueLeaderboard).toHaveBeenCalledWith(interaction.client, 'dst');
+    expect(interaction.editReply).toHaveBeenCalledWith({
+      content: [
+        'Rollover complete.',
+        '• Archived: **Season 1** (`src`)',
+        '• Successor: **Season 1.5** (`dst`)',
+        '• Reset: continue',
+        '• Players seeded: 4',
+        '• Bindings moved: 2',
+      ].join('\n'),
+      components: [],
+    });
   });
 
   it('shows hard-reset success copy without compression', async () => {
