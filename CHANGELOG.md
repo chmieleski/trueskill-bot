@@ -1,3 +1,10 @@
+## [1.5.2](https://github.com/chmieleski/trueskill-bot/compare/v1.5.1...v1.5.2) (2026-08-19)
+
+
+### Bug Fixes
+
+* **leaderboard:** align games column with dynamic padding ([#48](https://github.com/chmieleski/trueskill-bot/issues/48)) ([b99af8b](https://github.com/chmieleski/trueskill-bot/commit/b99af8b1972401e6d08f82bc122e8fb10eb497d0))
+
 ## [1.5.1](https://github.com/chmieleski/trueskill-bot/compare/v1.5.0...v1.5.1) (2026-08-19)
 
 
