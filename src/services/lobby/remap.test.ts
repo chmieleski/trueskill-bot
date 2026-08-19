@@ -6,7 +6,8 @@ import {
 } from '../../domain/games.js';
 import { MatchServiceError } from '../match/match-service.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
-import { parseRemapPairs, resolveRemapSide } from './remap.js';
+import { movePlayer } from './roster.js';
+import { applyRemapPairs, parseRemapPairs, resolveRemapSide } from './remap.js';
 
 const udbr = getGameProfile(WARCRAFT3_UDBR_GAME_ID);
 const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
@@ -91,5 +92,70 @@ describe('parseRemapPairs', () => {
     expect(() => parseRemapPairs('1-')).toThrow(
       'Invalid pair "1-". Use like 1-7 or Gohan-4.',
     );
+  });
+});
+
+describe('applyRemapPairs', () => {
+  it('swaps when the destination is occupied', () => {
+    const players = roster([1, 'a'], [7, 'b']);
+    expect(applyRemapPairs(players, '1-7', udbr)).toEqual(
+      movePlayer(players, 1, 7, udbr),
+    );
+  });
+
+  it('moves when the destination is empty', () => {
+    const players = roster([1, 'a']);
+    expect(applyRemapPairs(players, '1-7', udbr)).toEqual(
+      movePlayer(players, 1, 7, udbr),
+    );
+  });
+
+  it('applies overlapping pairs left to right', () => {
+    const players = roster([1, 'a'], [7, 'b'], [3, 'c']);
+    const afterFirst = movePlayer(players, 1, 7, udbr);
+    const expected = movePlayer(afterFirst, 7, 3, udbr);
+    expect(applyRemapPairs(players, '1-7, 7-3', udbr)).toEqual(expected);
+  });
+
+  it('resolves nicks against the roster after previous pairs', () => {
+    const players = roster([1, 'gohan'], [7, 'vegeta']);
+    const afterSwap = movePlayer(players, 1, 7, udbr);
+    const expected = movePlayer(afterSwap, 7, 4, udbr);
+    expect(applyRemapPairs(players, '1-7, Gohan-4', udbr)).toEqual(expected);
+  });
+
+  it('moves a hyphenated nick via last-dash parse', () => {
+    const players = roster([1, 'cool-guy']);
+    expect(applyRemapPairs(players, 'cool-guy-7', udbr)).toEqual(
+      movePlayer(players, 1, 7, udbr),
+    );
+  });
+
+  it('does not wrap parse errors with Could not apply', () => {
+    expect(() => applyRemapPairs([], '17', udbr)).toThrow(MatchServiceError);
+    try {
+      applyRemapPairs([], '17', udbr);
+    } catch (error) {
+      expect((error as Error).message).toBe(
+        'Invalid pair "17". Use like 1-7 or Gohan-4.',
+      );
+    }
+  });
+
+  it('prefixes resolve and move failures with the pair text', () => {
+    const players = roster([1, 'a'], [8, '7']);
+    expect(() => applyRemapPairs(players, '7-4', udbr)).toThrow(
+      'Could not apply 7-4: Slot 7 is empty.',
+    );
+    expect(() => applyRemapPairs(roster([1, 'a']), 'Gohan-4', udbr)).toThrow(
+      'Could not apply Gohan-4: No player with nick "gohan" in the lobby.',
+    );
+  });
+
+  it('leaves the input array unchanged on failure', () => {
+    const players = roster([1, 'a'], [7, 'b']);
+    const snapshot = structuredClone(players);
+    expect(() => applyRemapPairs(players, '1-7, 99-1', udbr)).toThrow(MatchServiceError);
+    expect(players).toEqual(snapshot);
   });
 });
