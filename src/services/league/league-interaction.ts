@@ -7,7 +7,7 @@ import type {
   SlashCommandSubcommandBuilder,
   SlashCommandSubcommandGroupBuilder,
 } from 'discord.js';
-import { listLeaguesForGuild } from './league.js';
+import { listActiveLeaguesForGuild, listLeaguesForGuild } from './league.js';
 import { resolveLeagueContext, type LeagueResolveResult } from './league-resolve.js';
 
 /** User-facing message when the guild has no leagues. */
@@ -140,24 +140,55 @@ export function withGroupLeagueOption(
   return group;
 }
 
-export async function autocompleteGuildLeagues(
+function filterLeaguesForAutocomplete<T extends { id: string; name: string }>(
+  leagues: T[],
+  query: string,
+): T[] {
+  const normalized = query.trim().toLowerCase();
+  return leagues.filter(
+    (league) =>
+      normalized.length === 0 ||
+      league.name.toLowerCase().includes(normalized) ||
+      league.id.toLowerCase().includes(normalized),
+  );
+}
+
+/** Autocomplete active leagues only (default for write commands). */
+export async function autocompleteActiveGuildLeagues(
   guildId: string,
   query: string,
 ): Promise<Array<{ name: string; value: string }>> {
-  const leagues = await listLeaguesForGuild(guildId);
-  const normalized = query.trim().toLowerCase();
-  return leagues
-    .filter(
-      (league) =>
-        normalized.length === 0 ||
-        league.name.toLowerCase().includes(normalized) ||
-        league.id.toLowerCase().includes(normalized),
-    )
+  const leagues = await listActiveLeaguesForGuild(guildId);
+  return filterLeaguesForAutocomplete(leagues, query)
     .slice(0, 25)
     .map((league) => ({
       name: league.name.slice(0, 100),
       value: league.id,
     }));
+}
+
+/** Autocomplete all guild leagues; archived entries are prefixed for history commands. */
+export async function autocompleteAllGuildLeagues(
+  guildId: string,
+  query: string,
+): Promise<Array<{ name: string; value: string }>> {
+  const leagues = await listLeaguesForGuild(guildId);
+  return filterLeaguesForAutocomplete(leagues, query)
+    .slice(0, 25)
+    .map((league) => ({
+      name: (league.status === 'ARCHIVED' ? `(archived) ${league.name}` : league.name).slice(
+        0,
+        100,
+      ),
+      value: league.id,
+    }));
+}
+
+export async function autocompleteGuildLeagues(
+  guildId: string,
+  query: string,
+): Promise<Array<{ name: string; value: string }>> {
+  return autocompleteAllGuildLeagues(guildId, query);
 }
 
 /** Respond to `league:` autocomplete when that option is focused. Returns true when handled. */

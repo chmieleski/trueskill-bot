@@ -2,6 +2,10 @@ export {
   createLeague,
   getDefaultUdbrLeagueId,
   getLeagueById,
+  isLeagueWritable,
+  LEAGUE_ARCHIVED_MESSAGE,
+  listActiveLeaguesForGuild,
+  listArchivedLeaguesForGuild,
   listLeaguesForGuild,
   type League,
 } from './league.js';
@@ -17,6 +21,8 @@ export {
 } from './league-resolve.js';
 
 export {
+  autocompleteActiveGuildLeagues,
+  autocompleteAllGuildLeagues,
   autocompleteGuildLeagues,
   getInteractionCategoryId,
   getLeagueOption,

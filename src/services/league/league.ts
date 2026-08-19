@@ -4,6 +4,10 @@ import { WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
 
 export type { League };
 
+/** User-facing message when a command targets an archived league for writes. */
+export const LEAGUE_ARCHIVED_MESSAGE =
+  'That league is archived. Start a new season or pick an active league.';
+
 /**
  * Temporary helper for call sites that do not yet have resolveLeagueContext (Task 4/7).
  * Returns the id of the first (chronologically) UDBR league for the guild, or null if none.
@@ -38,6 +42,27 @@ export async function listLeaguesForGuild(guildId: string): Promise<League[]> {
     where: { guildId },
     orderBy: { createdAt: 'asc' },
   });
+}
+
+/** List active leagues for a guild, oldest first. */
+export async function listActiveLeaguesForGuild(guildId: string): Promise<League[]> {
+  return prisma.league.findMany({
+    where: { guildId, status: 'ACTIVE' },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+/** List archived leagues for a guild, most recently archived first. */
+export async function listArchivedLeaguesForGuild(guildId: string): Promise<League[]> {
+  return prisma.league.findMany({
+    where: { guildId, status: 'ARCHIVED' },
+    orderBy: { archivedAt: 'desc' },
+  });
+}
+
+/** Whether match/rating writes are allowed for this league. */
+export function isLeagueWritable(league: Pick<League, 'status'>): boolean {
+  return league.status === 'ACTIVE';
 }
 
 /** Fetch a single league by its id. Returns null when not found. */
