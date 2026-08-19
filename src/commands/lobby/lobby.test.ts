@@ -50,6 +50,22 @@ describe('lobby command data', () => {
     );
   });
 
+  it('exposes swap with optional slots and pairs', () => {
+    const json = data.toJSON();
+    const swap = json.options?.find((option) => option.name === 'swap');
+    const options = swap && 'options' in swap ? swap.options ?? [] : [];
+
+    const slotA = options.find((option) => option.name === 'slot_a');
+    const slotB = options.find((option) => option.name === 'slot_b');
+    const pairs = options.find((option) => option.name === 'pairs');
+
+    expect(slotA?.required).toBeFalsy();
+    expect(slotB?.required).toBeFalsy();
+    expect(pairs?.required).toBeFalsy();
+    expect(pairs?.type).toBe(ApplicationCommandOptionType.String);
+    expect(swap && 'description' in swap ? swap.description : '').toMatch(/pairs/i);
+  });
+
   it('describes screenshot as host or match moderator', () => {
     const json = data.toJSON();
     const screenshot = json.options?.find((option) => option.name === 'screenshot');

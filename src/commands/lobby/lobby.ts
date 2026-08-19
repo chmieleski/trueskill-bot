@@ -7,11 +7,14 @@ import {
   addLobbyPlayerFromDiscord,
   cancelLobbyMatch,
   isImageAttachment,
+  parseRemapPairs,
   refreshLobbyFromScreenshot,
   refreshLobbyFromWc3stats,
+  remapLobbyPlayers,
   removeLobbyPlayer,
   resolveHostPendingMatch,
   resolveMimeType,
+  resolveSwapForm,
   startLobbyMatch,
   swapLobbyPlayers,
 } from '../../services/lobby/index.js';
@@ -103,12 +106,12 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName('swap')
-      .setDescription('Swap two players between occupied slots')
+      .setDescription('Swap or move seats (two slots, or pairs like 1-7,5-Gohan)')
       .addIntegerOption((option) =>
         option
           .setName('slot_a')
           .setDescription('First occupied slot')
-          .setRequired(true)
+          .setRequired(false)
           .setMinValue(MIN_SLOT)
           .setMaxValue(MAX_SLOT),
       )
@@ -116,9 +119,16 @@ export const data = new SlashCommandBuilder()
         option
           .setName('slot_b')
           .setDescription('Second occupied slot')
-          .setRequired(true)
+          .setRequired(false)
           .setMinValue(MIN_SLOT)
           .setMaxValue(MAX_SLOT),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('pairs')
+          .setDescription('Comma-separated pairs: 1-7, 5-Gohan, Vegeta-4')
+          .setRequired(false)
+          .setMaxLength(200),
       )
       .addStringOption((option) =>
         option
@@ -252,17 +262,35 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     if (subcommand === 'swap') {
-      const slotA = interaction.options.getInteger('slot_a', true);
-      const slotB = interaction.options.getInteger('slot_b', true);
-      const result = await swapLobbyPlayers({
+      const form = resolveSwapForm({
+        slotA: interaction.options.getInteger('slot_a'),
+        slotB: interaction.options.getInteger('slot_b'),
+        pairs: interaction.options.getString('pairs'),
+      });
+
+      if (form.kind === 'classic') {
+        const result = await swapLobbyPlayers({
+          client: interaction.client,
+          hostDiscordId,
+          matchId,
+          slotA: form.slotA,
+          slotB: form.slotB,
+        });
+        await interaction.editReply({
+          content: `Swapped slots ${form.slotA} and ${form.slotB} in match \`${result.match.id}\`.`,
+        });
+        return;
+      }
+
+      const result = await remapLobbyPlayers({
         client: interaction.client,
         hostDiscordId,
         matchId,
-        slotA,
-        slotB,
+        pairs: form.pairs,
       });
+      const n = parseRemapPairs(form.pairs).length;
       await interaction.editReply({
-        content: `Swapped slots ${slotA} and ${slotB} in match \`${result.match.id}\`.`,
+        content: `Applied ${n} seat change(s) in match \`${result.match.id}\`.`,
       });
       return;
     }
