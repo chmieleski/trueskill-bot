@@ -163,9 +163,7 @@ function parseGameDetail(value: unknown): Wc3statsGameDetail | null {
     slotsTaken: asNumber(row.slotsTaken ?? row.numPlayers),
     numSlots: asNumber(row.numSlots ?? row.num_slots) || undefined,
     slots,
-    rosterObservedAt: parseWc3statsRosterObservedAt(
-      row.rosterObservedAt ?? row.roster_observed_at,
-    ),
+    rosterObservedAt: parseWc3statsRosterObservedAt(row.rosterObservedAt ?? row.roster_observed_at),
   };
 }
 
