@@ -35,6 +35,7 @@ import {
   leaveLobbySlot,
   movePlayer,
   nextEmptySlotOnTeam,
+  cancelLobbyMatch,
   refreshLobbyFromWc3stats,
   removePlayer,
   resolvePendingMatchByMessageId,
@@ -44,7 +45,7 @@ import { claimSlotSelectOptions, LOBBY_CUSTOM_IDS } from '../../services/lobby/i
 import { loadHeroCatalog } from '../../services/guild/index.js';
 import { nickForDiscordId } from '../../services/lobby/index.js';
 import { resolveGuildConfig } from '../../services/guild/index.js';
-import { MatchServiceError } from '../../services/match/index.js';
+import { assertCanManageMatch, MatchServiceError } from '../../services/match/index.js';
 import { teamDisplayName, teamDisplayNameForSlot } from '../../services/guild/index.js';
 import {
   getGameProfileForLeague,
@@ -246,6 +247,85 @@ async function updateEphemeral(
 
   await interaction.update({ content, components });
   touchEphemeralSession(interaction);
+}
+
+function buildLobbyCancelConfirmRow(matchId: string): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`lobby:cancel:ok:${matchId}`)
+      .setLabel('Cancel Lobby')
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId(`lobby:cancel:no:${matchId}`)
+      .setLabel('Keep Lobby')
+      .setStyle(ButtonStyle.Secondary),
+  );
+}
+
+async function handleCancelEntry(interaction: ButtonInteraction): Promise<void> {
+  const result = await requirePendingMatch(interaction.message.id);
+
+  if ('error' in result) {
+    await replyEphemeral(interaction, result.error);
+    return;
+  }
+
+  if (!interaction.guildId) {
+    await replyEphemeral(interaction, 'This action can only be used in a server.');
+    return;
+  }
+
+  try {
+    const config = await resolveGuildConfig(interaction.guildId);
+    assertCanManageMatch({
+      hostDiscordId: result.match.hostDiscordId,
+      actorDiscordId: interaction.user.id,
+      memberRoleIds: memberRoleIds(interaction),
+      matchModRoleId: config.matchModRoleId,
+    });
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await replyEphemeral(interaction, error.message);
+      return;
+    }
+    throw error;
+  }
+
+  await replyEphemeral(interaction, `Cancel lobby \`${result.match.id}\`?`, [
+    buildLobbyCancelConfirmRow(result.match.id),
+  ]);
+}
+
+async function handleCancelConfirm(
+  interaction: ButtonInteraction,
+  matchId: string,
+): Promise<void> {
+  if (!interaction.guildId) {
+    await updateEphemeral(interaction, 'This action can only be used in a server.');
+    return;
+  }
+
+  try {
+    const config = await resolveGuildConfig(interaction.guildId);
+    const cancelled = await cancelLobbyMatch({
+      client: interaction.client,
+      actorDiscordId: interaction.user.id,
+      matchId,
+      memberRoleIds: memberRoleIds(interaction),
+      matchModRoleId: config.matchModRoleId,
+    });
+    await updateEphemeral(interaction, `Match \`${cancelled.match.id}\` cancelled.`);
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await updateEphemeral(interaction, error.message);
+      return;
+    }
+    throw error;
+  }
+}
+
+async function handleCancelKeep(interaction: ButtonInteraction, matchId: string): Promise<void> {
+  await updateEphemeral(interaction, `Match \`${matchId}\` was not cancelled.`);
 }
 
 async function requirePendingMatch(messageId: string) {
@@ -1048,6 +1128,22 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
 
   if (customId === LOBBY_CUSTOM_IDS.refresh) {
     await handleRefresh(interaction);
+    return;
+  }
+
+  if (customId === LOBBY_CUSTOM_IDS.cancel) {
+    await handleCancelEntry(interaction);
+    return;
+  }
+
+  const parts = parseCustomId(customId);
+  if (parts[1] === 'cancel' && parts[2] === 'ok' && parts[3]) {
+    await handleCancelConfirm(interaction, parts[3]);
+    return;
+  }
+
+  if (parts[1] === 'cancel' && parts[2] === 'no' && parts[3]) {
+    await handleCancelKeep(interaction, parts[3]);
     return;
   }
 
