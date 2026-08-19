@@ -1,0 +1,259 @@
+# League season rollover — Design
+
+**Date:** 2026-08-19  
+**Status:** Approved for implementation planning  
+**Scope:** `general` (league lifecycle + OpenSkill seeding; not game-specific)  
+**Plan:** `docs/superpowers/plans/2026-08-19-league-rollover.md`
+
+## Goal
+
+Staff can **finish** an active league and **open a successor** league derived from it. The old league becomes a **read-only archive** (match history and leaderboards remain queryable). Channel bindings move to the new league so day-to-day play continues without manual rebind.
+
+Two rating modes when seeding the successor:
+
+| Mode | Effect |
+|------|--------|
+| **Hard reset** | Every carried player starts at OpenSkill defaults (μ `25`, σ `8.333`); no hero rows until first pick |
+| **Soft reset** | Global and hero μ compress toward each entity’s league average; σ bumped up (recalibration); `matchesPlayed` reset to `0` on hero rows |
+
+Staff choose the successor **display name** and (for soft reset) a **compression** factor at rollover time.
+
+## Non-goals
+
+- Auto-increment league names (`"Season N"`) without staff input
+- Keeping both old and new leagues active for new matches
+- Auto-cancelling active lobbies/matches during rollover
+- Per-league stored compression preset (`/config`) — v1 picks at rollover only
+- Retroactive recalculation of archived match ratings
+- Cross-league rating pools or merged leaderboards across seasons
+- Changing OpenSkill `rate()` math or display ki formula
+- Web dashboard / export for season history
+
+## Locked decisions
+
+| Topic | Choice |
+|-------|--------|
+| Old league fate | **Archive** — `ARCHIVED` status; no new matches; history readable |
+| Active matches at rollover | **Block** until zero `PENDING` / `IN_PROGRESS` matches in source league |
+| Soft reset math | Compress μ toward **league mean** (global and per-hero independently) |
+| Hero ratings on soft reset | Same compression as global; `matchesPlayed = 0` on copied hero rows |
+| Successor name | **Staff required** `name` option |
+| Compression | **Staff picks** at rollover (`0.0`–`1.0`); default `0.5` when omitted |
+| Bindings | **Move** all `LeagueChannelBinding` rows from source → successor |
+| Architecture | **Approach 1** — new `League` row + `status` + `predecessorLeagueId` lineage |
+| Permission | Same as `/league create` — `assertCanConfigureBot` |
+| Confirmation | Ephemeral Confirm / Cancel (rank-reset button pattern) |
+| Documentation | Staff guide + player impact note + cheat-sheet line |
+
+## Data model
+
+### `LeagueStatus` enum + columns
+
+```prisma
+enum LeagueStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model League {
+  // …existing fields…
+  status              LeagueStatus @default(ACTIVE)
+  predecessorLeagueId String?
+  archivedAt          DateTime?
+
+  predecessor League?  @relation("LeagueSuccession", fields: [predecessorLeagueId], references: [id])
+  successors  League[] @relation("LeagueSuccession")
+}
+```
+
+- Existing leagues backfill to `ACTIVE`.
+- `predecessorLeagueId` set on the **successor** only (single-step lineage; chain forms `S3 → S2 → S1`).
+- `archivedAt` set when status becomes `ARCHIVED`.
+
+### Archived league behavior
+
+| Operation | Allowed? |
+|-----------|----------|
+| `/register_lobby`, lobby buttons, wc3stats import | **No** — reject: league is archived |
+| `/rank_reset` | **No** |
+| `/match list`, `/leaderboard` with explicit archived `league:` | **Yes** |
+| `/config set …` on archived league | **No** |
+| Autocomplete for play/config commands | **ACTIVE only** |
+| Autocomplete for history (`/match list`, `/leaderboard`) | ACTIVE + ARCHIVED |
+
+## Command: `/league rollover`
+
+### Options
+
+| Option | Required | Notes |
+|--------|----------|-------|
+| `name` | yes | Display name for successor (max 100 chars, trimmed) |
+| `reset` | yes | Choice: `hard` \| `soft` |
+| `compression` | when `soft` | Number `0.0`–`1.0`; default `0.5`. Higher = **more** pull toward average |
+| `league` | if guild has multiple ACTIVE leagues | Autocomplete; ACTIVE only |
+
+### Flow
+
+1. `assertCanConfigureBot`.
+2. Resolve source league (option or single-league fallback — same rules as other league admin commands).
+3. Reject if source `status !== ACTIVE`.
+4. Count matches with `status IN (PENDING, IN_PROGRESS)` for `leagueId`; if any → reject listing up to 5 match ids + total count.
+5. Validate `name` non-empty; unique `(guildId, gameId, name)` on create (same as `/league create`).
+6. If `reset=soft`, validate `compression` in `[0, 1]` (default `0.5`).
+7. Ephemeral preview + Confirm / Cancel buttons (actor-bound custom ids).
+8. On confirm — **single Prisma transaction**:
+   - `create` successor `League` with copied config (see below), `status: ACTIVE`, `predecessorLeagueId: source.id`.
+   - Seed ratings (see below).
+   - Copy `LeagueWc3statsSlotMap` rows to successor.
+   - `updateMany` bindings: `leagueId` source → successor.
+   - `update` source: `status: ARCHIVED`, `archivedAt: now`, clear source `leaderboardMessageId` (optional — message is stale; channel binding moved).
+   - Successor: `leaderboardMessageId: null` (staff repost via `/leaderboard setup` or auto-refresh on next match if channel id copied).
+9. Reply with summary: archived name + id, successor name + id, reset mode, compression (if soft), players seeded count, bindings moved count.
+10. Optional: trigger `refreshLeagueLeaderboard` on successor if leaderboard channel configured (fresh empty board).
+
+### Config copy (successor `create` data)
+
+Copy from source:
+
+- `gameId`, `wc3statsEnabled`, `wc3statsMapPattern`, `wc3statsMapSha1`
+- `leaderboardChannelId`, `leaderboardSize`
+- `lobbyPlayerClaimEnabled`, `lobbyChannelEnabled`, `lobbyChannelId`
+- `wc3statsHostPromptEnabled`, `wc3statsHostPromptChannelId`
+- `rankResetEnabled`, `rankResetCooldownDays`
+
+Do **not** copy:
+
+- `id`, `name` (new), `createdAt`, `updatedAt`, `status`, `predecessorLeagueId`, `archivedAt`
+- `leaderboardMessageId` (null on successor)
+- Matches, snapshots, rank-reset audit rows
+
+## Rating seeding
+
+Constants (match existing defaults):
+
+```text
+DEFAULT_MU    = 25.0
+DEFAULT_SIGMA = 8.333
+SIGMA_FLOOR   = 6.0
+```
+
+### Player set
+
+All `playerId` values with a `PlayerRating` row in the source league. (Players who only appeared via hero rows without global rating are edge cases — include if they have `PlayerHeroRating` only, seed global defaults for them.)
+
+### Hard reset
+
+For each player in set:
+
+1. `create` `PlayerRating` on successor: μ `DEFAULT_MU`, σ `DEFAULT_SIGMA`.
+2. No `PlayerHeroRating` rows (cold-start heroes on first match, same as `/rank_reset`).
+
+### Soft reset
+
+**Global** — compute once per source league:
+
+```text
+meanMu = arithmetic mean of PlayerRating.mu in source (empty → DEFAULT_MU)
+retention = 1 - compression
+newMu = meanMu + (oldMu - meanMu) × retention
+newSigma = clamp(max(oldSigma, SIGMA_FLOOR), SIGMA_FLOOR, DEFAULT_SIGMA)
+```
+
+**Hero** — for each `(playerId, heroId)` row in source `PlayerHeroRating`:
+
+```text
+meanHeroMu = mean of PlayerHeroRating.mu for that heroId in source (empty → DEFAULT_MU)
+newHeroMu = meanHeroMu + (oldHeroMu - meanHeroMu) × retention
+newHeroSigma = same σ rule as global
+matchesPlayed = 0
+```
+
+If a player has global rating but no hero rows, only global row is created.
+
+**Compression guide** (staff-facing):
+
+| `compression` | Retention | Effect |
+|---------------|-----------|--------|
+| `0.3` | 70% | Gentle — small move toward average |
+| `0.5` | 50% | Default — halfway to average |
+| `0.7` | 30% | Aggressive — strong pull toward average |
+
+### Public ki impact (player-facing summary)
+
+Display ki uses `ki = round(1000 + 200 × (μ − z·σ))` with calibration z — unchanged.
+
+- **Hard reset:** everyone near **1000 ki**; shows **Calibrating** until 5 completed league games (same as new player).
+- **Soft reset:** ki shifts toward the old season’s average; top players drop, lower players rise; higher σ means larger early swings; hero mains re-enter **Calibrating** per hero until 5 hero games (`matchesPlayed` reset).
+
+Archived season ki/history remains viewable when selecting the archived league on history commands.
+
+## `/league list` changes
+
+Two sections in reply:
+
+```text
+Active leagues (N):
+• …
+
+Archived leagues (read-only) (M):
+• … (archived <t:UNIX:D>)
+```
+
+Archived entries include predecessor hint when useful (`successor: …` is optional v2).
+
+## Module layout
+
+| Path | Responsibility |
+|------|----------------|
+| `src/services/league/league-rollover.ts` | Eligibility, preview, transaction, rating seed math |
+| `src/services/league/league-rollover.test.ts` | Unit tests for math + guards |
+| `src/commands/league/league.ts` | `/league rollover` subcommand adapter |
+| `src/discord/interactions/league-rollover-interactions.ts` | Confirm/Cancel buttons |
+| `src/services/league/league-resolve.ts` | Reject archived for write paths; filter autocomplete |
+| `src/services/league/league.ts` | `listLeaguesForGuild` split active/archived helpers |
+
+Shared constants for `DEFAULT_MU` / `DEFAULT_SIGMA` should be imported from one rating module (avoid a third copy long-term; acceptable to duplicate in rollover service with comment if import cycle risk).
+
+## Error messages (English)
+
+| Case | Message |
+|------|---------|
+| Source archived | `That league is archived and cannot be rolled over.` |
+| Active matches | `Finish or cancel all active lobbies and matches first (N active: \`id1\`, …).` |
+| Duplicate name | Same as `/league create` |
+| Invalid compression | `Compression must be between 0 and 1.` |
+| Wrong button actor | `Only the person who ran /league rollover can use these buttons.` |
+| Stale confirm | `That rollover confirmation is no longer valid.` |
+| Write to archived league | `That league is archived. Start a new season or pick an active league.` |
+
+## Testing
+
+- Unit: soft-reset μ/σ for global + hero; compression `0`, `0.5`, `1`; empty league mean fallback
+- Unit: hard reset produces defaults only
+- Unit: block when active matches exist
+- Unit: binding migration count; archived status on source
+- Integration-light: transaction rolls back on duplicate name
+- Command: confirm/cancel; actor mismatch
+
+## Documentation deliverables
+
+| File | Audience |
+|------|----------|
+| `docs/discord/staff/a6-league-rollover.md` | Staff — full how-to + impact |
+| `docs/discord/staff/a5-admin-cheat-sheet.md` | Staff — one-line entry |
+| `docs/discord/public/06-rank-and-boards.md` | Players — short season note |
+| `docs/discord/README.md` | Index — add `a6` to staff list |
+
+## Migration / rollout
+
+1. Prisma migration: `LeagueStatus` enum + columns; backfill `ACTIVE`.
+2. Deploy bot; existing leagues unchanged until staff run rollover.
+3. Post staff guide `a6` in private admin channel.
+
+## Follow-ups (out of scope)
+
+- `/league list` successor/predecessor links in Discord
+- Bulk export archived season standings
+- Scheduled auto-rollover at date/time
+- Tier-band soft reset (alternative math)
+- Merge archived leagues in guild-wide leaderboard views

@@ -3,6 +3,7 @@
 **Leagues (Manage Server)**
 • `/league create` / `/league list`
 • `/league bind` / `/league unbind` — tie channels/categories to a league
+• `/league rollover` — archive a season and open a successor (`reset:hard|soft`, optional `compression`)
 
 **Config (Manage Server)**
 • `/config view`
