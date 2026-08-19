@@ -6,6 +6,7 @@ import {
 import { normalizeNick } from '../player/player-nick.js';
 import { MatchServiceError } from '../match/match-service.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
+import { movePlayer } from './roster.js';
 
 export type RemapPair = { raw: string; left: string; right: string };
 
@@ -73,4 +74,32 @@ export function parseRemapPairs(raw: string): RemapPair[] {
   }
 
   return pairs;
+}
+
+/**
+ * Apply every pair left to right on a working roster. Does not persist.
+ * Parse errors keep their own copy; resolve/move errors are prefixed with the pair.
+ */
+export function applyRemapPairs(
+  players: LobbyPlayer[],
+  raw: string,
+  profile: GameProfile,
+): LobbyPlayer[] {
+  const pairs = parseRemapPairs(raw);
+  let working = players;
+
+  for (const pair of pairs) {
+    try {
+      const fromSlot = resolveRemapSide(pair.left, working, profile);
+      const toSlot = resolveRemapSide(pair.right, working, profile);
+      working = movePlayer(working, fromSlot, toSlot, profile);
+    } catch (error) {
+      if (error instanceof MatchServiceError) {
+        throw new MatchServiceError(`Could not apply ${pair.raw}: ${error.message}`);
+      }
+      throw error;
+    }
+  }
+
+  return working;
 }
