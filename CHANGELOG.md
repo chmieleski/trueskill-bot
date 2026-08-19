@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/chmieleski/trueskill-bot/compare/v1.6.3...v1.7.0) (2026-08-19)
+
+
+### Features
+
+* **wc3stats:** block stale roster refresh after screenshot or manual edits ([#57](https://github.com/chmieleski/trueskill-bot/issues/57)) ([8d9b354](https://github.com/chmieleski/trueskill-bot/commit/8d9b35487c0bedd475b5263f7f3305331beeaa3f))
+
 ## [1.6.3](https://github.com/chmieleski/trueskill-bot/compare/v1.6.2...v1.6.3) (2026-08-19)
 
 
