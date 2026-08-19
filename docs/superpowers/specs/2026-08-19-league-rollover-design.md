@@ -1,7 +1,7 @@
 # League season rollover — Design
 
 **Date:** 2026-08-19  
-**Status:** Approved for implementation planning  
+**Status:** Implemented  
 **Scope:** `general` (league lifecycle + OpenSkill seeding; not game-specific)  
 **Plan:** `docs/superpowers/plans/2026-08-19-league-rollover.md`
 
