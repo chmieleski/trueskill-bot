@@ -2,6 +2,7 @@ import { Events, MessageFlags } from 'discord.js';
 import type { Interaction } from 'discord.js';
 import { handleLeaderboardInteraction } from '../discord/interactions/leaderboard-interactions.js';
 import { handleMatchHistoryInteraction } from '../discord/interactions/match-history-interactions.js';
+import { handleMatchListInteraction } from '../discord/interactions/match-list-interactions.js';
 import { handleReleaseInteraction } from '../discord/interactions/release-interactions.js';
 import { handleLobbyInteraction } from '../discord/interactions/lobby-interactions.js';
 import { handleMatchInteraction } from '../discord/interactions/match-interactions.js';
@@ -44,6 +45,11 @@ export async function execute(interaction: Interaction): Promise<void> {
 
     if (await handleMatchHistoryInteraction(interaction)) {
       log.debug({ userId: interaction.user.id }, 'Match history interaction handled');
+      return;
+    }
+
+    if (await handleMatchListInteraction(interaction)) {
+      log.debug({ userId: interaction.user.id }, 'Match list interaction handled');
       return;
     }
 
