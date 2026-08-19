@@ -1,6 +1,8 @@
 node_modules/
 dist/
 package-lock.json
+# semantic-release writes CHANGELOG.md; release job runs prettier on it after each release
+CHANGELOG.md
 src/generated/
 .local/
 .worktrees/
