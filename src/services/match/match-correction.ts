@@ -23,6 +23,7 @@ import {
 import { resolveQuitterSlots } from './match-report.js';
 import type { CompleteMatchResult } from './match-report.js';
 import { persistMatchRatingPreviewToPlayers } from './match-history-preview.js';
+import { isLeagueWritable, LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
 import {
   gamesByPlayerFromStats,
   loadMatchDisplayStatsByPlayer,
@@ -393,6 +394,19 @@ export async function previewMatchCorrection(matchId: string): Promise<MatchCorr
   const match = await getMatchById(matchId);
   if (!match) {
     throw new MatchServiceError('This match was not found.');
+  }
+
+  const league = await prisma.league.findUnique({
+    where: { id: match.leagueId },
+    select: { status: true },
+  });
+  if (league && !isLeagueWritable(league)) {
+    return {
+      match,
+      canCorrect: false,
+      hasNewerMatches: false,
+      correctionBlockReason: LEAGUE_ARCHIVED_MESSAGE,
+    };
   }
 
   if (match.status !== 'COMPLETED') {

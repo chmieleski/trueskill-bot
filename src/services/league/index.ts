@@ -74,6 +74,8 @@ export {
   ROLLOVER_COMPRESSION_MAX,
   ROLLOVER_COMPRESSION_MIN,
   ROLLOVER_DRAFT_TTL_MS,
+  seedContinueGlobalRatings,
+  seedContinueHeroRatings,
   seedSoftGlobalRatings,
   seedSoftHeroRatings,
   type ApplyLeagueRolloverInput,

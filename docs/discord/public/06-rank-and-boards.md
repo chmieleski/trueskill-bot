@@ -34,9 +34,10 @@ Resets your overall and hero ki for that league (back near **1000**), and your d
 
 Sometimes staff end a league season and start a fresh one:
 
+• **Continue** — the old season is frozen as history; your ki and hero stats keep going on the new league name with no reset (typical for a break / “Season 1.5”).  
 • **Hard reset** — everyone starts near **1000 ki** again (like a new league).  
 • **Soft reset** — your ki moves toward the old season’s average (top players drop, others rise); early games swing more until you play again. Hero **Calibrating** may show again even if you keep some skill.
 
-The **previous season is archived** — you can still look up old matches when staff show you how, but new games only count in the active league.
+The **previous season is archived** — you can still look up old matches when staff show you how, but new games only count in the active league. After a continue, pick the archived league to see the freeze; pick the live name for games played during the break.
 
 Remember: ki is a score, not a trophy case. Play, learn, climb.

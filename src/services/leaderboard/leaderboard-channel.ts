@@ -26,7 +26,8 @@ async function fetchTextChannel(client: Client, channelId: string): Promise<Text
   return channel as TextChannel;
 }
 
-async function deleteMessageBestEffort(
+/** Delete a Discord message; log and continue if the channel or message is gone. */
+export async function deleteMessageBestEffort(
   client: Client,
   channelId: string,
   messageId: string,

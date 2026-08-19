@@ -33,7 +33,10 @@ import {
 import { MatchServiceError } from '../../services/match/index.js';
 import {
   getGameProfileForLeague,
+  getLeagueById,
   getLeagueOption,
+  isLeagueWritable,
+  LEAGUE_ARCHIVED_MESSAGE,
   resolveLeagueIdFromInteraction,
   respondAllLeagueAutocomplete,
   respondLeagueAutocomplete,
@@ -233,6 +236,15 @@ async function handleSetup(interaction: ChatInputCommandInteraction): Promise<vo
   const resolved = await resolveLeagueIdFromInteraction(interaction, getLeagueOption(interaction));
   if (!resolved.ok) {
     await interaction.reply({ content: resolved.message, flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const league = await getLeagueById(resolved.leagueId);
+  if (!league || !isLeagueWritable(league)) {
+    await interaction.reply({
+      content: LEAGUE_ARCHIVED_MESSAGE,
+      flags: MessageFlags.Ephemeral,
+    });
     return;
   }
 

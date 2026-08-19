@@ -5,7 +5,10 @@ import {
   MessageFlags,
 } from 'discord.js';
 import type { ButtonInteraction, Interaction } from 'discord.js';
-import { refreshLeagueLeaderboard } from '../../services/leaderboard/index.js';
+import {
+  deleteMessageBestEffort,
+  setupLiveLeaderboard,
+} from '../../services/leaderboard/index.js';
 import {
   applyLeagueRollover,
   buildRolloverCancelCustomId,
@@ -50,7 +53,7 @@ export function buildRolloverConfirmComponents(input: {
         .setCustomId(
           buildRolloverConfirmCustomId(input.draftId, input.actorDiscordId),
         )
-        .setLabel('Confirm')
+        .setLabel('Confirm rollover')
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId(
@@ -76,11 +79,20 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
       actorDiscordId: parsed.actorDiscordId,
     });
 
+    if (result.sourceLeaderboardChannelId && result.sourceLeaderboardMessageId) {
+      await deleteMessageBestEffort(
+        interaction.client,
+        result.sourceLeaderboardChannelId,
+        result.sourceLeaderboardMessageId,
+      );
+    }
+
     const successor = await getLeagueById(result.successorLeagueId);
     if (successor?.leaderboardChannelId) {
-      await refreshLeagueLeaderboard(
+      await setupLiveLeaderboard(
         interaction.client,
         result.successorLeagueId,
+        successor.leaderboardChannelId,
       );
     }
 

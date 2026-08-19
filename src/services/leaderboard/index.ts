@@ -22,6 +22,7 @@ export {
 } from './leaderboard-embed.js';
 export {
   clearLiveLeaderboard,
+  deleteMessageBestEffort,
   refreshAllLeaderboardChannels,
   refreshLeagueLeaderboard,
   scheduleLeaderboardRefresh,

@@ -8,6 +8,7 @@ const {
   matchFindMany,
   playerRatingFindMany,
   playerRatingCreateMany,
+  playerRatingUpdate,
   playerHeroRatingFindMany,
   playerHeroRatingCreateMany,
   leagueChannelBindingCount,
@@ -27,6 +28,7 @@ const {
   matchFindMany: vi.fn(),
   playerRatingFindMany: vi.fn(),
   playerRatingCreateMany: vi.fn(),
+  playerRatingUpdate: vi.fn(),
   playerHeroRatingFindMany: vi.fn(),
   playerHeroRatingCreateMany: vi.fn(),
   leagueChannelBindingCount: vi.fn(),
@@ -54,6 +56,7 @@ vi.mock('../../lib/prisma.js', () => ({
     playerRating: {
       findMany: playerRatingFindMany,
       createMany: playerRatingCreateMany,
+      update: playerRatingUpdate,
     },
     playerHeroRating: {
       findMany: playerHeroRatingFindMany,
@@ -86,6 +89,8 @@ import {
   compressSigma,
   parseRolloverButtonCustomId,
   previewLeagueRollover,
+  seedContinueGlobalRatings,
+  seedContinueHeroRatings,
   seedSoftGlobalRatings,
   seedSoftHeroRatings,
 } from './league-rollover.js';
@@ -185,6 +190,20 @@ describe('assertRolloverCompression', () => {
   });
 });
 
+describe('seedContinueGlobalRatings', () => {
+  it('copies mu and sigma unchanged', () => {
+    const rows = [{ playerId: 'a', mu: 30, sigma: 3 }];
+    expect(seedContinueGlobalRatings(rows)).toEqual(rows);
+  });
+});
+
+describe('seedContinueHeroRatings', () => {
+  it('copies mu, sigma, and matchesPlayed unchanged', () => {
+    const rows = [{ playerId: 'a', heroId: 1, mu: 30, sigma: 3, matchesPlayed: 12 }];
+    expect(seedContinueHeroRatings(rows)).toEqual(rows);
+  });
+});
+
 describe('rollover button custom IDs', () => {
   it('round-trips confirm and cancel custom IDs', () => {
     const confirmId = buildRolloverConfirmCustomId('draft-1', ACTOR);
@@ -265,6 +284,30 @@ describe('previewLeagueRollover', () => {
       },
     });
   });
+
+  it('rejects compression unless reset is soft', async () => {
+    await expect(
+      previewLeagueRollover({
+        guildId: GUILD,
+        sourceLeagueId: 'league-1',
+        successorName: 'Season 1.5',
+        resetMode: 'continue',
+        compression: 0.5,
+        actorDiscordId: ACTOR,
+      }),
+    ).rejects.toThrow(/Compression is only used with reset:soft/);
+
+    await expect(
+      previewLeagueRollover({
+        guildId: GUILD,
+        sourceLeagueId: 'league-1',
+        successorName: 'Fresh',
+        resetMode: 'hard',
+        compression: 0.5,
+        actorDiscordId: ACTOR,
+      }),
+    ).rejects.toThrow(/Compression is only used with reset:soft/);
+  });
 });
 
 describe('applyLeagueRollover', () => {
@@ -308,7 +351,10 @@ describe('applyLeagueRollover', () => {
           create: leagueCreate,
           update: leagueUpdate,
         },
-        playerRating: { createMany: playerRatingCreateMany },
+        playerRating: {
+          createMany: playerRatingCreateMany,
+          update: playerRatingUpdate,
+        },
         playerHeroRating: { createMany: playerHeroRatingCreateMany },
         leagueWc3statsSlotMap: { createMany: leagueWc3statsSlotMapCreateMany },
         leagueChannelBinding: { updateMany: leagueChannelBindingUpdateMany },
@@ -395,5 +441,112 @@ describe('applyLeagueRollover', () => {
         },
       ],
     });
+  });
+
+  it('continue copies mu, sigma, matchesPlayed onto a new leagueId', async () => {
+    leagueRolloverDraftFindUnique.mockResolvedValue({
+      id: 'draft-1',
+      sourceLeagueId: 'league-1',
+      successorName: 'Season 1.5',
+      resetMode: 'continue',
+      compression: null,
+      actorDiscordId: ACTOR,
+      sourceLeague: ACTIVE_SOURCE,
+    });
+    playerRatingFindMany.mockResolvedValue([
+      { playerId: 'p1', mu: 30, sigma: 3 },
+    ]);
+    playerHeroRatingFindMany.mockResolvedValue([
+      { playerId: 'p1', heroId: 1, mu: 28, sigma: 4, matchesPlayed: 12 },
+    ]);
+    leagueCreate.mockResolvedValue({ id: 'league-2', name: 'Season 1.5' });
+
+    const result = await applyLeagueRollover({
+      draftId: 'draft-1',
+      actorDiscordId: ACTOR,
+    });
+
+    expect(result.resetMode).toBe('continue');
+    expect(result.compression).toBeNull();
+    expect(playerRatingCreateMany).toHaveBeenCalledWith({
+      data: [{ leagueId: result.successorLeagueId, playerId: 'p1', mu: 30, sigma: 3 }],
+    });
+    expect(playerHeroRatingCreateMany).toHaveBeenCalledWith({
+      data: [
+        {
+          leagueId: result.successorLeagueId,
+          playerId: 'p1',
+          heroId: 1,
+          mu: 28,
+          sigma: 4,
+          matchesPlayed: 12,
+        },
+      ],
+    });
+    expect(leagueUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'league-1' },
+        data: expect.objectContaining({ status: 'ARCHIVED' }),
+      }),
+    );
+    expect(playerRatingUpdate).not.toHaveBeenCalled();
+  });
+
+  it('continue does not invent a global row for a hero-only player', async () => {
+    leagueRolloverDraftFindUnique.mockResolvedValue({
+      id: 'draft-1',
+      sourceLeagueId: 'league-1',
+      successorName: 'Season 1.5',
+      resetMode: 'continue',
+      compression: null,
+      actorDiscordId: ACTOR,
+      sourceLeague: ACTIVE_SOURCE,
+    });
+    playerRatingFindMany.mockResolvedValue([]);
+    playerHeroRatingFindMany.mockResolvedValue([
+      { playerId: 'p2', heroId: 1, mu: 28, sigma: 4, matchesPlayed: 12 },
+    ]);
+    leagueCreate.mockResolvedValue({ id: 'league-2', name: 'Season 1.5' });
+
+    await applyLeagueRollover({ draftId: 'draft-1', actorDiscordId: ACTOR });
+
+    const globals = playerRatingCreateMany.mock.calls[0]?.[0]?.data ?? [];
+    expect(globals.some((row: { playerId: string }) => row.playerId === 'p2')).toBe(
+      false,
+    );
+  });
+
+  it('empty league continue seeds 0 players and still archives', async () => {
+    leagueRolloverDraftFindUnique.mockResolvedValue({
+      id: 'draft-1',
+      sourceLeagueId: 'league-1',
+      successorName: 'Season 1.5',
+      resetMode: 'continue',
+      compression: null,
+      actorDiscordId: ACTOR,
+      sourceLeague: ACTIVE_SOURCE,
+    });
+    playerRatingFindMany.mockResolvedValue([]);
+    playerHeroRatingFindMany.mockResolvedValue([]);
+    leagueCreate.mockResolvedValue({ id: 'league-2', name: 'Season 1.5' });
+    leagueChannelBindingUpdateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      applyLeagueRollover({ draftId: 'draft-1', actorDiscordId: ACTOR }),
+    ).resolves.toMatchObject({
+      resetMode: 'continue',
+      playersSeeded: 0,
+      archivedLeagueId: 'league-1',
+      successorLeagueId: 'league-2',
+    });
+
+    expect(playerRatingCreateMany).not.toHaveBeenCalled();
+    expect(playerHeroRatingCreateMany).not.toHaveBeenCalled();
+    expect(leagueUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'league-1' },
+        data: expect.objectContaining({ status: 'ARCHIVED' }),
+      }),
+    );
   });
 });
