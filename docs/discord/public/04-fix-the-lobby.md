@@ -9,6 +9,7 @@ The lobby message has buttons. Use them like toys that fix the board.
 • 🗑️ **Remove** a player
 • 🔄 Refresh from wc3stats (when available)
 • ▶️ **Start Match** (only when the lobby is valid)
+• **Cancel** — close a pending lobby (host or match moderator; asks for confirm)
 
 **Players (if claim is on)**
 • **Claim slot** — sit in an empty hero seat (you must be linked)
