@@ -21,20 +21,21 @@
 
 ## File structure
 
-| File | Responsibility |
-|------|----------------|
-| `src/config/env.ts` | Parse `matchCreateRoleId` from `MATCH_CREATE_ROLE_ID` |
-| `.cursor/rules/scripts-and-env.mdc` | Document the env var |
-| `.env.example` | Placeholder for operators |
-| `src/services/match-auth.ts` | `canCreateMatch` / `assertCanCreateMatch` |
-| `src/services/match-auth.test.ts` | Unit tests for create-role auth |
-| `src/commands/lobby/register-lobby.ts` | Assert before OCR; map `MatchServiceError` to reply |
+| File                                   | Responsibility                                        |
+| -------------------------------------- | ----------------------------------------------------- |
+| `src/config/env.ts`                    | Parse `matchCreateRoleId` from `MATCH_CREATE_ROLE_ID` |
+| `.cursor/rules/scripts-and-env.mdc`    | Document the env var                                  |
+| `.env.example`                         | Placeholder for operators                             |
+| `src/services/match-auth.ts`           | `canCreateMatch` / `assertCanCreateMatch`             |
+| `src/services/match-auth.test.ts`      | Unit tests for create-role auth                       |
+| `src/commands/lobby/register-lobby.ts` | Assert before OCR; map `MatchServiceError` to reply   |
 
 ---
 
 ### Task 1: Env + create-role auth helpers
 
 **Files:**
+
 - Modify: `src/config/env.ts`
 - Modify: `.cursor/rules/scripts-and-env.mdc`
 - Modify: `.env.example`
@@ -42,6 +43,7 @@
 - Create: `src/services/match-auth.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `env.matchCreateRoleId: string | undefined`
   - `canCreateMatch(input: { memberRoleIds: string[] }): boolean`
@@ -158,10 +160,8 @@ In `.env.example`, append:
 In `src/services/match-auth.ts`, keep existing manage-match helpers and add:
 
 ```ts
-const CREATE_DISABLED =
-  'Match creation is disabled until MATCH_CREATE_ROLE_ID is configured.';
-const CREATE_FORBIDDEN =
-  'Only members with the match creator role can register a lobby.';
+const CREATE_DISABLED = 'Match creation is disabled until MATCH_CREATE_ROLE_ID is configured.';
+const CREATE_FORBIDDEN = 'Only members with the match creator role can register a lobby.';
 
 export function canCreateMatch(input: { memberRoleIds: string[] }): boolean {
   const createRoleId = env.matchCreateRoleId;
@@ -208,9 +208,11 @@ EOF
 ### Task 2: Wire `/register_lobby`
 
 **Files:**
+
 - Modify: `src/commands/lobby/register-lobby.ts`
 
 **Interfaces:**
+
 - Consumes: `assertCanCreateMatch({ memberRoleIds: string[] })`
 - Produces: early English failure reply; no OCR/DB on auth failure
 
@@ -271,10 +273,10 @@ Do **not** call `tryExtractLobbyPlayers` / `createPendingMatch` when assert fail
 
 With bot running (`npm run dev`):
 
-1. Unset `MATCH_CREATE_ROLE_ID` → `/register_lobby` → disabled message; no new PENDING match  
-2. Set `MATCH_CREATE_ROLE_ID` to a role the tester lacks → creator-role message  
-3. Give tester the role (or set env to a role they have) → lobby creates as before  
-4. Confirm host without create role can still edit/start an existing lobby they host  
+1. Unset `MATCH_CREATE_ROLE_ID` → `/register_lobby` → disabled message; no new PENDING match
+2. Set `MATCH_CREATE_ROLE_ID` to a role the tester lacks → creator-role message
+3. Give tester the role (or set env to a role they have) → lobby creates as before
+4. Confirm host without create role can still edit/start an existing lobby they host
 
 - [ ] **Step 3: Commit** (only if user asked)
 
@@ -291,14 +293,14 @@ EOF
 
 ## Spec coverage (self-review)
 
-| Spec requirement | Task |
-|------------------|------|
-| `MATCH_CREATE_ROLE_ID` env | Task 1 |
-| Empty → nobody creates | Task 1 (`canCreateMatch` false + disabled message) |
-| Set → role required | Task 1 + Task 2 |
-| `/register_lobby` only | Task 2 |
-| Assert before OCR | Task 2 |
-| English error messages | Task 1 |
-| Document env + `.env.example` | Task 1 |
-| Unit tests | Task 1 |
-| Wave-1 same ID as mod role | Ops note in `.env.example` / spec (no code) |
+| Spec requirement              | Task                                               |
+| ----------------------------- | -------------------------------------------------- |
+| `MATCH_CREATE_ROLE_ID` env    | Task 1                                             |
+| Empty → nobody creates        | Task 1 (`canCreateMatch` false + disabled message) |
+| Set → role required           | Task 1 + Task 2                                    |
+| `/register_lobby` only        | Task 2                                             |
+| Assert before OCR             | Task 2                                             |
+| English error messages        | Task 1                                             |
+| Document env + `.env.example` | Task 1                                             |
+| Unit tests                    | Task 1                                             |
+| Wave-1 same ID as mod role    | Ops note in `.env.example` / spec (no code)        |

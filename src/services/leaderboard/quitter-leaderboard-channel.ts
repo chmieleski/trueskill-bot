@@ -46,11 +46,7 @@ async function buildLiveQuitterEmbeds(
   let resolvedDisplay = display;
   let resolvedSort = sort;
 
-  if (
-    resolvedSize === undefined ||
-    resolvedDisplay === undefined ||
-    resolvedSort === undefined
-  ) {
+  if (resolvedSize === undefined || resolvedDisplay === undefined || resolvedSort === undefined) {
     const row = await prisma.guildConfig.findUnique({
       where: { guildId },
       select: {
@@ -70,12 +66,7 @@ async function buildLiveQuitterEmbeds(
     resolvedDisplay,
     resolvedSort,
   );
-  return buildQuitterLiveLeaderboardEmbeds(
-    entries,
-    resolvedDisplay,
-    resolvedSort,
-    new Date(),
-  );
+  return buildQuitterLiveLeaderboardEmbeds(entries, resolvedDisplay, resolvedSort, new Date());
 }
 
 /** Post a live quitter leaderboard message and bind it on GuildConfig. */
@@ -117,10 +108,7 @@ export async function setupQuitterLiveLeaderboard(
 }
 
 /** Delete the live quitter message (best-effort) and clear GuildConfig binding. */
-export async function clearQuitterLiveLeaderboard(
-  client: Client,
-  guildId: string,
-): Promise<void> {
+export async function clearQuitterLiveLeaderboard(client: Client, guildId: string): Promise<void> {
   const row = await prisma.guildConfig.findUnique({
     where: { guildId },
     select: {

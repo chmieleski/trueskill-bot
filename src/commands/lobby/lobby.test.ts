@@ -6,7 +6,7 @@ describe('lobby command data', () => {
   it('requires a slot and accepts nick or user on add', () => {
     const json = data.toJSON();
     const add = json.options?.find((option) => option.name === 'add');
-    const options = add && 'options' in add ? add.options ?? [] : [];
+    const options = add && 'options' in add ? (add.options ?? []) : [];
 
     const nick = options.find((option) => option.name === 'nick');
     const user = options.find((option) => option.name === 'user');
@@ -21,7 +21,7 @@ describe('lobby command data', () => {
   it('requires a screenshot attachment on screenshot', () => {
     const json = data.toJSON();
     const screenshot = json.options?.find((option) => option.name === 'screenshot');
-    const options = screenshot && 'options' in screenshot ? screenshot.options ?? [] : [];
+    const options = screenshot && 'options' in screenshot ? (screenshot.options ?? []) : [];
     const print = options.find((option) => option.name === 'print');
 
     expect(screenshot).toBeDefined();
@@ -32,7 +32,7 @@ describe('lobby command data', () => {
   it('exposes sync with optional wc3stats_id', () => {
     const json = data.toJSON();
     const sync = json.options?.find((option) => option.name === 'sync');
-    const options = sync && 'options' in sync ? sync.options ?? [] : [];
+    const options = sync && 'options' in sync ? (sync.options ?? []) : [];
     const wc3statsId = options.find((option) => option.name === 'wc3stats_id');
 
     expect(sync).toBeDefined();
@@ -45,15 +45,13 @@ describe('lobby command data', () => {
     const cancel = json.options?.find((option) => option.name === 'cancel');
 
     expect(cancel).toBeDefined();
-    expect(cancel && 'description' in cancel ? cancel.description : '').toMatch(
-      /moderator/i,
-    );
+    expect(cancel && 'description' in cancel ? cancel.description : '').toMatch(/moderator/i);
   });
 
   it('exposes swap with optional slots and pairs', () => {
     const json = data.toJSON();
     const swap = json.options?.find((option) => option.name === 'swap');
-    const options = swap && 'options' in swap ? swap.options ?? [] : [];
+    const options = swap && 'options' in swap ? (swap.options ?? []) : [];
 
     const slotA = options.find((option) => option.name === 'slot_a');
     const slotB = options.find((option) => option.name === 'slot_b');
@@ -69,15 +67,13 @@ describe('lobby command data', () => {
   it('describes screenshot as host or match moderator', () => {
     const json = data.toJSON();
     const screenshot = json.options?.find((option) => option.name === 'screenshot');
-    const options = screenshot && 'options' in screenshot ? screenshot.options ?? [] : [];
+    const options = screenshot && 'options' in screenshot ? (screenshot.options ?? []) : [];
     const matchId = options.find((option) => option.name === 'match_id');
 
     expect(screenshot).toBeDefined();
-    expect(
-      screenshot && 'description' in screenshot ? screenshot.description : '',
-    ).toMatch(/moderator/i);
-    expect(matchId && 'description' in matchId ? matchId.description : '').toMatch(
-      /not the host/i,
+    expect(screenshot && 'description' in screenshot ? screenshot.description : '').toMatch(
+      /moderator/i,
     );
+    expect(matchId && 'description' in matchId ? matchId.description : '').toMatch(/not the host/i);
   });
 });

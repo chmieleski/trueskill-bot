@@ -104,10 +104,7 @@ describe('host prompt custom ids', () => {
 });
 
 describe('filterGamelistForHostPrompt', () => {
-  const mapConfig = compileWc3statsMapConfig(
-    'ultimate.?dragon.?ball.?reborn|udbr',
-    [],
-  );
+  const mapConfig = compileWc3statsMapConfig('ultimate.?dragon.?ball.?reborn|udbr', []);
 
   const games: HostPromptListGame[] = [
     {
@@ -197,10 +194,7 @@ describe('host prompt message builders', () => {
     const ids = (rows[0] as ActionRowBuilder<ButtonBuilder>)
       .toJSON()
       .components.map((button) => button.custom_id);
-    expect(ids).toEqual([
-      'host_prompt:open:lg:7:u1',
-      'host_prompt:dismiss:lg:7:u1',
-    ]);
+    expect(ids).toEqual(['host_prompt:open:lg:7:u1', 'host_prompt:dismiss:lg:7:u1']);
   });
 
   it('builds dismiss ephemeral tip', () => {

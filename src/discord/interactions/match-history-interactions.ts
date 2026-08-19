@@ -9,12 +9,9 @@ import {
   parseMatchHistoryPageCustomId,
 } from '../../services/match/index.js';
 
-const NOT_YOUR_PAGE =
-  'Only the person who ran the history command can change pages.';
+const NOT_YOUR_PAGE = 'Only the person who ran the history command can change pages.';
 
-export async function handleMatchHistoryInteraction(
-  interaction: Interaction,
-): Promise<boolean> {
+export async function handleMatchHistoryInteraction(interaction: Interaction): Promise<boolean> {
   if (!interaction.isButton()) {
     return false;
   }
@@ -51,9 +48,7 @@ export async function handleMatchHistoryInteraction(
   const profile = await getGameProfileForLeague(parsed.leagueId);
   await interaction.editReply({
     embeds: [
-      buildMatchHistoryEmbed(pageData, parsed.leagueId, (team) =>
-        teamDisplayName(team, profile),
-      ),
+      buildMatchHistoryEmbed(pageData, parsed.leagueId, (team) => teamDisplayName(team, profile)),
     ],
     components: buildMatchHistoryPageButtons({
       invokerId: parsed.invokerId,

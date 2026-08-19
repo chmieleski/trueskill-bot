@@ -61,9 +61,7 @@ function buildRankResetWarning(preview: {
 export const data = withOptionalLeagueOption(
   new SlashCommandBuilder()
     .setName('rank_reset')
-    .setDescription(
-      'Reset overall and hero ki for this league when rank reset is enabled',
-    )
+    .setDescription('Reset overall and hero ki for this league when rank reset is enabled')
     .addUserOption((option) =>
       option
         .setName('user')

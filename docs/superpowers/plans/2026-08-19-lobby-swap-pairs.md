@@ -32,25 +32,27 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `src/services/lobby/remap.ts` | `parseRemapPairs`, `resolveRemapSide`, `applyRemapPairs`, `resolveSwapForm` |
-| `src/services/lobby/remap.test.ts` | Parser, resolve, sequential apply, XOR form |
-| `src/services/lobby/actions.ts` | `remapLobbyPlayers` use-case |
-| `src/services/lobby/index.ts` | Export use-case + `resolveSwapForm` / `parseRemapPairs` |
-| `src/commands/lobby/lobby.ts` | Optional options, XOR, classic vs remap |
-| `src/commands/lobby/lobby.test.ts` | Command data for `pairs` and optional slots |
-| `docs/discord/public/04-fix-the-lobby.md` | Host-facing `pairs` examples |
+| File                                      | Role                                                                        |
+| ----------------------------------------- | --------------------------------------------------------------------------- |
+| `src/services/lobby/remap.ts`             | `parseRemapPairs`, `resolveRemapSide`, `applyRemapPairs`, `resolveSwapForm` |
+| `src/services/lobby/remap.test.ts`        | Parser, resolve, sequential apply, XOR form                                 |
+| `src/services/lobby/actions.ts`           | `remapLobbyPlayers` use-case                                                |
+| `src/services/lobby/index.ts`             | Export use-case + `resolveSwapForm` / `parseRemapPairs`                     |
+| `src/commands/lobby/lobby.ts`             | Optional options, XOR, classic vs remap                                     |
+| `src/commands/lobby/lobby.test.ts`        | Command data for `pairs` and optional slots                                 |
+| `docs/discord/public/04-fix-the-lobby.md` | Host-facing `pairs` examples                                                |
 
 ---
 
 ### Task 1: Parse remap pairs
 
 **Files:**
+
 - Create: `src/services/lobby/remap.test.ts`
 - Create: `src/services/lobby/remap.ts`
 
 **Interfaces:**
+
 - Consumes: `MatchServiceError` from `../match/match-service.js`
 - Produces: `export type RemapPair = { raw: string; left: string; right: string }`; `parseRemapPairs(raw: string): RemapPair[]`
 
@@ -78,9 +80,7 @@ describe('parseRemapPairs', () => {
   });
 
   it('trims around the hyphen', () => {
-    expect(parseRemapPairs('1 - 7')).toEqual([
-      { raw: '1 - 7', left: '1', right: '7' },
-    ]);
+    expect(parseRemapPairs('1 - 7')).toEqual([{ raw: '1 - 7', left: '1', right: '7' }]);
   });
 
   it('rejects empty or whitespace input', () => {
@@ -94,15 +94,9 @@ describe('parseRemapPairs', () => {
   });
 
   it('rejects a missing hyphen or empty side', () => {
-    expect(() => parseRemapPairs('17')).toThrow(
-      'Invalid pair "17". Use like 1-7 or Gohan-4.',
-    );
-    expect(() => parseRemapPairs('-7')).toThrow(
-      'Invalid pair "-7". Use like 1-7 or Gohan-4.',
-    );
-    expect(() => parseRemapPairs('1-')).toThrow(
-      'Invalid pair "1-". Use like 1-7 or Gohan-4.',
-    );
+    expect(() => parseRemapPairs('17')).toThrow('Invalid pair "17". Use like 1-7 or Gohan-4.');
+    expect(() => parseRemapPairs('-7')).toThrow('Invalid pair "-7". Use like 1-7 or Gohan-4.');
+    expect(() => parseRemapPairs('1-')).toThrow('Invalid pair "1-". Use like 1-7 or Gohan-4.');
   });
 });
 ```
@@ -179,10 +173,12 @@ git commit -m "feat(lobby): parse swap pairs strings"
 ### Task 2: Resolve slot or nick
 
 **Files:**
+
 - Modify: `src/services/lobby/remap.test.ts`
 - Modify: `src/services/lobby/remap.ts`
 
 **Interfaces:**
+
 - Consumes: `LobbyPlayer` from `./lobby-ocr.js`; `GameProfile`, `invalidSlotMessage`, `isSlotInProfile` from `../../domain/game-profile.js`; `normalizeNick` from `../player/player-nick.js`; `parseRemapPairs` from Task 1
 - Produces: `resolveRemapSide(token: string, players: LobbyPlayer[], profile: GameProfile): number`
 
@@ -242,9 +238,7 @@ describe('resolveRemapSide', () => {
 
   it('treats 0 and leading zeros as nicks, not slots', () => {
     expect(resolveRemapSide('07', roster([4, '07']), udbr)).toBe(4);
-    expect(() => resolveRemapSide('0', [], udbr)).toThrow(
-      'No player with nick "0" in the lobby.',
-    );
+    expect(() => resolveRemapSide('0', [], udbr)).toThrow('No player with nick "0" in the lobby.');
   });
 });
 ```
@@ -315,10 +309,12 @@ git commit -m "feat(lobby): resolve swap pair sides to slots"
 ### Task 3: Sequential applyRemapPairs
 
 **Files:**
+
 - Modify: `src/services/lobby/remap.test.ts`
 - Modify: `src/services/lobby/remap.ts`
 
 **Interfaces:**
+
 - Consumes: `movePlayer` from `./roster.js`; `parseRemapPairs` and `resolveRemapSide` from Tasks 1–2
 - Produces: `applyRemapPairs(players: LobbyPlayer[], raw: string, profile: GameProfile): LobbyPlayer[]`
 
@@ -330,16 +326,12 @@ Append the `describe('applyRemapPairs')` block to `src/services/lobby/remap.test
 describe('applyRemapPairs', () => {
   it('swaps when the destination is occupied', () => {
     const players = roster([1, 'a'], [7, 'b']);
-    expect(applyRemapPairs(players, '1-7', udbr)).toEqual(
-      movePlayer(players, 1, 7, udbr),
-    );
+    expect(applyRemapPairs(players, '1-7', udbr)).toEqual(movePlayer(players, 1, 7, udbr));
   });
 
   it('moves when the destination is empty', () => {
     const players = roster([1, 'a']);
-    expect(applyRemapPairs(players, '1-7', udbr)).toEqual(
-      movePlayer(players, 1, 7, udbr),
-    );
+    expect(applyRemapPairs(players, '1-7', udbr)).toEqual(movePlayer(players, 1, 7, udbr));
   });
 
   it('applies overlapping pairs left to right', () => {
@@ -358,9 +350,7 @@ describe('applyRemapPairs', () => {
 
   it('moves a hyphenated nick via last-dash parse', () => {
     const players = roster([1, 'cool-guy']);
-    expect(applyRemapPairs(players, 'cool-guy-7', udbr)).toEqual(
-      movePlayer(players, 1, 7, udbr),
-    );
+    expect(applyRemapPairs(players, 'cool-guy-7', udbr)).toEqual(movePlayer(players, 1, 7, udbr));
   });
 
   it('does not wrap parse errors with Could not apply', () => {
@@ -368,9 +358,7 @@ describe('applyRemapPairs', () => {
     try {
       applyRemapPairs([], '17', udbr);
     } catch (error) {
-      expect((error as Error).message).toBe(
-        'Invalid pair "17". Use like 1-7 or Gohan-4.',
-      );
+      expect((error as Error).message).toBe('Invalid pair "17". Use like 1-7 or Gohan-4.');
     }
   });
 
@@ -453,10 +441,12 @@ git commit -m "feat(lobby): apply swap pairs sequentially"
 ### Task 4: XOR swap form
 
 **Files:**
+
 - Modify: `src/services/lobby/remap.test.ts`
 - Modify: `src/services/lobby/remap.ts`
 
 **Interfaces:**
+
 - Consumes: `MatchServiceError`
 - Produces:
   - `export type SwapForm = { kind: 'classic'; slotA: number; slotB: number } | { kind: 'pairs'; pairs: string }`
@@ -523,8 +513,7 @@ Add to `src/services/lobby/remap.ts`:
 
 ```typescript
 export type SwapForm =
-  | { kind: 'classic'; slotA: number; slotB: number }
-  | { kind: 'pairs'; pairs: string };
+  { kind: 'classic'; slotA: number; slotB: number } | { kind: 'pairs'; pairs: string };
 
 /**
  * Discord `/lobby swap` XOR: classic two slots, or a pairs string, never both.
@@ -549,15 +538,11 @@ export function resolveSwapForm(input: {
   }
 
   if (hasPairs && (hasA || hasB)) {
-    throw new MatchServiceError(
-      'Use either slot_a and slot_b, or pairs, not both.',
-    );
+    throw new MatchServiceError('Use either slot_a and slot_b, or pairs, not both.');
   }
 
   if (hasA !== hasB) {
-    throw new MatchServiceError(
-      'Provide both slot_a and slot_b, or use pairs instead.',
-    );
+    throw new MatchServiceError('Provide both slot_a and slot_b, or use pairs instead.');
   }
 
   throw new MatchServiceError('Provide slot_a and slot_b, or pairs.');
@@ -582,6 +567,7 @@ git commit -m "feat(lobby): xor classic swap and pairs"
 ### Task 5: Slash command, use-case, and host docs
 
 **Files:**
+
 - Modify: `src/services/lobby/actions.ts`
 - Modify: `src/services/lobby/index.ts`
 - Modify: `src/commands/lobby/lobby.ts`
@@ -589,6 +575,7 @@ git commit -m "feat(lobby): xor classic swap and pairs"
 - Modify: `docs/discord/public/04-fix-the-lobby.md`
 
 **Interfaces:**
+
 - Consumes: `resolveSwapForm`, `applyRemapPairs`, `parseRemapPairs` from `remap.ts`; `swapLobbyPlayers` unchanged
 - Produces: `remapLobbyPlayers({ client, hostDiscordId, matchId?, pairs: string }): Promise<LobbyActionResult>`
 
@@ -597,21 +584,21 @@ git commit -m "feat(lobby): xor classic swap and pairs"
 Add to `src/commands/lobby/lobby.test.ts` inside `describe('lobby command data')`:
 
 ```typescript
-  it('exposes swap with optional slots and pairs', () => {
-    const json = data.toJSON();
-    const swap = json.options?.find((option) => option.name === 'swap');
-    const options = swap && 'options' in swap ? swap.options ?? [] : [];
+it('exposes swap with optional slots and pairs', () => {
+  const json = data.toJSON();
+  const swap = json.options?.find((option) => option.name === 'swap');
+  const options = swap && 'options' in swap ? (swap.options ?? []) : [];
 
-    const slotA = options.find((option) => option.name === 'slot_a');
-    const slotB = options.find((option) => option.name === 'slot_b');
-    const pairs = options.find((option) => option.name === 'pairs');
+  const slotA = options.find((option) => option.name === 'slot_a');
+  const slotB = options.find((option) => option.name === 'slot_b');
+  const pairs = options.find((option) => option.name === 'pairs');
 
-    expect(slotA?.required).toBeFalsy();
-    expect(slotB?.required).toBeFalsy();
-    expect(pairs?.required).toBeFalsy();
-    expect(pairs?.type).toBe(ApplicationCommandOptionType.String);
-    expect(swap && 'description' in swap ? swap.description : '').toMatch(/pairs/i);
-  });
+  expect(slotA?.required).toBeFalsy();
+  expect(slotB?.required).toBeFalsy();
+  expect(pairs?.required).toBeFalsy();
+  expect(pairs?.type).toBe(ApplicationCommandOptionType.String);
+  expect(swap && 'description' in swap ? swap.description : '').toMatch(/pairs/i);
+});
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -647,11 +634,7 @@ In `src/services/lobby/index.ts`:
 - Add:
 
 ```typescript
-export {
-  applyRemapPairs,
-  parseRemapPairs,
-  resolveSwapForm,
-} from './remap.js';
+export { applyRemapPairs, parseRemapPairs, resolveSwapForm } from './remap.js';
 ```
 
 In `src/commands/lobby/lobby.ts`:
@@ -699,39 +682,39 @@ In `src/commands/lobby/lobby.ts`:
 3. Replace the `subcommand === 'swap'` branch with:
 
 ```typescript
-    if (subcommand === 'swap') {
-      const form = resolveSwapForm({
-        slotA: interaction.options.getInteger('slot_a'),
-        slotB: interaction.options.getInteger('slot_b'),
-        pairs: interaction.options.getString('pairs'),
-      });
+if (subcommand === 'swap') {
+  const form = resolveSwapForm({
+    slotA: interaction.options.getInteger('slot_a'),
+    slotB: interaction.options.getInteger('slot_b'),
+    pairs: interaction.options.getString('pairs'),
+  });
 
-      if (form.kind === 'classic') {
-        const result = await swapLobbyPlayers({
-          client: interaction.client,
-          hostDiscordId,
-          matchId,
-          slotA: form.slotA,
-          slotB: form.slotB,
-        });
-        await interaction.editReply({
-          content: `Swapped slots ${form.slotA} and ${form.slotB} in match \`${result.match.id}\`.`,
-        });
-        return;
-      }
+  if (form.kind === 'classic') {
+    const result = await swapLobbyPlayers({
+      client: interaction.client,
+      hostDiscordId,
+      matchId,
+      slotA: form.slotA,
+      slotB: form.slotB,
+    });
+    await interaction.editReply({
+      content: `Swapped slots ${form.slotA} and ${form.slotB} in match \`${result.match.id}\`.`,
+    });
+    return;
+  }
 
-      const result = await remapLobbyPlayers({
-        client: interaction.client,
-        hostDiscordId,
-        matchId,
-        pairs: form.pairs,
-      });
-      const n = parseRemapPairs(form.pairs).length;
-      await interaction.editReply({
-        content: `Applied ${n} seat change(s) in match \`${result.match.id}\`.`,
-      });
-      return;
-    }
+  const result = await remapLobbyPlayers({
+    client: interaction.client,
+    hostDiscordId,
+    matchId,
+    pairs: form.pairs,
+  });
+  const n = parseRemapPairs(form.pairs).length;
+  await interaction.editReply({
+    content: `Applied ${n} seat change(s) in match \`${result.match.id}\`.`,
+  });
+  return;
+}
 ```
 
 In `docs/discord/public/04-fix-the-lobby.md`, replace the swap line in the slash block with:
@@ -771,12 +754,12 @@ git commit -m "feat(lobby): add /lobby swap pairs"
 
 ## Spec coverage
 
-| Spec section | Task |
-| ------------ | ---- |
-| Pair syntax / last `-` / commas | Task 1 |
-| Slot vs nick / digit nicks / ACA range | Task 2 |
-| Sequential `movePlayer`, prefix errors, no persist | Task 3 |
-| XOR classic vs pairs; blank pairs absent | Task 4 |
-| Optional Discord options, use-case, host docs, success copy | Task 5 |
-| No button / no schema / host-only | Task 5 (does not add those) |
-| Classic `swapPlayers` unchanged | Task 5 classic branch |
+| Spec section                                                | Task                        |
+| ----------------------------------------------------------- | --------------------------- |
+| Pair syntax / last `-` / commas                             | Task 1                      |
+| Slot vs nick / digit nicks / ACA range                      | Task 2                      |
+| Sequential `movePlayer`, prefix errors, no persist          | Task 3                      |
+| XOR classic vs pairs; blank pairs absent                    | Task 4                      |
+| Optional Discord options, use-case, host docs, success copy | Task 5                      |
+| No button / no schema / host-only                           | Task 5 (does not add those) |
+| Classic `swapPlayers` unchanged                             | Task 5 classic branch       |

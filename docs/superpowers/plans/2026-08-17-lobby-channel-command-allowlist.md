@@ -26,25 +26,27 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `src/services/league/league-lobby-channel.ts` | Allowlist, `isGuildLobbyChannel`, denial helper + locked copy |
-| `src/services/league/league-lobby-channel.test.ts` | Unit tests for new helpers |
-| `src/services/league/index.ts` | Re-export helpers used by the event handler |
-| `src/events/interaction-create.ts` | Central gate before autocomplete + `execute` |
-| `docs/discord/staff/a1-roles-and-setup.md` | One-line note that the lobby channel also limits slash commands |
-| `docs/discord/staff/a5-admin-cheat-sheet.md` | Same brief note |
+| File                                               | Role                                                            |
+| -------------------------------------------------- | --------------------------------------------------------------- |
+| `src/services/league/league-lobby-channel.ts`      | Allowlist, `isGuildLobbyChannel`, denial helper + locked copy   |
+| `src/services/league/league-lobby-channel.test.ts` | Unit tests for new helpers                                      |
+| `src/services/league/index.ts`                     | Re-export helpers used by the event handler                     |
+| `src/events/interaction-create.ts`                 | Central gate before autocomplete + `execute`                    |
+| `docs/discord/staff/a1-roles-and-setup.md`         | One-line note that the lobby channel also limits slash commands |
+| `docs/discord/staff/a5-admin-cheat-sheet.md`       | Same brief note                                                 |
 
 ---
 
 ### Task 1: Allowlist + denial helpers (TDD)
 
 **Files:**
+
 - Modify: `src/services/league/league-lobby-channel.ts`
 - Modify: `src/services/league/league-lobby-channel.test.ts`
 - Modify: `src/services/league/index.ts`
 
 **Interfaces:**
+
 - Consumes: existing `prisma` usage patterns in `league-lobby-channel.ts`; existing vitest prisma mock in the test file
 - Produces:
   - `lobbyChannelCommandsLimitedMessage(channelId: string): string`
@@ -149,40 +151,30 @@ describe('getLobbyChannelSlashDenial', () => {
   });
 
   it('returns null without guild or channel', async () => {
-    await expect(
-      getLobbyChannelSlashDenial(null, 'c', 'rank'),
-    ).resolves.toBeNull();
-    await expect(
-      getLobbyChannelSlashDenial('g', null, 'rank'),
-    ).resolves.toBeNull();
+    await expect(getLobbyChannelSlashDenial(null, 'c', 'rank')).resolves.toBeNull();
+    await expect(getLobbyChannelSlashDenial('g', null, 'rank')).resolves.toBeNull();
     expect(findFirst).not.toHaveBeenCalled();
   });
 
   it('returns null for allowed commands without hitting the DB', async () => {
-    await expect(
-      getLobbyChannelSlashDenial('g', 'lobby', 'lobby', 'add'),
-    ).resolves.toBeNull();
-    await expect(
-      getLobbyChannelSlashDenial('g', 'lobby', 'match', 'complete'),
-    ).resolves.toBeNull();
+    await expect(getLobbyChannelSlashDenial('g', 'lobby', 'lobby', 'add')).resolves.toBeNull();
+    await expect(getLobbyChannelSlashDenial('g', 'lobby', 'match', 'complete')).resolves.toBeNull();
     expect(findFirst).not.toHaveBeenCalled();
   });
 
   it('returns null when the channel is not a ready lobby channel', async () => {
     findFirst.mockResolvedValue(null);
-    await expect(
-      getLobbyChannelSlashDenial('g', 'chat', 'rank'),
-    ).resolves.toBeNull();
+    await expect(getLobbyChannelSlashDenial('g', 'chat', 'rank')).resolves.toBeNull();
   });
 
   it('returns the locked message when blocked in a ready lobby channel', async () => {
     findFirst.mockResolvedValue({ id: 'L1' });
-    await expect(
-      getLobbyChannelSlashDenial('g', 'lobby', 'match', 'history'),
-    ).resolves.toBe(lobbyChannelCommandsLimitedMessage('lobby'));
-    await expect(
-      getLobbyChannelSlashDenial('g', 'lobby', 'rank'),
-    ).resolves.toBe(lobbyChannelCommandsLimitedMessage('lobby'));
+    await expect(getLobbyChannelSlashDenial('g', 'lobby', 'match', 'history')).resolves.toBe(
+      lobbyChannelCommandsLimitedMessage('lobby'),
+    );
+    await expect(getLobbyChannelSlashDenial('g', 'lobby', 'rank')).resolves.toBe(
+      lobbyChannelCommandsLimitedMessage('lobby'),
+    );
   });
 });
 ```
@@ -198,11 +190,7 @@ Expected: FAIL (new symbols not exported / not defined).
 Append (after the existing exports; keep `trimOptionalId` private as today):
 
 ```typescript
-const LOBBY_CHANNEL_ALLOWED_MATCH_SUBCOMMANDS = new Set([
-  'complete',
-  'cancel',
-  'quitters',
-]);
+const LOBBY_CHANNEL_ALLOWED_MATCH_SUBCOMMANDS = new Set(['complete', 'cancel', 'quitters']);
 
 /** User-facing copy when a non-allowlisted slash command is used in a ready lobby channel. */
 export function lobbyChannelCommandsLimitedMessage(channelId: string): string {
@@ -222,8 +210,7 @@ export function isLobbyChannelAllowedCommand(
   }
   if (commandName === 'match') {
     return (
-      typeof subcommand === 'string' &&
-      LOBBY_CHANNEL_ALLOWED_MATCH_SUBCOMMANDS.has(subcommand)
+      typeof subcommand === 'string' && LOBBY_CHANNEL_ALLOWED_MATCH_SUBCOMMANDS.has(subcommand)
     );
   }
   return false;
@@ -233,10 +220,7 @@ export function isLobbyChannelAllowedCommand(
  * True when any league in the guild has the lobby channel gate ready on this channel id.
  * Stored ids are trimmed on write; query uses the interaction channel id as-is.
  */
-export async function isGuildLobbyChannel(
-  guildId: string,
-  channelId: string,
-): Promise<boolean> {
+export async function isGuildLobbyChannel(guildId: string, channelId: string): Promise<boolean> {
   const row = await prisma.league.findFirst({
     where: {
       guildId,
@@ -316,9 +300,11 @@ EOF
 ### Task 2: Central gate in `interaction-create`
 
 **Files:**
+
 - Modify: `src/events/interaction-create.ts`
 
 **Interfaces:**
+
 - Consumes: `getLobbyChannelSlashDenial(guildId, channelId, commandName, subcommand?)` from Task 1
 - Produces: Slash autocomplete and `execute` blocked with ephemeral / empty choices when denial is non-null; components unchanged
 
@@ -335,31 +321,31 @@ import { getLobbyChannelSlashDenial } from '../services/league/index.js';
 Replace the autocomplete block so denial runs first:
 
 ```typescript
-  if (interaction.isAutocomplete()) {
-    try {
-      const denial = await getLobbyChannelSlashDenial(
-        interaction.guildId,
-        interaction.channelId,
-        interaction.commandName,
-        interaction.options.getSubcommand(false),
-      );
-      if (denial) {
-        await interaction.respond([]);
-        return;
-      }
-
-      const command = interaction.client.commands.get(interaction.commandName);
-      if (command?.autocomplete) {
-        await command.autocomplete(interaction);
-      }
-    } catch (error) {
-      log.error(
-        { err: error, command: interaction.commandName, userId: interaction.user.id },
-        'Failed to handle autocomplete',
-      );
+if (interaction.isAutocomplete()) {
+  try {
+    const denial = await getLobbyChannelSlashDenial(
+      interaction.guildId,
+      interaction.channelId,
+      interaction.commandName,
+      interaction.options.getSubcommand(false),
+    );
+    if (denial) {
+      await interaction.respond([]);
+      return;
     }
-    return;
+
+    const command = interaction.client.commands.get(interaction.commandName);
+    if (command?.autocomplete) {
+      await command.autocomplete(interaction);
+    }
+  } catch (error) {
+    log.error(
+      { err: error, command: interaction.commandName, userId: interaction.user.id },
+      'Failed to handle autocomplete',
+    );
   }
+  return;
+}
 ```
 
 - [ ] **Step 3: Gate chat input `execute`**
@@ -367,16 +353,16 @@ Replace the autocomplete block so denial runs first:
 After resolving `command` and before the `log.info` / `command.execute` try block, insert:
 
 ```typescript
-  const denial = await getLobbyChannelSlashDenial(
-    interaction.guildId,
-    interaction.channelId,
-    interaction.commandName,
-    interaction.options.getSubcommand(false),
-  );
-  if (denial) {
-    await interaction.reply({ content: denial, flags: MessageFlags.Ephemeral });
-    return;
-  }
+const denial = await getLobbyChannelSlashDenial(
+  interaction.guildId,
+  interaction.channelId,
+  interaction.commandName,
+  interaction.options.getSubcommand(false),
+);
+if (denial) {
+  await interaction.reply({ content: denial, flags: MessageFlags.Ephemeral });
+  return;
+}
 ```
 
 Full shape of the chat-input section after the change:
@@ -447,10 +433,12 @@ EOF
 ### Task 3: Staff docs note
 
 **Files:**
+
 - Modify: `docs/discord/staff/a1-roles-and-setup.md`
 - Modify: `docs/discord/staff/a5-admin-cheat-sheet.md`
 
 **Interfaces:**
+
 - Consumes: locked allowlist behavior from the spec
 - Produces: short admin-facing note that a ready lobby channel also limits slash commands
 
@@ -498,14 +486,14 @@ EOF
 
 ## Spec coverage (self-review)
 
-| Spec requirement | Task |
-|------------------|------|
-| Trigger: any ready league lobby channel in guild | Task 1 `isGuildLobbyChannel` |
-| Allow `/register_lobby`, `/lobby`, `/match complete\|cancel\|quitters` | Task 1 allowlist |
-| Block `/match history` and other roots | Task 1 + Task 2 |
-| Central gate in `interaction-create` | Task 2 |
-| Autocomplete gated | Task 2 |
-| Components ungated | Task 2 (no changes to component path) |
-| Locked English deny copy | Task 1 |
-| No schema/env | All tasks |
-| Staff note | Task 3 |
+| Spec requirement                                                       | Task                                  |
+| ---------------------------------------------------------------------- | ------------------------------------- |
+| Trigger: any ready league lobby channel in guild                       | Task 1 `isGuildLobbyChannel`          |
+| Allow `/register_lobby`, `/lobby`, `/match complete\|cancel\|quitters` | Task 1 allowlist                      |
+| Block `/match history` and other roots                                 | Task 1 + Task 2                       |
+| Central gate in `interaction-create`                                   | Task 2                                |
+| Autocomplete gated                                                     | Task 2                                |
+| Components ungated                                                     | Task 2 (no changes to component path) |
+| Locked English deny copy                                               | Task 1                                |
+| No schema/env                                                          | All tasks                             |
+| Staff note                                                             | Task 3                                |

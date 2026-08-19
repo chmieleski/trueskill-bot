@@ -31,29 +31,31 @@
 
 ## File structure
 
-| File | Responsibility |
-|------|----------------|
-| `deploy/aws/host-update.sh` | Canonical root updater: pull, refresh `.env`, ci/migrate/build/deploy-commands, restart |
-| `deploy/aws/update-bot.sh` | Thin helper that execs `host-update.sh` from repo root |
-| `infra/aws/user-data.sh.tftpl` | Cloud-init `dbz-bot-update` becomes `exec bash $APP_DIR/deploy/aws/host-update.sh` |
-| `infra/aws/github-oidc.tf` | GitHub OIDC provider, GHA IAM role, least-privilege SSM policy |
-| `infra/aws/variables.tf` | `github_repository` |
-| `infra/aws/outputs.tf` | `github_actions_role_arn` |
-| `infra/aws/terraform.tfvars.example` | Document `github_repository` |
-| `.github/workflows/ci-cd.yml` | `test` job always; `deploy` job on `main` push via SSM |
-| `infra/aws/README.md` | Operator: apply OIDC, set `AWS_ROLE_ARN`, what push to `main` does |
-| `docs/superpowers/specs/2026-08-14-aws-free-tier-deploy-design.md` | CI/CD no longer a non-goal; pointer to CI/CD spec |
+| File                                                               | Responsibility                                                                          |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `deploy/aws/host-update.sh`                                        | Canonical root updater: pull, refresh `.env`, ci/migrate/build/deploy-commands, restart |
+| `deploy/aws/update-bot.sh`                                         | Thin helper that execs `host-update.sh` from repo root                                  |
+| `infra/aws/user-data.sh.tftpl`                                     | Cloud-init `dbz-bot-update` becomes `exec bash $APP_DIR/deploy/aws/host-update.sh`      |
+| `infra/aws/github-oidc.tf`                                         | GitHub OIDC provider, GHA IAM role, least-privilege SSM policy                          |
+| `infra/aws/variables.tf`                                           | `github_repository`                                                                     |
+| `infra/aws/outputs.tf`                                             | `github_actions_role_arn`                                                               |
+| `infra/aws/terraform.tfvars.example`                               | Document `github_repository`                                                            |
+| `.github/workflows/ci-cd.yml`                                      | `test` job always; `deploy` job on `main` push via SSM                                  |
+| `infra/aws/README.md`                                              | Operator: apply OIDC, set `AWS_ROLE_ARN`, what push to `main` does                      |
+| `docs/superpowers/specs/2026-08-14-aws-free-tier-deploy-design.md` | CI/CD no longer a non-goal; pointer to CI/CD spec                                       |
 
 ---
 
 ### Task 1: Host update script (source of truth)
 
 **Files:**
+
 - Create: `deploy/aws/host-update.sh`
 - Modify: `deploy/aws/update-bot.sh`
 - Modify: `infra/aws/user-data.sh.tftpl` (only the `dbz-bot-update` heredoc)
 
 **Interfaces:**
+
 - Consumes: `/usr/local/bin/dbz-bot-refresh-env` (already installed by cloud-init); systemd unit `dbz-bot`; git clone at `APP_DIR`
 - Produces: `deploy/aws/host-update.sh` runnable as root; `sudo ./deploy/aws/update-bot.sh` execs it; new instances' `/usr/local/bin/dbz-bot-update` execs it
 
@@ -163,12 +165,14 @@ EOF
 ### Task 2: GitHub OIDC IAM in Terraform
 
 **Files:**
+
 - Create: `infra/aws/github-oidc.tf`
 - Modify: `infra/aws/variables.tf` (append `github_repository`)
 - Modify: `infra/aws/outputs.tf` (append `github_actions_role_arn`)
 - Modify: `infra/aws/terraform.tfvars.example` (document the variable)
 
 **Interfaces:**
+
 - Consumes: `var.project_name`, `var.environment`, `var.aws_region`, `data.aws_caller_identity.current` (already in `iam.tf`)
 - Produces: role ARN output `github_actions_role_arn`; trust `repo:${var.github_repository}:ref:refs/heads/main`
 
@@ -320,9 +324,11 @@ EOF
 ### Task 3: GitHub Actions workflow
 
 **Files:**
+
 - Create: `.github/workflows/ci-cd.yml`
 
 **Interfaces:**
+
 - Consumes: `secrets.AWS_ROLE_ARN`; optional `vars.AWS_REGION` (default `us-east-1`); optional `vars.EC2_NAME_TAG` (default `dbz-bot-prod`); `deploy/aws/host-update.sh` on the instance after pull
 - Produces: PR/push `test` job; `main` push `deploy` job that SSM-runs the host updater
 
@@ -347,7 +353,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
           cache: npm
       - run: npm ci
       - run: npm test
@@ -472,10 +478,12 @@ EOF
 ### Task 4: Docs
 
 **Files:**
+
 - Modify: `infra/aws/README.md`
 - Modify: `docs/superpowers/specs/2026-08-14-aws-free-tier-deploy-design.md`
 
 **Interfaces:**
+
 - Consumes: output name `github_actions_role_arn`; secret name `AWS_ROLE_ARN`
 - Produces: operator can apply OIDC and wire GitHub without reading the spec
 
@@ -507,7 +515,7 @@ Also change operator step 5 from manual git pull to:
 
 Insert **before** `## Destroy`:
 
-```markdown
+````markdown
 ## CI/CD (push to `main`)
 
 Pull requests run `npm test`. A push to `main` runs the same tests, then AWS SSM runs `deploy/aws/host-update.sh` on the EC2 host (pull, migrate, build, register slash commands, restart).
@@ -520,6 +528,7 @@ Pull requests run `npm test`. A push to `main` runs the same tests, then AWS SSM
    cd infra/aws
    tofu apply
    ```
+````
 
 2. Copy the `github_actions_role_arn` output.
 
@@ -539,7 +548,8 @@ sudo dbz-bot-update
 ```
 
 New instances use the repo script via that wrapper. The existing host keeps the old baked wrapper until recreate; GitHub Actions does not call it — it `git pull`s and runs `deploy/aws/host-update.sh` directly.
-```
+
+````
 
 Keep the existing "Update the bot later" heading or fold it: after adding CI/CD, shorten "Update the bot later" to a pointer at the new section so the README does not describe two conflicting update stories. Replace that whole section with:
 
@@ -552,7 +562,7 @@ On the instance (break-glass):
 
 ```bash
 sudo dbz-bot-update
-```
+````
 
 After changing secrets in `terraform.tfvars`, run `tofu apply` (updates SSM), then on the host:
 
@@ -560,7 +570,8 @@ After changing secrets in `terraform.tfvars`, run `tofu apply` (updates SSM), th
 sudo dbz-bot-refresh-env
 sudo systemctl restart dbz-bot
 ```
-```
+
+````
 
 Place **CI/CD** after this **Update** section (so "see CI/CD below" is accurate), still before **Destroy**.
 
@@ -573,7 +584,7 @@ Document GitHub Actions OIDC deploy on push to main.
 
 EOF
 )"
-```
+````
 
 ---
 

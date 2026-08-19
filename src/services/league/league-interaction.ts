@@ -23,8 +23,7 @@ export const LEAGUE_RESOLVE_INVALID_OPTION =
   'Unknown league. Pick one from the `league:` autocomplete list.';
 
 /** User-facing message when the league option belongs to another guild. */
-export const LEAGUE_RESOLVE_NOT_IN_GUILD =
-  'That league does not belong to this server.';
+export const LEAGUE_RESOLVE_NOT_IN_GUILD = 'That league does not belong to this server.';
 
 /**
  * Map a failed resolve reason to an English user-facing string.
@@ -47,9 +46,7 @@ export function leagueResolveFailureMessage(
 }
 
 /** Discord category id for guild text channels, when available. */
-export function getInteractionCategoryId(
-  interaction: Pick<Interaction, 'channel'>,
-): string | null {
+export function getInteractionCategoryId(interaction: Pick<Interaction, 'channel'>): string | null {
   const channel = interaction.channel;
   if (!channel || !('parentId' in channel)) {
     return null;
@@ -57,10 +54,7 @@ export function getInteractionCategoryId(
   return channel.parentId;
 }
 
-type LeagueResolvableInteraction = Pick<
-  Interaction,
-  'guildId' | 'channelId' | 'channel'
->;
+type LeagueResolvableInteraction = Pick<Interaction, 'guildId' | 'channelId' | 'channel'>;
 
 /**
  * Resolve league context from a Discord interaction (channel, category, optional option).
@@ -81,9 +75,7 @@ export async function resolveLeagueFromInteraction(
   });
 }
 
-export type ResolvedLeagueId =
-  | { ok: true; leagueId: string }
-  | { ok: false; message: string };
+export type ResolvedLeagueId = { ok: true; leagueId: string } | { ok: false; message: string };
 
 /** Convenience wrapper returning league id or a user-facing error message. */
 export async function resolveLeagueIdFromInteraction(

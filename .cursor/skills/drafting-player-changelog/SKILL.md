@@ -71,13 +71,13 @@ What it does, in lobby/match words.
 
 ## Red flags — fix before sending
 
-| Thought | Do this |
-|---------|---------|
-| Local CHANGELOG is enough | Fetch `gh release view` first |
-| User already pasted commits | GitHub body is still source of truth; paste is a hint |
-| Rendered markdown is nicer / user didn’t say codeblock | Invalid without ` ```text `. Wrap, then send. |
-| List every commit | Collapse to player-visible features |
-| `gh` Forbidden | Retry once with `required_permissions: ["all"]` |
+| Thought                                                | Do this                                               |
+| ------------------------------------------------------ | ----------------------------------------------------- |
+| Local CHANGELOG is enough                              | Fetch `gh release view` first                         |
+| User already pasted commits                            | GitHub body is still source of truth; paste is a hint |
+| Rendered markdown is nicer / user didn’t say codeblock | Invalid without ` ```text `. Wrap, then send.         |
+| List every commit                                      | Collapse to player-visible features                   |
+| `gh` Forbidden                                         | Retry once with `required_permissions: ["all"]`       |
 
 ## Common mistakes
 

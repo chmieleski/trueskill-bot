@@ -36,18 +36,18 @@ describe('isLeagueLobbyChannelReady', () => {
   it('is false when disabled or id is missing', () => {
     expect(isLeagueLobbyChannelReady({})).toBe(false);
     expect(isLeagueLobbyChannelReady({ lobbyChannelEnabled: true })).toBe(false);
-    expect(
-      isLeagueLobbyChannelReady({ lobbyChannelEnabled: false, lobbyChannelId: 'c' }),
-    ).toBe(false);
-    expect(
-      isLeagueLobbyChannelReady({ lobbyChannelEnabled: true, lobbyChannelId: '  ' }),
-    ).toBe(false);
+    expect(isLeagueLobbyChannelReady({ lobbyChannelEnabled: false, lobbyChannelId: 'c' })).toBe(
+      false,
+    );
+    expect(isLeagueLobbyChannelReady({ lobbyChannelEnabled: true, lobbyChannelId: '  ' })).toBe(
+      false,
+    );
   });
 
   it('is true when enabled with a non-empty id', () => {
-    expect(
-      isLeagueLobbyChannelReady({ lobbyChannelEnabled: true, lobbyChannelId: 'c1' }),
-    ).toBe(true);
+    expect(isLeagueLobbyChannelReady({ lobbyChannelEnabled: true, lobbyChannelId: 'c1' })).toBe(
+      true,
+    );
   });
 });
 
@@ -58,25 +58,16 @@ describe('assertLobbyCreateChannel', () => {
 
   it('allows the matching channel when ready', () => {
     expect(() =>
-      assertLobbyCreateChannel(
-        { lobbyChannelEnabled: true, lobbyChannelId: 'lobby' },
-        'lobby',
-      ),
+      assertLobbyCreateChannel({ lobbyChannelEnabled: true, lobbyChannelId: 'lobby' }, 'lobby'),
     ).not.toThrow();
   });
 
   it('rejects a different channel when ready', () => {
     expect(() =>
-      assertLobbyCreateChannel(
-        { lobbyChannelEnabled: true, lobbyChannelId: 'lobby' },
-        'other',
-      ),
+      assertLobbyCreateChannel({ lobbyChannelEnabled: true, lobbyChannelId: 'lobby' }, 'other'),
     ).toThrow(MatchServiceError);
     expect(() =>
-      assertLobbyCreateChannel(
-        { lobbyChannelEnabled: true, lobbyChannelId: 'lobby' },
-        'other',
-      ),
+      assertLobbyCreateChannel({ lobbyChannelEnabled: true, lobbyChannelId: 'lobby' }, 'other'),
     ).toThrow(lobbyCreationLimitedMessage('lobby'));
   });
 });
@@ -118,9 +109,7 @@ describe('assertLobbyHostPromptChannelsCompatible', () => {
 
 describe('formatLobbyChannelConfigLine', () => {
   it('shows off when disabled with no id', () => {
-    expect(formatLobbyChannelConfigLine(false, undefined)).toBe(
-      '**Lobby channel:** `off`',
-    );
+    expect(formatLobbyChannelConfigLine(false, undefined)).toBe('**Lobby channel:** `off`');
   });
 
   it('shows saved id when disabled', () => {
@@ -130,15 +119,11 @@ describe('formatLobbyChannelConfigLine', () => {
   });
 
   it('shows on with mention when ready', () => {
-    expect(formatLobbyChannelConfigLine(true, 'c1')).toBe(
-      '**Lobby channel:** `on` · <#c1>',
-    );
+    expect(formatLobbyChannelConfigLine(true, 'c1')).toBe('**Lobby channel:** `on` · <#c1>');
   });
 
   it('does not show on when enabled without an id', () => {
-    expect(formatLobbyChannelConfigLine(true, undefined)).toBe(
-      '**Lobby channel:** `off`',
-    );
+    expect(formatLobbyChannelConfigLine(true, undefined)).toBe('**Lobby channel:** `off`');
   });
 });
 
@@ -170,9 +155,7 @@ describe('setLeagueLobbyChannel', () => {
   });
 
   it('rejects when neither enabled nor channel is provided', async () => {
-    await expect(setLeagueLobbyChannel('L1', {})).rejects.toThrow(
-      LOBBY_CHANNEL_SET_NEEDS_OPTION,
-    );
+    await expect(setLeagueLobbyChannel('L1', {})).rejects.toThrow(LOBBY_CHANNEL_SET_NEEDS_OPTION);
   });
 
   it('rejects enable true when no channel is passed or stored', async () => {
@@ -349,39 +332,29 @@ describe('getLobbyChannelSlashDenial', () => {
   });
 
   it('returns null without guild or channel', async () => {
-    await expect(
-      getLobbyChannelSlashDenial(null, 'c', 'rank'),
-    ).resolves.toBeNull();
-    await expect(
-      getLobbyChannelSlashDenial('g', null, 'rank'),
-    ).resolves.toBeNull();
+    await expect(getLobbyChannelSlashDenial(null, 'c', 'rank')).resolves.toBeNull();
+    await expect(getLobbyChannelSlashDenial('g', null, 'rank')).resolves.toBeNull();
     expect(findFirst).not.toHaveBeenCalled();
   });
 
   it('returns null for allowed commands without hitting the DB', async () => {
-    await expect(
-      getLobbyChannelSlashDenial('g', 'lobby', 'lobby', 'add'),
-    ).resolves.toBeNull();
-    await expect(
-      getLobbyChannelSlashDenial('g', 'lobby', 'match', 'complete'),
-    ).resolves.toBeNull();
+    await expect(getLobbyChannelSlashDenial('g', 'lobby', 'lobby', 'add')).resolves.toBeNull();
+    await expect(getLobbyChannelSlashDenial('g', 'lobby', 'match', 'complete')).resolves.toBeNull();
     expect(findFirst).not.toHaveBeenCalled();
   });
 
   it('returns null when the channel is not a ready lobby channel', async () => {
     findFirst.mockResolvedValue(null);
-    await expect(
-      getLobbyChannelSlashDenial('g', 'chat', 'rank'),
-    ).resolves.toBeNull();
+    await expect(getLobbyChannelSlashDenial('g', 'chat', 'rank')).resolves.toBeNull();
   });
 
   it('returns the locked message when blocked in a ready lobby channel', async () => {
     findFirst.mockResolvedValue({ id: 'L1' });
-    await expect(
-      getLobbyChannelSlashDenial('g', 'lobby', 'match', 'history'),
-    ).resolves.toBe(lobbyChannelCommandsLimitedMessage('lobby'));
-    await expect(
-      getLobbyChannelSlashDenial('g', 'lobby', 'rank'),
-    ).resolves.toBe(lobbyChannelCommandsLimitedMessage('lobby'));
+    await expect(getLobbyChannelSlashDenial('g', 'lobby', 'match', 'history')).resolves.toBe(
+      lobbyChannelCommandsLimitedMessage('lobby'),
+    );
+    await expect(getLobbyChannelSlashDenial('g', 'lobby', 'rank')).resolves.toBe(
+      lobbyChannelCommandsLimitedMessage('lobby'),
+    );
   });
 });

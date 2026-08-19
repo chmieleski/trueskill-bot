@@ -1,9 +1,4 @@
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder,
-} from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { chunkLeaderboardEntries } from './leaderboard.js';
 import { formatRankPrefix } from './leaderboard-embed.js';
 import type {

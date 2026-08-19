@@ -1,9 +1,5 @@
 import type { Client } from 'discord.js';
-import {
-  cancelMatch,
-  matchToLobbyPlayers,
-  startMatch,
-} from '../match/match-service.js';
+import { cancelMatch, matchToLobbyPlayers, startMatch } from '../match/match-service.js';
 import { type LobbyActionResult, syncLobbyDiscordMessage } from './discord-sync.js';
 import {
   resolveHostPendingMatch,

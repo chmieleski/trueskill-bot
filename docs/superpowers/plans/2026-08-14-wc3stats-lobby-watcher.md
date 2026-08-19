@@ -25,13 +25,13 @@
 
 ## File structure
 
-| File | Responsibility |
-|------|----------------|
-| `src/services/wc3stats-watcher.ts` | WS subscribe, reconnect, event dispatch |
-| `src/services/lobby-announce.ts` | Create/edit/delete Discord cards; Claim wiring |
-| `src/services/guild-config.ts` | Optional `lobbyAnnounceChannelId` |
-| `src/events/ready.ts` | Start/stop watcher with the Discord client |
-| `src/index.ts` | Shutdown stops watcher |
+| File                               | Responsibility                                 |
+| ---------------------------------- | ---------------------------------------------- |
+| `src/services/wc3stats-watcher.ts` | WS subscribe, reconnect, event dispatch        |
+| `src/services/lobby-announce.ts`   | Create/edit/delete Discord cards; Claim wiring |
+| `src/services/guild-config.ts`     | Optional `lobbyAnnounceChannelId`              |
+| `src/events/ready.ts`              | Start/stop watcher with the Discord client     |
+| `src/index.ts`                     | Shutdown stops watcher                         |
 
 ## What this plan does not build
 
@@ -44,6 +44,7 @@
 ### Task 1: Guild announce channel
 
 **Files:**
+
 - Modify: `prisma/schema.prisma` (`GuildConfig.lobbyAnnounceChannelId String?`)
 - Modify: `src/commands/config/config.ts` — `/config set lobby_channel`
 - Modify: `src/services/guild-config.ts`
@@ -61,11 +62,13 @@ Copy: `Live UDBR lobby cards will be posted in that channel.`
 ### Task 2: WebSocket client (no Discord yet)
 
 **Files:**
+
 - Add dependency: `ws` (+ `@types/ws`)
 - Create: `src/services/wc3stats-watcher.ts`
 - Create: `src/services/wc3stats-watcher.test.ts` (parse message types with fixtures; no live socket)
 
 **Interfaces:**
+
 - Produces:
   - `startWc3statsWatcher(handlers: { onCreate; onUpdate; onDelete }): void`
   - `stopWc3statsWatcher(): void`
@@ -92,10 +95,12 @@ On error: log, do not crash the bot.
 ### Task 3: Card embed (metadata only)
 
 **Files:**
+
 - Create: `src/services/lobby-announce.ts`
 - Create: `src/services/lobby-announce.test.ts`
 
 **Interfaces:**
+
 - Card fields: game name, host, map, `slotsTaken / slotsTotal`, server, wc3stats id
 - Buttons: **Claim** (`lobby:claim:{wc3statsId}`) — create-role later
 - Color: green if `slotsTaken/slotsTotal < 0.6`, yellow otherwise (scantron heuristic)
@@ -109,14 +114,15 @@ On error: log, do not crash the bot.
 ### Task 4: Post / edit / clean
 
 **Files:**
+
 - Modify: `src/services/lobby-announce.ts`
 - Modify: `src/events/ready.ts`
 - Modify: `src/index.ts` shutdown
 
 For each guild with `lobbyAnnounceChannelId`:
 
-- Create → send card  
-- Update → edit card  
+- Create → send card
+- Update → edit card
 - Delete → delete message if `clean` (default true) else edit to “closed/started”
 
 If Claim already created a ranked match, **do not** cancel that match.
@@ -128,6 +134,7 @@ Start watcher from `ready` only when `WC3STATS_ENABLED` is true.
 ### Task 5: Claim button
 
 **Files:**
+
 - Modify: `src/handlers/lobby-interactions.ts`
 - Reuse Phase 2 import (`fetchGameDetail` + `extractWc3statsRoster` + `createPendingMatch`)
 

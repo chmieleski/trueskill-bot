@@ -1,8 +1,4 @@
-import {
-  getGameProfile,
-  teamForSlot,
-  type GameProfile,
-} from '../../domain/game-profile.js';
+import { getGameProfile, teamForSlot, type GameProfile } from '../../domain/game-profile.js';
 import { WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
 
 function resolvedTeamNames(profile?: GameProfile): { 1: string; 2: string } {

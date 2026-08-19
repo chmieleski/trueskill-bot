@@ -129,9 +129,7 @@ describe('setMatchCreateRole / setMatchModRole', () => {
 
 describe('canConfigureBot', () => {
   it('allows the hard-coded owner without Manage Guild', () => {
-    expect(
-      canConfigureBot({ userId: BOT_OWNER_DISCORD_ID, memberPermissions: null }),
-    ).toBe(true);
+    expect(canConfigureBot({ userId: BOT_OWNER_DISCORD_ID, memberPermissions: null })).toBe(true);
   });
 
   it('allows Manage Guild', () => {
@@ -146,12 +144,12 @@ describe('canConfigureBot', () => {
 
 describe('assertCanConfigureBot', () => {
   it('throws when not allowed', () => {
-    expect(() =>
-      assertCanConfigureBot({ userId: 'someone', memberPermissions: null }),
-    ).toThrow(MatchServiceError);
-    expect(() =>
-      assertCanConfigureBot({ userId: 'someone', memberPermissions: null }),
-    ).toThrow('You do not have permission to configure this bot.');
+    expect(() => assertCanConfigureBot({ userId: 'someone', memberPermissions: null })).toThrow(
+      MatchServiceError,
+    );
+    expect(() => assertCanConfigureBot({ userId: 'someone', memberPermissions: null })).toThrow(
+      'You do not have permission to configure this bot.',
+    );
   });
 });
 

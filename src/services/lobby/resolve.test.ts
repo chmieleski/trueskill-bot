@@ -52,7 +52,7 @@ describe('resolvePendingMatchForManage', () => {
     expect(result.match).toEqual(match);
   });
 
-  it('allows a match moderator to resolve someone else\'s pending match by id', async () => {
+  it("allows a match moderator to resolve someone else's pending match by id", async () => {
     const match = pendingMatch();
     getMatchById.mockResolvedValue(match);
 
@@ -113,7 +113,7 @@ describe('resolvePendingMatchForManage', () => {
     ).rejects.toThrow('Provide match_id when using the match moderator role.');
   });
 
-  it('still finds the host\'s sole pending lobby without match_id', async () => {
+  it("still finds the host's sole pending lobby without match_id", async () => {
     const match = pendingMatch();
     findPendingMatchesByHost.mockResolvedValue([match]);
 

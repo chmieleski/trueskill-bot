@@ -55,9 +55,7 @@ function argValue(prefix: string): string | undefined {
 function resolveLegacyGuildId(): string {
   const fromArg = argValue('--legacy-guild-id=');
   const fromEnv =
-    process.env.MULTI_LEAGUE_LEGACY_GUILD_ID?.trim() ||
-    process.env.GUILD_ID?.trim() ||
-    undefined;
+    process.env.MULTI_LEAGUE_LEGACY_GUILD_ID?.trim() || process.env.GUILD_ID?.trim() || undefined;
   const id = fromArg || fromEnv;
   if (!id) {
     throw new Error(
@@ -69,10 +67,7 @@ function resolveLegacyGuildId(): string {
 }
 
 function resolveDatabaseUrl(): string {
-  const url =
-    process.env.DIRECT_URL?.trim() ||
-    process.env.DATABASE_URL?.trim() ||
-    undefined;
+  const url = process.env.DIRECT_URL?.trim() || process.env.DATABASE_URL?.trim() || undefined;
   if (!url) {
     throw new Error('Missing DATABASE_URL (or DIRECT_URL).');
   }
@@ -141,10 +136,7 @@ function schemaNeedsMigrate(probe: SchemaProbe): boolean {
   );
 }
 
-async function ensureLegacyGuildConfig(
-  db: PrismaClient,
-  legacyGuildId: string,
-): Promise<void> {
+async function ensureLegacyGuildConfig(db: PrismaClient, legacyGuildId: string): Promise<void> {
   const hasGuildConfig = await tableExists(db, 'GuildConfig');
   if (!hasGuildConfig) {
     console.log('  (no GuildConfig table yet — migrate will create related structures)');

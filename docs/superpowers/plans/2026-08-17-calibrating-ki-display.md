@@ -26,36 +26,38 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `src/services/rating/rating-math.ts` | `CALIBRATING_LABEL`, `isCalibrating`, `formatPublicKi` |
-| `src/services/rating/rating-math.test.ts` | Helper unit tests |
-| `src/services/leaderboard/leaderboard.ts` | `rank: number \| null`, `leagueGames` on hero rows, `rankLeaderboardRows` |
-| `src/services/leaderboard/leaderboard.test.ts` | Two-tier sort / null ranks |
-| `src/services/leaderboard/leaderboard-embed.ts` | Print `Calibrating` and `—` |
-| `src/services/leaderboard/leaderboard-embed.test.ts` | Table / prefix tests |
-| `src/services/player/player-profile.ts` | `rankPosition: number \| null`; rank among calibrated only |
-| `src/services/player/rank-embed.ts` | Calibrating title + hero cells |
-| `src/services/player/rank-embed.test.ts` | Title / hero table |
-| `src/services/rating/rating-preview.ts` | `leagueGames` on lobby lines; pass into completed preview |
-| `src/services/lobby/lobby-preview.ts` | Hide ki + deltas while calibrating |
-| `src/services/lobby/lobby-preview.test.ts` | Roster line tests |
-| `src/services/match/match-report.ts` | Pass after-match games into completed preview |
-| `src/services/match/match-correction.ts` | Same |
-| `src/services/match/match-history-preview.ts` | Attach `leagueGames` on stored/rebuild preview |
-| `src/services/match/match-history.ts` | Hide history-list ki delta while calibrating |
-| `src/services/match/match-history.test.ts` | History field copy |
-| `.cursor/rules/openskill-rating.mdc` | Document the display gate |
+| File                                                 | Role                                                                      |
+| ---------------------------------------------------- | ------------------------------------------------------------------------- |
+| `src/services/rating/rating-math.ts`                 | `CALIBRATING_LABEL`, `isCalibrating`, `formatPublicKi`                    |
+| `src/services/rating/rating-math.test.ts`            | Helper unit tests                                                         |
+| `src/services/leaderboard/leaderboard.ts`            | `rank: number \| null`, `leagueGames` on hero rows, `rankLeaderboardRows` |
+| `src/services/leaderboard/leaderboard.test.ts`       | Two-tier sort / null ranks                                                |
+| `src/services/leaderboard/leaderboard-embed.ts`      | Print `Calibrating` and `—`                                               |
+| `src/services/leaderboard/leaderboard-embed.test.ts` | Table / prefix tests                                                      |
+| `src/services/player/player-profile.ts`              | `rankPosition: number \| null`; rank among calibrated only                |
+| `src/services/player/rank-embed.ts`                  | Calibrating title + hero cells                                            |
+| `src/services/player/rank-embed.test.ts`             | Title / hero table                                                        |
+| `src/services/rating/rating-preview.ts`              | `leagueGames` on lobby lines; pass into completed preview                 |
+| `src/services/lobby/lobby-preview.ts`                | Hide ki + deltas while calibrating                                        |
+| `src/services/lobby/lobby-preview.test.ts`           | Roster line tests                                                         |
+| `src/services/match/match-report.ts`                 | Pass after-match games into completed preview                             |
+| `src/services/match/match-correction.ts`             | Same                                                                      |
+| `src/services/match/match-history-preview.ts`        | Attach `leagueGames` on stored/rebuild preview                            |
+| `src/services/match/match-history.ts`                | Hide history-list ki delta while calibrating                              |
+| `src/services/match/match-history.test.ts`           | History field copy                                                        |
+| `.cursor/rules/openskill-rating.mdc`                 | Document the display gate                                                 |
 
 ---
 
 ### Task 1: Display helpers
 
 **Files:**
+
 - Modify: `src/services/rating/rating-math.ts`
 - Modify: `src/services/rating/rating-math.test.ts`
 
 **Interfaces:**
+
 - Consumes: existing `KI_Z_BLEND_GAMES`
 - Produces:
   - `CALIBRATING_LABEL = 'Calibrating'`
@@ -154,10 +156,12 @@ git commit -m "Add Calibrating public-ki helpers."
 ### Task 2: Two-tier leaderboard ranks
 
 **Files:**
+
 - Modify: `src/services/leaderboard/leaderboard.ts`
 - Modify: `src/services/leaderboard/leaderboard.test.ts`
 
 **Interfaces:**
+
 - Consumes: `isCalibrating` from `../rating/rating-math.js`; existing `assignSortedRanks`
 - Produces:
   - `OverallLeaderboardEntry.rank: number | null`
@@ -289,44 +293,38 @@ export function rankLeaderboardRows<T extends { ki: number; username: string }>(
     .sort((a, b) => b.ki - a.ki || a.username.localeCompare(b.username));
   const calibrating = rows
     .filter((row) => isCalibrating(getLeagueGames(row)))
-    .sort(
-      (a, b) =>
-        getLeagueGames(b) - getLeagueGames(a) || a.username.localeCompare(b.username),
-    );
+    .sort((a, b) => getLeagueGames(b) - getLeagueGames(a) || a.username.localeCompare(b.username));
 
-  return [
-    ...assignSortedRanks(calibrated),
-    ...calibrating.map((row) => ({ ...row, rank: null })),
-  ];
+  return [...assignSortedRanks(calibrated), ...calibrating.map((row) => ({ ...row, rank: null }))];
 }
 ```
 
 4. Replace the overall loader’s sort + `assignSortedRanks` with:
 
 ```typescript
-  const mapped = ratings
-    .map((row) => {
-      const games = gamesByPlayer.get(row.playerId) ?? 0;
-      return {
-        playerId: row.playerId,
-        username: row.player.username,
-        discordId: row.player.discordId,
-        ki: displayOrdinal(row.mu, row.sigma, games),
-        games,
-        leagueGames: games,
-      };
-    })
-    .filter((row) => row.games >= 1);
+const mapped = ratings
+  .map((row) => {
+    const games = gamesByPlayer.get(row.playerId) ?? 0;
+    return {
+      playerId: row.playerId,
+      username: row.player.username,
+      discordId: row.player.discordId,
+      ki: displayOrdinal(row.mu, row.sigma, games),
+      games,
+      leagueGames: games,
+    };
+  })
+  .filter((row) => row.games >= 1);
 
-  return rankLeaderboardRows(mapped, (row) => row.leagueGames).map((row) => ({
-    rank: row.rank,
-    playerId: row.playerId,
-    username: row.username,
-    ki: row.ki,
-    games: row.games,
-    leagueGames: row.leagueGames,
-    discordId: row.discordId,
-  }));
+return rankLeaderboardRows(mapped, (row) => row.leagueGames).map((row) => ({
+  rank: row.rank,
+  playerId: row.playerId,
+  username: row.username,
+  ki: row.ki,
+  games: row.games,
+  leagueGames: row.leagueGames,
+  discordId: row.discordId,
+}));
 ```
 
 5. Change `mapHeroRatings` to take league games and rank **before** slicing:
@@ -369,15 +367,15 @@ function mapHeroRatings(
 6. In `loadHeroLeaderboard` and `loadAllHeroLeaderboards`, load stats once and pass the map:
 
 ```typescript
-  const [rows, displayStatsByPlayer] = await Promise.all([
-    prisma.playerHeroRating.findMany({
-      where: { leagueId, heroId, matchesPlayed: { gt: 0 } },
-      include: { player: { select: { username: true } } },
-    }),
-    loadMatchDisplayStatsByPlayer(leagueId),
-  ]);
-  const leagueGamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
-  return { heroName: hero.name, entries: mapHeroRatings(rows, leagueGamesByPlayer, limit) };
+const [rows, displayStatsByPlayer] = await Promise.all([
+  prisma.playerHeroRating.findMany({
+    where: { leagueId, heroId, matchesPlayed: { gt: 0 } },
+    include: { player: { select: { username: true } } },
+  }),
+  loadMatchDisplayStatsByPlayer(leagueId),
+]);
+const leagueGamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
+return { heroName: hero.name, entries: mapHeroRatings(rows, leagueGamesByPlayer, limit) };
 ```
 
 For `loadAllHeroLeaderboards`, call `loadMatchDisplayStatsByPlayer(leagueId)` **once** before the hero loop.
@@ -402,10 +400,12 @@ git commit -m "Park calibrating players below ranked leaderboard rows."
 ### Task 3: Leaderboard embed copy
 
 **Files:**
+
 - Modify: `src/services/leaderboard/leaderboard-embed.ts`
 - Modify: `src/services/leaderboard/leaderboard-embed.test.ts`
 
 **Interfaces:**
+
 - Consumes: `formatPublicKi` from `../rating/rating-math.js`; `rank: number | null`; `leagueGames` on entries
 - Produces: `formatRankPrefix(rank: number | null): string` — `null` → `—`; tables use `formatPublicKi(ki, leagueGames)` for the ki cell and `games` / `matchesPlayed` for G
 
@@ -559,11 +559,13 @@ git commit -m "Show Calibrating on leaderboard ki cells."
 ### Task 4: `/rank` profile and embed
 
 **Files:**
+
 - Modify: `src/services/player/player-profile.ts`
 - Modify: `src/services/player/rank-embed.ts`
 - Modify: `src/services/player/rank-embed.test.ts`
 
 **Interfaces:**
+
 - Consumes: `isCalibrating`, `formatPublicKi`, `CALIBRATING_LABEL`
 - Produces:
   - `PlayerProfile.rankPosition: number | null` (`null` while calibrating)
@@ -609,16 +611,14 @@ Expected: FAIL — title is still `Rank #null · 1450 ki` or similar; hero cell 
 In `loadPlayerProfile` (`src/services/player/player-profile.ts`):
 
 ```typescript
-  const rankPosition = isCalibrating(games)
-    ? null
-    : competitionRank(
-        globalKi,
-        allRatings
-          .filter((row) => !isCalibrating(gamesByPlayer.get(row.playerId) ?? 0))
-          .map((row) =>
-            displayOrdinal(row.mu, row.sigma, gamesByPlayer.get(row.playerId) ?? 0),
-          ),
-      );
+const rankPosition = isCalibrating(games)
+  ? null
+  : competitionRank(
+      globalKi,
+      allRatings
+        .filter((row) => !isCalibrating(gamesByPlayer.get(row.playerId) ?? 0))
+        .map((row) => displayOrdinal(row.mu, row.sigma, gamesByPlayer.get(row.playerId) ?? 0)),
+    );
 ```
 
 Do **not** push a cold-start ki into `allKis` for unranked/missing rows. Import `isCalibrating`. Change `rankPosition` on `PlayerProfile` to `number | null`.
@@ -628,16 +628,9 @@ Remove the old `allKis` / `if (!rating) { allKis.push(globalKi); }` block; calib
 In `src/services/player/rank-embed.ts`:
 
 ```typescript
-import {
-  CALIBRATING_LABEL,
-  formatPublicKi,
-  isCalibrating,
-} from '../rating/rating-math.js';
+import { CALIBRATING_LABEL, formatPublicKi, isCalibrating } from '../rating/rating-math.js';
 
-export function formatHeroTable(
-  heroes: PlayerProfileHero[],
-  leagueGames: number,
-): string {
+export function formatHeroTable(heroes: PlayerProfileHero[], leagueGames: number): string {
   if (heroes.length === 0) {
     return '_No hero games yet_';
   }
@@ -663,10 +656,10 @@ export function formatHeroTable(
 In `buildRankEmbed`:
 
 ```typescript
-  const leagueGames = profile.wins + profile.losses;
-  const title = isCalibrating(leagueGames)
-    ? CALIBRATING_LABEL
-    : `Rank #${profile.rankPosition} · ${profile.globalKi} ${ratingLabel}`;
+const leagueGames = profile.wins + profile.losses;
+const title = isCalibrating(leagueGames)
+  ? CALIBRATING_LABEL
+  : `Rank #${profile.rankPosition} · ${profile.globalKi} ${ratingLabel}`;
 ```
 
 Pass `leagueGames` into `formatHeroTable(profile.heroes, leagueGames)`.
@@ -691,6 +684,7 @@ git commit -m "Hide rank number on calibrating /rank profiles."
 ### Task 5: Lobby and completed-match roster lines
 
 **Files:**
+
 - Modify: `src/services/rating/rating-preview.ts`
 - Modify: `src/services/lobby/lobby-preview.ts`
 - Modify: `src/services/lobby/lobby-preview.test.ts`
@@ -699,6 +693,7 @@ git commit -m "Hide rank number on calibrating /rank profiles."
 - Modify: `src/services/match/match-history-preview.ts`
 
 **Interfaces:**
+
 - Consumes: `formatPublicKi`, `isCalibrating`, `gamesByPlayerFromStats`, `loadMatchDisplayStatsByPlayer`
 - Produces:
   - `LobbyRatingPlayerLine.leagueGames: number`
@@ -716,39 +711,39 @@ In `src/services/lobby/lobby-preview.test.ts`, add `leagueGames` to every `Lobby
 - New cases:
 
 ```typescript
-  it('prints Calibrating and omits deltas when leagueGames < 5', () => {
-    const value = formatTeamLinesFromPreview([
-      {
-        slot: 1,
-        nick: 'goku',
-        globalOrdinal: 1186,
-        heroOrdinal: 1200,
-        globalDelta: 186,
-        heroDelta: 200,
-        leagueGames: 4,
-      },
-    ]);
-    expect(value).toContain('Calibrating');
-    expect(value).not.toContain('1186');
-    expect(value).not.toContain('+186');
-    expect(value).not.toContain('1200');
-  });
+it('prints Calibrating and omits deltas when leagueGames < 5', () => {
+  const value = formatTeamLinesFromPreview([
+    {
+      slot: 1,
+      nick: 'goku',
+      globalOrdinal: 1186,
+      heroOrdinal: 1200,
+      globalDelta: 186,
+      heroDelta: 200,
+      leagueGames: 4,
+    },
+  ]);
+  expect(value).toContain('Calibrating');
+  expect(value).not.toContain('1186');
+  expect(value).not.toContain('+186');
+  expect(value).not.toContain('1200');
+});
 
-  it('shows ki and deltas when the completing match reaches 5', () => {
-    const value = formatTeamLinesFromPreview([
-      {
-        slot: 1,
-        nick: 'goku',
-        globalOrdinal: 1186,
-        heroOrdinal: 1200,
-        globalDelta: 186,
-        heroDelta: 200,
-        leagueGames: 5,
-      },
-    ]);
-    expect(value).toContain('1186 (+186) / 1200 (+200)');
-    expect(value).not.toContain('Calibrating');
-  });
+it('shows ki and deltas when the completing match reaches 5', () => {
+  const value = formatTeamLinesFromPreview([
+    {
+      slot: 1,
+      nick: 'goku',
+      globalOrdinal: 1186,
+      heroOrdinal: 1200,
+      globalDelta: 186,
+      heroDelta: 200,
+      leagueGames: 5,
+    },
+  ]);
+  expect(value).toContain('1186 (+186) / 1200 (+200)');
+  expect(value).not.toContain('Calibrating');
+});
 ```
 
 Update `buildCompletedRatingPreview` test to pass a `Map` of after-match games (e.g. `p1 → 5`, `p2 → 8`) and expect `leagueGames` on the returned lines.
@@ -764,8 +759,8 @@ Expected: FAIL — missing `leagueGames`; still prints numbers at 4 games.
 1. Add to `LobbyRatingPlayerLine`:
 
 ```typescript
-  /** League completed WIN/LOSS count used for the Calibrating gate. */
-  leagueGames: number;
+/** League completed WIN/LOSS count used for the Calibrating gate. */
+leagueGames: number;
 ```
 
 2. `loadLobbyRatingPreview`: set `leagueGames: globalGames` on every returned line (including the catch fallback: `leagueGames: 0`).
@@ -809,11 +804,7 @@ export function buildCompletedRatingPreview(
 ```typescript
 import { formatPublicKi, isCalibrating } from '../rating/rating-math.js';
 
-function formatKiCell(
-  ki: number,
-  leagueGames: number,
-  delta: number | undefined,
-): string {
+function formatKiCell(ki: number, leagueGames: number, delta: number | undefined): string {
   if (isCalibrating(leagueGames)) {
     return formatPublicKi(ki, leagueGames);
   }
@@ -826,18 +817,18 @@ Use `formatKiCell` for global and hero. Column width must use the formatted cell
 5. **match-report.ts** and **match-correction.ts**: after `loadPlayerKiBySlot` (after), still inside the transaction, load stats and pass the map:
 
 ```typescript
-    const displayStats = await loadMatchDisplayStatsByPlayer(
-      match.leagueId,
-      previewEntries.map((entry) => entry.playerId),
-      tx,
-    );
-    const afterBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
-    ratingPreview = buildCompletedRatingPreview(
-      previewEntries,
-      beforeBySlot,
-      afterBySlot,
-      gamesByPlayerFromStats(displayStats),
-    );
+const displayStats = await loadMatchDisplayStatsByPlayer(
+  match.leagueId,
+  previewEntries.map((entry) => entry.playerId),
+  tx,
+);
+const afterBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
+ratingPreview = buildCompletedRatingPreview(
+  previewEntries,
+  beforeBySlot,
+  afterBySlot,
+  gamesByPlayerFromStats(displayStats),
+);
 ```
 
 Import `loadMatchDisplayStatsByPlayer` and `gamesByPlayerFromStats` from `../rating/rank-reset-display.js` (or the rating barrel). Call this **after** the match is `COMPLETED` / player results are written so the count includes this match.
@@ -897,11 +888,13 @@ git commit -m "Hide lobby and post-match ki while calibrating."
 ### Task 6: Match history list deltas
 
 **Files:**
+
 - Modify: `src/services/match/match-history.ts`
 - Modify: `src/services/match/match-history.test.ts`
 - Modify: `src/services/match/match-history-preview.ts` (if `loadPlayerGlobalDeltaForMatch` should stay numeric internally)
 
 **Interfaces:**
+
 - Consumes: `CALIBRATING_LABEL`, `isCalibrating`
 - Produces: `MatchHistoryRow.leagueGames: number` (after-match count for that row). `formatMatchHistoryField` name is `{hero} · {emoji} Calibrating` when calibrating; otherwise unchanged `{hero} · {emoji} {delta} ki`
 
@@ -910,24 +903,24 @@ git commit -m "Hide lobby and post-match ki while calibrating."
 Update the existing `formatMatchHistoryField` tests to pass `leagueGames: 8`. Add:
 
 ```typescript
-  it('prints Calibrating instead of a ki delta under 5 games', () => {
-    const field = formatMatchHistoryField(
-      {
-        matchId: 'm2',
-        completedAt: new Date('2026-08-16T12:00:00.000Z'),
-        result: 'WIN',
-        team: 1,
-        heroName: 'Goku',
-        isQuitter: false,
-        globalDelta: 186,
-        leagueGames: 3,
-      },
-      'Z Fighters',
-    );
-    expect(field.name).toBe('Goku · ✅ Calibrating');
-    expect(field.name).not.toContain('186');
-    expect(field.name).not.toContain(' ki');
-  });
+it('prints Calibrating instead of a ki delta under 5 games', () => {
+  const field = formatMatchHistoryField(
+    {
+      matchId: 'm2',
+      completedAt: new Date('2026-08-16T12:00:00.000Z'),
+      result: 'WIN',
+      team: 1,
+      heroName: 'Goku',
+      isQuitter: false,
+      globalDelta: 186,
+      leagueGames: 3,
+    },
+    'Z Fighters',
+  );
+  expect(field.name).toBe('Goku · ✅ Calibrating');
+  expect(field.name).not.toContain('186');
+  expect(field.name).not.toContain(' ki');
+});
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -991,10 +984,12 @@ git commit -m "Hide match-history ki deltas while calibrating."
 ### Task 7: Docs + full test run
 
 **Files:**
+
 - Modify: `.cursor/rules/openskill-rating.mdc`
 - Modify: `docs/superpowers/specs/2026-08-17-calibrating-ki-display-design.md` (status → Implemented)
 
 **Interfaces:**
+
 - Consumes: behavior from Tasks 1–6
 - Produces: rule + spec status in sync with code
 
@@ -1033,19 +1028,19 @@ git commit -m "Document calibrating ki display in rating rules."
 
 **Spec coverage**
 
-| Spec item | Task |
-|-----------|------|
-| `isCalibrating` / `formatPublicKi` / word `Calibrating` | 1 |
-| Two-tier board, null rank, games-then-name, slice after rank | 2 |
-| `—` glyph, Calibrating on overall/live/hero tables | 3 |
-| `/rank` title, no `#`, hero cells, rank among calibrated | 4 |
-| Lobby current count; complete after-match; hide deltas; player-level both columns | 5 |
-| `/match show` stored preview leagueGames | 5 |
-| History list deltas | 6 |
-| openskill-rating.mdc | 7 |
-| Rank reset uses same g | 2/4/5 via existing `loadMatchDisplayStatsByPlayer` |
-| Win% unchanged | no task (untouched) |
-| No persist flag | no schema task |
+| Spec item                                                                         | Task                                               |
+| --------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `isCalibrating` / `formatPublicKi` / word `Calibrating`                           | 1                                                  |
+| Two-tier board, null rank, games-then-name, slice after rank                      | 2                                                  |
+| `—` glyph, Calibrating on overall/live/hero tables                                | 3                                                  |
+| `/rank` title, no `#`, hero cells, rank among calibrated                          | 4                                                  |
+| Lobby current count; complete after-match; hide deltas; player-level both columns | 5                                                  |
+| `/match show` stored preview leagueGames                                          | 5                                                  |
+| History list deltas                                                               | 6                                                  |
+| openskill-rating.mdc                                                              | 7                                                  |
+| Rank reset uses same g                                                            | 2/4/5 via existing `loadMatchDisplayStatsByPlayer` |
+| Win% unchanged                                                                    | no task (untouched)                                |
+| No persist flag                                                                   | no schema task                                     |
 
 **Placeholder scan:** none.
 

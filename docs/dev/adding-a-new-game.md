@@ -16,14 +16,14 @@ You do **not** invent a new tenancy model. You plug into `League`.
 
 Import league tenancy from `src/services/league/index.js` (barrel). Key exports:
 
-| Area | Functions / types |
-|------|-------------------|
-| **Resolve** | `resolveLeagueContext`, `resolveLeagueFromInteraction`, `resolveLeagueIdFromInteraction`, `LeagueResolveInput`, `LeagueResolveResult` |
+| Area                    | Functions / types                                                                                                                                                                                                             |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Resolve**             | `resolveLeagueContext`, `resolveLeagueFromInteraction`, `resolveLeagueIdFromInteraction`, `LeagueResolveInput`, `LeagueResolveResult`                                                                                         |
 | **Interaction helpers** | `getLeagueOption`, `getInteractionCategoryId`, `withOptionalLeagueOption`, `withSubcommandLeagueOption`, `autocompleteGuildLeagues`, `respondLeagueAutocomplete`, `leagueResolveFailureMessage`, `LEAGUE_RESOLVE_*` constants |
-| **CRUD** | `createLeague`, `listLeaguesForGuild`, `getLeagueById`, `getDefaultUdbrLeagueId` (legacy UDBR-only helper — prefer resolve) |
-| **Bindings** | `bindDiscordToLeague`, `unbindDiscord`, `LeagueBindingKind` (`CHANNEL` \| `CATEGORY`) |
-| **Staff slash** | `/league create`, `/league list`, `/league bind`, `/league unbind` — `src/commands/league/league.ts` |
-| **Game id constant** | `WARCRAFT3_UDBR_GAME_ID`, `WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID`, `KnownGameId` — `src/domain/games.ts` |
+| **CRUD**                | `createLeague`, `listLeaguesForGuild`, `getLeagueById`, `getDefaultUdbrLeagueId` (legacy UDBR-only helper — prefer resolve)                                                                                                   |
+| **Bindings**            | `bindDiscordToLeague`, `unbindDiscord`, `LeagueBindingKind` (`CHANNEL` \| `CATEGORY`)                                                                                                                                         |
+| **Staff slash**         | `/league create`, `/league list`, `/league bind`, `/league unbind` — `src/commands/league/league.ts`                                                                                                                          |
+| **Game id constant**    | `WARCRAFT3_UDBR_GAME_ID`, `WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID`, `KnownGameId` — `src/domain/games.ts`                                                                                                                       |
 
 **Resolution order** (same everywhere): explicit `league:` option → channel binding → category binding → sole league in guild → else ambiguous / no leagues.
 
@@ -33,14 +33,14 @@ Commands that need a league should call `resolveLeagueFromInteraction` (or `reso
 
 UDBR preset/import lives on **League**, not `GuildConfig`. Import from `src/services/league/index.js`:
 
-| Function | Purpose |
-|----------|---------|
-| `resolveLeagueConfig` | Read wc3stats, leaderboard, claim flags from a league row |
-| `isLeagueWc3statsImportReady` | True when import enabled + map pattern set |
-| `applyUdbrWc3statsPreset` | Copy UDBR map filter + slot map onto a league |
-| `clearLeagueWc3statsPackage` | Disable import and clear slot maps |
-| `setLeagueLeaderboardChannel` / `clearLeagueLeaderboardChannel` | Live board message ids on league |
-| `setLeagueLobbyPlayerClaimEnabled` | Per-league claim toggle |
+| Function                                                        | Purpose                                                   |
+| --------------------------------------------------------------- | --------------------------------------------------------- |
+| `resolveLeagueConfig`                                           | Read wc3stats, leaderboard, claim flags from a league row |
+| `isLeagueWc3statsImportReady`                                   | True when import enabled + map pattern set                |
+| `applyUdbrWc3statsPreset`                                       | Copy UDBR map filter + slot map onto a league             |
+| `clearLeagueWc3statsPackage`                                    | Disable import and clear slot maps                        |
+| `setLeagueLeaderboardChannel` / `clearLeagueLeaderboardChannel` | Live board message ids on league                          |
+| `setLeagueLobbyPlayerClaimEnabled`                              | Per-league claim toggle                                   |
 
 Slot map persistence: `src/services/wc3stats/wc3stats-slot-map.js` (`loadLeagueWc3statsHeroSlotMap`, `replaceLeagueWc3statsSlotMaps`, etc.) — table `LeagueWc3statsSlotMap`, PK `(leagueId, wc3statsSlot)`.
 
@@ -128,10 +128,10 @@ WC3 UDBR uses a global `Hero` table (slots 1–12). That is **not** universal.
 
 ## Known games
 
-| `gameId` | Status | Module (current) |
-|----------|--------|------------------|
-| `warcraft3_udbr` | First game | `src/services/league/league-wc3stats.ts` + `src/services/wc3stats/**` |
-| `warcraft3_anime_choice_arena` | Second game (v1: Discord-only, global rating, no in-game pick) | `src/domain/game-profile.ts` |
+| `gameId`                       | Status                                                         | Module (current)                                                      |
+| ------------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `warcraft3_udbr`               | First game                                                     | `src/services/league/league-wc3stats.ts` + `src/services/wc3stats/**` |
+| `warcraft3_anime_choice_arena` | Second game (v1: Discord-only, global rating, no in-game pick) | `src/domain/game-profile.ts`                                          |
 
 ## When to invest in “full” generalization
 

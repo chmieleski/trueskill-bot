@@ -1,10 +1,7 @@
 import { GuildMember, MessageFlags } from 'discord.js';
 import type { ButtonInteraction, Interaction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
-import {
-  buildLobbyButtons,
-  buildMatchLobbyEmbed,
-} from '../../services/lobby/index.js';
+import { buildLobbyButtons, buildMatchLobbyEmbed } from '../../services/lobby/index.js';
 import {
   attachCreatedMatchMessage,
   createMatchFromWc3statsLobby,
@@ -115,11 +112,7 @@ async function handleOpen(interaction: ButtonInteraction): Promise<void> {
       }),
     });
 
-    await attachCreatedMatchMessage(
-      created.matchId,
-      interaction.message.id,
-      interaction.channelId,
-    );
+    await attachCreatedMatchMessage(created.matchId, interaction.message.id, interaction.channelId);
     rememberHostPromptKey(parsed.leagueId, parsed.wc3statsId);
 
     log.info(

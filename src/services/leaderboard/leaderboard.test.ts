@@ -31,10 +31,7 @@ describe('assertLiveLeaderboardSize', () => {
 describe('chunkLeaderboardEntries', () => {
   it('chunks by 25', () => {
     const entries = Array.from({ length: 26 }, (_, i) => i);
-    expect(chunkLeaderboardEntries(entries)).toEqual([
-      entries.slice(0, 25),
-      entries.slice(25),
-    ]);
+    expect(chunkLeaderboardEntries(entries)).toEqual([entries.slice(0, 25), entries.slice(25)]);
     expect(chunkLeaderboardEntries(entries.slice(0, 10))).toEqual([entries.slice(0, 10)]);
     expect(chunkLeaderboardEntries(Array.from({ length: 100 }, (_, i) => i))).toHaveLength(4);
     expect(LIVE_LEADERBOARD_CHUNK_SIZE).toBe(25);
@@ -68,12 +65,7 @@ describe('clampPage', () => {
 
 describe('assignSortedRanks', () => {
   it('uses competition ranks for tied ki', () => {
-    const rows = assignSortedRanks([
-      { ki: 5000 },
-      { ki: 4000 },
-      { ki: 4000 },
-      { ki: 3000 },
-    ]);
+    const rows = assignSortedRanks([{ ki: 5000 }, { ki: 4000 }, { ki: 4000 }, { ki: 3000 }]);
     expect(rows.map((row) => row.rank)).toEqual([1, 2, 2, 4]);
   });
 });

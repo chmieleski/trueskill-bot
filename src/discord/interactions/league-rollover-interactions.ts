@@ -1,14 +1,6 @@
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  MessageFlags,
-} from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import type { ButtonInteraction, Interaction } from 'discord.js';
-import {
-  deleteMessageBestEffort,
-  setupLiveLeaderboard,
-} from '../../services/leaderboard/index.js';
+import { deleteMessageBestEffort, setupLiveLeaderboard } from '../../services/leaderboard/index.js';
 import {
   applyLeagueRollover,
   buildRolloverCancelCustomId,
@@ -20,8 +12,7 @@ import {
   type LeagueRolloverResult,
 } from '../../services/league/index.js';
 
-const NOT_YOUR_ROLLOVER =
-  'Only the person who ran /league rollover can use these buttons.';
+const NOT_YOUR_ROLLOVER = 'Only the person who ran /league rollover can use these buttons.';
 
 const DUPLICATE_LEAGUE_NAME_MESSAGE =
   'A league with that name already exists for this game on this server.';
@@ -50,15 +41,11 @@ export function buildRolloverConfirmComponents(input: {
   return [
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
-        .setCustomId(
-          buildRolloverConfirmCustomId(input.draftId, input.actorDiscordId),
-        )
+        .setCustomId(buildRolloverConfirmCustomId(input.draftId, input.actorDiscordId))
         .setLabel('Confirm rollover')
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
-        .setCustomId(
-          buildRolloverCancelCustomId(input.draftId, input.actorDiscordId),
-        )
+        .setCustomId(buildRolloverCancelCustomId(input.draftId, input.actorDiscordId))
         .setLabel('Cancel')
         .setStyle(ButtonStyle.Secondary),
     ),
@@ -117,9 +104,7 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
 }
 
 /** Consume and handle league rollover Confirm/Cancel button interactions. */
-export async function handleLeagueRolloverInteraction(
-  interaction: Interaction,
-): Promise<boolean> {
+export async function handleLeagueRolloverInteraction(interaction: Interaction): Promise<boolean> {
   if (!interaction.isButton() || !interaction.customId.startsWith('lv:')) {
     return false;
   }

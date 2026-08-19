@@ -10,7 +10,7 @@
 
 **Do not implement until asked.** Specs and plans only.
 
-**ClickUp:** [869ekn2yt](https://app.clickup.com/t/869ekn2yt) — *Battle.net lobby ingest (join-on-demand watcher)* (`in design`)
+**ClickUp:** [869ekn2yt](https://app.clickup.com/t/869ekn2yt) — _Battle.net lobby ingest (join-on-demand watcher)_ (`in design`)
 
 ## Goal
 
@@ -29,23 +29,23 @@ A dedicated Warcraft III: Reforged client (Battle.net account) **joins a UDBR lo
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Watcher | Always-on **Windows + Reforged**, one Battle.net account |
-| Join mode | **On demand** only; one `running` job globally |
-| Seat | Referee/observer only (UDBR colors 13–16). Never hero 1–12 |
-| Discord | Create from id **and** Refresh with the same id **and** discovery cards |
-| Lobby id | Watcher-minted **positive integer**, stable while the game stays on the list, dropped when it leaves |
-| Match bind | New `Match.bnetLobbyId` (`String?`). Do **not** reuse `wc3statsGameId` |
-| Duplicate | At most one non-terminal match per `(leagueId, bnetLobbyId)` — point at existing |
-| Transport | Watcher **outbound HTTPS** to the bot ingest API (shared token) |
-| Queue | Discord defers; watcher polls `GET /jobs/next`; result POSTs roster |
-| Empty-full | Unusable snapshot must not wipe a non-empty Discord roster |
-| Profile | UDBR stays `import: 'wc3stats'` in code. Watcher is a **league flag**, off by default |
-| Game gate | Enable only when `gameId === warcraft3_udbr` |
-| Map filter | Reuse that league’s existing UDBR pattern + sha1 allowlist |
-| Cards channel | Same rule as host prompt: lobby channel when lobby channel is ready |
-| Screenshot | Unchanged fallback |
+| Topic         | Choice                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------- |
+| Watcher       | Always-on **Windows + Reforged**, one Battle.net account                                             |
+| Join mode     | **On demand** only; one `running` job globally                                                       |
+| Seat          | Referee/observer only (UDBR colors 13–16). Never hero 1–12                                           |
+| Discord       | Create from id **and** Refresh with the same id **and** discovery cards                              |
+| Lobby id      | Watcher-minted **positive integer**, stable while the game stays on the list, dropped when it leaves |
+| Match bind    | New `Match.bnetLobbyId` (`String?`). Do **not** reuse `wc3statsGameId`                               |
+| Duplicate     | At most one non-terminal match per `(leagueId, bnetLobbyId)` — point at existing                     |
+| Transport     | Watcher **outbound HTTPS** to the bot ingest API (shared token)                                      |
+| Queue         | Discord defers; watcher polls `GET /jobs/next`; result POSTs roster                                  |
+| Empty-full    | Unusable snapshot must not wipe a non-empty Discord roster                                           |
+| Profile       | UDBR stays `import: 'wc3stats'` in code. Watcher is a **league flag**, off by default                |
+| Game gate     | Enable only when `gameId === warcraft3_udbr`                                                         |
+| Map filter    | Reuse that league’s existing UDBR pattern + sha1 allowlist                                           |
+| Cards channel | Same rule as host prompt: lobby channel when lobby channel is ready                                  |
+| Screenshot    | Unchanged fallback                                                                                   |
 
 ## Architecture
 
@@ -64,14 +64,14 @@ EC2 today has **no inbound** except optional SSH. This feature **requires ingest
 
 ## Components
 
-| Unit | Path (intent) | Responsibility |
-|------|----------------|----------------|
-| Roster map | `src/services/bnet-lobby/bnet-roster.ts` | Watcher slots → heroes 1–12; skip referee; strip watcher nick |
-| Jobs | `src/services/bnet-lobby/bnet-jobs.ts` | Enqueue, claim one, complete/fail, stale `running` |
-| Ingest HTTP | `src/services/bnet-lobby/bnet-ingest.ts` | Heartbeat, gamelist upsert, job next/result |
-| Create/refresh | `src/services/lobby/create-from-bnet.ts`, `bnet-refresh.ts` | Same patterns as wc3stats create/refresh |
-| Cards | `src/services/bnet-lobby/bnet-host-prompt.ts` + poller | Live UDBR cards + Open lobby |
-| Watcher | `watcher/` (separate entry, Windows) | List, mint ids, join referee, snapshot, leave, HTTP client |
+| Unit           | Path (intent)                                               | Responsibility                                                |
+| -------------- | ----------------------------------------------------------- | ------------------------------------------------------------- |
+| Roster map     | `src/services/bnet-lobby/bnet-roster.ts`                    | Watcher slots → heroes 1–12; skip referee; strip watcher nick |
+| Jobs           | `src/services/bnet-lobby/bnet-jobs.ts`                      | Enqueue, claim one, complete/fail, stale `running`            |
+| Ingest HTTP    | `src/services/bnet-lobby/bnet-ingest.ts`                    | Heartbeat, gamelist upsert, job next/result                   |
+| Create/refresh | `src/services/lobby/create-from-bnet.ts`, `bnet-refresh.ts` | Same patterns as wc3stats create/refresh                      |
+| Cards          | `src/services/bnet-lobby/bnet-host-prompt.ts` + poller      | Live UDBR cards + Open lobby                                  |
+| Watcher        | `watcher/` (separate entry, Windows)                        | List, mint ids, join referee, snapshot, leave, HTTP client    |
 
 WC3 join stays behind `listGames()`, `joinAndSnapshot(id)`, `leave()`. Bot tests never call them.
 
@@ -166,12 +166,12 @@ Listen only when `BNET_INGEST_TOKEN` is non-empty. Bind `BNET_INGEST_HOST` (defa
 
 Header: `Authorization: Bearer <BNET_INGEST_TOKEN>`. Wrong/missing → `401`, no writes.
 
-| Method | Path | Body / result |
-|--------|------|----------------|
-| POST | `/v1/watcher/heartbeat` | `{ "watcherNick": string }` → upsert singleton |
-| PUT | `/v1/watcher/gamelist` | `{ "lobbies": BnetLiveLobby[] }` → replace-all |
-| GET | `/v1/watcher/jobs/next` | `204` empty, or `200` `{ id, bnetLobbyId, matchId, purpose }` |
-| POST | `/v1/watcher/jobs/:id/result` | success `{ "ok": true, "slots": [...] }` or `{ "ok": false, "code", "message" }` |
+| Method | Path                          | Body / result                                                                    |
+| ------ | ----------------------------- | -------------------------------------------------------------------------------- |
+| POST   | `/v1/watcher/heartbeat`       | `{ "watcherNick": string }` → upsert singleton                                   |
+| PUT    | `/v1/watcher/gamelist`        | `{ "lobbies": BnetLiveLobby[] }` → replace-all                                   |
+| GET    | `/v1/watcher/jobs/next`       | `204` empty, or `200` `{ id, bnetLobbyId, matchId, purpose }`                    |
+| POST   | `/v1/watcher/jobs/:id/result` | success `{ "ok": true, "slots": [...] }` or `{ "ok": false, "code", "message" }` |
 
 Snapshot slot:
 
@@ -235,23 +235,23 @@ Queue: a second job stays `queued`. User copy: watcher busy; the embed updates w
 
 English only. After defer, edit the same reply. Never occupy heroes 1–12.
 
-| Situation | Copy / behavior |
-|-----------|-----------------|
-| Token unset / ingest down | Feature not ready; `/config view` says ingest is off |
-| Heartbeat stale | `The Warcraft lobby watcher is offline. Use a screenshot or add players manually.` Refuse new jobs. Screenshot still allowed |
-| Unknown / expired id | `No live lobby with that id. Check the lobby cards or pick an id from autocomplete.` |
-| Not UDBR | `That lobby is not Ultimate Dragon Ball Reborn.` Do not enqueue |
-| Lobby gone before join | Job `failed` `lobby_gone`. Match unchanged |
-| No referee seat | Job `failed` `no_referee`. `Cannot read that lobby without taking a player seat. Leave a referee slot open and try again.` |
-| Join timeout / hung | Job `failed` `join_timeout`. Match unchanged. Watcher must leave/reset |
-| Empty-full | Unusable. Keep Discord roster. `The watcher saw no player list. Your current roster was kept.` |
-| Watcher nick only occupant | Unusable after strip |
-| Duplicate active id | Point at existing match |
-| Discord wait timeout | Match stays; footer/error: last import failed, retry Refresh |
-| Job result for non-PENDING | Ignore roster write |
-| Wrong game | `Warcraft lobby import is not supported for this game.` |
-| Screenshot + lobby_id | `Pick either a screenshot or a lobby id.` |
-| Watcher busy | `The watcher is reading another lobby. This match will update when that finishes.` |
+| Situation                  | Copy / behavior                                                                                                              |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Token unset / ingest down  | Feature not ready; `/config view` says ingest is off                                                                         |
+| Heartbeat stale            | `The Warcraft lobby watcher is offline. Use a screenshot or add players manually.` Refuse new jobs. Screenshot still allowed |
+| Unknown / expired id       | `No live lobby with that id. Check the lobby cards or pick an id from autocomplete.`                                         |
+| Not UDBR                   | `That lobby is not Ultimate Dragon Ball Reborn.` Do not enqueue                                                              |
+| Lobby gone before join     | Job `failed` `lobby_gone`. Match unchanged                                                                                   |
+| No referee seat            | Job `failed` `no_referee`. `Cannot read that lobby without taking a player seat. Leave a referee slot open and try again.`   |
+| Join timeout / hung        | Job `failed` `join_timeout`. Match unchanged. Watcher must leave/reset                                                       |
+| Empty-full                 | Unusable. Keep Discord roster. `The watcher saw no player list. Your current roster was kept.`                               |
+| Watcher nick only occupant | Unusable after strip                                                                                                         |
+| Duplicate active id        | Point at existing match                                                                                                      |
+| Discord wait timeout       | Match stays; footer/error: last import failed, retry Refresh                                                                 |
+| Job result for non-PENDING | Ignore roster write                                                                                                          |
+| Wrong game                 | `Warcraft lobby import is not supported for this game.`                                                                      |
+| Screenshot + lobby_id      | `Pick either a screenshot or a lobby id.`                                                                                    |
+| Watcher busy               | `The watcher is reading another lobby. This match will update when that finishes.`                                           |
 
 Crash mid-join: stale heartbeat fails `running` jobs.
 
@@ -259,12 +259,12 @@ Crash mid-join: stale heartbeat fails `running` jobs.
 
 Bot-read (SSM + `refresh-env.sh` + `.env.example` + `scripts-and-env.mdc`):
 
-| Key | Default | Notes |
-|-----|---------|--------|
-| `BNET_INGEST_TOKEN` | empty | Empty = do not listen |
-| `BNET_INGEST_HOST` | `0.0.0.0` | |
-| `BNET_INGEST_PORT` | `8787` | |
-| `BNET_WATCHER_STALE_MS` | `60000` | |
+| Key                     | Default   | Notes                 |
+| ----------------------- | --------- | --------------------- |
+| `BNET_INGEST_TOKEN`     | empty     | Empty = do not listen |
+| `BNET_INGEST_HOST`      | `0.0.0.0` |                       |
+| `BNET_INGEST_PORT`      | `8787`    |                       |
+| `BNET_WATCHER_STALE_MS` | `60000`   |                       |
 
 Terraform: optional SG ingress `BNET_INGEST_PORT` from `bnet_watcher_cidr` (e.g. home `/32`), default **disabled** (`enable_bnet_ingest = false`) so existing boxes stay closed until ops turn it on.
 

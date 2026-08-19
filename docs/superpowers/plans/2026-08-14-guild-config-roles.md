@@ -24,31 +24,33 @@
 
 ## File structure
 
-| File | Responsibility |
-|------|----------------|
-| `prisma/schema.prisma` | `GuildConfig` model |
-| `prisma/migrations/.../migration.sql` | Create `GuildConfig` table |
-| `src/services/match-auth.ts` | Create/mod auth with injected role IDs |
-| `src/services/match-auth.test.ts` | Unit tests for injected-ID auth |
-| `src/services/guild-config.ts` | Resolve, set, configure-bot auth |
-| `src/services/guild-config.test.ts` | Resolve precedence + configure auth + set upserts |
-| `src/commands/config/config.ts` | `/config view` and `/config set …` |
-| `src/commands/lobby/register-lobby.ts` | Resolve then `assertCanCreateMatch` |
-| `src/commands/match/match.ts` | Resolve then manage-match auth |
-| `src/handlers/match-interactions.ts` | Resolve then manage-match auth |
-| `src/services/lobby-actions.ts` | Accept `matchModRoleId` into in-progress resolve |
-| `.env.example` | Document env as fallback |
-| `.cursor/rules/scripts-and-env.mdc` | Same |
+| File                                   | Responsibility                                    |
+| -------------------------------------- | ------------------------------------------------- |
+| `prisma/schema.prisma`                 | `GuildConfig` model                               |
+| `prisma/migrations/.../migration.sql`  | Create `GuildConfig` table                        |
+| `src/services/match-auth.ts`           | Create/mod auth with injected role IDs            |
+| `src/services/match-auth.test.ts`      | Unit tests for injected-ID auth                   |
+| `src/services/guild-config.ts`         | Resolve, set, configure-bot auth                  |
+| `src/services/guild-config.test.ts`    | Resolve precedence + configure auth + set upserts |
+| `src/commands/config/config.ts`        | `/config view` and `/config set …`                |
+| `src/commands/lobby/register-lobby.ts` | Resolve then `assertCanCreateMatch`               |
+| `src/commands/match/match.ts`          | Resolve then manage-match auth                    |
+| `src/handlers/match-interactions.ts`   | Resolve then manage-match auth                    |
+| `src/services/lobby-actions.ts`        | Accept `matchModRoleId` into in-progress resolve  |
+| `.env.example`                         | Document env as fallback                          |
+| `.cursor/rules/scripts-and-env.mdc`    | Same                                              |
 
 ---
 
 ### Task 1: Prisma `GuildConfig` model + migration
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: `prisma/migrations/<timestamp>_guild_config/migration.sql` (via Prisma CLI)
 
 **Interfaces:**
+
 - Produces: Prisma model `GuildConfig` with `guildId`, `matchCreateRoleId?`, `matchModRoleId?`, timestamps
 
 - [ ] **Step 1: Add model to schema**
@@ -107,10 +109,12 @@ EOF
 ### Task 2: Inject role IDs into `match-auth`
 
 **Files:**
+
 - Modify: `src/services/match-auth.ts`
 - Modify: `src/services/match-auth.test.ts`
 
 **Interfaces:**
+
 - Consumes: none from Task 1 at runtime (auth stays pure)
 - Produces:
   - `canManageMatch(input: { hostDiscordId: string; actorDiscordId: string; memberRoleIds: string[]; matchModRoleId?: string }): boolean`
@@ -172,9 +176,9 @@ describe('canCreateMatch', () => {
   });
 
   it('returns false when member lacks the create role', () => {
-    expect(
-      canCreateMatch({ memberRoleIds: ['other'], matchCreateRoleId: 'role-create' }),
-    ).toBe(false);
+    expect(canCreateMatch({ memberRoleIds: ['other'], matchCreateRoleId: 'role-create' })).toBe(
+      false,
+    );
   });
 
   it('returns true when member has the create role', () => {
@@ -320,10 +324,12 @@ EOF
 ### Task 3: `guild-config` service (resolve, set, configure auth)
 
 **Files:**
+
 - Create: `src/services/guild-config.ts`
 - Create: `src/services/guild-config.test.ts`
 
 **Interfaces:**
+
 - Consumes: `env.matchCreateRoleId`, `env.matchModRoleId`; Prisma `guildConfig`
 - Produces:
   - `BOT_OWNER_DISCORD_ID = '723326675647070218'`
@@ -452,9 +458,7 @@ describe('setMatchCreateRole / setMatchModRole', () => {
 
 describe('canConfigureBot', () => {
   it('allows the hard-coded owner without Manage Guild', () => {
-    expect(
-      canConfigureBot({ userId: BOT_OWNER_DISCORD_ID, memberPermissions: null }),
-    ).toBe(true);
+    expect(canConfigureBot({ userId: BOT_OWNER_DISCORD_ID, memberPermissions: null })).toBe(true);
   });
 
   it('allows Manage Guild', () => {
@@ -469,12 +473,12 @@ describe('canConfigureBot', () => {
 
 describe('assertCanConfigureBot', () => {
   it('throws when not allowed', () => {
-    expect(() =>
-      assertCanConfigureBot({ userId: 'someone', memberPermissions: null }),
-    ).toThrow(MatchServiceError);
-    expect(() =>
-      assertCanConfigureBot({ userId: 'someone', memberPermissions: null }),
-    ).toThrow('You do not have permission to configure this bot.');
+    expect(() => assertCanConfigureBot({ userId: 'someone', memberPermissions: null })).toThrow(
+      MatchServiceError,
+    );
+    expect(() => assertCanConfigureBot({ userId: 'someone', memberPermissions: null })).toThrow(
+      'You do not have permission to configure this bot.',
+    );
   });
 });
 ```
@@ -490,11 +494,7 @@ Expected: FAIL (module missing)
 Create `src/services/guild-config.ts`:
 
 ```ts
-import {
-  PermissionFlagsBits,
-  PermissionsBitField,
-  type PermissionsString,
-} from 'discord.js';
+import { PermissionFlagsBits, PermissionsBitField, type PermissionsString } from 'discord.js';
 import { env } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
 import { MatchServiceError } from './match-service.js';
@@ -560,12 +560,7 @@ export async function setMatchModRole(guildId: string, roleId: string): Promise<
 export function canConfigureBot(input: {
   userId: string;
   memberPermissions:
-    | PermissionsBitField
-    | bigint
-    | string
-    | ReadonlyArray<PermissionsString>
-    | null
-    | undefined;
+    PermissionsBitField | bigint | string | ReadonlyArray<PermissionsString> | null | undefined;
 }): boolean {
   if (input.userId === BOT_OWNER_DISCORD_ID) {
     return true;
@@ -582,12 +577,7 @@ export function canConfigureBot(input: {
 export function assertCanConfigureBot(input: {
   userId: string;
   memberPermissions:
-    | PermissionsBitField
-    | bigint
-    | string
-    | ReadonlyArray<PermissionsString>
-    | null
-    | undefined;
+    PermissionsBitField | bigint | string | ReadonlyArray<PermissionsString> | null | undefined;
 }): void {
   if (!canConfigureBot(input)) {
     throw new MatchServiceError(CONFIGURE_FORBIDDEN);
@@ -617,9 +607,11 @@ EOF
 ### Task 4: `/config` slash command
 
 **Files:**
+
 - Create: `src/commands/config/config.ts`
 
 **Interfaces:**
+
 - Consumes: `resolveGuildConfig`, `setMatchCreateRole`, `setMatchModRole`, `assertCanConfigureBot`
 - Produces: Discord command `config` with subcommands `view`, `set create_role`, `set mod_role`
 
@@ -732,11 +724,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     await interaction.reply({
       content: [
         'Bot configuration for this server:',
-        formatRoleLine(
-          'Create role',
-          resolved.matchCreateRoleId,
-          resolved.matchCreateRoleSource,
-        ),
+        formatRoleLine('Create role', resolved.matchCreateRoleId, resolved.matchCreateRoleSource),
         formatRoleLine('Mod role', resolved.matchModRoleId, resolved.matchModRoleSource),
       ].join('\n'),
       flags: MessageFlags.Ephemeral,
@@ -803,12 +791,14 @@ EOF
 ### Task 5: Wire call sites to `resolveGuildConfig`
 
 **Files:**
+
 - Modify: `src/commands/lobby/register-lobby.ts`
 - Modify: `src/commands/match/match.ts`
 - Modify: `src/handlers/match-interactions.ts`
 - Modify: `src/services/lobby-actions.ts`
 
 **Interfaces:**
+
 - Consumes: `resolveGuildConfig(guildId)` → pass `matchCreateRoleId` / `matchModRoleId` into auth helpers
 - Produces: all create/manage checks use resolved guild config
 
@@ -818,25 +808,25 @@ EOF
 2. Replace the create assert block with:
 
 ```ts
-  try {
-    if (!interaction.guildId) {
-      throw new MatchServiceError('This command can only be used in a server.');
-    }
-
-    const config = await resolveGuildConfig(interaction.guildId);
-    assertCanCreateMatch({
-      memberRoleIds: memberRoleIds(interaction),
-      matchCreateRoleId: config.matchCreateRoleId,
-    });
-  } catch (error) {
-    if (error instanceof MatchServiceError) {
-      log.warn({ err: error, userId: interaction.user.id }, 'Match lobby creation forbidden');
-      await interaction.editReply(error.message);
-      return;
-    }
-
-    throw error;
+try {
+  if (!interaction.guildId) {
+    throw new MatchServiceError('This command can only be used in a server.');
   }
+
+  const config = await resolveGuildConfig(interaction.guildId);
+  assertCanCreateMatch({
+    memberRoleIds: memberRoleIds(interaction),
+    matchCreateRoleId: config.matchCreateRoleId,
+  });
+} catch (error) {
+  if (error instanceof MatchServiceError) {
+    log.warn({ err: error, userId: interaction.user.id }, 'Match lobby creation forbidden');
+    await interaction.editReply(error.message);
+    return;
+  }
+
+  throw error;
+}
 ```
 
 - [ ] **Step 2: Update `lobby-actions.ts` in-progress resolver**
@@ -877,35 +867,35 @@ export async function resolveInProgressMatchByMessageId(input: {
 2. Where `resolveInProgressMatchByMessageId` is called (~line 248), resolve config first:
 
 ```ts
-  if (!interaction.guildId) {
-    throw new MatchServiceError('This action can only be used in a server.');
-  }
+if (!interaction.guildId) {
+  throw new MatchServiceError('This action can only be used in a server.');
+}
 
-  const config = await resolveGuildConfig(interaction.guildId);
+const config = await resolveGuildConfig(interaction.guildId);
 
-  return resolveInProgressMatchByMessageId({
-    messageId: interaction.message.id,
-    actorDiscordId: interaction.user.id,
-    memberRoleIds: memberRoleIds(interaction),
-    matchModRoleId: config.matchModRoleId,
-  });
+return resolveInProgressMatchByMessageId({
+  messageId: interaction.message.id,
+  actorDiscordId: interaction.user.id,
+  memberRoleIds: memberRoleIds(interaction),
+  matchModRoleId: config.matchModRoleId,
+});
 ```
 
 3. In `resolveById`, before `assertCanManageMatch`:
 
 ```ts
-  if (!interaction.guildId) {
-    throw new MatchServiceError('This action can only be used in a server.');
-  }
+if (!interaction.guildId) {
+  throw new MatchServiceError('This action can only be used in a server.');
+}
 
-  const config = await resolveGuildConfig(interaction.guildId);
+const config = await resolveGuildConfig(interaction.guildId);
 
-  assertCanManageMatch({
-    hostDiscordId: match.hostDiscordId,
-    actorDiscordId: interaction.user.id,
-    memberRoleIds: memberRoleIds(interaction),
-    matchModRoleId: config.matchModRoleId,
-  });
+assertCanManageMatch({
+  hostDiscordId: match.hostDiscordId,
+  actorDiscordId: interaction.user.id,
+  memberRoleIds: memberRoleIds(interaction),
+  matchModRoleId: config.matchModRoleId,
+});
 ```
 
 - [ ] **Step 4: Update `match.ts`**
@@ -1007,10 +997,12 @@ EOF
 ### Task 6: Document env fallback
 
 **Files:**
+
 - Modify: `.env.example`
 - Modify: `.cursor/rules/scripts-and-env.mdc`
 
 **Interfaces:**
+
 - Produces: operator docs stating env is fallback until `/config set`
 
 - [ ] **Step 1: Update `.env.example`**
@@ -1066,20 +1058,20 @@ EOF
 
 ## Spec coverage (self-review)
 
-| Spec requirement | Task |
-|------------------|------|
-| `GuildConfig` table | Task 1 |
-| DB wins per field; else env | Task 3 |
-| Set-only upserts | Task 3 + 4 |
-| `/config view` + sources | Task 4 |
-| `/config set create_role` / `mod_role` | Task 4 |
-| Manage Guild \| owner ID | Task 3 + 4 |
-| Owner constant in code | Task 3 |
-| Resolve by `interaction.guildId` | Task 4 + 5 |
-| `match-auth` injected IDs | Task 2 |
-| Call sites wired | Task 5 |
-| New disabled-create copy | Task 2 |
-| Env kept as fallback + docs | Task 6 |
-| Tech debt (toggles/clear) | Spec only (no code) |
-| Unit tests resolve/auth/set | Task 2 + 3 |
-| Manual smoke | Task 7 |
+| Spec requirement                       | Task                |
+| -------------------------------------- | ------------------- |
+| `GuildConfig` table                    | Task 1              |
+| DB wins per field; else env            | Task 3              |
+| Set-only upserts                       | Task 3 + 4          |
+| `/config view` + sources               | Task 4              |
+| `/config set create_role` / `mod_role` | Task 4              |
+| Manage Guild \| owner ID               | Task 3 + 4          |
+| Owner constant in code                 | Task 3              |
+| Resolve by `interaction.guildId`       | Task 4 + 5          |
+| `match-auth` injected IDs              | Task 2              |
+| Call sites wired                       | Task 5              |
+| New disabled-create copy               | Task 2              |
+| Env kept as fallback + docs            | Task 6              |
+| Tech debt (toggles/clear)              | Spec only (no code) |
+| Unit tests resolve/auth/set            | Task 2 + 3          |
+| Manual smoke                           | Task 7              |

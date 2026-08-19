@@ -26,37 +26,39 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `prisma/schema.prisma` | `League.lobbyChannelEnabled`, `League.lobbyChannelId` |
-| `prisma/migrations/20260817120000_league_lobby_channel/migration.sql` | ALTER TABLE |
-| `src/services/league/league-lobby-channel.ts` | Ready/assert/set/clear, mismatch helper, view-line formatter, locked copy |
-| `src/services/league/league-lobby-channel.test.ts` | Unit tests for the module |
-| `src/services/league/league-wc3stats.ts` | Resolve new fields; host-prompt setter calls mismatch helper |
-| `src/services/league/league-wc3stats.test.ts` | Host-prompt setter mismatch + resolve defaults |
-| `src/services/league/index.ts` | Re-export lobby-channel helpers used by commands |
-| `src/commands/config/config.ts` | `/config set\|clear lobby_channel` + view line |
-| `src/commands/lobby/register-lobby.ts` | Assert before create |
-| `src/discord/interactions/wc3stats-host-prompt-interactions.ts` | Assert before Open lobby create |
-| `src/services/wc3stats/wc3stats-host-prompt-poller.ts` | Skip + `log.error` when both ready and channels differ |
-| `src/services/wc3stats/wc3stats-host-prompt-poller.test.ts` | Skip case |
-| `docs/discord/staff/a1-roles-and-setup.md` | Admin setup |
-| `docs/discord/staff/a4-wc3stats-mapping.md` | Host prompt must match lobby channel |
-| `docs/discord/staff/a5-admin-cheat-sheet.md` | Cheat sheet lines |
-| `docs/discord/public/03-start-a-lobby.md` | Players: use the lobby channel when the server locked it |
-| `.cursor/rules/database-domain.mdc` | League holds lobby channel fields |
+| File                                                                  | Role                                                                      |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `prisma/schema.prisma`                                                | `League.lobbyChannelEnabled`, `League.lobbyChannelId`                     |
+| `prisma/migrations/20260817120000_league_lobby_channel/migration.sql` | ALTER TABLE                                                               |
+| `src/services/league/league-lobby-channel.ts`                         | Ready/assert/set/clear, mismatch helper, view-line formatter, locked copy |
+| `src/services/league/league-lobby-channel.test.ts`                    | Unit tests for the module                                                 |
+| `src/services/league/league-wc3stats.ts`                              | Resolve new fields; host-prompt setter calls mismatch helper              |
+| `src/services/league/league-wc3stats.test.ts`                         | Host-prompt setter mismatch + resolve defaults                            |
+| `src/services/league/index.ts`                                        | Re-export lobby-channel helpers used by commands                          |
+| `src/commands/config/config.ts`                                       | `/config set\|clear lobby_channel` + view line                            |
+| `src/commands/lobby/register-lobby.ts`                                | Assert before create                                                      |
+| `src/discord/interactions/wc3stats-host-prompt-interactions.ts`       | Assert before Open lobby create                                           |
+| `src/services/wc3stats/wc3stats-host-prompt-poller.ts`                | Skip + `log.error` when both ready and channels differ                    |
+| `src/services/wc3stats/wc3stats-host-prompt-poller.test.ts`           | Skip case                                                                 |
+| `docs/discord/staff/a1-roles-and-setup.md`                            | Admin setup                                                               |
+| `docs/discord/staff/a4-wc3stats-mapping.md`                           | Host prompt must match lobby channel                                      |
+| `docs/discord/staff/a5-admin-cheat-sheet.md`                          | Cheat sheet lines                                                         |
+| `docs/discord/public/03-start-a-lobby.md`                             | Players: use the lobby channel when the server locked it                  |
+| `.cursor/rules/database-domain.mdc`                                   | League holds lobby channel fields                                         |
 
 ---
 
 ### Task 1: Schema, migration, resolve fields
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: `prisma/migrations/20260817120000_league_lobby_channel/migration.sql`
 - Modify: `src/services/league/league-wc3stats.ts`
 - Create: `src/services/league/league-wc3stats.test.ts`
 
 **Interfaces:**
+
 - Consumes: existing `League` model and `resolveLeagueConfig`
 - Produces: `League.lobbyChannelEnabled Boolean @default(false)`, `League.lobbyChannelId String?`; `ResolvedLeagueConfig.lobbyChannelEnabled: boolean`; `ResolvedLeagueConfig.lobbyChannelId: string | undefined`
 
@@ -86,10 +88,10 @@ ALTER TABLE "League" ADD COLUMN "lobbyChannelId" TEXT;
 In `src/services/league/league-wc3stats.ts`, add the two fields to the interface (after `rankResetCooldownDays`):
 
 ```typescript
-  rankResetEnabled: boolean;
-  rankResetCooldownDays: number;
-  lobbyChannelEnabled: boolean;
-  lobbyChannelId: string | undefined;
+rankResetEnabled: boolean;
+rankResetCooldownDays: number;
+lobbyChannelEnabled: boolean;
+lobbyChannelId: string | undefined;
 ```
 
 In `resolveLeagueConfig`, append:
@@ -243,11 +245,13 @@ EOF
 ### Task 2: League lobby-channel service (TDD)
 
 **Files:**
+
 - Create: `src/services/league/league-lobby-channel.ts`
 - Create: `src/services/league/league-lobby-channel.test.ts`
 - Modify: `src/services/league/index.ts`
 
 **Interfaces:**
+
 - Consumes: `prisma.league`, `MatchServiceError`
 - Produces (exact names/types):
 
@@ -340,18 +344,18 @@ describe('isLeagueLobbyChannelReady', () => {
   it('is false when disabled or id is missing', () => {
     expect(isLeagueLobbyChannelReady({})).toBe(false);
     expect(isLeagueLobbyChannelReady({ lobbyChannelEnabled: true })).toBe(false);
-    expect(
-      isLeagueLobbyChannelReady({ lobbyChannelEnabled: false, lobbyChannelId: 'c' }),
-    ).toBe(false);
-    expect(
-      isLeagueLobbyChannelReady({ lobbyChannelEnabled: true, lobbyChannelId: '  ' }),
-    ).toBe(false);
+    expect(isLeagueLobbyChannelReady({ lobbyChannelEnabled: false, lobbyChannelId: 'c' })).toBe(
+      false,
+    );
+    expect(isLeagueLobbyChannelReady({ lobbyChannelEnabled: true, lobbyChannelId: '  ' })).toBe(
+      false,
+    );
   });
 
   it('is true when enabled with a non-empty id', () => {
-    expect(
-      isLeagueLobbyChannelReady({ lobbyChannelEnabled: true, lobbyChannelId: 'c1' }),
-    ).toBe(true);
+    expect(isLeagueLobbyChannelReady({ lobbyChannelEnabled: true, lobbyChannelId: 'c1' })).toBe(
+      true,
+    );
   });
 });
 
@@ -362,25 +366,16 @@ describe('assertLobbyCreateChannel', () => {
 
   it('allows the matching channel when ready', () => {
     expect(() =>
-      assertLobbyCreateChannel(
-        { lobbyChannelEnabled: true, lobbyChannelId: 'lobby' },
-        'lobby',
-      ),
+      assertLobbyCreateChannel({ lobbyChannelEnabled: true, lobbyChannelId: 'lobby' }, 'lobby'),
     ).not.toThrow();
   });
 
   it('rejects a different channel when ready', () => {
     expect(() =>
-      assertLobbyCreateChannel(
-        { lobbyChannelEnabled: true, lobbyChannelId: 'lobby' },
-        'other',
-      ),
+      assertLobbyCreateChannel({ lobbyChannelEnabled: true, lobbyChannelId: 'lobby' }, 'other'),
     ).toThrow(MatchServiceError);
     expect(() =>
-      assertLobbyCreateChannel(
-        { lobbyChannelEnabled: true, lobbyChannelId: 'lobby' },
-        'other',
-      ),
+      assertLobbyCreateChannel({ lobbyChannelEnabled: true, lobbyChannelId: 'lobby' }, 'other'),
     ).toThrow(lobbyCreationLimitedMessage('lobby'));
   });
 });
@@ -422,9 +417,7 @@ describe('assertLobbyHostPromptChannelsCompatible', () => {
 
 describe('formatLobbyChannelConfigLine', () => {
   it('shows off when disabled with no id', () => {
-    expect(formatLobbyChannelConfigLine(false, undefined)).toBe(
-      '**Lobby channel:** `off`',
-    );
+    expect(formatLobbyChannelConfigLine(false, undefined)).toBe('**Lobby channel:** `off`');
   });
 
   it('shows saved id when disabled', () => {
@@ -434,15 +427,11 @@ describe('formatLobbyChannelConfigLine', () => {
   });
 
   it('shows on with mention when ready', () => {
-    expect(formatLobbyChannelConfigLine(true, 'c1')).toBe(
-      '**Lobby channel:** `on` · <#c1>',
-    );
+    expect(formatLobbyChannelConfigLine(true, 'c1')).toBe('**Lobby channel:** `on` · <#c1>');
   });
 
   it('does not show on when enabled without an id', () => {
-    expect(formatLobbyChannelConfigLine(true, undefined)).toBe(
-      '**Lobby channel:** `off`',
-    );
+    expect(formatLobbyChannelConfigLine(true, undefined)).toBe('**Lobby channel:** `off`');
   });
 });
 
@@ -474,9 +463,7 @@ describe('setLeagueLobbyChannel', () => {
   });
 
   it('rejects when neither enabled nor channel is provided', async () => {
-    await expect(setLeagueLobbyChannel('L1', {})).rejects.toThrow(
-      LOBBY_CHANNEL_SET_NEEDS_OPTION,
-    );
+    await expect(setLeagueLobbyChannel('L1', {})).rejects.toThrow(LOBBY_CHANNEL_SET_NEEDS_OPTION);
   });
 
   it('rejects enable true when no channel is passed or stored', async () => {
@@ -811,10 +798,12 @@ EOF
 ### Task 3: Host-prompt setter must match lobby channel
 
 **Files:**
+
 - Modify: `src/services/league/league-wc3stats.ts` (`setLeagueWc3statsHostPrompt`)
 - Modify: `src/services/league/league-wc3stats.test.ts` (add the host-prompt describe from Task 1)
 
 **Interfaces:**
+
 - Consumes: `assertLobbyHostPromptChannelsCompatible` from `./league-lobby-channel.js`
 - Produces: `setLeagueWc3statsHostPrompt` still `{ enabled: true; channelId: string } | { enabled: false }`; enable path loads lobby fields and throws `LOBBY_CHANNEL_HOST_PROMPT_MISMATCH` when lobby is ready and ids differ
 
@@ -901,9 +890,11 @@ EOF
 ### Task 4: `/config set|clear lobby_channel` and view
 
 **Files:**
+
 - Modify: `src/commands/config/config.ts`
 
 **Interfaces:**
+
 - Consumes: `setLeagueLobbyChannel`, `clearLeagueLobbyChannel`, `formatLobbyChannelConfigLine` from `../../services/league/index.js` (or `league-lobby-channel.js`); existing `requireLeagueId`, `assertCanConfigureBot`, `ChannelType`
 - Produces: slash subcommands `set lobby_channel` and `clear lobby_channel`; view line after player-claim / before rank-reset (keep IHL settings grouped)
 
@@ -972,60 +963,57 @@ In the `view` reply array, after `formatPlayerClaimLine(...)` add:
 Inside `if (subcommandGroup === 'set')`, after the `player_claim` block:
 
 ```typescript
-      if (subcommand === 'lobby_channel') {
-        const leagueId = await requireLeagueId(interaction);
-        if (!leagueId) return;
+if (subcommand === 'lobby_channel') {
+  const leagueId = await requireLeagueId(interaction);
+  if (!leagueId) return;
 
-        const enabled = interaction.options.getBoolean('enabled');
-        const channel = interaction.options.getChannel('channel', false);
+  const enabled = interaction.options.getBoolean('enabled');
+  const channel = interaction.options.getChannel('channel', false);
 
-        if (enabled === null && !channel) {
-          await interaction.reply({
-            content: LOBBY_CHANNEL_SET_NEEDS_OPTION,
-            flags: MessageFlags.Ephemeral,
-          });
-          return;
-        }
+  if (enabled === null && !channel) {
+    await interaction.reply({
+      content: LOBBY_CHANNEL_SET_NEEDS_OPTION,
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
 
-        if (channel) {
-          const allowedTypes = new Set([
-            ChannelType.GuildText,
-            ChannelType.GuildAnnouncement,
-          ]);
-          if (!allowedTypes.has(channel.type)) {
-            await interaction.reply({
-              content: 'Choose a server text channel for lobbies.',
-              flags: MessageFlags.Ephemeral,
-            });
-            return;
-          }
-        }
+  if (channel) {
+    const allowedTypes = new Set([ChannelType.GuildText, ChannelType.GuildAnnouncement]);
+    if (!allowedTypes.has(channel.type)) {
+      await interaction.reply({
+        content: 'Choose a server text channel for lobbies.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+  }
 
-        await setLeagueLobbyChannel(leagueId, {
-          ...(enabled !== null ? { enabled } : {}),
-          ...(channel ? { channelId: channel.id } : {}),
-        });
+  await setLeagueLobbyChannel(leagueId, {
+    ...(enabled !== null ? { enabled } : {}),
+    ...(channel ? { channelId: channel.id } : {}),
+  });
 
-        const updated = await resolveLeagueConfig(leagueId);
-        log.info(
-          {
-            guildId: interaction.guildId,
-            leagueId,
-            enabled: updated.lobbyChannelEnabled,
-            channelId: updated.lobbyChannelId,
-            userId: interaction.user.id,
-          },
-          'Lobby channel setting updated',
-        );
-        await interaction.reply({
-          content: formatLobbyChannelConfigLine(
-            updated.lobbyChannelEnabled,
-            updated.lobbyChannelId,
-          ).replace('**Lobby channel:** ', 'Lobby channel: '),
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
+  const updated = await resolveLeagueConfig(leagueId);
+  log.info(
+    {
+      guildId: interaction.guildId,
+      leagueId,
+      enabled: updated.lobbyChannelEnabled,
+      channelId: updated.lobbyChannelId,
+      userId: interaction.user.id,
+    },
+    'Lobby channel setting updated',
+  );
+  await interaction.reply({
+    content: formatLobbyChannelConfigLine(
+      updated.lobbyChannelEnabled,
+      updated.lobbyChannelId,
+    ).replace('**Lobby channel:** ', 'Lobby channel: '),
+    flags: MessageFlags.Ephemeral,
+  });
+  return;
+}
 ```
 
 Use the same `MatchServiceError` catch already wrapping the `execute` try (do not add a nested try). `setLeagueLobbyChannel` throws `MatchServiceError` for business rules; that outer catch replies ephemeral.
@@ -1035,21 +1023,21 @@ Use the same `MatchServiceError` catch already wrapping the `execute` try (do no
 Inside `if (subcommandGroup === 'clear')`:
 
 ```typescript
-      if (subcommand === 'lobby_channel') {
-        const leagueId = await requireLeagueId(interaction);
-        if (!leagueId) return;
+if (subcommand === 'lobby_channel') {
+  const leagueId = await requireLeagueId(interaction);
+  if (!leagueId) return;
 
-        await clearLeagueLobbyChannel(leagueId);
-        log.info(
-          { guildId: interaction.guildId, leagueId, userId: interaction.user.id },
-          'Lobby channel cleared',
-        );
-        await interaction.reply({
-          content: 'Lobby channel disabled and channel cleared.',
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
+  await clearLeagueLobbyChannel(leagueId);
+  log.info(
+    { guildId: interaction.guildId, leagueId, userId: interaction.user.id },
+    'Lobby channel cleared',
+  );
+  await interaction.reply({
+    content: 'Lobby channel disabled and channel cleared.',
+    flags: MessageFlags.Ephemeral,
+  });
+  return;
+}
 ```
 
 - [ ] **Step 6: Typecheck**
@@ -1074,10 +1062,12 @@ EOF
 ### Task 5: Gate `/register_lobby` and Open lobby
 
 **Files:**
+
 - Modify: `src/commands/lobby/register-lobby.ts`
 - Modify: `src/discord/interactions/wc3stats-host-prompt-interactions.ts`
 
 **Interfaces:**
+
 - Consumes: `assertLeagueLobbyCreateChannel(leagueId: string, channelId: string): Promise<void>`
 - Produces: both create paths throw/reply `Lobby creation for this league is limited to <#id>.` when the gate is ready and `interaction.channelId` differs. `/lobby` commands unchanged.
 
@@ -1088,15 +1078,15 @@ In `src/commands/lobby/register-lobby.ts`, add `assertLeagueLobbyCreateChannel` 
 Immediately after `const leagueId = leagueResolved.leagueId;` (and still before `extractLobbyPlayers` / wc3stats import), add:
 
 ```typescript
-  try {
-    await assertLeagueLobbyCreateChannel(leagueId, interaction.channelId);
-  } catch (error) {
-    if (error instanceof MatchServiceError) {
-      await interaction.editReply(error.message);
-      return;
-    }
-    throw error;
+try {
+  await assertLeagueLobbyCreateChannel(leagueId, interaction.channelId);
+} catch (error) {
+  if (error instanceof MatchServiceError) {
+    await interaction.editReply(error.message);
+    return;
   }
+  throw error;
+}
 ```
 
 `deferReply` already ran at the start of `execute`, so `editReply` is correct (not a new ephemeral).
@@ -1112,15 +1102,15 @@ import { assertLeagueLobbyCreateChannel } from '../../services/league/index.js';
 In `handleOpen`, after the guild/channelId check and **before** `await interaction.deferUpdate()`, add:
 
 ```typescript
-  try {
-    await assertLeagueLobbyCreateChannel(parsed.leagueId, interaction.channelId);
-  } catch (error) {
-    if (error instanceof MatchServiceError) {
-      await replyEphemeral(interaction, error.message);
-      return;
-    }
-    throw error;
+try {
+  await assertLeagueLobbyCreateChannel(parsed.leagueId, interaction.channelId);
+} catch (error) {
+  if (error instanceof MatchServiceError) {
+    await replyEphemeral(interaction, error.message);
+    return;
   }
+  throw error;
+}
 ```
 
 Do not call this inside `createMatchFromWc3statsLobby` or `createPendingMatch`.
@@ -1147,10 +1137,12 @@ EOF
 ### Task 6: Poller skips invalid lobby/prompt channel pairs
 
 **Files:**
+
 - Modify: `src/services/wc3stats/wc3stats-host-prompt-poller.ts`
 - Modify: `src/services/wc3stats/wc3stats-host-prompt-poller.test.ts`
 
 **Interfaces:**
+
 - Consumes: `isLeagueLobbyChannelReady` from `../league/league-lobby-channel.js`
 - Produces: `listHostPromptReadyLeagues` omits a league when lobby channel is ready **and** `lobbyChannelId !== wc3statsHostPromptChannelId`; logs `error` with `leagueId` and both channel ids
 
@@ -1159,38 +1151,38 @@ EOF
 In `src/services/wc3stats/wc3stats-host-prompt-poller.test.ts`, add to `describe('listHostPromptReadyLeagues')`:
 
 ```typescript
-  it('skips a league when lobby channel is ready and differs from the host prompt channel', async () => {
-    const leagueFindMany = vi.mocked(prisma.league.findMany);
-    leagueFindMany.mockResolvedValue([
-      {
-        id: 'mismatch',
-        guildId: 'g1',
-        gameId: WARCRAFT3_UDBR_GAME_ID,
-        wc3statsHostPromptChannelId: 'prompt-chan',
-        wc3statsMapPattern: 'udbr',
-        wc3statsMapSha1: null,
-        wc3statsEnabled: true,
-        wc3statsHostPromptEnabled: true,
-        lobbyChannelEnabled: true,
-        lobbyChannelId: 'lobby-chan',
-      },
-      {
-        id: 'aligned',
-        guildId: 'g1',
-        gameId: WARCRAFT3_UDBR_GAME_ID,
-        wc3statsHostPromptChannelId: 'same-chan',
-        wc3statsMapPattern: 'udbr',
-        wc3statsMapSha1: null,
-        wc3statsEnabled: true,
-        wc3statsHostPromptEnabled: true,
-        lobbyChannelEnabled: true,
-        lobbyChannelId: 'same-chan',
-      },
-    ] as never);
+it('skips a league when lobby channel is ready and differs from the host prompt channel', async () => {
+  const leagueFindMany = vi.mocked(prisma.league.findMany);
+  leagueFindMany.mockResolvedValue([
+    {
+      id: 'mismatch',
+      guildId: 'g1',
+      gameId: WARCRAFT3_UDBR_GAME_ID,
+      wc3statsHostPromptChannelId: 'prompt-chan',
+      wc3statsMapPattern: 'udbr',
+      wc3statsMapSha1: null,
+      wc3statsEnabled: true,
+      wc3statsHostPromptEnabled: true,
+      lobbyChannelEnabled: true,
+      lobbyChannelId: 'lobby-chan',
+    },
+    {
+      id: 'aligned',
+      guildId: 'g1',
+      gameId: WARCRAFT3_UDBR_GAME_ID,
+      wc3statsHostPromptChannelId: 'same-chan',
+      wc3statsMapPattern: 'udbr',
+      wc3statsMapSha1: null,
+      wc3statsEnabled: true,
+      wc3statsHostPromptEnabled: true,
+      lobbyChannelEnabled: true,
+      lobbyChannelId: 'same-chan',
+    },
+  ] as never);
 
-    const ready = await listHostPromptReadyLeagues();
-    expect(ready.map((league) => league.id)).toEqual(['aligned']);
-  });
+  const ready = await listHostPromptReadyLeagues();
+  expect(ready.map((league) => league.id)).toEqual(['aligned']);
+});
 ```
 
 - [ ] **Step 2: Run test — expect FAIL** (`mismatch` still included)
@@ -1212,23 +1204,23 @@ Add `lobbyChannelEnabled` and `lobbyChannelId` to the Prisma `select`.
 After the existing `isLeagueWc3statsHostPromptReady` continue, and before `ready.push`, add:
 
 ```typescript
-    if (
-      isLeagueLobbyChannelReady({
-        lobbyChannelEnabled: row.lobbyChannelEnabled,
-        lobbyChannelId: row.lobbyChannelId,
-      }) &&
-      trimOptional(row.lobbyChannelId) !== config.wc3statsHostPromptChannelId
-    ) {
-      log.error(
-        {
-          leagueId: row.id,
-          lobbyChannelId: row.lobbyChannelId,
-          hostPromptChannelId: config.wc3statsHostPromptChannelId,
-        },
-        'Skipping host-prompt league: lobby channel and host prompt channel differ',
-      );
-      continue;
-    }
+if (
+  isLeagueLobbyChannelReady({
+    lobbyChannelEnabled: row.lobbyChannelEnabled,
+    lobbyChannelId: row.lobbyChannelId,
+  }) &&
+  trimOptional(row.lobbyChannelId) !== config.wc3statsHostPromptChannelId
+) {
+  log.error(
+    {
+      leagueId: row.id,
+      lobbyChannelId: row.lobbyChannelId,
+      hostPromptChannelId: config.wc3statsHostPromptChannelId,
+    },
+    'Skipping host-prompt league: lobby channel and host prompt channel differ',
+  );
+  continue;
+}
 ```
 
 Inline trim instead of a new helper if the file has no `trimOptional`: use `row.lobbyChannelId?.trim() || undefined`. Missing `lobbyChannelEnabled` on old mocks must count as not ready (existing tests stay green).
@@ -1255,6 +1247,7 @@ EOF
 ### Task 7: Docs
 
 **Files:**
+
 - Modify: `docs/discord/staff/a1-roles-and-setup.md`
 - Modify: `docs/discord/staff/a4-wc3stats-mapping.md`
 - Modify: `docs/discord/staff/a5-admin-cheat-sheet.md`
@@ -1272,9 +1265,11 @@ Insert a new numbered section after **3) Player claim** (renumber following sect
 **4) Dedicated lobby channel (optional, per league)**
 Default is **off** (create in whatever channel you run `/register_lobby`). When on, `/register_lobby` and wc3stats **Open lobby** only work in that channel. `/lobby` commands still work anywhere.
 ```
+
 /config set lobby_channel enabled:True channel:#lobbies
 /config set lobby_channel enabled:False
 /config clear lobby_channel
+
 ```
 If host lobby prompts are also on, they **must** use this same channel. Bind the channel with `/league bind` separately if you want commands there to pick the league automatically.
 ```
@@ -1347,17 +1342,17 @@ Manual Discord check (dev guild):
 
 ## Spec coverage
 
-| Spec item | Task |
-|-----------|------|
-| League columns + default off | 1 |
-| Ready = enabled + id | 2 |
-| set/clear semantics (keep id on disable) | 2, 4 |
-| Host-prompt mismatch on both setters | 2, 3, 4 |
-| `/config view` lines | 2, 4 |
-| Assert on `/register_lobby` and Open lobby only | 5 |
-| Assert not in `createPendingMatch` / `/lobby` | 5 (omission) |
-| Poller skip + error log | 6 |
-| English copy | 2, 4, 5 |
-| Staff/public docs | 7 |
-| No env/SSM | all (omission) |
-| No auto-bind | 7 (docs say bind separately) |
+| Spec item                                       | Task                         |
+| ----------------------------------------------- | ---------------------------- |
+| League columns + default off                    | 1                            |
+| Ready = enabled + id                            | 2                            |
+| set/clear semantics (keep id on disable)        | 2, 4                         |
+| Host-prompt mismatch on both setters            | 2, 3, 4                      |
+| `/config view` lines                            | 2, 4                         |
+| Assert on `/register_lobby` and Open lobby only | 5                            |
+| Assert not in `createPendingMatch` / `/lobby`   | 5 (omission)                 |
+| Poller skip + error log                         | 6                            |
+| English copy                                    | 2, 4, 5                      |
+| Staff/public docs                               | 7                            |
+| No env/SSM                                      | all (omission)               |
+| No auto-bind                                    | 7 (docs say bind separately) |

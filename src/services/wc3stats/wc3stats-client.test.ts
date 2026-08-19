@@ -1,9 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  fetchGameDetail,
-  fetchGamelist,
-  Wc3statsClientError,
-} from './wc3stats-client.js';
+import { fetchGameDetail, fetchGamelist, Wc3statsClientError } from './wc3stats-client.js';
 
 describe('wc3stats client', () => {
   afterEach(() => {
@@ -50,7 +46,9 @@ describe('wc3stats client', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => [{ id: 7, name: 'g', host: 'h', map: 'm.w3x', slotsTaken: 1, slotsTotal: 12 }],
+        json: async () => [
+          { id: 7, name: 'g', host: 'h', map: 'm.w3x', slotsTaken: 1, slotsTotal: 12 },
+        ],
       }),
     );
 
@@ -68,7 +66,11 @@ describe('wc3stats client', () => {
             id: 42,
             name: 'udbr',
             host: { name: 'Host', battleTag: 'Host#1' },
-            map: { path: 'Maps/udbr.w3x', normalizedName: 'Ultimate Dragon Ball Reborn', sha1: 'abc' },
+            map: {
+              path: 'Maps/udbr.w3x',
+              normalizedName: 'Ultimate Dragon Ball Reborn',
+              sha1: 'abc',
+            },
             numPlayers: 2,
             slots: [{ status: 'occupied', player: { name: 'Alice' } }],
           },
@@ -102,10 +104,7 @@ describe('wc3stats client', () => {
   });
 
   it('throws when fetch fails', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockRejectedValue(new Error('network')),
-    );
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network')));
 
     await expect(fetchGameDetail(1, 4000)).rejects.toBeInstanceOf(Wc3statsClientError);
     await expect(fetchGameDetail(1, 4000)).rejects.toThrow('Could not reach wc3stats.');

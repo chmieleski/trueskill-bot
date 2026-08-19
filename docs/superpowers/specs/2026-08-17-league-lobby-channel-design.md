@@ -22,22 +22,22 @@ A guild admin can **enable a dedicated lobby channel per league** so ranked lobb
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Tenancy | Per **league** (`League` row), not `GuildConfig` |
-| Default | Off (`lobbyChannelEnabled = false`, `lobbyChannelId` null) — no behavior change |
-| Create paths gated | `/register_lobby` and wc3stats **Open lobby** only |
-| Not gated | `/lobby …`, claim/leave, start/report/cancel buttons, match correction |
-| Posting | Still the interaction reply / prompt-message edit in **that** channel (no `channel.send` redirect) |
-| `/config` auth | Existing: **Manage Guild** or hard-coded bot owner id |
-| Channel types | Guild text or announcement (same as host prompt) |
-| Host prompt vs lobby channel | If **both** are ready, they **must** share the same `channelId`. `/config` rejects a mismatch |
-| Disable | `enabled: false` keeps `lobbyChannelId` so re-enable does not require picking the channel again |
-| Clear | Disable **and** null `lobbyChannelId` |
-| Ready | `lobbyChannelEnabled === true` **and** non-empty `lobbyChannelId` |
-| League resolve | Unchanged; admins may `/league bind` the lobby channel separately if they want implicit league from channel |
-| Same channel, several leagues | Allowed; `league` option still disambiguates |
-| `/config` who | Not “guild owner only” — same as other `/config` keys |
+| Topic                         | Choice                                                                                                      |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Tenancy                       | Per **league** (`League` row), not `GuildConfig`                                                            |
+| Default                       | Off (`lobbyChannelEnabled = false`, `lobbyChannelId` null) — no behavior change                             |
+| Create paths gated            | `/register_lobby` and wc3stats **Open lobby** only                                                          |
+| Not gated                     | `/lobby …`, claim/leave, start/report/cancel buttons, match correction                                      |
+| Posting                       | Still the interaction reply / prompt-message edit in **that** channel (no `channel.send` redirect)          |
+| `/config` auth                | Existing: **Manage Guild** or hard-coded bot owner id                                                       |
+| Channel types                 | Guild text or announcement (same as host prompt)                                                            |
+| Host prompt vs lobby channel  | If **both** are ready, they **must** share the same `channelId`. `/config` rejects a mismatch               |
+| Disable                       | `enabled: false` keeps `lobbyChannelId` so re-enable does not require picking the channel again             |
+| Clear                         | Disable **and** null `lobbyChannelId`                                                                       |
+| Ready                         | `lobbyChannelEnabled === true` **and** non-empty `lobbyChannelId`                                           |
+| League resolve                | Unchanged; admins may `/league bind` the lobby channel separately if they want implicit league from channel |
+| Same channel, several leagues | Allowed; `league` option still disambiguates                                                                |
+| `/config` who                 | Not “guild owner only” — same as other `/config` keys                                                       |
 
 ## Data model
 
@@ -49,12 +49,12 @@ model League {
 }
 ```
 
-| State | Meaning |
-|-------|---------|
-| `enabled = false`, id null | Off, never configured |
-| `enabled = false`, id set | Off, channel remembered |
-| `enabled = true`, id set | **Ready** — create only in that channel |
-| `enabled = true`, id null | Invalid; setters must not persist this. Runtime treats as not ready **and** `/config view` must not show `on` |
+| State                      | Meaning                                                                                                       |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `enabled = false`, id null | Off, never configured                                                                                         |
+| `enabled = false`, id set  | Off, channel remembered                                                                                       |
+| `enabled = true`, id set   | **Ready** — create only in that channel                                                                       |
+| `enabled = true`, id null  | Invalid; setters must not persist this. Runtime treats as not ready **and** `/config view` must not show `on` |
 
 No env fallback. Missing league row → not ready.
 
@@ -62,24 +62,24 @@ No env fallback. Missing league row → not ready.
 
 Single subcommand `/config set lobby_channel` with optional `enabled` (boolean) and optional `channel`. At least one option is required. League option via `withSubcommandLeagueOption` like other league keys.
 
-| Input | Effect |
-|-------|--------|
-| `enabled:true` + `channel` | Set id, set enabled true. Reject if host-prompt **ready** and its channel differs |
-| `enabled:true` only | Re-enable using stored id. Reject if no stored id (“choose a channel when enabling…”) |
-| `enabled:false` (channel ignored if passed) | Set enabled false; **keep** `lobbyChannelId` |
-| `channel` only | Update id **only if already enabled** (same host-prompt mismatch rule). If currently disabled, reject (“pass enabled:true to turn the lobby channel on”) |
-| `/config clear lobby_channel` | `enabled false`, `lobbyChannelId` null |
-| `/config view` | See copy below |
+| Input                                       | Effect                                                                                                                                                   |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled:true` + `channel`                  | Set id, set enabled true. Reject if host-prompt **ready** and its channel differs                                                                        |
+| `enabled:true` only                         | Re-enable using stored id. Reject if no stored id (“choose a channel when enabling…”)                                                                    |
+| `enabled:false` (channel ignored if passed) | Set enabled false; **keep** `lobbyChannelId`                                                                                                             |
+| `channel` only                              | Update id **only if already enabled** (same host-prompt mismatch rule). If currently disabled, reject (“pass enabled:true to turn the lobby channel on”) |
+| `/config clear lobby_channel`               | `enabled false`, `lobbyChannelId` null                                                                                                                   |
+| `/config view`                              | See copy below                                                                                                                                           |
 
 Existing `/config set wc3stats_host_prompt` / `clear`: when enabling or changing the prompt channel, if lobby channel is **ready**, the prompt `channelId` must equal `lobbyChannelId`. Disable/clear host prompt is unchanged (still clears prompt channel).
 
 ### `/config view` line
 
-| State | Line |
-|-------|------|
-| Off, no id | `**Lobby channel:** \`off\`` |
+| State         | Line                                       |
+| ------------- | ------------------------------------------ |
+| Off, no id    | `**Lobby channel:** \`off\``               |
 | Off, id saved | `**Lobby channel:** \`off\` · saved <#id>` |
-| Ready | `**Lobby channel:** \`on\` · <#id>` |
+| Ready         | `**Lobby channel:** \`on\` · <#id>`        |
 
 ## Runtime
 
@@ -112,14 +112,14 @@ If both are ready and the stored prompt channel **differs** (invalid row): **ski
 
 ## Error copy (English)
 
-| Case | Message |
-|------|---------|
-| Create in the wrong channel | `Lobby creation for this league is limited to <#id>.` |
-| Enable true, no channel stored or passed | `Choose a channel when enabling the lobby channel.` |
-| Channel-only while disabled | `Pass enabled:true to turn the lobby channel on.` |
-| Channel type not text/announcement | `Choose a server text channel for lobbies.` |
-| Mismatch vs host prompt | `The wc3stats host prompt channel must match the lobby channel while the lobby channel is enabled.` |
-| Neither enabled nor channel on set | Discord required-option / `Provide enabled and/or channel.` |
+| Case                                     | Message                                                                                             |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Create in the wrong channel              | `Lobby creation for this league is limited to <#id>.`                                               |
+| Enable true, no channel stored or passed | `Choose a channel when enabling the lobby channel.`                                                 |
+| Channel-only while disabled              | `Pass enabled:true to turn the lobby channel on.`                                                   |
+| Channel type not text/announcement       | `Choose a server text channel for lobbies.`                                                         |
+| Mismatch vs host prompt                  | `The wc3stats host prompt channel must match the lobby channel while the lobby channel is enabled.` |
+| Neither enabled nor channel on set       | Discord required-option / `Provide enabled and/or channel.`                                         |
 
 Deleted Discord channel: no special handler; create/reply fails at the API; admin sets a new channel.
 
@@ -143,30 +143,30 @@ Bot missing send/edit permission: existing Discord/error path; no retry.
   → createPendingMatch + attach Discord message (unchanged)
 ```
 
-| File | Change |
-|------|--------|
-| `prisma/schema.prisma` + migration | Two `League` columns |
-| `src/services/league/league-lobby-channel.ts` | Ready helper, assert, set/clear, mismatch helper |
-| `src/services/league/league-lobby-channel.test.ts` | Unit tests |
-| `src/services/league/league-wc3stats.ts` | Extend `ResolvedLeagueConfig`; host-prompt setter calls mismatch helper |
-| `src/commands/config/config.ts` | set/clear/view |
-| `src/commands/lobby/register-lobby.ts` | Assert before create |
-| `src/discord/interactions/wc3stats-host-prompt-interactions.ts` | Assert before create |
-| `src/services/wc3stats/wc3stats-host-prompt-poller.ts` | Skip + error log on ready+mismatch |
-| `src/services/league/index.ts` | Re-export helpers if other league helpers are exported |
+| File                                                            | Change                                                                  |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `prisma/schema.prisma` + migration                              | Two `League` columns                                                    |
+| `src/services/league/league-lobby-channel.ts`                   | Ready helper, assert, set/clear, mismatch helper                        |
+| `src/services/league/league-lobby-channel.test.ts`              | Unit tests                                                              |
+| `src/services/league/league-wc3stats.ts`                        | Extend `ResolvedLeagueConfig`; host-prompt setter calls mismatch helper |
+| `src/commands/config/config.ts`                                 | set/clear/view                                                          |
+| `src/commands/lobby/register-lobby.ts`                          | Assert before create                                                    |
+| `src/discord/interactions/wc3stats-host-prompt-interactions.ts` | Assert before create                                                    |
+| `src/services/wc3stats/wc3stats-host-prompt-poller.ts`          | Skip + error log on ready+mismatch                                      |
+| `src/services/league/index.ts`                                  | Re-export helpers if other league helpers are exported                  |
 
 `src/commands/config/config.ts` is already large; this slice only adds one set/clear pair and a view line. Do not split the command file in this feature.
 
 ## Edge cases
 
-| Case | Behavior |
-|------|----------|
-| DM / no guild | Existing reject |
-| Two leagues, same lobby channel | Allowed |
-| Host prompt off, lobby channel on | Create gated; no prompt posts |
-| Host prompt on, lobby channel off | Prompt channel independent; Open lobby not gated by lobby channel |
-| PENDING match created before enable, other channel | Embed stays there; `/lobby` and buttons still work |
-| Re-enable after disable | Same stored channel; no new Discord message until next create |
+| Case                                                   | Behavior                                                                  |
+| ------------------------------------------------------ | ------------------------------------------------------------------------- |
+| DM / no guild                                          | Existing reject                                                           |
+| Two leagues, same lobby channel                        | Allowed                                                                   |
+| Host prompt off, lobby channel on                      | Create gated; no prompt posts                                             |
+| Host prompt on, lobby channel off                      | Prompt channel independent; Open lobby not gated by lobby channel         |
+| PENDING match created before enable, other channel     | Embed stays there; `/lobby` and buttons still work                        |
+| Re-enable after disable                                | Same stored channel; no new Discord message until next create             |
 | `/register_lobby` in lobby channel without league bind | Existing `resolveLeagueIdFromInteraction` (option / single league / bind) |
 
 ## Testing

@@ -69,8 +69,6 @@ export async function listPlayerChangelogChannels(): Promise<
     select: { guildId: true, changelogChannelId: true },
   });
   return rows.flatMap((row) =>
-    row.changelogChannelId
-      ? [{ guildId: row.guildId, channelId: row.changelogChannelId }]
-      : [],
+    row.changelogChannelId ? [{ guildId: row.guildId, channelId: row.changelogChannelId }] : [],
   );
 }

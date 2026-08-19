@@ -24,30 +24,32 @@
 
 ## File structure
 
-| File | Responsibility |
-|------|----------------|
-| `src/config/env.ts` | Optional `MATCH_MOD_ROLE_ID` |
-| `.cursor/rules/scripts-and-env.mdc` | Document new env var |
-| `src/services/match-auth.ts` | `canManageMatch` / `assertCanManageMatch` |
-| `src/services/rating-update.ts` | Pure helpers + DB: quitter penalties, match `rate()`, persist μ/σ |
-| `src/services/rating-update.test.ts` | Unit tests for rating math helpers |
-| `src/services/match-report.ts` | `setQuitters`, `completeMatch`, `cancelInProgressMatch` |
-| `src/services/lobby-preview.ts` | In-progress buttons, completed embed, 🚪 on quitters |
-| `src/services/lobby-actions.ts` | Sync modes `started` (with buttons), `completed`; resolve IN_PROGRESS matches |
-| `src/handlers/lobby-interactions.ts` or `src/handlers/match-interactions.ts` | Button/select/modal wizard routing |
-| `src/commands/match/match.ts` | `/match quitters|complete|cancel` |
-| `src/events/interaction-create.ts` | Route `match:` customIds if split handler |
+| File                                                                         | Responsibility                                                                |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `src/config/env.ts`                                                          | Optional `MATCH_MOD_ROLE_ID`                                                  |
+| `.cursor/rules/scripts-and-env.mdc`                                          | Document new env var                                                          |
+| `src/services/match-auth.ts`                                                 | `canManageMatch` / `assertCanManageMatch`                                     |
+| `src/services/rating-update.ts`                                              | Pure helpers + DB: quitter penalties, match `rate()`, persist μ/σ             |
+| `src/services/rating-update.test.ts`                                         | Unit tests for rating math helpers                                            |
+| `src/services/match-report.ts`                                               | `setQuitters`, `completeMatch`, `cancelInProgressMatch`                       |
+| `src/services/lobby-preview.ts`                                              | In-progress buttons, completed embed, 🚪 on quitters                          |
+| `src/services/lobby-actions.ts`                                              | Sync modes `started` (with buttons), `completed`; resolve IN_PROGRESS matches |
+| `src/handlers/lobby-interactions.ts` or `src/handlers/match-interactions.ts` | Button/select/modal wizard routing                                            |
+| `src/commands/match/match.ts`                                                | `/match quitters                                                              | complete | cancel` |
+| `src/events/interaction-create.ts`                                           | Route `match:` customIds if split handler                                     |
 
 ---
 
 ### Task 1: Env + match auth helper
 
 **Files:**
+
 - Modify: `src/config/env.ts`
 - Modify: `.cursor/rules/scripts-and-env.mdc`
 - Create: `src/services/match-auth.ts`
 
 **Interfaces:**
+
 - Produces:
   - `env.matchModRoleId: string | undefined`
   - `canManageMatch(input: { hostDiscordId: string; actorDiscordId: string; memberRoleIds: string[] }): boolean`
@@ -123,10 +125,12 @@ Expected: PASS (or only pre-existing unrelated errors)
 ### Task 2: Pure rating-update helpers + unit tests (TDD)
 
 **Files:**
+
 - Create: `src/services/rating-update.test.ts`
 - Create: `src/services/rating-update.ts` (helpers only first; DB functions in Task 3)
 
 **Interfaces:**
+
 - Produces:
   - `QUITTER_SYNTHETIC_LOSSES = 3`
   - `buildDummyOpponentTeam(): Rating[]` — fixed strong dual/triple entities
@@ -185,15 +189,13 @@ describe('partitionRosterForRating', () => {
 
 describe('assertBothTeamsHaveActivePlayers', () => {
   it('throws when a team has zero active players', () => {
-    expect(() =>
-      assertBothTeamsHaveActivePlayers([{ slot: 1 }, { slot: 2 }]),
-    ).toThrow(MatchServiceError);
+    expect(() => assertBothTeamsHaveActivePlayers([{ slot: 1 }, { slot: 2 }])).toThrow(
+      MatchServiceError,
+    );
   });
 
   it('passes when both teams have at least one', () => {
-    expect(() =>
-      assertBothTeamsHaveActivePlayers([{ slot: 1 }, { slot: 7 }]),
-    ).not.toThrow();
+    expect(() => assertBothTeamsHaveActivePlayers([{ slot: 1 }, { slot: 7 }])).not.toThrow();
   });
 });
 ```
@@ -214,10 +216,7 @@ export const QUITTER_SYNTHETIC_LOSSES = 3;
 
 /** Strong fixed opponent for quitter penalties (not persisted). */
 export function buildDummyOpponentTeam(): Rating[] {
-  return [
-    rating({ mu: 40, sigma: 4 }),
-    rating({ mu: 40, sigma: 4 }),
-  ];
+  return [rating({ mu: 40, sigma: 4 }), rating({ mu: 40, sigma: 4 })];
 }
 
 /**
@@ -248,9 +247,7 @@ export function partitionRosterForRating<T extends { isQuitter: boolean }>(
   };
 }
 
-export function assertBothTeamsHaveActivePlayers(
-  active: { slot: number }[],
-): void {
+export function assertBothTeamsHaveActivePlayers(active: { slot: number }[]): void {
   const { teamA, teamB } = splitRosterByTeam(active);
   if (teamA.length === 0 || teamB.length === 0) {
     throw new MatchServiceError(
@@ -270,11 +267,13 @@ Expected: PASS
 ### Task 3: Persist rating updates (DB layer)
 
 **Files:**
+
 - Modify: `src/services/rating-update.ts`
 - Reuse: `ensurePlayerRatings`, `ensureHeroesExist` from `rating-preview.ts`
 - Reuse: `toOpenSkillRatings`, `splitRosterByTeam` from `rating-math.ts`
 
 **Interfaces:**
+
 - Consumes: helpers from Task 2; Prisma; `ensurePlayerRatings` / `ensureHeroesExist`
 - Produces:
   - `export type RatingRosterEntry = { playerId: string; slot: number; heroId: number; isQuitter: boolean }`
@@ -300,13 +299,13 @@ type Db = Prisma.TransactionClient | typeof prisma;
 export async function applyQuitterPenalties(
   entries: RatingRosterEntry[],
   db: Db = prisma,
-): Promise<void>
+): Promise<void>;
 
 export async function applyMatchRatings(
   entries: RatingRosterEntry[],
   winningTeam: 1 | 2,
   db: Db = prisma,
-): Promise<void>
+): Promise<void>;
 ```
 
 - [ ] **Step 1: Implement `applyQuitterPenalties` and `applyMatchRatings`** as above (full code in the service file; follow existing `rating-preview.ts` load patterns).
@@ -320,10 +319,12 @@ export async function applyMatchRatings(
 ### Task 4: `match-report` use-cases
 
 **Files:**
+
 - Create: `src/services/match-report.ts`
 - Modify: `src/services/match-service.ts` — add `findInProgressMatchesByHost` if missing (mirror `findPendingMatchesByHost`)
 
 **Interfaces:**
+
 - Consumes: `getMatchById`, `MatchWithPlayers`, `MatchServiceError`, rating-update functions, `assertBothTeamsHaveActivePlayers`
 - Produces:
   - `setQuitters(matchId: string, quitterSlots: number[]): Promise<MatchWithPlayers>`
@@ -354,11 +355,7 @@ export async function findInProgressMatchesByHost(
 ```ts
 import { prisma } from '../lib/prisma.js';
 import { createLogger } from '../lib/logger.js';
-import {
-  getMatchById,
-  MatchServiceError,
-  type MatchWithPlayers,
-} from './match-service.js';
+import { getMatchById, MatchServiceError, type MatchWithPlayers } from './match-service.js';
 import {
   applyMatchRatings,
   applyQuitterPenalties,
@@ -378,10 +375,7 @@ function requireInProgress(match: MatchWithPlayers | null): MatchWithPlayers {
   return match;
 }
 
-function toRatingEntries(
-  match: MatchWithPlayers,
-  quitterSlots: Set<number>,
-): RatingRosterEntry[] {
+function toRatingEntries(match: MatchWithPlayers, quitterSlots: Set<number>): RatingRosterEntry[] {
   return match.players.map((p) => ({
     playerId: p.playerId,
     slot: p.slot,
@@ -432,8 +426,7 @@ export async function completeMatch(
     for (const p of match.players) {
       const isQuitter = quitterSet.has(p.slot);
       const won =
-        !isQuitter &&
-        ((winningTeam === 1 && p.slot <= 6) || (winningTeam === 2 && p.slot > 6));
+        !isQuitter && ((winningTeam === 1 && p.slot <= 6) || (winningTeam === 2 && p.slot > 6));
       await tx.matchPlayer.update({
         where: { matchId_playerId: { matchId, playerId: p.playerId } },
         data: {
@@ -457,9 +450,7 @@ export async function completeMatch(
   return updated!;
 }
 
-export async function cancelInProgressMatch(
-  matchId: string,
-): Promise<MatchWithPlayers> {
+export async function cancelInProgressMatch(matchId: string): Promise<MatchWithPlayers> {
   const match = requireInProgress(await getMatchById(matchId));
   const quitterSlots = match.players.filter((p) => p.isQuitter).map((p) => p.slot);
   const entries = toRatingEntries(match, new Set(quitterSlots));
@@ -487,11 +478,13 @@ export async function cancelInProgressMatch(
 ### Task 5: Embeds + in-progress buttons
 
 **Files:**
+
 - Modify: `src/services/lobby-preview.ts`
 - Modify: `src/services/rating-preview.ts` — pass `isQuitter` onto `LobbyRatingPlayerLine` when available
 - Modify: `src/services/lobby-actions.ts` — sync modes
 
 **Interfaces:**
+
 - Produces:
   - `LOBBY_CUSTOM_IDS.reportWinner = 'match:report'`
   - `LOBBY_CUSTOM_IDS.quitters = 'match:quitters'`
@@ -586,11 +579,13 @@ For `completed`, derive `winningTeam` from `MatchPlayer.result` / slots (any WIN
 ### Task 6: Discord interaction wizard
 
 **Files:**
+
 - Create: `src/handlers/match-interactions.ts` (prefer new file — `lobby-interactions.ts` is already large)
 - Modify: `src/events/interaction-create.ts` to route `match:` customIds
 - Modify: `src/services/lobby-actions.ts` — helpers to resolve IN_PROGRESS match by message id + auth
 
 **Interfaces:**
+
 - Consumes: `assertCanManageMatch`, `setQuitters`, `completeMatch`, `cancelInProgressMatch`, `syncLobbyDiscordMessage`
 - CustomId conventions (≤100 chars):
   - Entry: `match:report` | `match:quitters` | `match:cancel` (message = lobby message)
@@ -646,15 +641,18 @@ export async function resolveInProgressMatchByMessageId(input: {
 - [ ] **Step 2: Implement wizard handlers** in `match-interactions.ts`
 
 Flow for **Report Winner**:
+
 1. Button `match:report` → ephemeral: StringSelect (min 0 / max roster size) of players + Skip button; pre-set default values from `isQuitter` if Discord allows (Discord select `setDefault` on options)
 2. Select submit → ephemeral update: Team A / Team B buttons with slots encoded
 3. Winner click → confirm summary + Confirm button
 4. Confirm → `completeMatch` → `syncLobbyDiscordMessage(..., 'completed')` → ephemeral success
 
 Flow for **Quitters**:
+
 1. Select → `setQuitters` → `syncLobbyDiscordMessage(..., 'started')` → ephemeral “Quitters updated.”
 
 Flow for **Cancel**:
+
 1. Confirm buttons → `cancelInProgressMatch` → sync `cancelled`
 
 All errors: ephemeral English via `MatchServiceError.message`.
@@ -675,9 +673,11 @@ if (interaction.customId.startsWith('match:')) {
 ### Task 7: Slash `/match` mirrors
 
 **Files:**
+
 - Create: `src/commands/match/match.ts`
 
 **Interfaces:**
+
 - Consumes: same use-cases + `findInProgressMatchesByHost` / `getMatchById` + auth
 - Subcommands:
   - `quitters` — options: `slots` (string `"1,3,7"`) or repeated integer options; `match_id` optional
@@ -701,6 +701,7 @@ Resolve match: explicit `match_id`, else sole IN_PROGRESS for host **or** if act
 ### Task 8: Docs polish + final verification
 
 **Files:**
+
 - Modify: `.cursor/rules/openskill-rating.mdc` — one line pointing quitter N=3 synthetic `rate()` vs dummy (keep in sync with implementation)
 - Optionally note match-report modules in `project-structure.mdc` if that rule lists services
 
@@ -722,31 +723,31 @@ Expected: PASS
 
 - [ ] **Step 4: Manual E2E checklist**
 
-1. Register lobby → Start Match  
-2. Quitters button → flags show 🚪; match still In Progress  
-3. Report Winner → pre-selected quitters → pick winner → confirm → Completed embed  
-4. New match → Cancel with no quitters → Cancelled, ratings unchanged  
-5. New match → flag quitter → Cancel → quitter μ drops, status Cancelled  
-6. Mod with `MATCH_MOD_ROLE_ID` can report; random user cannot  
-7. `/match complete` mirrors button path  
+1. Register lobby → Start Match
+2. Quitters button → flags show 🚪; match still In Progress
+3. Report Winner → pre-selected quitters → pick winner → confirm → Completed embed
+4. New match → Cancel with no quitters → Cancelled, ratings unchanged
+5. New match → flag quitter → Cancel → quitter μ drops, status Cancelled
+6. Mod with `MATCH_MOD_ROLE_ID` can report; random user cannot
+7. `/match complete` mirrors button path
 
 ---
 
 ## Spec coverage (self-review)
 
-| Spec requirement | Task |
-|------------------|------|
-| Host + `MATCH_MOD_ROLE_ID` | 1, 6, 7 |
-| Three in-progress buttons | 5, 6 |
-| Report Winner: quitters → winner → confirm; pre-select flags | 6 |
-| Quitters button flags only | 4, 6 |
-| Complete + `rate()` exclude quitters; N=3 synthetic | 2, 3, 4 |
-| Cancel void vs cancel+penalties | 4, 6 |
-| Empty team after quitters rejects complete | 2, 4 |
-| Completed embed, no buttons, no deltas | 5 |
-| Slash mirrors | 7 |
-| Vitest for rating helpers / guards | 2 |
-| Single transaction complete/cancel | 4 |
-| Env docs | 1, 8 |
+| Spec requirement                                             | Task    |
+| ------------------------------------------------------------ | ------- |
+| Host + `MATCH_MOD_ROLE_ID`                                   | 1, 6, 7 |
+| Three in-progress buttons                                    | 5, 6    |
+| Report Winner: quitters → winner → confirm; pre-select flags | 6       |
+| Quitters button flags only                                   | 4, 6    |
+| Complete + `rate()` exclude quitters; N=3 synthetic          | 2, 3, 4 |
+| Cancel void vs cancel+penalties                              | 4, 6    |
+| Empty team after quitters rejects complete                   | 2, 4    |
+| Completed embed, no buttons, no deltas                       | 5       |
+| Slash mirrors                                                | 7       |
+| Vitest for rating helpers / guards                           | 2       |
+| Single transaction complete/cancel                           | 4       |
+| Env docs                                                     | 1, 8    |
 
 No TBD placeholders; interface names consistent across tasks (`completeMatch`, `setQuitters`, `cancelInProgressMatch`, `applyQuitterPenalties`, `applyMatchRatings`).

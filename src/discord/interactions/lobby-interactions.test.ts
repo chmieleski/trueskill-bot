@@ -49,10 +49,7 @@ const PENDING = {
   players: [],
 };
 
-function buttonInteraction(
-  customId: string,
-  overrides: Record<string, unknown> = {},
-): Interaction {
+function buttonInteraction(customId: string, overrides: Record<string, unknown> = {}): Interaction {
   return {
     isButton: () => true,
     isStringSelectMenu: () => false,

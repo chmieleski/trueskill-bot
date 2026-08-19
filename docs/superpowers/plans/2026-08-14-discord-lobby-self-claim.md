@@ -24,17 +24,17 @@
 
 ## File structure
 
-| File | Responsibility |
-|------|----------------|
-| `prisma/schema.prisma` | `GuildConfig.lobbyPlayerClaimEnabled Boolean @default(true)` |
-| `src/services/guild-config.ts` | Resolve + `setLobbyPlayerClaimEnabled` |
-| `src/commands/config/config.ts` | `/config set player_claim` + view line |
-| `src/services/player-link.ts` or `player-profile.ts` | `findPlayerByDiscordId` (may already exist) |
-| `src/services/lobby-identity.ts` | Discord id → nick |
-| `src/services/lobby-actions.ts` | `addLobbyPlayerFromDiscord`, `claimLobbySlot`, `leaveLobbySlot` |
-| `src/commands/lobby/lobby.ts` | Optional `user` on `/lobby add` |
-| `src/services/lobby-preview.ts` | Claim/Leave only when flag on |
-| `src/handlers/lobby-interactions.ts` | `lobby:claim` / `lobby:leave`; reject if flag off |
+| File                                                 | Responsibility                                                  |
+| ---------------------------------------------------- | --------------------------------------------------------------- |
+| `prisma/schema.prisma`                               | `GuildConfig.lobbyPlayerClaimEnabled Boolean @default(true)`    |
+| `src/services/guild-config.ts`                       | Resolve + `setLobbyPlayerClaimEnabled`                          |
+| `src/commands/config/config.ts`                      | `/config set player_claim` + view line                          |
+| `src/services/player-link.ts` or `player-profile.ts` | `findPlayerByDiscordId` (may already exist)                     |
+| `src/services/lobby-identity.ts`                     | Discord id → nick                                               |
+| `src/services/lobby-actions.ts`                      | `addLobbyPlayerFromDiscord`, `claimLobbySlot`, `leaveLobbySlot` |
+| `src/commands/lobby/lobby.ts`                        | Optional `user` on `/lobby add`                                 |
+| `src/services/lobby-preview.ts`                      | Claim/Leave only when flag on                                   |
+| `src/handlers/lobby-interactions.ts`                 | `lobby:claim` / `lobby:leave`; reject if flag off               |
 
 Discord allows 5 buttons × 5 rows = 25, so 12 claim buttons fit. Existing roster controls already use a row. Prefer a **second action row group**: keep current ✏️🔀🗑️➕, add claim rows only when `playerCount < 12`. If the message would exceed 5 rows, put claims on a follow-up message or a “Claim a slot” button that opens a select (12 options).
 
@@ -45,6 +45,7 @@ Discord allows 5 buttons × 5 rows = 25, so 12 claim buttons fit. Existing roste
 ### Task 1: Guild toggle (default on)
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: Prisma migration `guild_lobby_player_claim`
 - Modify: `src/services/guild-config.ts`
@@ -52,6 +53,7 @@ Discord allows 5 buttons × 5 rows = 25, so 12 claim buttons fit. Existing roste
 - Modify: `src/commands/config/config.ts`
 
 **Interfaces:**
+
 - Produces:
   - `ResolvedGuildConfig.lobbyPlayerClaimEnabled: boolean` (default `true` when row missing or field unused)
   - `setLobbyPlayerClaimEnabled(guildId: string, enabled: boolean): Promise<void>`
@@ -95,10 +97,7 @@ Treat `null` (if the column is ever nullable) as `true`. Prefer a non-null boole
 - [ ] **Step 3: Setter**
 
 ```ts
-export async function setLobbyPlayerClaimEnabled(
-  guildId: string,
-  enabled: boolean,
-): Promise<void> {
+export async function setLobbyPlayerClaimEnabled(guildId: string, enabled: boolean): Promise<void> {
   await prisma.guildConfig.upsert({
     where: { guildId },
     create: { guildId, lobbyPlayerClaimEnabled: enabled },
@@ -125,7 +124,7 @@ Add under `set`:
 )
 ```
 
-View line: `**Player claim:** \`on\`` or `\`off\``.
+View line: `**Player claim:** \`on\``or`\`off\``.
 
 Set reply: `Player slot claim enabled.` / `Player slot claim disabled. Hosts can still add players by nick or Discord user.`
 
@@ -138,11 +137,13 @@ Auth: existing `assertCanConfigureBot`.
 ### Task 2: Resolve Discord → nick
 
 **Files:**
+
 - Modify: `src/services/player-profile.ts` (export if needed)
 - Create: `src/services/lobby-identity.ts`
 - Create: `src/services/lobby-identity.test.ts`
 
 **Interfaces:**
+
 - `export async function nickForDiscordId(discordId: string): Promise<string>`
 - Throws `MatchServiceError` / `PlayerServiceError`: `Your Discord is not linked to an in-game nick. Run /link or ask a moderator.`
 
@@ -155,9 +156,11 @@ Auth: existing `assertCanConfigureBot`.
 ### Task 3: `/lobby add` optional user
 
 **Files:**
+
 - Modify: `src/commands/lobby/lobby.ts`
 
 **Interfaces:**
+
 - `nick` **or** `user` required (not both). Slot still required.
 
 - [ ] **Step 1:** If both set → `Provide either a nick or a Discord user, not both.`
@@ -169,6 +172,7 @@ Auth: existing `assertCanConfigureBot`.
 ### Task 4: Claim use-case
 
 **Files:**
+
 - Modify: `src/services/lobby-actions.ts`
 - Create tests for occupied-slot reject (pure `addPlayer` already throws? check)
 
@@ -189,6 +193,7 @@ Add a unit test: disabled flag → throw before roster mutate.
 ### Task 5: Claim UI
 
 **Files:**
+
 - Modify: `src/services/lobby-preview.ts` — `LOBBY_CUSTOM_IDS.claim = 'lobby:claim'`
 - Modify: `src/handlers/lobby-interactions.ts`
 

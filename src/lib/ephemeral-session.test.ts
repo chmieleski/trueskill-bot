@@ -54,8 +54,6 @@ describe('ephemeral-session', () => {
   });
 
   it('deletePreviousEphemeral no-ops when empty', async () => {
-    await expect(
-      deletePreviousEphemeral({} as never, 'u1', 'c1'),
-    ).resolves.toBeUndefined();
+    await expect(deletePreviousEphemeral({} as never, 'u1', 'c1')).resolves.toBeUndefined();
   });
 });

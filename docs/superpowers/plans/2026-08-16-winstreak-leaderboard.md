@@ -25,32 +25,33 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `prisma/schema.prisma` | Enums + `League` winstreak leaderboard fields |
-| `prisma/migrations/…_add_winstreak_leaderboard/` | Migration SQL |
-| `src/services/league/league-wc3stats.ts` | Resolve + set/clear winstreak board settings |
-| `src/services/league/index.ts` | Re-exports |
-| `src/services/leaderboard/winstreak-leaderboard.ts` | Streak compute, sort, page, size assert |
-| `src/services/leaderboard/winstreak-leaderboard.test.ts` | Streak/sort/rank/page/isolation tests |
-| `src/services/leaderboard/winstreak-leaderboard-embed.ts` | Table + slash/live embeds + page buttons |
-| `src/services/leaderboard/winstreak-leaderboard-embed.test.ts` | Column filtering / empty copy / chunk stamp |
-| `src/services/leaderboard/winstreak-leaderboard-channel.ts` | Setup / clear / refresh league live message |
-| `src/services/leaderboard/winstreak-leaderboard-channel.test.ts` | Skip when unbound; edit embeds |
-| `src/services/leaderboard/leaderboard-channel.ts` | Call winstreak refresh from `refreshLeagueLeaderboard` + `refreshAll` |
-| `src/services/leaderboard/index.ts` | Re-export winstreak symbols |
-| `src/commands/config/config.ts` | set/clear/view winstreak keys (**with** `league`) |
-| `src/commands/player/leaderboard.ts` | `winstreaks` + `setup_winstreaks` |
-| `src/discord/interactions/leaderboard-interactions.ts` | Handle `lb:winstreaks:…` buttons |
-| `src/discord/interactions/match-correction-interactions.ts` | Ensure winstreak refresh (via league refresh hook) |
-| `docs/discord/staff/a1-roles-and-setup.md` | Document setup |
-| `docs/discord/staff/a5-admin-cheat-sheet.md` | Cheat lines |
+| File                                                             | Role                                                                  |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `prisma/schema.prisma`                                           | Enums + `League` winstreak leaderboard fields                         |
+| `prisma/migrations/…_add_winstreak_leaderboard/`                 | Migration SQL                                                         |
+| `src/services/league/league-wc3stats.ts`                         | Resolve + set/clear winstreak board settings                          |
+| `src/services/league/index.ts`                                   | Re-exports                                                            |
+| `src/services/leaderboard/winstreak-leaderboard.ts`              | Streak compute, sort, page, size assert                               |
+| `src/services/leaderboard/winstreak-leaderboard.test.ts`         | Streak/sort/rank/page/isolation tests                                 |
+| `src/services/leaderboard/winstreak-leaderboard-embed.ts`        | Table + slash/live embeds + page buttons                              |
+| `src/services/leaderboard/winstreak-leaderboard-embed.test.ts`   | Column filtering / empty copy / chunk stamp                           |
+| `src/services/leaderboard/winstreak-leaderboard-channel.ts`      | Setup / clear / refresh league live message                           |
+| `src/services/leaderboard/winstreak-leaderboard-channel.test.ts` | Skip when unbound; edit embeds                                        |
+| `src/services/leaderboard/leaderboard-channel.ts`                | Call winstreak refresh from `refreshLeagueLeaderboard` + `refreshAll` |
+| `src/services/leaderboard/index.ts`                              | Re-export winstreak symbols                                           |
+| `src/commands/config/config.ts`                                  | set/clear/view winstreak keys (**with** `league`)                     |
+| `src/commands/player/leaderboard.ts`                             | `winstreaks` + `setup_winstreaks`                                     |
+| `src/discord/interactions/leaderboard-interactions.ts`           | Handle `lb:winstreaks:…` buttons                                      |
+| `src/discord/interactions/match-correction-interactions.ts`      | Ensure winstreak refresh (via league refresh hook)                    |
+| `docs/discord/staff/a1-roles-and-setup.md`                       | Document setup                                                        |
+| `docs/discord/staff/a5-admin-cheat-sheet.md`                     | Cheat lines                                                           |
 
 ---
 
 ### Task 1: Schema + League config setters
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: migration via `npm run db:migrate`
 - Modify: `src/services/league/league-wc3stats.ts`
@@ -58,6 +59,7 @@
 - Create: `src/services/league/league-winstreak-config.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - Prisma enums `WinstreakLeaderboardDisplay` (`current` \| `best` \| `both`), `WinstreakLeaderboardSort` (`current` \| `best`)
   - `League` fields: `winstreakLeaderboardChannelId`, `winstreakLeaderboardMessageId`, `winstreakLeaderboardSize` (default 10), `winstreakLeaderboardDisplay` (default `both`), `winstreakLeaderboardSort` (default `current`)
@@ -236,12 +238,14 @@ git commit -m "feat: add league winstreak leaderboard config fields"
 ### Task 2: Streak query service
 
 **Files:**
+
 - Create: `src/services/leaderboard/winstreak-leaderboard.ts`
 - Create: `src/services/leaderboard/winstreak-leaderboard.test.ts`
 - Modify: `src/services/league/league-wc3stats.ts` (size assert → `assertWinstreakLeaderboardSize`)
 - Modify: `src/services/leaderboard/index.ts`
 
 **Interfaces:**
+
 - Produces:
   - `WinstreakLeaderboardDisplayMode = 'current' | 'best' | 'both'`
   - `WinstreakLeaderboardSortMode = 'current' | 'best'`
@@ -313,10 +317,7 @@ describe('filter/sort/page', () => {
   ];
 
   it('current sort keeps current≥1 only', () => {
-    expect(filterEligibleWinstreakRows(rows, 'current').map((r) => r.playerId)).toEqual([
-      'a',
-      'c',
-    ]);
+    expect(filterEligibleWinstreakRows(rows, 'current').map((r) => r.playerId)).toEqual(['a', 'c']);
   });
 
   it('best sort keeps best≥1', () => {
@@ -324,7 +325,10 @@ describe('filter/sort/page', () => {
   });
 
   it('sorts by current then best then name', () => {
-    const sorted = sortWinstreakRows(rows.filter((r) => r.current >= 1), 'current');
+    const sorted = sortWinstreakRows(
+      rows.filter((r) => r.current >= 1),
+      'current',
+    );
     expect(sorted.map((r) => r.playerId)).toEqual(['c', 'a']);
   });
 
@@ -454,17 +458,16 @@ export function assertWinstreakLeaderboardSize(size: number): number {
     size < LIVE_LEADERBOARD_MIN_SIZE ||
     size > LIVE_LEADERBOARD_MAX_SIZE
   ) {
-    throw new LeaderboardServiceError(
-      'Winstreak leaderboard size must be between 10 and 100.',
-    );
+    throw new LeaderboardServiceError('Winstreak leaderboard size must be between 10 and 100.');
   }
   return size;
 }
 
 /** Walk chronological WIN/LOSS results; non-WIN resets the run. */
-export function computeWinStreaks(
-  results: Array<'WIN' | 'LOSS'>,
-): { current: number; best: number } {
+export function computeWinStreaks(results: Array<'WIN' | 'LOSS'>): {
+  current: number;
+  best: number;
+} {
   let run = 0;
   let best = 0;
   for (const result of results) {
@@ -671,11 +674,13 @@ git commit -m "feat: add winstreak leaderboard streak aggregation"
 ### Task 3: Embed builders
 
 **Files:**
+
 - Create: `src/services/leaderboard/winstreak-leaderboard-embed.ts`
 - Create: `src/services/leaderboard/winstreak-leaderboard-embed.test.ts`
 - Modify: `src/services/leaderboard/index.ts`
 
 **Interfaces:**
+
 - Produces:
   - `formatWinstreakTable(entries, display): string`
   - `buildWinstreakLeaderboardEmbed(page): EmbedBuilder`
@@ -696,6 +701,7 @@ Run: `npm test -- src/services/leaderboard/winstreak-leaderboard-embed.test.ts`
 - [ ] **Step 3: Implement embeds**
 
 Copy structure from `quitter-leaderboard-embed.ts`:
+
 - Title `Winstreak Leaderboard` / `(continued)`
 - Color `0xf0b232`
 - Columns `#`, `Player`, optional `Current`, optional `Best`
@@ -716,12 +722,14 @@ git commit -m "feat: add winstreak leaderboard embeds"
 ### Task 4: Live channel + refresh hooks
 
 **Files:**
+
 - Create: `src/services/leaderboard/winstreak-leaderboard-channel.ts`
 - Create: `src/services/leaderboard/winstreak-leaderboard-channel.test.ts`
 - Modify: `src/services/leaderboard/leaderboard-channel.ts`
 - Modify: `src/services/leaderboard/index.ts`
 
 **Interfaces:**
+
 - Produces:
   - `setupWinstreakLiveLeaderboard(client, leagueId, channelId): Promise<void>`
   - `clearWinstreakLiveLeaderboard(client, leagueId): Promise<void>`
@@ -736,6 +744,7 @@ Mirror `quitter-leaderboard-channel.test.ts`: unbound → no channel fetch; boun
 - [ ] **Step 2: Implement channel module**
 
 Clone `quitter-leaderboard-channel.ts` but:
+
 - Read/write `League` winstreak fields via `setLeagueWinstreakLeaderboardChannel` / `clearLeagueWinstreakLeaderboardChannel`
 - `setup` best-effort deletes previous message, posts new, persists ids
 - `refresh` edits or reposts like overall
@@ -774,9 +783,11 @@ git commit -m "feat: add live winstreak leaderboard channel refresh"
 ### Task 5: Slash commands `/leaderboard winstreaks` + `setup_winstreaks`
 
 **Files:**
+
 - Modify: `src/commands/player/leaderboard.ts`
 
 **Interfaces:**
+
 - Consumes: `loadWinstreakLeaderboardPage`, embed + button builders, `setupWinstreakLiveLeaderboard`, `resolveLeagueIdFromInteraction`, `withSubcommandLeagueOption`, `assertCanConfigureBot`
 
 - [ ] **Step 1: Add subcommands to `data`**
@@ -825,21 +836,23 @@ git commit -m "feat: add /leaderboard winstreaks and setup_winstreaks"
 ### Task 6: `/config` winstreak keys + view
 
 **Files:**
+
 - Modify: `src/commands/config/config.ts`
 
 **Interfaces:**
+
 - Consumes: league winstreak setters/clears; `refreshLeagueWinstreakLeaderboard`; `assertWinstreakLeaderboardSize` / `LeaderboardServiceError`; existing `resolveLeagueIdFromInteraction` for league-scoped keys (same as `leaderboard_channel` / `leaderboard_size`)
 
 - [ ] **Step 1: Extend set/clear choice names**
 
 Add under league-scoped config (with `league` option), parallel to overall leaderboard:
 
-| Key | Behavior |
-|-----|----------|
+| Key                             | Behavior                                 |
+| ------------------------------- | ---------------------------------------- |
 | `winstreak_leaderboard_channel` | setup/clear live board in chosen channel |
-| `winstreak_leaderboard_size` | integer 10–100 |
-| `winstreak_leaderboard_display` | choices current/best/both |
-| `winstreak_leaderboard_sort` | choices current/best |
+| `winstreak_leaderboard_size`    | integer 10–100                           |
+| `winstreak_leaderboard_display` | choices current/best/both                |
+| `winstreak_leaderboard_sort`    | choices current/best                     |
 
 On set size/display/sort: persist then `refreshLeagueWinstreakLeaderboard`.  
 On set channel: call `setupWinstreakLiveLeaderboard`.  
@@ -864,6 +877,7 @@ git commit -m "feat: add /config winstreak leaderboard settings"
 ### Task 7: Pagination interactions
 
 **Files:**
+
 - Modify: `src/discord/interactions/leaderboard-interactions.ts`
 
 - [ ] **Step 1: Handle `lb:winstreaks:` before overall**
@@ -903,6 +917,7 @@ git commit -m "feat: paginate winstreak leaderboard buttons"
 ### Task 8: Staff docs
 
 **Files:**
+
 - Modify: `docs/discord/staff/a1-roles-and-setup.md`
 - Modify: `docs/discord/staff/a5-admin-cheat-sheet.md`
 
@@ -928,17 +943,17 @@ git commit -m "docs: document winstreak leaderboard setup"
 
 ## Spec coverage checklist
 
-| Spec item | Task |
-|-----------|------|
-| League schema enums/fields | 1 |
-| On-read streak compute + COMPLETED only | 2 |
-| Eligibility current/best | 2 |
-| Competition ranks + secondary keys | 2 |
-| Embeds + empty copy + chunk stamp | 3 |
-| Live setup/clear/refresh + scheduler | 4 |
-| `/leaderboard winstreaks` + `setup_winstreaks` | 5 |
-| `/config` set/clear/view | 6 |
-| Invoker-only page buttons with leagueId | 7 |
-| Staff docs | 8 |
-| Size error copy | 2 |
-| No denormalized columns / no guild-wide | — (non-goal) |
+| Spec item                                      | Task         |
+| ---------------------------------------------- | ------------ |
+| League schema enums/fields                     | 1            |
+| On-read streak compute + COMPLETED only        | 2            |
+| Eligibility current/best                       | 2            |
+| Competition ranks + secondary keys             | 2            |
+| Embeds + empty copy + chunk stamp              | 3            |
+| Live setup/clear/refresh + scheduler           | 4            |
+| `/leaderboard winstreaks` + `setup_winstreaks` | 5            |
+| `/config` set/clear/view                       | 6            |
+| Invoker-only page buttons with leagueId        | 7            |
+| Staff docs                                     | 8            |
+| Size error copy                                | 2            |
+| No denormalized columns / no guild-wide        | — (non-goal) |

@@ -15,7 +15,10 @@ vi.mock('../../config/env.js', () => ({
   env: { wc3statsTimeoutMs: 4000 },
 }));
 
-import { loadLinkedPlayersByNick, listHostPromptReadyLeagues } from './wc3stats-host-prompt-poller.js';
+import {
+  loadLinkedPlayersByNick,
+  listHostPromptReadyLeagues,
+} from './wc3stats-host-prompt-poller.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,

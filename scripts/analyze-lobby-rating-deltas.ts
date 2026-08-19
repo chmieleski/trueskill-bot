@@ -13,9 +13,7 @@ import {
 } from '../src/services/rating/rank-reset-display.js';
 
 const useProd = process.argv.includes('--prod');
-const connectionString = useProd
-  ? process.env.PROD_DIRECT_URL
-  : env.databaseUrl;
+const connectionString = useProd ? process.env.PROD_DIRECT_URL : env.databaseUrl;
 
 if (!connectionString) {
   console.error('Missing database URL');
@@ -161,9 +159,7 @@ async function main(): Promise<void> {
     });
 
     const lobbyAvg = preRows.reduce((s, r) => s + r.ki, 0) / preRows.length;
-    const startGlobal = new Map(
-      preRows.map((r) => [r.playerId, { mu: r.mu, sigma: r.sigma }]),
-    );
+    const startGlobal = new Map(preRows.map((r) => [r.playerId, { mu: r.mu, sigma: r.sigma }]));
     const roster = players.map((p) => ({
       playerId: p.playerId,
       slot: p.slot,
@@ -172,24 +168,16 @@ async function main(): Promise<void> {
       isQuitter: p.isQuitter,
     }));
 
-    const after = simulatePostMatchRatings(
-      roster,
-      winningTeam as 1 | 2,
-      startGlobal,
-      heroMap,
-    );
+    const after = simulatePostMatchRatings(roster, winningTeam as 1 | 2, startGlobal, heroMap);
 
     for (const r of preRows) {
       const ag = after.globalByPlayer.get(r.playerId);
       if (!ag) {
         continue;
       }
-      const simDelta =
-        displayOrdinal(ag.mu, ag.sigma, r.games + 1) - r.ki;
+      const simDelta = displayOrdinal(ag.mu, ag.sigma, r.games + 1) - r.ki;
       const persisted =
-        'globalKiDelta' in r && r.globalKiDelta != null
-          ? Number(r.globalKiDelta)
-          : null;
+        'globalKiDelta' in r && r.globalKiDelta != null ? Number(r.globalKiDelta) : null;
       allRows.push({
         matchId: m.id.slice(0, 8),
         username: r.username,
@@ -204,11 +192,7 @@ async function main(): Promise<void> {
   }
 
   const avg = (arr: Row[], key: keyof Row): string =>
-    arr.length
-      ? (
-          arr.reduce((s, x) => s + Number(x[key] ?? 0), 0) / arr.length
-        ).toFixed(1)
-      : 'n/a';
+    arr.length ? (arr.reduce((s, x) => s + Number(x[key] ?? 0), 0) / arr.length).toFixed(1) : 'n/a';
 
   console.log('\n=== AGGREGATE (simulated global ki Δ) ===');
   console.log('Player-match rows:', allRows.length);
@@ -216,22 +200,34 @@ async function main(): Promise<void> {
   const losers = allRows.filter((r) => !r.won);
   console.log(
     'Above avg (+200) WIN  avg Δ',
-    avg(winners.filter((r) => r.offset > 200), 'simDelta'),
+    avg(
+      winners.filter((r) => r.offset > 200),
+      'simDelta',
+    ),
     `(n=${winners.filter((r) => r.offset > 200).length})`,
   );
   console.log(
     'Below avg (-200) WIN  avg Δ',
-    avg(winners.filter((r) => r.offset < -200), 'simDelta'),
+    avg(
+      winners.filter((r) => r.offset < -200),
+      'simDelta',
+    ),
     `(n=${winners.filter((r) => r.offset < -200).length})`,
   );
   console.log(
     'Above avg (+200) LOSS avg Δ',
-    avg(losers.filter((r) => r.offset > 200), 'simDelta'),
+    avg(
+      losers.filter((r) => r.offset > 200),
+      'simDelta',
+    ),
     `(n=${losers.filter((r) => r.offset > 200).length})`,
   );
   console.log(
     'Below avg (-200) LOSS avg Δ',
-    avg(losers.filter((r) => r.offset < -200), 'simDelta'),
+    avg(
+      losers.filter((r) => r.offset < -200),
+      'simDelta',
+    ),
     `(n=${losers.filter((r) => r.offset < -200).length})`,
   );
 
@@ -270,9 +266,7 @@ async function main(): Promise<void> {
 
   const withPersisted = allRows.filter((r) => r.persistedDelta != null);
   if (withPersisted.length > 0) {
-    const diffs = withPersisted.map((r) =>
-      Math.abs(r.persistedDelta! - r.simDelta),
-    );
+    const diffs = withPersisted.map((r) => Math.abs(r.persistedDelta! - r.simDelta));
     console.log(
       `\nPersisted vs simulated: rows ${withPersisted.length}, max diff ${Math.max(...diffs)}`,
     );

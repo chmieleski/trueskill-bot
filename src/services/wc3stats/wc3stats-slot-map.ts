@@ -78,9 +78,7 @@ export function assertHeroSlotInRange(heroId: number): void {
 export function parseWc3statsSlotMapEntries(raw: string): GuildWc3statsSlotMapping[] {
   const trimmed = raw.trim();
   if (trimmed === '') {
-    throw new MatchServiceError(
-      'entries must look like `0=1,1=2,4=7` (wc3_slot=hero_slot pairs).',
-    );
+    throw new MatchServiceError('entries must look like `0=1,1=2,4=7` (wc3_slot=hero_slot pairs).');
   }
 
   const pairs = trimmed.split(/[,;\s]+/).filter((part) => part !== '');

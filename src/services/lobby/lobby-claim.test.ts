@@ -35,11 +35,7 @@ vi.mock('../match/match-service.js', async (importOriginal) => {
   };
 });
 
-import {
-  claimLobbySlot,
-  rosterAfterClaim,
-  rosterAfterLeave,
-} from './index.js';
+import { claimLobbySlot, rosterAfterClaim, rosterAfterLeave } from './index.js';
 
 describe('rosterAfterClaim', () => {
   const udbr = getGameProfile(WARCRAFT3_UDBR_GAME_ID);
@@ -49,21 +45,21 @@ describe('rosterAfterClaim', () => {
   });
 
   it('rejects an occupied slot with the occupant nick', () => {
-    expect(() =>
-      rosterAfterClaim([{ slot: 1, nick: 'vegeta' }], 'goku', 1, udbr),
-    ).toThrow('Slot 1 is already occupied by "vegeta".');
+    expect(() => rosterAfterClaim([{ slot: 1, nick: 'vegeta' }], 'goku', 1, udbr)).toThrow(
+      'Slot 1 is already occupied by "vegeta".',
+    );
   });
 
   it('rejects when the nick is already in the same slot', () => {
-    expect(() =>
-      rosterAfterClaim([{ slot: 1, nick: 'goku' }], 'goku', 1, udbr),
-    ).toThrow('You are already in slot 1.');
+    expect(() => rosterAfterClaim([{ slot: 1, nick: 'goku' }], 'goku', 1, udbr)).toThrow(
+      'You are already in slot 1.',
+    );
   });
 
   it('rejects when the nick is already in another slot', () => {
-    expect(() =>
-      rosterAfterClaim([{ slot: 3, nick: 'goku' }], 'goku', 1, udbr),
-    ).toThrow('You are already in slot 3. Leave first.');
+    expect(() => rosterAfterClaim([{ slot: 3, nick: 'goku' }], 'goku', 1, udbr)).toThrow(
+      'You are already in slot 3. Leave first.',
+    );
   });
 });
 

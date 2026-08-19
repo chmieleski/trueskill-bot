@@ -9,7 +9,11 @@ import {
   type Wc3statsListGame,
 } from './wc3stats-client.js';
 import { compileWc3statsMapConfig, isUdbrMap, type Wc3statsMapConfig } from './wc3stats-map.js';
-import { extractWc3statsRoster, nickFromWc3statsPlayer, type Wc3statsRosterResult } from './wc3stats-roster.js';
+import {
+  extractWc3statsRoster,
+  nickFromWc3statsPlayer,
+  type Wc3statsRosterResult,
+} from './wc3stats-roster.js';
 import type { Wc3statsHeroSlotMap } from './wc3stats-slot-map.js';
 
 const log = createLogger('wc3stats-resolve');
@@ -96,7 +100,9 @@ function isUdbrListOrDetail(
   detail: Wc3statsGameDetail,
   mapConfig: Wc3statsMapConfig,
 ): boolean {
-  return isUdbrMap(mapInputFromDetail(detail), mapConfig) || isUdbrMap({ map: game.map }, mapConfig);
+  return (
+    isUdbrMap(mapInputFromDetail(detail), mapConfig) || isUdbrMap({ map: game.map }, mapConfig)
+  );
 }
 
 /**
@@ -165,9 +171,7 @@ function mapInputFromDetail(detail: Wc3statsGameDetail) {
  * Auto-pick a live UDBR lobby from the gamelist.
  * Explicit `wc3stats_id` skips this and goes straight to fetchGameDetail.
  */
-export function resolveWc3statsLobby(
-  input: ResolveWc3statsLobbyInput,
-): ResolveWc3statsLobbyResult {
+export function resolveWc3statsLobby(input: ResolveWc3statsLobbyInput): ResolveWc3statsLobbyResult {
   const udbr = input.games.filter((game) => isUdbrMap({ map: game.map }, input.mapConfig));
 
   if (udbr.length === 0) {
@@ -319,12 +323,7 @@ export async function importWc3statsLobby(input: {
       if (hostNick === '') {
         return { ok: false, code: 'not_found', message: WC3STATS_NICK_NOT_IN_LOBBY };
       }
-      return await importByLinkedNickInLiveLobby(
-        hostNick,
-        timeoutMs,
-        mapConfig,
-        input.slotMap,
-      );
+      return await importByLinkedNickInLiveLobby(hostNick, timeoutMs, mapConfig, input.slotMap);
     }
 
     const games = await fetchGamelist(timeoutMs);

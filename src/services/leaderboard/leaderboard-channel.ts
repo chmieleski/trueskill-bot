@@ -6,10 +6,7 @@ import {
   setLeagueLeaderboardChannel,
 } from '../league/league-wc3stats.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
-import {
-  LIVE_LEADERBOARD_DEFAULT_SIZE,
-  loadOverallLeaderboardTop,
-} from './leaderboard.js';
+import { LIVE_LEADERBOARD_DEFAULT_SIZE, loadOverallLeaderboardTop } from './leaderboard.js';
 import { buildOverallLiveLeaderboardEmbeds } from './leaderboard-embed.js';
 import { refreshAllQuitterLeaderboardChannels } from './quitter-leaderboard-channel.js';
 
@@ -40,10 +37,7 @@ export async function deleteMessageBestEffort(
   }
 }
 
-async function buildLiveOverallEmbeds(
-  leagueId: string,
-  size?: number,
-): Promise<EmbedBuilder[]> {
+async function buildLiveOverallEmbeds(leagueId: string, size?: number): Promise<EmbedBuilder[]> {
   let resolvedSize = size;
   if (resolvedSize === undefined) {
     const row = await prisma.league.findUnique({
@@ -102,10 +96,7 @@ export async function clearLiveLeaderboard(client: Client, leagueId: string): Pr
   await clearLeagueLeaderboardChannel(leagueId);
 }
 
-export async function refreshLeagueLeaderboard(
-  client: Client,
-  leagueId: string,
-): Promise<void> {
+export async function refreshLeagueLeaderboard(client: Client, leagueId: string): Promise<void> {
   const row = await prisma.league.findUnique({
     where: { id: leagueId },
     select: {

@@ -28,23 +28,25 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `src/services/match/match-service.ts` | Message helper, cap assert, `CreatePendingMatchInput.bypassHostLobbyCap`, call inside create tx |
-| `src/services/match/host-lobby-cap.test.ts` | Unit tests for message + cap helper |
-| `src/commands/lobby/register-lobby.ts` | Pass `hasMatchModRole(...)` as bypass |
-| `src/services/lobby/create-from-wc3stats.ts` | Same bypass flag |
-| `docs/discord/public/03-start-a-lobby.md` | One line: non-mod hosts close the current match first |
+| File                                         | Role                                                                                            |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `src/services/match/match-service.ts`        | Message helper, cap assert, `CreatePendingMatchInput.bypassHostLobbyCap`, call inside create tx |
+| `src/services/match/host-lobby-cap.test.ts`  | Unit tests for message + cap helper                                                             |
+| `src/commands/lobby/register-lobby.ts`       | Pass `hasMatchModRole(...)` as bypass                                                           |
+| `src/services/lobby/create-from-wc3stats.ts` | Same bypass flag                                                                                |
+| `docs/discord/public/03-start-a-lobby.md`    | One line: non-mod hosts close the current match first                                           |
 
 ---
 
 ### Task 1: Cap helpers (TDD)
 
 **Files:**
+
 - Create: `src/services/match/host-lobby-cap.test.ts`
 - Modify: `src/services/match/match-service.ts`
 
 **Interfaces:**
+
 - Consumes: `MatchServiceError`; `Prisma.TransactionClient` (already imported in `match-service.ts`)
 - Produces:
   - `hostLobbyCapMessage(status: 'PENDING' | 'IN_PROGRESS', matchId: string): string`
@@ -57,11 +59,7 @@ Create `src/services/match/host-lobby-cap.test.ts`:
 ```typescript
 import { describe, expect, it, vi } from 'vitest';
 import type { Prisma } from '@prisma/client';
-import {
-  assertHostLobbyCapInTx,
-  hostLobbyCapMessage,
-  MatchServiceError,
-} from './match-service.js';
+import { assertHostLobbyCapInTx, hostLobbyCapMessage, MatchServiceError } from './match-service.js';
 
 function fakeTx(row: { id: string; status: 'PENDING' | 'IN_PROGRESS' } | null) {
   const findFirst = vi.fn().mockResolvedValue(row);
@@ -145,10 +143,7 @@ Expected: FAIL — `hostLobbyCapMessage` / `assertHostLobbyCapInTx` are not expo
 In `src/services/match/match-service.ts`, add next to `duplicateWc3statsMatchMessage` (around line 210):
 
 ```typescript
-export function hostLobbyCapMessage(
-  status: 'PENDING' | 'IN_PROGRESS',
-  matchId: string,
-): string {
+export function hostLobbyCapMessage(status: 'PENDING' | 'IN_PROGRESS', matchId: string): string {
   if (status === 'IN_PROGRESS') {
     return `You already have a match in progress (${matchId}). Report or cancel it before opening another lobby.`;
   }
@@ -210,9 +205,11 @@ EOF
 ### Task 2: Enforce the cap inside `createPendingMatch`
 
 **Files:**
+
 - Modify: `src/services/match/match-service.ts` (`CreatePendingMatchInput` and the create transaction)
 
 **Interfaces:**
+
 - Consumes: `assertHostLobbyCapInTx` from Task 1
 - Produces: `CreatePendingMatchInput.bypassHostLobbyCap?: boolean` (default omit = enforce)
 
@@ -284,11 +281,13 @@ EOF
 ### Task 3: Pass the mod bypass from both create paths + public doc
 
 **Files:**
+
 - Modify: `src/commands/lobby/register-lobby.ts`
 - Modify: `src/services/lobby/create-from-wc3stats.ts`
 - Modify: `docs/discord/public/03-start-a-lobby.md`
 
 **Interfaces:**
+
 - Consumes: `hasMatchModRole` from `src/services/match/match-auth.ts` (already exported via `src/services/match/index.ts`); `CreatePendingMatchInput.bypassHostLobbyCap` from Task 2
 - Produces: both create paths set `bypassHostLobbyCap: hasMatchModRole(...)`
 
@@ -303,18 +302,18 @@ import { assertCanCreateMatch, hasMatchModRole } from '../../services/match/inde
 At the `createPendingMatch` call (around line 265), pass the bypass. `guildConfig` is set earlier in the same `execute` after a successful create-role check:
 
 ```typescript
-    const created = await createPendingMatch({
-      leagueId,
-      hostDiscordId: interaction.user.id,
-      discordChannelId: interaction.channelId,
-      players,
-      wc3statsGameId,
-      bypassHostLobbyCap: hasMatchModRole({
-        actorDiscordId: interaction.user.id,
-        memberRoleIds: memberRoleIds(interaction),
-        matchModRoleId: guildConfig?.matchModRoleId,
-      }),
-    });
+const created = await createPendingMatch({
+  leagueId,
+  hostDiscordId: interaction.user.id,
+  discordChannelId: interaction.channelId,
+  players,
+  wc3statsGameId,
+  bypassHostLobbyCap: hasMatchModRole({
+    actorDiscordId: interaction.user.id,
+    memberRoleIds: memberRoleIds(interaction),
+    matchModRoleId: guildConfig?.matchModRoleId,
+  }),
+});
 ```
 
 Do not skip `assertCanCreateMatch`. Mods without the create role still cannot open a lobby.
@@ -337,18 +336,18 @@ import {
 At the `createPendingMatch` call (around line 120):
 
 ```typescript
-  const created = await createPendingMatch({
-    leagueId: input.leagueId,
-    hostDiscordId: input.hostDiscordId,
-    discordChannelId: input.discordChannelId,
-    players,
-    wc3statsGameId,
-    bypassHostLobbyCap: hasMatchModRole({
-      actorDiscordId: input.hostDiscordId,
-      memberRoleIds: input.memberRoleIds,
-      matchModRoleId: guildConfig.matchModRoleId,
-    }),
-  });
+const created = await createPendingMatch({
+  leagueId: input.leagueId,
+  hostDiscordId: input.hostDiscordId,
+  discordChannelId: input.discordChannelId,
+  players,
+  wc3statsGameId,
+  bypassHostLobbyCap: hasMatchModRole({
+    actorDiscordId: input.hostDiscordId,
+    memberRoleIds: input.memberRoleIds,
+    matchModRoleId: guildConfig.matchModRoleId,
+  }),
+});
 ```
 
 `guildConfig` is already loaded at the top of `createMatchFromWc3statsLobby`.
@@ -397,16 +396,16 @@ EOF
 
 ## Spec coverage
 
-| Spec requirement | Task |
-|------------------|------|
-| Active = PENDING or IN_PROGRESS | 1, 2 |
-| Per league (`hostDiscordId` + `leagueId`) | 1 query + 2 |
-| Refuse and name match id | 1 messages |
-| Newest leftover when several exist | 1 `orderBy createdAt desc` |
-| Mod / universal mod bypass via `hasMatchModRole` | 3 |
-| Create role still required | 3 (do not skip `assertCanCreateMatch`) |
-| Enforce inside `createPendingMatch` tx | 2 |
-| Default bypass false | 1 omitted-flag test + 2 `=== true` |
-| Both create paths | 3 |
-| Public doc line | 3 |
-| No unique index / no env / no seated-player cap | not implemented (non-goals) |
+| Spec requirement                                 | Task                                   |
+| ------------------------------------------------ | -------------------------------------- |
+| Active = PENDING or IN_PROGRESS                  | 1, 2                                   |
+| Per league (`hostDiscordId` + `leagueId`)        | 1 query + 2                            |
+| Refuse and name match id                         | 1 messages                             |
+| Newest leftover when several exist               | 1 `orderBy createdAt desc`             |
+| Mod / universal mod bypass via `hasMatchModRole` | 3                                      |
+| Create role still required                       | 3 (do not skip `assertCanCreateMatch`) |
+| Enforce inside `createPendingMatch` tx           | 2                                      |
+| Default bypass false                             | 1 omitted-flag test + 2 `=== true`     |
+| Both create paths                                | 3                                      |
+| Public doc line                                  | 3                                      |
+| No unique index / no env / no seated-player cap  | not implemented (non-goals)            |

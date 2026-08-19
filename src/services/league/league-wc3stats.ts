@@ -50,15 +50,12 @@ export async function resolveLeagueConfig(leagueId: string): Promise<ResolvedLea
     leaderboardChannelId: row?.leaderboardChannelId?.trim() || undefined,
     leaderboardMessageId: row?.leaderboardMessageId?.trim() || undefined,
     leaderboardSize:
-      row?.leaderboardSize != null
-        ? row.leaderboardSize
-        : LIVE_LEADERBOARD_DEFAULT_SIZE,
+      row?.leaderboardSize != null ? row.leaderboardSize : LIVE_LEADERBOARD_DEFAULT_SIZE,
     lobbyPlayerClaimEnabled: row?.lobbyPlayerClaimEnabled !== false,
     wc3statsHostPromptEnabled: row?.wc3statsHostPromptEnabled === true,
     wc3statsHostPromptChannelId: row?.wc3statsHostPromptChannelId?.trim() || undefined,
     rankResetEnabled: row?.rankResetEnabled === true,
-    rankResetCooldownDays:
-      row?.rankResetCooldownDays != null ? row.rankResetCooldownDays : 30,
+    rankResetCooldownDays: row?.rankResetCooldownDays != null ? row.rankResetCooldownDays : 30,
     lobbyChannelEnabled: row?.lobbyChannelEnabled === true,
     lobbyChannelId: row?.lobbyChannelId?.trim() || undefined,
   };
@@ -153,10 +150,7 @@ export async function clearLeagueLeaderboardChannel(leagueId: string): Promise<v
 /**
  * Store the live leaderboard row count on the league.
  */
-export async function setLeagueLeaderboardSize(
-  leagueId: string,
-  size: number,
-): Promise<void> {
+export async function setLeagueLeaderboardSize(leagueId: string, size: number): Promise<void> {
   const safe = assertLiveLeaderboardSize(size);
   await prisma.league.update({
     where: { id: leagueId },

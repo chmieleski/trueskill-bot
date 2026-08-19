@@ -33,9 +33,7 @@ describe('extractChangelogSection', () => {
   });
 
   it('returns the 1.1.1 body', () => {
-    expect(extractChangelogSection(SAMPLE, '1.1.1')).toBe(
-      '### Bug Fixes\n\n* calibrating gate',
-    );
+    expect(extractChangelogSection(SAMPLE, '1.1.1')).toBe('### Bug Fixes\n\n* calibrating gate');
   });
 
   it('returns null when the version heading is missing', () => {

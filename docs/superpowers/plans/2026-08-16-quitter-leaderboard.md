@@ -26,34 +26,35 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `prisma/schema.prisma` | Enums + `GuildConfig` quitter leaderboard fields |
-| `prisma/migrations/…_add_quitter_leaderboard/` | Migration SQL |
-| `src/services/guild/guild-config.ts` | Resolve + set/clear quitter board settings |
-| `src/services/guild/guild-config.test.ts` | Defaults / clear tests (extend or create) |
-| `src/services/guild/index.ts` | Re-exports |
-| `src/services/leaderboard/quitter-leaderboard.ts` | Aggregate, sort, page, size assert message wrapper |
-| `src/services/leaderboard/quitter-leaderboard.test.ts` | Aggregation/sort/rank/page tests |
-| `src/services/leaderboard/quitter-leaderboard-embed.ts` | Table + slash/live embeds + page buttons |
-| `src/services/leaderboard/quitter-leaderboard-embed.test.ts` | Column filtering / empty copy / chunk stamp |
-| `src/services/leaderboard/quitter-leaderboard-channel.ts` | Setup / clear / refresh guild live message |
-| `src/services/leaderboard/quitter-leaderboard-channel.test.ts` | Skip when unbound; edit embeds |
-| `src/services/leaderboard/leaderboard-channel.ts` | Call guild quitter refresh from `refreshAllLeaderboardChannels` |
-| `src/services/leaderboard/index.ts` | Re-export quitter symbols |
-| `src/commands/config/config.ts` | set/clear/view quitter keys (no league option) |
-| `src/commands/player/leaderboard.ts` | `quitters` + `setup_quitters` subcommands |
-| `src/discord/interactions/leaderboard-interactions.ts` | Handle `lb:quitters:…` buttons |
-| `src/discord/interactions/match-correction-interactions.ts` | Also refresh guild quitter board |
-| `docs/discord/staff/a1-roles-and-setup.md` | Document setup |
-| `docs/discord/staff/a5-admin-cheat-sheet.md` | Cheat lines |
-| `docs/discord/staff/a3-quitters-and-ratings.md` | Brief pointer if natural |
+| File                                                           | Role                                                            |
+| -------------------------------------------------------------- | --------------------------------------------------------------- |
+| `prisma/schema.prisma`                                         | Enums + `GuildConfig` quitter leaderboard fields                |
+| `prisma/migrations/…_add_quitter_leaderboard/`                 | Migration SQL                                                   |
+| `src/services/guild/guild-config.ts`                           | Resolve + set/clear quitter board settings                      |
+| `src/services/guild/guild-config.test.ts`                      | Defaults / clear tests (extend or create)                       |
+| `src/services/guild/index.ts`                                  | Re-exports                                                      |
+| `src/services/leaderboard/quitter-leaderboard.ts`              | Aggregate, sort, page, size assert message wrapper              |
+| `src/services/leaderboard/quitter-leaderboard.test.ts`         | Aggregation/sort/rank/page tests                                |
+| `src/services/leaderboard/quitter-leaderboard-embed.ts`        | Table + slash/live embeds + page buttons                        |
+| `src/services/leaderboard/quitter-leaderboard-embed.test.ts`   | Column filtering / empty copy / chunk stamp                     |
+| `src/services/leaderboard/quitter-leaderboard-channel.ts`      | Setup / clear / refresh guild live message                      |
+| `src/services/leaderboard/quitter-leaderboard-channel.test.ts` | Skip when unbound; edit embeds                                  |
+| `src/services/leaderboard/leaderboard-channel.ts`              | Call guild quitter refresh from `refreshAllLeaderboardChannels` |
+| `src/services/leaderboard/index.ts`                            | Re-export quitter symbols                                       |
+| `src/commands/config/config.ts`                                | set/clear/view quitter keys (no league option)                  |
+| `src/commands/player/leaderboard.ts`                           | `quitters` + `setup_quitters` subcommands                       |
+| `src/discord/interactions/leaderboard-interactions.ts`         | Handle `lb:quitters:…` buttons                                  |
+| `src/discord/interactions/match-correction-interactions.ts`    | Also refresh guild quitter board                                |
+| `docs/discord/staff/a1-roles-and-setup.md`                     | Document setup                                                  |
+| `docs/discord/staff/a5-admin-cheat-sheet.md`                   | Cheat lines                                                     |
+| `docs/discord/staff/a3-quitters-and-ratings.md`                | Brief pointer if natural                                        |
 
 ---
 
 ### Task 1: Schema + GuildConfig setters
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: migration via `npm run db:migrate`
 - Modify: `src/services/guild/guild-config.ts`
@@ -61,6 +62,7 @@
 - Modify: `src/services/guild/index.ts`
 
 **Interfaces:**
+
 - Produces:
   - Prisma enums `QuitterLeaderboardDisplay` (`count` \| `rate` \| `both`), `QuitterLeaderboardSort` (`count` \| `rate`)
   - `GuildConfig` fields: `quitterLeaderboardChannelId`, `quitterLeaderboardMessageId`, `quitterLeaderboardSize` (default 10), `quitterLeaderboardDisplay` (default `both`), `quitterLeaderboardSort` (default `count`)
@@ -250,11 +252,13 @@ git commit -m "feat: add GuildConfig fields for quitter leaderboard"
 ### Task 2: Aggregate, sort, paginate
 
 **Files:**
+
 - Create: `src/services/leaderboard/quitter-leaderboard.ts`
 - Create: `src/services/leaderboard/quitter-leaderboard.test.ts`
 - Modify: `src/services/leaderboard/index.ts`
 
 **Interfaces:**
+
 - Consumes: `prisma`, `MatchStatus`, `LEADERBOARD_PAGE_SIZE`, `assertLiveLeaderboardSize`, `LeaderboardServiceError`, `clampPage`
 - Produces:
   - `QuitterLeaderboardDisplayMode = 'count' | 'rate' | 'both'`
@@ -308,8 +312,22 @@ describe('assertQuitterLeaderboardSize', () => {
 
 describe('sort + ranks', () => {
   const base = [
-    { playerId: 'a', username: 'Ann', discordId: null, quitCount: 5, completedCount: 10, rate: 0.5 },
-    { playerId: 'b', username: 'Bob', discordId: null, quitCount: 5, completedCount: 20, rate: 0.25 },
+    {
+      playerId: 'a',
+      username: 'Ann',
+      discordId: null,
+      quitCount: 5,
+      completedCount: 10,
+      rate: 0.5,
+    },
+    {
+      playerId: 'b',
+      username: 'Bob',
+      discordId: null,
+      quitCount: 5,
+      completedCount: 20,
+      rate: 0.25,
+    },
     { playerId: 'c', username: 'Cat', discordId: null, quitCount: 2, completedCount: 2, rate: 1 },
   ];
 
@@ -324,8 +342,9 @@ describe('sort + ranks', () => {
   });
 
   it('assigns competition ranks on tied primary metric', () => {
-    const ranked = assignCompetitionRanks(sortQuitterRows(base, 'count'), (x, y) =>
-      x.quitCount === y.quitCount,
+    const ranked = assignCompetitionRanks(
+      sortQuitterRows(base, 'count'),
+      (x, y) => x.quitCount === y.quitCount,
     );
     expect(ranked.map((r) => r.rank)).toEqual([1, 1, 3]);
   });
@@ -461,9 +480,7 @@ export function assertQuitterLeaderboardSize(size: number): number {
     size < LIVE_LEADERBOARD_MIN_SIZE ||
     size > LIVE_LEADERBOARD_MAX_SIZE
   ) {
-    throw new LeaderboardServiceError(
-      'Quitter leaderboard size must be between 10 and 100.',
-    );
+    throw new LeaderboardServiceError('Quitter leaderboard size must be between 10 and 100.');
   }
   return size;
 }
@@ -663,11 +680,13 @@ git commit -m "feat: aggregate and rank guild quitter leaderboard"
 ### Task 3: Embeds + pagination buttons
 
 **Files:**
+
 - Create: `src/services/leaderboard/quitter-leaderboard-embed.ts`
 - Create: `src/services/leaderboard/quitter-leaderboard-embed.test.ts`
 - Modify: `src/services/leaderboard/index.ts`
 
 **Interfaces:**
+
 - Consumes: `QuitterLeaderboardEntry`, `QuitterLeaderboardPage`, `QuitterLeaderboardDisplayMode`, `chunkLeaderboardEntries`
 - Produces:
   - `formatQuitRate(rate: number): string` — e.g. `50.0%` (one decimal)
@@ -691,7 +710,9 @@ import {
 } from './quitter-leaderboard-embed.js';
 import type { QuitterLeaderboardEntry } from './quitter-leaderboard.js';
 
-function entry(partial: Partial<QuitterLeaderboardEntry> & Pick<QuitterLeaderboardEntry, 'rank' | 'username'>): QuitterLeaderboardEntry {
+function entry(
+  partial: Partial<QuitterLeaderboardEntry> & Pick<QuitterLeaderboardEntry, 'rank' | 'username'>,
+): QuitterLeaderboardEntry {
   return {
     playerId: partial.playerId ?? 'p',
     discordId: null,
@@ -711,7 +732,9 @@ describe('formatQuitRate', () => {
 
 describe('formatQuitterTable', () => {
   it('omits columns by display mode', () => {
-    const rows = [entry({ rank: 1, username: 'Goku', quitCount: 3, completedCount: 10, rate: 0.3 })];
+    const rows = [
+      entry({ rank: 1, username: 'Goku', quitCount: 3, completedCount: 10, rate: 0.3 }),
+    ];
     expect(formatQuitterTable(rows, 'count')).toContain('Quits');
     expect(formatQuitterTable(rows, 'count')).not.toContain('Rate');
     expect(formatQuitterTable(rows, 'rate')).toContain('Rate');
@@ -806,6 +829,7 @@ git commit -m "feat: add quitter leaderboard embeds and page buttons"
 ### Task 4: Live channel setup / refresh
 
 **Files:**
+
 - Create: `src/services/leaderboard/quitter-leaderboard-channel.ts`
 - Create: `src/services/leaderboard/quitter-leaderboard-channel.test.ts`
 - Modify: `src/services/leaderboard/leaderboard-channel.ts` (`refreshAllLeaderboardChannels`)
@@ -813,6 +837,7 @@ git commit -m "feat: add quitter leaderboard embeds and page buttons"
 - Modify: `src/discord/interactions/match-correction-interactions.ts` (guild refresh after league refresh)
 
 **Interfaces:**
+
 - Produces:
   - `setupQuitterLiveLeaderboard(client, guildId, channelId): Promise<{ messageId: string }>`
   - `clearQuitterLiveLeaderboard(client, guildId): Promise<void>`
@@ -946,9 +971,11 @@ git commit -m "feat: live quitter leaderboard channel refresh"
 ### Task 5: `/config` set|clear|view
 
 **Files:**
+
 - Modify: `src/commands/config/config.ts`
 
 **Interfaces:**
+
 - Consumes: guild setters, `assertQuitterLeaderboardSize`, `setupQuitterLiveLeaderboard`, `clearQuitterLiveLeaderboard`, `refreshGuildQuitterLeaderboard`
 
 - [ ] **Step 1: Add slash subcommands (no league option)**
@@ -1009,10 +1036,12 @@ git commit -m "feat: configure guild quitter leaderboard via /config"
 ### Task 6: `/leaderboard quitters` + `setup_quitters` + buttons
 
 **Files:**
+
 - Modify: `src/commands/player/leaderboard.ts`
 - Modify: `src/discord/interactions/leaderboard-interactions.ts`
 
 **Interfaces:**
+
 - Consumes: load/page/embed/button helpers + `setupQuitterLiveLeaderboard` + `assertCanConfigureBot`
 
 - [ ] **Step 1: Add subcommands**
@@ -1089,6 +1118,7 @@ git commit -m "feat: add /leaderboard quitters and setup_quitters"
 ### Task 7: Staff docs
 
 **Files:**
+
 - Modify: `docs/discord/staff/a1-roles-and-setup.md`
 - Modify: `docs/discord/staff/a5-admin-cheat-sheet.md`
 - Modify: `docs/discord/staff/a3-quitters-and-ratings.md` (one short pointer)
@@ -1116,19 +1146,19 @@ git commit -m "docs: document quitter leaderboard setup for staff"
 
 ## Spec coverage checklist
 
-| Spec requirement | Task |
-|------------------|------|
-| GuildConfig fields + enums | 1 |
-| Guild-wide aggregate COMPLETED/CANCELLED quit + COMPLETED games | 2 |
-| Display + sort modes | 2, 3, 5 |
-| Live size 10–100 / chunk 25 | 2 (`assertQuitterLeaderboardSize`), 3, 4 |
-| `/config` set/clear/view | 5 |
-| `/leaderboard quitters` paginated | 6 |
-| `/leaderboard setup_quitters` | 6 |
-| Refresh via refreshAll + correction | 4 |
-| Staff docs | 7 |
-| English errors | 2, 5 |
-| No denormalized counters | (none — on-read only) |
+| Spec requirement                                                | Task                                     |
+| --------------------------------------------------------------- | ---------------------------------------- |
+| GuildConfig fields + enums                                      | 1                                        |
+| Guild-wide aggregate COMPLETED/CANCELLED quit + COMPLETED games | 2                                        |
+| Display + sort modes                                            | 2, 3, 5                                  |
+| Live size 10–100 / chunk 25                                     | 2 (`assertQuitterLeaderboardSize`), 3, 4 |
+| `/config` set/clear/view                                        | 5                                        |
+| `/leaderboard quitters` paginated                               | 6                                        |
+| `/leaderboard setup_quitters`                                   | 6                                        |
+| Refresh via refreshAll + correction                             | 4                                        |
+| Staff docs                                                      | 7                                        |
+| English errors                                                  | 2, 5                                     |
+| No denormalized counters                                        | (none — on-read only)                    |
 
 ## Plan self-review notes
 

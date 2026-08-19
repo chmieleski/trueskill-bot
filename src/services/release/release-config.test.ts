@@ -12,10 +12,7 @@ vi.mock('../../lib/prisma.js', () => ({
   },
 }));
 
-import {
-  DRAFT_CHANNEL_TAKEN,
-  setChangelogDraftChannel,
-} from './release-config.js';
+import { DRAFT_CHANNEL_TAKEN, setChangelogDraftChannel } from './release-config.js';
 import { ReleaseServiceError } from './errors.js';
 
 describe('setChangelogDraftChannel', () => {

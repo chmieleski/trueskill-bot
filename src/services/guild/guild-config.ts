@@ -1,12 +1,5 @@
-import {
-  PermissionFlagsBits,
-  PermissionsBitField,
-  type PermissionsString,
-} from 'discord.js';
-import {
-  QuitterLeaderboardDisplay,
-  QuitterLeaderboardSort,
-} from '@prisma/client';
+import { PermissionFlagsBits, PermissionsBitField, type PermissionsString } from 'discord.js';
+import { QuitterLeaderboardDisplay, QuitterLeaderboardSort } from '@prisma/client';
 import { env } from '../../config/env.js';
 import { prisma } from '../../lib/prisma.js';
 import { MatchServiceError } from '../match/match-service.js';
@@ -86,12 +79,10 @@ export async function resolveGuildConfig(guildId: string): Promise<ResolvedGuild
     matchModRoleSource: mod.source,
     quitterLeaderboardChannelId: trimOptionalId(row?.quitterLeaderboardChannelId),
     quitterLeaderboardMessageId: trimOptionalId(row?.quitterLeaderboardMessageId),
-    quitterLeaderboardSize:
-      row?.quitterLeaderboardSize ?? QUITTER_LEADERBOARD_DEFAULT_SIZE,
+    quitterLeaderboardSize: row?.quitterLeaderboardSize ?? QUITTER_LEADERBOARD_DEFAULT_SIZE,
     quitterLeaderboardDisplay:
       row?.quitterLeaderboardDisplay ?? QUITTER_LEADERBOARD_DEFAULT_DISPLAY,
-    quitterLeaderboardSort:
-      row?.quitterLeaderboardSort ?? QUITTER_LEADERBOARD_DEFAULT_SORT,
+    quitterLeaderboardSort: row?.quitterLeaderboardSort ?? QUITTER_LEADERBOARD_DEFAULT_SORT,
     changelogChannelId: trimOptionalId(row?.changelogChannelId),
     changelogDraftChannelId: trimOptionalId(row?.changelogDraftChannelId),
   };
@@ -212,12 +203,7 @@ export async function clearQuitterLeaderboardSort(guildId: string): Promise<void
 export function canConfigureBot(input: {
   userId: string;
   memberPermissions:
-    | PermissionsBitField
-    | bigint
-    | string
-    | ReadonlyArray<PermissionsString>
-    | null
-    | undefined;
+    PermissionsBitField | bigint | string | ReadonlyArray<PermissionsString> | null | undefined;
 }): boolean {
   if (input.userId === BOT_OWNER_DISCORD_ID) {
     return true;
@@ -234,12 +220,7 @@ export function canConfigureBot(input: {
 export function assertCanConfigureBot(input: {
   userId: string;
   memberPermissions:
-    | PermissionsBitField
-    | bigint
-    | string
-    | ReadonlyArray<PermissionsString>
-    | null
-    | undefined;
+    PermissionsBitField | bigint | string | ReadonlyArray<PermissionsString> | null | undefined;
 }): void {
   if (!canConfigureBot(input)) {
     throw new MatchServiceError(CONFIGURE_FORBIDDEN);

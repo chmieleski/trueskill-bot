@@ -18,8 +18,7 @@ const NO_PENDING_MESSAGE = 'You have no pending match lobby. Run /register_lobby
 const AMBIGUOUS_PENDING_MESSAGE =
   'You have more than one pending lobby. Pass match_id to choose which one.';
 const OWNER_ONLY_MESSAGE = 'Only the user who registered this lobby can do that.';
-const MOD_NEEDS_MATCH_ID_MESSAGE =
-  'Provide match_id when using the match moderator role.';
+const MOD_NEEDS_MATCH_ID_MESSAGE = 'Provide match_id when using the match moderator role.';
 
 export interface ResolveHostPendingMatchInput {
   hostDiscordId: string;

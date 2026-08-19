@@ -297,9 +297,9 @@ describe('resolveHistoryPlayer', () => {
   });
 
   it('rejects user and nick together', async () => {
-    await expect(
-      resolveHistoryPlayer('warcraft3_udbr', { kind: 'both' }),
-    ).rejects.toThrow(/not both/i);
+    await expect(resolveHistoryPlayer('warcraft3_udbr', { kind: 'both' })).rejects.toThrow(
+      /not both/i,
+    );
     expect(playerFindUnique).not.toHaveBeenCalled();
   });
 });
@@ -395,9 +395,7 @@ describe('loadMatchHistoryPage', () => {
         ],
       },
     ]);
-    playerRankResetFindMany.mockResolvedValue([
-      { playerId: 'P1', createdAt: resetAt },
-    ]);
+    playerRankResetFindMany.mockResolvedValue([{ playerId: 'P1', createdAt: resetAt }]);
     matchPlayerFindMany.mockResolvedValue([
       {
         playerId: 'P1',
@@ -410,7 +408,10 @@ describe('loadMatchHistoryPage', () => {
       {
         playerId: 'P1',
         result: 'LOSS',
-        match: { completedAt: new Date('2026-08-11T12:00:00.000Z'), createdAt: new Date('2026-08-11T12:00:00.000Z') },
+        match: {
+          completedAt: new Date('2026-08-11T12:00:00.000Z'),
+          createdAt: new Date('2026-08-11T12:00:00.000Z'),
+        },
       },
       {
         playerId: 'P1',
@@ -510,8 +511,18 @@ describe('loadCompletedMatchShow', () => {
     matchRatingSnapshotFindMany.mockResolvedValue([]);
     matchPlayerGroupBy.mockResolvedValue([]);
     matchPlayerFindMany.mockResolvedValue([
-      { playerId: 'P1', result: 'WIN', isQuitter: false, match: { completedAt: new Date('2026-08-10T00:00:00.000Z') } },
-      { playerId: 'P2', result: 'LOSS', isQuitter: false, match: { completedAt: new Date('2026-08-10T00:00:00.000Z') } },
+      {
+        playerId: 'P1',
+        result: 'WIN',
+        isQuitter: false,
+        match: { completedAt: new Date('2026-08-10T00:00:00.000Z') },
+      },
+      {
+        playerId: 'P2',
+        result: 'LOSS',
+        isQuitter: false,
+        match: { completedAt: new Date('2026-08-10T00:00:00.000Z') },
+      },
     ]);
     playerRankResetFindMany.mockResolvedValue([]);
     buildMatchCompletedEmbed.mockImplementation(() => {
@@ -522,9 +533,9 @@ describe('loadCompletedMatchShow', () => {
 
   it('throws not found when missing', async () => {
     getMatchById.mockResolvedValue(null);
-    await expect(
-      loadCompletedMatchShow({ matchId: 'x', guildId: 'g1' }),
-    ).rejects.toThrow('This match was not found.');
+    await expect(loadCompletedMatchShow({ matchId: 'x', guildId: 'g1' })).rejects.toThrow(
+      'This match was not found.',
+    );
   });
 
   it('throws not found when league not in guild', async () => {
@@ -535,9 +546,9 @@ describe('loadCompletedMatchShow', () => {
       players: [{ team: 1, result: 'WIN' }],
     });
     listLeaguesForGuild.mockResolvedValue([{ id: 'L1' }]);
-    await expect(
-      loadCompletedMatchShow({ matchId: 'm1', guildId: 'g1' }),
-    ).rejects.toThrow('This match was not found.');
+    await expect(loadCompletedMatchShow({ matchId: 'm1', guildId: 'g1' })).rejects.toThrow(
+      'This match was not found.',
+    );
   });
 
   it('throws not completed when status wrong but league ok', async () => {
@@ -548,9 +559,9 @@ describe('loadCompletedMatchShow', () => {
       players: [],
     });
     listLeaguesForGuild.mockResolvedValue([{ id: 'L1' }]);
-    await expect(
-      loadCompletedMatchShow({ matchId: 'm1', guildId: 'g1' }),
-    ).rejects.toThrow('This match is not completed.');
+    await expect(loadCompletedMatchShow({ matchId: 'm1', guildId: 'g1' })).rejects.toThrow(
+      'This match is not completed.',
+    );
   });
 
   it('throws not found when leagueId filter mismatches', async () => {
@@ -705,8 +716,8 @@ describe('loadCompletedMatchShow', () => {
 
   it('throws MatchServiceError for tenancy failures', async () => {
     getMatchById.mockResolvedValue(null);
-    await expect(
-      loadCompletedMatchShow({ matchId: 'x', guildId: 'g1' }),
-    ).rejects.toBeInstanceOf(MatchServiceError);
+    await expect(loadCompletedMatchShow({ matchId: 'x', guildId: 'g1' })).rejects.toBeInstanceOf(
+      MatchServiceError,
+    );
   });
 });

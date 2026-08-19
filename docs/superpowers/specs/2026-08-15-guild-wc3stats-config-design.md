@@ -19,18 +19,18 @@ Operators enable live wc3stats lobby import **per Discord server** with `/config
 
 ## Decisions (locked)
 
-| Topic | Choice |
-|-------|--------|
-| Slice | **C** — env knobs + slot layout only; fat preset later |
-| Enable UX | **D** — only `wc3stats_map_preset` turns import on (writes filter + slots + enabled) |
-| Default (no DB override) | Import **off**; pattern/SHA-1 **unset**; no UDBR until preset |
-| Storage shape | **Alt 1** — columns on `GuildConfig` (boolean + pattern string + comma-separated SHA-1 string) |
-| Env fallback | **None** for the three keys; remove from process after ship |
-| Reset | **A** — new `/config clear wc3stats` (full package); existing map/slot clears stay layout-only |
-| SHA-1 column | Comma-separated string (same wire format as today’s env) |
-| Timeout | `WC3STATS_TIMEOUT_MS` stays process-wide |
-| Empty filter + enabled | Reject all maps (do not compile empty regex; do not accept-all) |
-| Post-deploy | Production stays off until staff runs UDBR preset once per guild |
+| Topic                    | Choice                                                                                         |
+| ------------------------ | ---------------------------------------------------------------------------------------------- |
+| Slice                    | **C** — env knobs + slot layout only; fat preset later                                         |
+| Enable UX                | **D** — only `wc3stats_map_preset` turns import on (writes filter + slots + enabled)           |
+| Default (no DB override) | Import **off**; pattern/SHA-1 **unset**; no UDBR until preset                                  |
+| Storage shape            | **Alt 1** — columns on `GuildConfig` (boolean + pattern string + comma-separated SHA-1 string) |
+| Env fallback             | **None** for the three keys; remove from process after ship                                    |
+| Reset                    | **A** — new `/config clear wc3stats` (full package); existing map/slot clears stay layout-only |
+| SHA-1 column             | Comma-separated string (same wire format as today’s env)                                       |
+| Timeout                  | `WC3STATS_TIMEOUT_MS` stays process-wide                                                       |
+| Empty filter + enabled   | Reject all maps (do not compile empty regex; do not accept-all)                                |
+| Post-deploy              | Production stays off until staff runs UDBR preset once per guild                               |
 
 ## Architecture
 
@@ -63,21 +63,21 @@ model GuildConfig {
 }
 ```
 
-| Field state | Meaning |
-|-------------|---------|
-| Row missing / `wc3statsEnabled=false` | Import off |
-| `wc3statsMapPattern` / `Sha1` null or blank | No filter → no lobby matches (even if somehow enabled) |
-| Preset applied | `enabled=true` + UDBR pattern + UDBR sha1 string + 12 slot rows |
+| Field state                                 | Meaning                                                         |
+| ------------------------------------------- | --------------------------------------------------------------- |
+| Row missing / `wc3statsEnabled=false`       | Import off                                                      |
+| `wc3statsMapPattern` / `Sha1` null or blank | No filter → no lobby matches (even if somehow enabled)          |
+| Preset applied                              | `enabled=true` + UDBR pattern + UDBR sha1 string + 12 slot rows |
 
 ### UDBR constants (code → DB copy)
 
 Single module (or extend existing slot-map module) exports the preset payload:
 
-| Piece | Source today | After |
-|-------|--------------|--------|
-| Slot layout | `UDBR_WC3STATS_SLOT_MAP` | unchanged; still written by preset |
-| Pattern | env default `ultimate.?dragon.?ball.?reborn\|udbr` | named constant; preset **copies** into DB |
-| SHA-1 | env / SSM default for 2.4f | named constant; preset **copies** into DB |
+| Piece       | Source today                                       | After                                     |
+| ----------- | -------------------------------------------------- | ----------------------------------------- |
+| Slot layout | `UDBR_WC3STATS_SLOT_MAP`                           | unchanged; still written by preset        |
+| Pattern     | env default `ultimate.?dragon.?ball.?reborn\|udbr` | named constant; preset **copies** into DB |
+| SHA-1       | env / SSM default for 2.4f                         | named constant; preset **copies** into DB |
 
 Updating constants in a deploy does **not** rewrite guilds that already ran the preset. Staff re-runs preset (or clear + preset) to pick up a new SHA-1.
 
@@ -103,12 +103,12 @@ Call sites that currently use `env.wc3statsEnabled` must pass `guildId` into res
 
 ### Command UX
 
-| Subcommand | Behavior |
-|------------|----------|
-| `set wc3stats_map_preset` (`udbr`) | Write enabled + pattern + sha1 + replace slot map (idempotent) |
-| `clear wc3stats` | **New.** Full package reset: enabled false, pattern/sha1 null, delete all slot maps |
-| `clear wc3stats_map` / `wc3stats_slot` | Unchanged — layout only; import/filter untouched |
-| `view` | Show enabled, pattern, sha1 (`unset` if empty), plus existing slot section |
+| Subcommand                             | Behavior                                                                            |
+| -------------------------------------- | ----------------------------------------------------------------------------------- |
+| `set wc3stats_map_preset` (`udbr`)     | Write enabled + pattern + sha1 + replace slot map (idempotent)                      |
+| `clear wc3stats`                       | **New.** Full package reset: enabled false, pattern/sha1 null, delete all slot maps |
+| `clear wc3stats_map` / `wc3stats_slot` | Unchanged — layout only; import/filter untouched                                    |
+| `view`                                 | Show enabled, pattern, sha1 (`unset` if empty), plus existing slot section          |
 
 No `set` for enabled/pattern/sha1 alone in this slice.
 
@@ -130,29 +130,29 @@ After deploy: run UDBR preset in each guild that needs import; then drop the thr
 
 ### Modules (expected)
 
-| Area | Change |
-|------|--------|
-| `prisma/schema.prisma` + migration | Three new columns |
-| `src/services/guild/guild-config.ts` | Resolve + setters / clear package helper |
-| UDBR preset constants | Pattern + sha1 next to slot map |
-| `src/commands/config/config.ts` | Preset writes all fields; new clear; view lines |
-| `wc3stats-resolve`, register/refresh/discord-sync | Resolve from guild, not env |
-| `src/config/env.ts` + `.env.example` + rules | Drop three keys |
-| `infra/aws/*` + `deploy/aws/refresh-env.sh` | Drop three SSM/env writer lines |
-| Staff doc `a4` | Preset-only enable |
-| Tests | Resolve defaults, preset write, clear package, call sites without env |
+| Area                                              | Change                                                                |
+| ------------------------------------------------- | --------------------------------------------------------------------- |
+| `prisma/schema.prisma` + migration                | Three new columns                                                     |
+| `src/services/guild/guild-config.ts`              | Resolve + setters / clear package helper                              |
+| UDBR preset constants                             | Pattern + sha1 next to slot map                                       |
+| `src/commands/config/config.ts`                   | Preset writes all fields; new clear; view lines                       |
+| `wc3stats-resolve`, register/refresh/discord-sync | Resolve from guild, not env                                           |
+| `src/config/env.ts` + `.env.example` + rules      | Drop three keys                                                       |
+| `infra/aws/*` + `deploy/aws/refresh-env.sh`       | Drop three SSM/env writer lines                                       |
+| Staff doc `a4`                                    | Preset-only enable                                                    |
+| Tests                                             | Resolve defaults, preset write, clear package, call sites without env |
 
 ## Edge cases
 
-| Case | Behavior |
-|------|----------|
-| Guild never configured | Import off; refresh/register paths that need wc3stats fail with disabled message |
-| Slots already mapped, enabled still false | Import off until preset (or future enable UX) |
-| Enabled true but pattern/sha1 cleared by bug/manual SQL | No lobby matches; do not accept-all |
-| Invalid pattern string in DB | Same as today: error at compile (`MatchServiceError` / log); fail closed |
-| DM / missing `guildId` | Config commands reject; import treated as off |
-| Re-run preset after code SHA-1 change | Overwrites DB filter + slots with new constants |
-| `clear wc3stats_map` while enabled | Import stays on; filter stays; slots empty → legacy index+1 behavior for roster mapping |
+| Case                                                    | Behavior                                                                                |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Guild never configured                                  | Import off; refresh/register paths that need wc3stats fail with disabled message        |
+| Slots already mapped, enabled still false               | Import off until preset (or future enable UX)                                           |
+| Enabled true but pattern/sha1 cleared by bug/manual SQL | No lobby matches; do not accept-all                                                     |
+| Invalid pattern string in DB                            | Same as today: error at compile (`MatchServiceError` / log); fail closed                |
+| DM / missing `guildId`                                  | Config commands reject; import treated as off                                           |
+| Re-run preset after code SHA-1 change                   | Overwrites DB filter + slots with new constants                                         |
+| `clear wc3stats_map` while enabled                      | Import stays on; filter stays; slots empty → legacy index+1 behavior for roster mapping |
 
 ## Testing
 
@@ -173,13 +173,13 @@ Presets per map so a guild can stand up a custom IHL already aligned with that m
 
 ### Likely contents of a “fat” preset
 
-| Concern | Today | Part 2 direction (tentative) |
-|---------|-------|------------------------------|
-| Team display names | Hardcoded `Z Fighters` / `Evil` in `team-names.ts` | Per guild or per selected map preset |
-| Hero roster (1–12 names/colors) | Global `Hero` table | Per-map / per-guild catalog (or preset-seeded rows) without breaking global ratings assumptions |
-| wc3stats filter + slot layout | This slice (DB copy from constants) | More presets beyond `udbr`; possibly shared preset registry |
-| OCR / lobby copy | UDBR-oriented prompts and errors | Map-aware strings |
-| Enable / select active map | Preset command writes columns | Explicit “active map preset” key vs copying blobs; multi-map support TBD |
+| Concern                         | Today                                              | Part 2 direction (tentative)                                                                    |
+| ------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Team display names              | Hardcoded `Z Fighters` / `Evil` in `team-names.ts` | Per guild or per selected map preset                                                            |
+| Hero roster (1–12 names/colors) | Global `Hero` table                                | Per-map / per-guild catalog (or preset-seeded rows) without breaking global ratings assumptions |
+| wc3stats filter + slot layout   | This slice (DB copy from constants)                | More presets beyond `udbr`; possibly shared preset registry                                     |
+| OCR / lobby copy                | UDBR-oriented prompts and errors                   | Map-aware strings                                                                               |
+| Enable / select active map      | Preset command writes columns                      | Explicit “active map preset” key vs copying blobs; multi-map support TBD                        |
 
 ### Open questions for Part 2 (do not resolve in Slice 1)
 
@@ -198,13 +198,13 @@ Presets per map so a guild can stand up a custom IHL already aligned with that m
 
 ## Rejected alternatives (Slice 1)
 
-| Option | Why rejected |
-|--------|----------------|
-| Env fallback for enabled/pattern/sha1 | New guilds would silently inherit production UDBR; user wanted empty until preset |
-| Preset key only (`wc3statsPreset=udbr`) without copying filter columns | User chose Alt 1 (explicit columns like env migration) |
-| `clear wc3stats_map` as full package reset | Would change meaning of an existing layout-only command |
-| Accept-all when filter empty | Unsafe for multi-guild / wrong-map imports |
-| Standalone enable toggle without filter | User chose preset-as-package (D) |
+| Option                                                                 | Why rejected                                                                      |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Env fallback for enabled/pattern/sha1                                  | New guilds would silently inherit production UDBR; user wanted empty until preset |
+| Preset key only (`wc3statsPreset=udbr`) without copying filter columns | User chose Alt 1 (explicit columns like env migration)                            |
+| `clear wc3stats_map` as full package reset                             | Would change meaning of an existing layout-only command                           |
+| Accept-all when filter empty                                           | Unsafe for multi-guild / wrong-map imports                                        |
+| Standalone enable toggle without filter                                | User chose preset-as-package (D)                                                  |
 
 ## Tech debt / follow-ups (Slice 1 adjacent)
 

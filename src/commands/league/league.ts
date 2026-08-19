@@ -1,11 +1,9 @@
-import {
-  ChannelType,
-  GuildMember,
-  MessageFlags,
-  SlashCommandBuilder,
-} from 'discord.js';
+import { ChannelType, GuildMember, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'discord.js';
-import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
+import {
+  WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
+  WARCRAFT3_UDBR_GAME_ID,
+} from '../../domain/games.js';
 import { getGameProfile, UnknownGameIdError } from '../../domain/game-profile.js';
 import { createLogger } from '../../lib/logger.js';
 import { assertCanConfigureBot } from '../../services/guild/index.js';
@@ -222,10 +220,7 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
     return;
   }
 
-  const choices = await autocompleteActiveGuildLeagues(
-    interaction.guildId,
-    focused.value,
-  );
+  const choices = await autocompleteActiveGuildLeagues(interaction.guildId, focused.value);
 
   await interaction.respond(choices);
 }
@@ -334,14 +329,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
       const sections = [
         `Active leagues (${active.length}):`,
-        ...(active.length > 0
-          ? active.map(formatActiveLeagueListLine)
-          : ['• None']),
+        ...(active.length > 0 ? active.map(formatActiveLeagueListLine) : ['• None']),
         '',
         `Archived leagues (read-only) (${archived.length}):`,
-        ...(archived.length > 0
-          ? archived.map(formatArchivedLeagueListLine)
-          : ['• None']),
+        ...(archived.length > 0 ? archived.map(formatArchivedLeagueListLine) : ['• None']),
       ];
 
       await interaction.reply({
@@ -443,8 +434,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const guildLeagues = await listLeaguesForGuild(interaction.guildId);
       if (
         guildLeagues.some(
-          (league) =>
-            league.gameId === sourceLeague.gameId && league.name === successorName,
+          (league) => league.gameId === sourceLeague.gameId && league.name === successorName,
         )
       ) {
         await interaction.reply({

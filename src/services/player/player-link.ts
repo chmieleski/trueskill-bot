@@ -8,8 +8,7 @@ export type LinkPlayerRow = {
   discordId: string | null;
 };
 
-const ALREADY_LINKED =
-  'That nick or Discord account is already linked. Ask a moderator to relink.';
+const ALREADY_LINKED = 'That nick or Discord account is already linked. Ask a moderator to relink.';
 
 /**
  * Validates a Discord↔nick bind.
@@ -44,10 +43,7 @@ export function assertLinkAllowed(input: {
   }
 }
 
-async function findPlayerByNick(
-  gameId: string,
-  nick: string,
-): Promise<LinkPlayerRow | null> {
+async function findPlayerByNick(gameId: string, nick: string): Promise<LinkPlayerRow | null> {
   const exact = await prisma.player.findUnique({
     where: { gameId_username: { gameId, username: normalizeNick(nick) } },
   });

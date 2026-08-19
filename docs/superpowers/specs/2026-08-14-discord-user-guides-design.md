@@ -10,16 +10,16 @@ Ship a series of short English Discord posts (simple language) so players know h
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Language | English |
-| Format | One short post per file (~≤1800 chars), ready to paste |
-| Structure | Hybrid: player journey + cheat sheet; staff setup + mods + cheat sheet |
-| Public channel | 7 posts (`docs/discord/public/`) |
-| Staff channel | 5 posts (`docs/discord/staff/`) |
-| Tone | Very simple; no OpenSkill μ/σ jargon; public “ki” only |
-| Team names | Z Fighters (1–6) / Evil (7–12) |
-| Out of scope | AWS, Terraform, `.env`, deploy internals |
+| Topic          | Choice                                                                 |
+| -------------- | ---------------------------------------------------------------------- |
+| Language       | English                                                                |
+| Format         | One short post per file (~≤1800 chars), ready to paste                 |
+| Structure      | Hybrid: player journey + cheat sheet; staff setup + mods + cheat sheet |
+| Public channel | 7 posts (`docs/discord/public/`)                                       |
+| Staff channel  | 5 posts (`docs/discord/staff/`)                                        |
+| Tone           | Very simple; no OpenSkill μ/σ jargon; public “ki” only                 |
+| Team names     | Z Fighters (1–6) / Evil (7–12)                                         |
+| Out of scope   | AWS, Terraform, `.env`, deploy internals                               |
 
 ## Deliverables
 

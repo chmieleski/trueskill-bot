@@ -25,46 +25,48 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `prisma/schema.prisma` | `Player.gameId` + composite uniques |
-| `prisma/migrations/20260817090000_player_game_identity/` | SQL backfill + constraints |
-| `src/services/player/player-link.ts` | `linkPlayer` / `unlinkByDiscordId` take `gameId` |
-| `src/services/player/player-link.test.ts` | Unit tests |
-| `src/services/player/player-profile.ts` | Discord/nick lookup scoped by league’s `gameId` |
-| `src/services/player/player-profile.test.ts` | Update mocks / expectations |
-| `src/services/player/player-settings.ts` | Host-ping prefs per `(gameId, discordId)` |
-| `src/services/player/player-settings.test.ts` | Update if present; add if missing coverage |
-| `src/commands/player/link.ts` | League resolve → `gameId` |
-| `src/commands/player/unlink.ts` | League resolve → `gameId` |
-| `src/commands/player/settings.ts` | League resolve → `gameId` |
-| `src/commands/player/rank.ts` | Already resolves league; profile uses `gameId` internally |
-| `src/services/lobby/lobby-identity.ts` | `nickForDiscordId(discordId, gameId)` |
-| `src/services/lobby/lobby-identity.test.ts` | Composite lookup |
-| `src/services/lobby/actions.ts` | Pass match league `gameId` into nick resolve |
-| `src/services/lobby/wc3stats-refresh.ts` | Pass `gameId` |
-| `src/services/lobby/create-from-wc3stats.ts` | Pass `gameId` |
-| `src/commands/lobby/register-lobby.ts` | Pass `gameId` after league known |
-| `src/discord/interactions/lobby-interactions.ts` | Pass `gameId` |
-| `src/services/match/match-service.ts` | `resolvePlayersInTx` filter/create by `profile.gameId` |
-| `src/services/rating/rank-reset.ts` | Player by `(gameId, discordId)` |
-| `src/services/wc3stats/wc3stats-host-prompt-poller.ts` | Linked map filtered by league `gameId` |
-| `src/services/wc3stats/wc3stats-host-prompt-poller.test.ts` | Expect `gameId` in query |
-| `scripts/seed-veteran-ratings.ts` | Lookups/creates include `gameId` |
-| `docs/discord/public/02-link-your-nick.md` | Per-game + worldwide rule |
-| `.cursor/rules/database-domain.mdc` | Identity wording |
-| `.cursor/rules/feature-scope-game-vs-general.mdc` | “Player link” → per-game |
-| `docs/superpowers/specs/2026-08-15-multi-league-ihl-design.md` | Supersession note |
+| File                                                           | Role                                                      |
+| -------------------------------------------------------------- | --------------------------------------------------------- |
+| `prisma/schema.prisma`                                         | `Player.gameId` + composite uniques                       |
+| `prisma/migrations/20260817090000_player_game_identity/`       | SQL backfill + constraints                                |
+| `src/services/player/player-link.ts`                           | `linkPlayer` / `unlinkByDiscordId` take `gameId`          |
+| `src/services/player/player-link.test.ts`                      | Unit tests                                                |
+| `src/services/player/player-profile.ts`                        | Discord/nick lookup scoped by league’s `gameId`           |
+| `src/services/player/player-profile.test.ts`                   | Update mocks / expectations                               |
+| `src/services/player/player-settings.ts`                       | Host-ping prefs per `(gameId, discordId)`                 |
+| `src/services/player/player-settings.test.ts`                  | Update if present; add if missing coverage                |
+| `src/commands/player/link.ts`                                  | League resolve → `gameId`                                 |
+| `src/commands/player/unlink.ts`                                | League resolve → `gameId`                                 |
+| `src/commands/player/settings.ts`                              | League resolve → `gameId`                                 |
+| `src/commands/player/rank.ts`                                  | Already resolves league; profile uses `gameId` internally |
+| `src/services/lobby/lobby-identity.ts`                         | `nickForDiscordId(discordId, gameId)`                     |
+| `src/services/lobby/lobby-identity.test.ts`                    | Composite lookup                                          |
+| `src/services/lobby/actions.ts`                                | Pass match league `gameId` into nick resolve              |
+| `src/services/lobby/wc3stats-refresh.ts`                       | Pass `gameId`                                             |
+| `src/services/lobby/create-from-wc3stats.ts`                   | Pass `gameId`                                             |
+| `src/commands/lobby/register-lobby.ts`                         | Pass `gameId` after league known                          |
+| `src/discord/interactions/lobby-interactions.ts`               | Pass `gameId`                                             |
+| `src/services/match/match-service.ts`                          | `resolvePlayersInTx` filter/create by `profile.gameId`    |
+| `src/services/rating/rank-reset.ts`                            | Player by `(gameId, discordId)`                           |
+| `src/services/wc3stats/wc3stats-host-prompt-poller.ts`         | Linked map filtered by league `gameId`                    |
+| `src/services/wc3stats/wc3stats-host-prompt-poller.test.ts`    | Expect `gameId` in query                                  |
+| `scripts/seed-veteran-ratings.ts`                              | Lookups/creates include `gameId`                          |
+| `docs/discord/public/02-link-your-nick.md`                     | Per-game + worldwide rule                                 |
+| `.cursor/rules/database-domain.mdc`                            | Identity wording                                          |
+| `.cursor/rules/feature-scope-game-vs-general.mdc`              | “Player link” → per-game                                  |
+| `docs/superpowers/specs/2026-08-15-multi-league-ihl-design.md` | Supersession note                                         |
 
 ---
 
 ### Task 1: Prisma — `Player.gameId` + migration
 
 **Files:**
+
 - Modify: `prisma/schema.prisma` (`Game`, `Player`)
 - Create: `prisma/migrations/20260817090000_player_game_identity/migration.sql`
 
 **Interfaces:**
+
 - Produces: `Player.gameId: string` (required); `@@unique([gameId, username])`; `@@unique([gameId, discordId])`; Prisma compound names `gameId_username`, `gameId_discordId`
 
 - [ ] **Step 1: Update `Game` and `Player` in schema**
@@ -159,10 +161,12 @@ EOF
 ### Task 2: `linkPlayer` / `unlinkByDiscordId` take `gameId`
 
 **Files:**
+
 - Modify: `src/services/player/player-link.ts`
 - Modify: `src/services/player/player-link.test.ts`
 
 **Interfaces:**
+
 - Consumes: Prisma compound uniques from Task 1
 - Produces:
   - `linkPlayer(input: { gameId: string; nick: string; discordId: string; allowRelink?: boolean }): Promise<{ username: string; discordId: string; gameId: string }>`
@@ -233,10 +237,7 @@ Expected: FAIL (missing `gameId` arg / wrong where clauses).
 Replace find helpers and exports with:
 
 ```typescript
-async function findPlayerByNick(
-  gameId: string,
-  nick: string,
-): Promise<LinkPlayerRow | null> {
+async function findPlayerByNick(gameId: string, nick: string): Promise<LinkPlayerRow | null> {
   const exact = await prisma.player.findUnique({
     where: { gameId_username: { gameId, username: normalizeNick(nick) } },
   });
@@ -377,12 +378,14 @@ EOF
 ### Task 3: Profile + settings lookups by `gameId`
 
 **Files:**
+
 - Modify: `src/services/player/player-profile.ts`
 - Modify: `src/services/player/player-profile.test.ts` (if lookups are asserted)
 - Modify: `src/services/player/player-settings.ts`
 - Modify: `src/services/player/player-settings.test.ts` (create/update as needed)
 
 **Interfaces:**
+
 - Consumes: `getGameProfileForLeague(leagueId).gameId`
 - Produces: profile Discord/nick find filtered by that `gameId`; settings APIs take `gameId`
 
@@ -396,9 +399,7 @@ it('reads host prompt preference for game-scoped link', async () => {
     username: 'Goku',
     wc3statsHostPromptPingsEnabled: false,
   });
-  await expect(
-    getPlayerHostPromptPingsEnabled('warcraft3_udbr', 'd1'),
-  ).resolves.toBe(false);
+  await expect(getPlayerHostPromptPingsEnabled('warcraft3_udbr', 'd1')).resolves.toBe(false);
   expect(findUnique).toHaveBeenCalledWith({
     where: { gameId_discordId: { gameId: 'warcraft3_udbr', discordId: 'd1' } },
     select: { username: true, wc3statsHostPromptPingsEnabled: true },
@@ -440,13 +441,13 @@ async function findPlayerByNick(gameId: string, nick: string) {
 At the start of `loadPlayerProfile`, resolve game before lookup:
 
 ```typescript
-  const gameProfile = await getGameProfileForLeague(leagueId);
-  const gameId = gameProfile.gameId;
+const gameProfile = await getGameProfileForLeague(leagueId);
+const gameId = gameProfile.gameId;
 
-  let player =
-    lookup.kind === 'nick'
-      ? await findPlayerByNick(gameId, lookup.nick)
-      : await findPlayerByDiscordId(gameId, lookup.discordId);
+let player =
+  lookup.kind === 'nick'
+    ? await findPlayerByNick(gameId, lookup.nick)
+    : await findPlayerByDiscordId(gameId, lookup.discordId);
 ```
 
 Remove the later duplicate `getGameProfileForLeague` call (reuse `gameProfile`). Update self-unlinked copy to:
@@ -526,6 +527,7 @@ EOF
 ### Task 4: `nickForDiscordId(discordId, gameId)` + lobby callers
 
 **Files:**
+
 - Modify: `src/services/lobby/lobby-identity.ts`
 - Modify: `src/services/lobby/lobby-identity.test.ts`
 - Modify: `src/services/lobby/actions.ts`
@@ -536,6 +538,7 @@ EOF
 - Modify: any tests that mock `nickForDiscordId` arity
 
 **Interfaces:**
+
 - Produces: `nickForDiscordId(discordId: string, gameId: string): Promise<string>`
 - Consumes: match/`leagueId` → `gameId` via `getGameProfileForLeague` or `prisma.league`
 
@@ -559,10 +562,7 @@ it('looks up by gameId and discordId', async () => {
 export const UNLINKED_DISCORD_MESSAGE =
   'Your Discord is not linked to an in-game nick for this league’s game. Run /link or ask a moderator.';
 
-export async function nickForDiscordId(
-  discordId: string,
-  gameId: string,
-): Promise<string> {
+export async function nickForDiscordId(discordId: string, gameId: string): Promise<string> {
   const player = await prisma.player.findUnique({
     where: { gameId_discordId: { gameId, discordId } },
   });
@@ -590,14 +590,14 @@ Reorder `addLobbyPlayerFromDiscord` to resolve the pending match **before** nick
 
 For each `nickForDiscordId(x)` site, pass the league’s `gameId`:
 
-| Caller | Source of `gameId` |
-|--------|--------------------|
+| Caller                              | Source of `gameId`                        |
+| ----------------------------------- | ----------------------------------------- |
 | `claimLobbySlot` / `leaveLobbySlot` | `profileForLeague(match.leagueId).gameId` |
-| `addLobbyPlayerFromDiscord` | same after resolving match |
-| `wc3stats-refresh.ts` | profile/league of working match |
-| `create-from-wc3stats.ts` | input league / profile |
-| `register-lobby.ts` | resolved league before host nick |
-| `lobby-interactions.ts` | match’s league profile |
+| `addLobbyPlayerFromDiscord`         | same after resolving match                |
+| `wc3stats-refresh.ts`               | profile/league of working match           |
+| `create-from-wc3stats.ts`           | input league / profile                    |
+| `register-lobby.ts`                 | resolved league before host nick          |
+| `lobby-interactions.ts`             | match’s league profile                    |
 
 - [ ] **Step 5: Run lobby + identity tests**
 
@@ -625,9 +625,11 @@ EOF
 ### Task 5: Match roster resolve by `profile.gameId`
 
 **Files:**
+
 - Modify: `src/services/match/match-service.ts` (`resolvePlayersInTx`)
 
 **Interfaces:**
+
 - Consumes: `profile.gameId` already passed into `resolvePlayersInTx`
 - Produces: find/create `Player` only for that `gameId`
 
@@ -636,30 +638,30 @@ EOF
 Replace the username-only find/create block with:
 
 ```typescript
-  const gameId = profile.gameId;
-  const existing = await tx.player.findMany({
-    where: {
-      gameId,
-      OR: nicks.map((nick) => ({
-        username: { equals: nick, mode: 'insensitive' as const },
-      })),
-    },
-  });
-  const byNick = new Map(existing.map((row) => [normalizeNick(row.username), row]));
+const gameId = profile.gameId;
+const existing = await tx.player.findMany({
+  where: {
+    gameId,
+    OR: nicks.map((nick) => ({
+      username: { equals: nick, mode: 'insensitive' as const },
+    })),
+  },
+});
+const byNick = new Map(existing.map((row) => [normalizeNick(row.username), row]));
 
-  const missingNicks = nicks.filter((nick) => !byNick.has(nick));
-  if (missingNicks.length > 0) {
-    await tx.player.createMany({
-      data: missingNicks.map((username) => ({ username, gameId })),
-      skipDuplicates: true,
-    });
-    const created = await tx.player.findMany({
-      where: { gameId, username: { in: missingNicks } },
-    });
-    for (const row of created) {
-      byNick.set(normalizeNick(row.username), row);
-    }
+const missingNicks = nicks.filter((nick) => !byNick.has(nick));
+if (missingNicks.length > 0) {
+  await tx.player.createMany({
+    data: missingNicks.map((username) => ({ username, gameId })),
+    skipDuplicates: true,
+  });
+  const created = await tx.player.findMany({
+    where: { gameId, username: { in: missingNicks } },
+  });
+  for (const row of created) {
+    byNick.set(normalizeNick(row.username), row);
   }
+}
 ```
 
 - [ ] **Step 2: Typecheck**
@@ -684,12 +686,14 @@ EOF
 ### Task 6: Rank-reset + wc3stats host-prompt poller
 
 **Files:**
+
 - Modify: `src/services/rating/rank-reset.ts`
 - Modify: `src/services/wc3stats/wc3stats-host-prompt-poller.ts`
 - Modify: `src/services/wc3stats/wc3stats-host-prompt-poller.test.ts`
 - Modify: `src/discord/interactions/rank-reset-interactions.ts` if it loads Player by discordId alone
 
 **Interfaces:**
+
 - Produces: `loadLinkedPlayersByNick(gameId: string): Promise<Map<string, string>>`
 - `PromptReadyLeague` includes `gameId`
 - Rank reset loads player with league’s `gameId`
@@ -705,9 +709,7 @@ Add `gameId` to `PromptReadyLeague` and `ready.push({ ..., gameId: row.gameId })
 Change loader:
 
 ```typescript
-export async function loadLinkedPlayersByNick(
-  gameId: string,
-): Promise<Map<string, string>> {
+export async function loadLinkedPlayersByNick(gameId: string): Promise<Map<string, string>> {
   const rows = await prisma.player.findMany({
     where: {
       gameId,
@@ -723,10 +725,10 @@ export async function loadLinkedPlayersByNick(
 In `runWc3statsHostPromptTick`, **do not** load one global map. Inside the league loop:
 
 ```typescript
-    const linkedByNick = await loadLinkedPlayersByNick(league.gameId);
-    if (linkedByNick.size === 0) {
-      continue;
-    }
+const linkedByNick = await loadLinkedPlayersByNick(league.gameId);
+if (linkedByNick.size === 0) {
+  continue;
+}
 ```
 
 (Optional micro-opt: cache `Map<gameId, Map<nick, discordId>>` per tick — fine either way.)
@@ -736,14 +738,14 @@ In `runWc3statsHostPromptTick`, **do not** load one global map. Inside the leagu
 After loading `league`, use `league.gameId`:
 
 ```typescript
-  const player = await prisma.player.findUnique({
-    where: {
-      gameId_discordId: {
-        gameId: league.gameId,
-        discordId: input.targetDiscordId,
-      },
+const player = await prisma.player.findUnique({
+  where: {
+    gameId_discordId: {
+      gameId: league.gameId,
+      discordId: input.targetDiscordId,
     },
-  });
+  },
+});
 ```
 
 Update any interaction helper that finds by `discordId` alone the same way (load league first).
@@ -774,11 +776,13 @@ EOF
 ### Task 7: Slash commands — `/link`, `/unlink`, `/settings`
 
 **Files:**
+
 - Modify: `src/commands/player/link.ts`
 - Modify: `src/commands/player/unlink.ts`
 - Modify: `src/commands/player/settings.ts`
 
 **Interfaces:**
+
 - Consumes: `withOptionalLeagueOption`, `resolveLeagueIdFromInteraction`, `getLeagueOption`, `getLeagueById` or `prisma.league` / `getGameProfileForLeague`
 - Produces: commands that fail closed when league resolve fails
 
@@ -789,25 +793,22 @@ Wrap builder with `withOptionalLeagueOption`, add `autocomplete` like `/rank`.
 After guild/mod checks:
 
 ```typescript
-    const resolved = await resolveLeagueIdFromInteraction(
-      interaction,
-      getLeagueOption(interaction),
-    );
-    if (!resolved.ok) {
-      await interaction.editReply({ content: resolved.message });
-      return;
-    }
+const resolved = await resolveLeagueIdFromInteraction(interaction, getLeagueOption(interaction));
+if (!resolved.ok) {
+  await interaction.editReply({ content: resolved.message });
+  return;
+}
 
-    const gameProfile = await getGameProfileForLeague(resolved.leagueId);
-    const linked = await linkPlayer({
-      gameId: gameProfile.gameId,
-      nick,
-      discordId: target.id,
-      allowRelink: isMod,
-    });
-    await interaction.editReply({
-      content: `Linked **${linked.username}** to <@${linked.discordId}> for \`${linked.gameId}\`.`,
-    });
+const gameProfile = await getGameProfileForLeague(resolved.leagueId);
+const linked = await linkPlayer({
+  gameId: gameProfile.gameId,
+  nick,
+  discordId: target.id,
+  allowRelink: isMod,
+});
+await interaction.editReply({
+  content: `Linked **${linked.username}** to <@${linked.discordId}> for \`${linked.gameId}\`.`,
+});
 ```
 
 Import league helpers from `../../services/league/index.js`.
@@ -860,6 +861,7 @@ EOF
 ### Task 8: Docs + Cursor rules + multi-league supersession
 
 **Files:**
+
 - Modify: `docs/discord/public/02-link-your-nick.md`
 - Modify: `.cursor/rules/database-domain.mdc`
 - Modify: `.cursor/rules/feature-scope-game-vs-general.mdc`
@@ -921,23 +923,23 @@ EOF
 
 ## Spec coverage checklist
 
-| Spec requirement | Task |
-|------------------|------|
-| `Player.gameId` + composite uniques | 1 |
-| Backfill → `warcraft3_udbr` | 1 |
-| `linkPlayer` / `unlink` per game | 2 |
-| Profile Discord/nick by game | 3 |
-| Settings per game | 3, 7 |
-| League resolve for `/link` `/unlink` | 7 |
-| `nickForDiscordId(discordId, gameId)` | 4 |
-| Match roster create/find by game | 5 |
-| Host prompt linked map by game | 6 |
-| Rank-reset by game | 6 |
-| Worldwide-per-game documented | 8 |
-| Multi-league supersession note | 8 |
-| Cursor rules updated | 8 |
-| No `game:` slash option | 7 (league only) |
-| Same Discord different nicks on two games | 2 test |
+| Spec requirement                          | Task            |
+| ----------------------------------------- | --------------- |
+| `Player.gameId` + composite uniques       | 1               |
+| Backfill → `warcraft3_udbr`               | 1               |
+| `linkPlayer` / `unlink` per game          | 2               |
+| Profile Discord/nick by game              | 3               |
+| Settings per game                         | 3, 7            |
+| League resolve for `/link` `/unlink`      | 7               |
+| `nickForDiscordId(discordId, gameId)`     | 4               |
+| Match roster create/find by game          | 5               |
+| Host prompt linked map by game            | 6               |
+| Rank-reset by game                        | 6               |
+| Worldwide-per-game documented             | 8               |
+| Multi-league supersession note            | 8               |
+| Cursor rules updated                      | 8               |
+| No `game:` slash option                   | 7 (league only) |
+| Same Discord different nicks on two games | 2 test          |
 
 ## Plan self-review
 

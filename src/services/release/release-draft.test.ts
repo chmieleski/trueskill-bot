@@ -39,7 +39,11 @@ vi.mock('./changelog.js', async (importOriginal) => {
   };
 });
 
-import { ensureDraftForVersion, postPendingStaffCards, syncCurrentReleaseDraft } from './release-draft.js';
+import {
+  ensureDraftForVersion,
+  postPendingStaffCards,
+  syncCurrentReleaseDraft,
+} from './release-draft.js';
 
 const CHANGELOG = `# [1.0.0](https://example.com) (2026-08-18)
 
@@ -269,4 +273,3 @@ describe('syncCurrentReleaseDraft', () => {
     expect(findMany).toHaveBeenCalledWith({ where: { status: 'draft' } });
   });
 });
-

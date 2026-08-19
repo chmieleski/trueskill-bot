@@ -1,5 +1,8 @@
 import type { LobbyPlayer } from './lobby-ocr.js';
-import { allowsEmptyMatchOnWc3statsFailure, assertLeagueAllowsWc3statsImport } from './register-lobby-source.js';
+import {
+  allowsEmptyMatchOnWc3statsFailure,
+  assertLeagueAllowsWc3statsImport,
+} from './register-lobby-source.js';
 import { canStartLobby } from './lobby-preview.js';
 import { nickForDiscordId } from './lobby-identity.js';
 import { createLogger } from '../../lib/logger.js';
@@ -11,21 +14,12 @@ import {
   hasMatchModRole,
   MatchServiceError,
 } from '../match/index.js';
-import {
-  isLeagueWc3statsImportReady,
-  resolveLeagueConfig,
-} from '../league/league-wc3stats.js';
+import { isLeagueWc3statsImportReady, resolveLeagueConfig } from '../league/league-wc3stats.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
 import type { GameProfile } from '../../domain/game-profile.js';
 import { resolveGuildConfig } from '../guild/index.js';
-import {
-  importWc3statsLobby,
-  loadLeagueWc3statsHeroSlotMap,
-} from '../wc3stats/index.js';
-import {
-  loadLobbyRatingPreview,
-  matchPlayersToRatingEntries,
-} from '../rating/index.js';
+import { importWc3statsLobby, loadLeagueWc3statsHeroSlotMap } from '../wc3stats/index.js';
+import { loadLobbyRatingPreview, matchPlayersToRatingEntries } from '../rating/index.js';
 
 const log = createLogger('create-from-wc3stats');
 

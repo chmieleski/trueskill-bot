@@ -23,23 +23,25 @@
 
 ## File structure
 
-| File | Responsibility |
-|------|----------------|
-| `src/services/lobby-balance.ts` | Gate, enumerate candidates, score, pick; `BalanceSuggestion` type + format helper |
-| `src/services/lobby-balance.test.ts` | Unit tests for gate, search, ties, empty-team rejection |
-| `src/services/rating-preview.ts` | Batch hero ratings for destinations; call suggest; extend DTO |
-| `src/services/lobby-preview.ts` | Match Lobby Balance hint field only |
-| `src/services/lobby-preview.test.ts` | Assert hint text on lobby embed; absent on in-progress |
+| File                                 | Responsibility                                                                    |
+| ------------------------------------ | --------------------------------------------------------------------------------- |
+| `src/services/lobby-balance.ts`      | Gate, enumerate candidates, score, pick; `BalanceSuggestion` type + format helper |
+| `src/services/lobby-balance.test.ts` | Unit tests for gate, search, ties, empty-team rejection                           |
+| `src/services/rating-preview.ts`     | Batch hero ratings for destinations; call suggest; extend DTO                     |
+| `src/services/lobby-preview.ts`      | Match Lobby Balance hint field only                                               |
+| `src/services/lobby-preview.test.ts` | Assert hint text on lobby embed; absent on in-progress                            |
 
 ---
 
 ### Task 1: Pure balance suggestion module (TDD)
 
 **Files:**
+
 - Create: `src/services/lobby-balance.ts`
 - Create: `src/services/lobby-balance.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `BalanceSuggestion` type (same shape as spec)
   - `isUnbalancedWinChance(teamAPercent: number): boolean`
@@ -122,11 +124,19 @@ describe('suggestBalanceMove', () => {
       if (suggestion.kind === 'move') {
         const moving = next.get(suggestion.fromSlot)!;
         next.delete(suggestion.fromSlot);
-        next.set(suggestion.toSlot, { ...moving, slot: suggestion.toSlot, heroId: suggestion.toSlot });
+        next.set(suggestion.toSlot, {
+          ...moving,
+          slot: suggestion.toSlot,
+          heroId: suggestion.toSlot,
+        });
       } else {
         const a = next.get(suggestion.fromSlot)!;
         const b = next.get(suggestion.toSlot)!;
-        next.set(suggestion.fromSlot, { ...b, slot: suggestion.fromSlot, heroId: suggestion.fromSlot });
+        next.set(suggestion.fromSlot, {
+          ...b,
+          slot: suggestion.fromSlot,
+          heroId: suggestion.fromSlot,
+        });
         next.set(suggestion.toSlot, { ...a, slot: suggestion.toSlot, heroId: suggestion.toSlot });
       }
       const teamA = [...next.values()].filter((e) => e.slot <= 6);
@@ -158,7 +168,9 @@ describe('suggestBalanceMove', () => {
     expect(suggestion).toBeDefined();
     expect(suggestion!.kind).toBe('swap');
     expect(suggestion!.fromNick).toBe('Strong');
-    expect(suggestion!.resultingWinChance.teamAPercent + suggestion!.resultingWinChance.teamBPercent).toBe(100);
+    expect(
+      suggestion!.resultingWinChance.teamAPercent + suggestion!.resultingWinChance.teamBPercent,
+    ).toBe(100);
     const imbalance = Math.abs(50 - suggestion!.resultingWinChance.teamAPercent);
     expect(imbalance).toBeLessThan(Math.abs(50 - 85));
   });
@@ -185,9 +197,9 @@ describe('suggestBalanceMove', () => {
       teamBPercent: 80,
     });
     expect(suggestion).toBeDefined();
-    expect(
-      Math.abs(50 - suggestion!.resultingWinChance.teamAPercent),
-    ).toBeLessThan(Math.abs(50 - 20));
+    expect(Math.abs(50 - suggestion!.resultingWinChance.teamAPercent)).toBeLessThan(
+      Math.abs(50 - 20),
+    );
   });
 
   it('on ties prefers swap over move, then lower fromSlot', () => {
@@ -238,11 +250,7 @@ Create `src/services/lobby-balance.ts`:
 
 ```ts
 import { predictWin } from 'openskill';
-import {
-  roundWinPercents,
-  splitRosterByTeam,
-  toOpenSkillRatings,
-} from './rating-math.js';
+import { roundWinPercents, splitRosterByTeam, toOpenSkillRatings } from './rating-math.js';
 
 const TEAM_A_MAX = 6;
 const ALL_SLOTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
@@ -329,17 +337,14 @@ function applyMove(
   toSlot: number,
 ): BalanceRosterEntry[] {
   return roster.map((entry) =>
-    entry.slot === fromSlot
-      ? { ...entry, slot: toSlot, heroId: toSlot }
-      : entry,
+    entry.slot === fromSlot ? { ...entry, slot: toSlot, heroId: toSlot } : entry,
   );
 }
 
 /** Exposed for tie-break unit tests. */
 export function compareSuggestions(a: BalanceSuggestion, b: BalanceSuggestion): number {
   const imbDiff =
-    imbalance(a.resultingWinChance.teamAPercent) -
-    imbalance(b.resultingWinChance.teamAPercent);
+    imbalance(a.resultingWinChance.teamAPercent) - imbalance(b.resultingWinChance.teamAPercent);
   if (imbDiff !== 0) {
     return imbDiff;
   }
@@ -449,19 +454,19 @@ function applySwap(
 Replace the placeholder tie test with:
 
 ```ts
-  it('compareSuggestions prefers swap over move, then lower fromSlot', () => {
-    const base = {
-      resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
-      fromNick: 'x',
-    };
-    const swap = { ...base, kind: 'swap' as const, fromSlot: 2, toSlot: 9, toNick: 'y' };
-    const move = { ...base, kind: 'move' as const, fromSlot: 1, toSlot: 10 };
-    expect(compareSuggestions(swap, move)).toBeLessThan(0);
+it('compareSuggestions prefers swap over move, then lower fromSlot', () => {
+  const base = {
+    resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
+    fromNick: 'x',
+  };
+  const swap = { ...base, kind: 'swap' as const, fromSlot: 2, toSlot: 9, toNick: 'y' };
+  const move = { ...base, kind: 'move' as const, fromSlot: 1, toSlot: 10 };
+  expect(compareSuggestions(swap, move)).toBeLessThan(0);
 
-    const swapHigh = { ...swap, fromSlot: 3 };
-    const swapLow = { ...swap, fromSlot: 1 };
-    expect(compareSuggestions(swapLow, swapHigh)).toBeLessThan(0);
-  });
+  const swapHigh = { ...swap, fromSlot: 3 };
+  const swapLow = { ...swap, fromSlot: 1 };
+  expect(compareSuggestions(swapLow, swapHigh)).toBeLessThan(0);
+});
 ```
 
 Import `compareSuggestions` in the test file.
@@ -484,10 +489,12 @@ git commit -m "feat: add OpenSkill lobby balance suggestion search"
 ### Task 2: Wire suggestion into rating preview DTO
 
 **Files:**
+
 - Modify: `src/services/rating-preview.ts`
 - Re-export or import `BalanceSuggestion` from `lobby-balance.ts` on `LobbyRatingPreview`
 
 **Interfaces:**
+
 - Consumes: `suggestBalanceMove`, `isUnbalancedWinChance`, `BalanceRatingLookup` from `lobby-balance.ts`
 - Produces: `LobbyRatingPreview.balanceSuggestion?: BalanceSuggestion`
 
@@ -496,10 +503,7 @@ git commit -m "feat: add OpenSkill lobby balance suggestion search"
 In `rating-preview.ts`, import types and add optional field:
 
 ```ts
-import {
-  suggestBalanceMove,
-  type BalanceSuggestion,
-} from './lobby-balance.js';
+import { suggestBalanceMove, type BalanceSuggestion } from './lobby-balance.js';
 
 export type { BalanceSuggestion };
 
@@ -584,7 +588,7 @@ try {
 - [ ] **Step 4: Sanity-check**
 
 Run: `npm test -- src/services/lobby-balance.test.ts src/services/rating-math.test.ts`  
-Run: `npx tsc --noEmit`  
+Run: `npx tsc --noEmit`
 
 Expected: PASS
 
@@ -600,10 +604,12 @@ git commit -m "feat: attach balance suggestion to lobby rating preview"
 ### Task 3: Embed Balance hint on Match Lobby
 
 **Files:**
+
 - Modify: `src/services/lobby-preview.ts`
 - Modify: `src/services/lobby-preview.test.ts`
 
 **Interfaces:**
+
 - Consumes: `formatBalanceHint`, `LobbyRatingPreview.balanceSuggestion`
 - Produces: embed field `Balance hint` on Match Lobby only
 
@@ -616,51 +622,59 @@ import { buildMatchInProgressEmbed, buildMatchLobbyEmbed } from './lobby-preview
 
 describe('balance hint on embeds', () => {
   it('shows Balance hint on Match Lobby when suggestion present', () => {
-    const embed = buildMatchLobbyEmbed('m1', [
-      { nick: 'Alice', slot: 1 },
-      { nick: 'Bob', slot: 7 },
-    ], {
-      ratingPreview: {
-        players: [
-          { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000 },
-          { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000 },
-        ],
-        winChance: { teamAPercent: 70, teamBPercent: 30 },
-        balanceSuggestion: {
-          kind: 'swap',
-          fromSlot: 1,
-          toSlot: 7,
-          fromNick: 'Alice',
-          toNick: 'Bob',
-          resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
+    const embed = buildMatchLobbyEmbed(
+      'm1',
+      [
+        { nick: 'Alice', slot: 1 },
+        { nick: 'Bob', slot: 7 },
+      ],
+      {
+        ratingPreview: {
+          players: [
+            { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000 },
+            { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000 },
+          ],
+          winChance: { teamAPercent: 70, teamBPercent: 30 },
+          balanceSuggestion: {
+            kind: 'swap',
+            fromSlot: 1,
+            toSlot: 7,
+            fromNick: 'Alice',
+            toNick: 'Bob',
+            resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
+          },
         },
       },
-    });
+    );
     const fields = embed.data.fields ?? [];
     const hint = fields.find((f) => f.name === 'Balance hint');
     expect(hint?.value).toBe('Swap Alice (1) ↔ Bob (7) → ~52% / 48%');
   });
 
   it('omits Balance hint on Match In Progress even if DTO has suggestion', () => {
-    const embed = buildMatchInProgressEmbed('m1', [
-      { nick: 'Alice', slot: 1 },
-      { nick: 'Bob', slot: 7 },
-    ], {
-      ratingPreview: {
-        players: [
-          { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000 },
-          { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000 },
-        ],
-        winChance: { teamAPercent: 70, teamBPercent: 30 },
-        balanceSuggestion: {
-          kind: 'move',
-          fromSlot: 7,
-          toSlot: 2,
-          fromNick: 'Bob',
-          resultingWinChance: { teamAPercent: 51, teamBPercent: 49 },
+    const embed = buildMatchInProgressEmbed(
+      'm1',
+      [
+        { nick: 'Alice', slot: 1 },
+        { nick: 'Bob', slot: 7 },
+      ],
+      {
+        ratingPreview: {
+          players: [
+            { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000 },
+            { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000 },
+          ],
+          winChance: { teamAPercent: 70, teamBPercent: 30 },
+          balanceSuggestion: {
+            kind: 'move',
+            fromSlot: 7,
+            toSlot: 2,
+            fromNick: 'Bob',
+            resultingWinChance: { teamAPercent: 51, teamBPercent: 49 },
+          },
         },
       },
-    });
+    );
     const fields = embed.data.fields ?? [];
     expect(fields.some((f) => f.name === 'Balance hint')).toBe(false);
   });
@@ -743,18 +757,18 @@ Expected: PASS
 
 ## Spec coverage (self-review)
 
-| Spec requirement | Task |
-|------------------|------|
-| Greedy single move (swap + empty move) | Task 1 |
-| 45–55 gate | Task 1 |
-| Strict improvement + tie-break | Task 1 |
-| Dual-entity `predictWin` + cold-start heroes | Tasks 1–2 |
-| Batch destination hero ratings | Task 2 |
-| DTO `balanceSuggestion` | Task 2 |
-| Match Lobby field copy | Task 3 |
-| No hint on In Progress | Task 3 |
-| Advisory only / no AI | All (no Apply, no Gemini) |
-| Failure omits hint | Task 2 local catch |
+| Spec requirement                             | Task                      |
+| -------------------------------------------- | ------------------------- |
+| Greedy single move (swap + empty move)       | Task 1                    |
+| 45–55 gate                                   | Task 1                    |
+| Strict improvement + tie-break               | Task 1                    |
+| Dual-entity `predictWin` + cold-start heroes | Tasks 1–2                 |
+| Batch destination hero ratings               | Task 2                    |
+| DTO `balanceSuggestion`                      | Task 2                    |
+| Match Lobby field copy                       | Task 3                    |
+| No hint on In Progress                       | Task 3                    |
+| Advisory only / no AI                        | All (no Apply, no Gemini) |
+| Failure omits hint                           | Task 2 local catch        |
 
 ## Placeholder / consistency check
 

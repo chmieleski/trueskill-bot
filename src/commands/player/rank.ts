@@ -22,16 +22,10 @@ export const data = withOptionalLeagueOption(
     .setName('rank')
     .setDescription('Show your rank profile or look up another player')
     .addUserOption((option) =>
-      option
-        .setName('user')
-        .setDescription('Discord user to look up')
-        .setRequired(false),
+      option.setName('user').setDescription('Discord user to look up').setRequired(false),
     )
     .addStringOption((option) =>
-      option
-        .setName('nick')
-        .setDescription('In-game nick to look up')
-        .setRequired(false),
+      option.setName('nick').setDescription('In-game nick to look up').setRequired(false),
     ),
 );
 
@@ -54,7 +48,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   }
 
   try {
-    const resolved = await resolveLeagueIdFromInteraction(interaction, getLeagueOption(interaction));
+    const resolved = await resolveLeagueIdFromInteraction(
+      interaction,
+      getLeagueOption(interaction),
+    );
 
     if (!resolved.ok) {
       const payload = { content: resolved.message };

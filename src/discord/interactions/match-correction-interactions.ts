@@ -23,8 +23,7 @@ import {
 } from '../../services/match/index.js';
 import { syncLobbyDiscordMessage } from '../../services/lobby/index.js';
 
-const NOT_YOUR_CORRECTION =
-  'Only the moderator who ran this command can use these buttons.';
+const NOT_YOUR_CORRECTION = 'Only the moderator who ran this command can use these buttons.';
 
 function memberRoleIds(interaction: { member: unknown }): string[] {
   const member = interaction.member;
@@ -120,9 +119,7 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
 }
 
 /** Consume and handle matchcorr: Confirm/Cancel button interactions. */
-export async function handleMatchCorrectionInteraction(
-  interaction: Interaction,
-): Promise<boolean> {
+export async function handleMatchCorrectionInteraction(interaction: Interaction): Promise<boolean> {
   if (!interaction.isButton() || !interaction.customId.startsWith('matchcorr:')) {
     return false;
   }

@@ -31,26 +31,27 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `src/services/match/compact-custom-id.ts` | Shared UUID compact/expand for Discord `customId` |
-| `src/services/match/compact-custom-id.test.ts` | Unit tests for compact/expand |
-| `src/services/match/match-history.ts` | Import shared compact/expand (no behavior change) |
-| `src/services/match/match-list.ts` | Format, customIds, page load, embed, buttons |
-| `src/services/match/match-list.test.ts` | Unit tests |
-| `src/services/match/index.ts` | Re-exports |
-| `src/commands/match/match.ts` | `list` subcommand + public execute branch |
-| `src/commands/match/match.test.ts` | Subcommand registration |
-| `src/discord/interactions/match-list-interactions.ts` | Prev/Next handler |
-| `src/events/interaction-create.ts` | Route `ml:p:` buttons |
-| `src/services/league/league-lobby-channel.test.ts` | Assert `list` is denied |
-| `docs/discord/public/07-cheat-sheet.md` | Public cheat line |
+| File                                                  | Role                                              |
+| ----------------------------------------------------- | ------------------------------------------------- |
+| `src/services/match/compact-custom-id.ts`             | Shared UUID compact/expand for Discord `customId` |
+| `src/services/match/compact-custom-id.test.ts`        | Unit tests for compact/expand                     |
+| `src/services/match/match-history.ts`                 | Import shared compact/expand (no behavior change) |
+| `src/services/match/match-list.ts`                    | Format, customIds, page load, embed, buttons      |
+| `src/services/match/match-list.test.ts`               | Unit tests                                        |
+| `src/services/match/index.ts`                         | Re-exports                                        |
+| `src/commands/match/match.ts`                         | `list` subcommand + public execute branch         |
+| `src/commands/match/match.test.ts`                    | Subcommand registration                           |
+| `src/discord/interactions/match-list-interactions.ts` | Prev/Next handler                                 |
+| `src/events/interaction-create.ts`                    | Route `ml:p:` buttons                             |
+| `src/services/league/league-lobby-channel.test.ts`    | Assert `list` is denied                           |
+| `docs/discord/public/07-cheat-sheet.md`               | Public cheat line                                 |
 
 ---
 
 ### Task 1: Pure helpers — shared customId compact, format, team sizes, pagination ids
 
 **Files:**
+
 - Create: `src/services/match/compact-custom-id.ts`
 - Create: `src/services/match/compact-custom-id.test.ts`
 - Modify: `src/services/match/match-history.ts` (replace private `compactHistoryId` / `expandHistoryId` with imports)
@@ -58,6 +59,7 @@
 - Create: `src/services/match/match-list.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing from later tasks
 - Produces:
   - `export function compactUuidForCustomId(id: string): string`
@@ -105,8 +107,7 @@ Expected: FAIL — cannot find module `./compact-custom-id.js`
 Create `src/services/match/compact-custom-id.ts`:
 
 ```typescript
-const UUID_HYPHENATED =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_HYPHENATED = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const UUID_COMPACT = /^[0-9a-f]{32}$/i;
 
 /** Strip UUID hyphens so ids + snowflake fit Discord's 100-char customId. */
@@ -271,9 +272,10 @@ export function formatMatchListFormat(team1Count: number, team2Count: number): s
 }
 
 /** Count MatchPlayer rows on team 1 and 2. Ignore any other team value. */
-export function countMatchListTeamSizes(
-  players: Array<{ team: number }>,
-): { team1: number; team2: number } {
+export function countMatchListTeamSizes(players: Array<{ team: number }>): {
+  team1: number;
+  team2: number;
+} {
   let team1 = 0;
   let team2 = 0;
   for (const player of players) {
@@ -359,11 +361,13 @@ EOF
 ### Task 2: Load page, embed, and buttons
 
 **Files:**
+
 - Modify: `src/services/match/match-list.ts`
 - Modify: `src/services/match/match-list.test.ts`
 - Modify: `src/services/match/index.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1 helpers; `clampMatchHistoryPage` and `winningTeamFromPlayers` from `./match-history.js`; `getLeagueById` from `../league/league.js`; `MatchServiceError` from `./match-service.js`
 - Produces:
   - `export type MatchListPage = { leagueName: string; page: number; totalPages: number; totalMatches: number; rows: MatchListRow[] }`
@@ -577,12 +581,7 @@ Expected: FAIL — `loadMatchListPage` / `buildMatchListEmbed` / `buildMatchList
 Add these imports at the top of `src/services/match/match-list.ts`:
 
 ```typescript
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder,
-} from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { prisma } from '../../lib/prisma.js';
 import { getLeagueById } from '../league/league.js';
 import { clampMatchHistoryPage, winningTeamFromPlayers } from './match-history.js';
@@ -658,7 +657,9 @@ export function buildMatchListEmbed(
     .setColor(0xf0b232)
     .setAuthor({ name: page.leagueName })
     .setTitle('Match list')
-    .setDescription(`Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`);
+    .setDescription(
+      `Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`,
+    );
 
   if (page.rows.length === 0) {
     embed.addFields({
@@ -693,16 +694,12 @@ export function buildMatchListPageButtons(input: {
   }
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(
-        buildMatchListPageCustomId(input.invokerId, input.leagueId, 'prev', input.page),
-      )
+      .setCustomId(buildMatchListPageCustomId(input.invokerId, input.leagueId, 'prev', input.page))
       .setLabel('Previous')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(input.page <= 1),
     new ButtonBuilder()
-      .setCustomId(
-        buildMatchListPageCustomId(input.invokerId, input.leagueId, 'next', input.page),
-      )
+      .setCustomId(buildMatchListPageCustomId(input.invokerId, input.leagueId, 'next', input.page))
       .setLabel('Next')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(input.page >= input.totalPages),
@@ -752,12 +749,14 @@ EOF
 ### Task 3: Wire `/match list`, lobby deny test, cheat sheet
 
 **Files:**
+
 - Modify: `src/commands/match/match.ts`
 - Modify: `src/commands/match/match.test.ts`
 - Modify: `src/services/league/league-lobby-channel.test.ts`
 - Modify: `docs/discord/public/07-cheat-sheet.md`
 
 **Interfaces:**
+
 - Consumes: `loadMatchListPage`, `buildMatchListEmbed`, `buildMatchListPageButtons` from `../../services/match/index.js`
 - Produces: `list` slash subcommand (optional `page`, optional `league`); public execute path
 
@@ -766,22 +765,22 @@ EOF
 In `src/commands/match/match.test.ts`, change the registered subcommands expectation to include `list` immediately after `history`:
 
 ```typescript
-    expect(json.options?.map((option) => option.name)).toEqual([
-      'history',
-      'list',
-      'show',
-      'quitters',
-      'complete',
-      'cancel',
-      'flip',
-      'void',
-    ]);
+expect(json.options?.map((option) => option.name)).toEqual([
+  'history',
+  'list',
+  'show',
+  'quitters',
+  'complete',
+  'cancel',
+  'flip',
+  'void',
+]);
 ```
 
 In `src/services/league/league-lobby-channel.test.ts`, inside `it('allows only match complete, cancel, and quitters'`, add:
 
 ```typescript
-    expect(isLobbyChannelAllowedCommand('match', 'list')).toBe(false);
+expect(isLobbyChannelAllowedCommand('match', 'list')).toBe(false);
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -832,54 +831,48 @@ After the `history` subcommand builder (before `show`), add:
 In `execute`, treat `list` as a public read and defer it publicly like `show`:
 
 ```typescript
-  const isPublicRead =
-    subcommand === 'history' || subcommand === 'show' || subcommand === 'list';
+const isPublicRead = subcommand === 'history' || subcommand === 'show' || subcommand === 'list';
 ```
 
 ```typescript
-  if (subcommand === 'history' && historyKind === 'user') {
-    await interaction.deferReply();
-  } else if (subcommand === 'show' || subcommand === 'list') {
-    await interaction.deferReply();
-  } else if (subcommand !== 'history') {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  }
+if (subcommand === 'history' && historyKind === 'user') {
+  await interaction.deferReply();
+} else if (subcommand === 'show' || subcommand === 'list') {
+  await interaction.deferReply();
+} else if (subcommand !== 'history') {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+}
 ```
 
 After the `history` branch `return;` and before `if (subcommand === 'show')`, insert:
 
 ```typescript
-    if (subcommand === 'list') {
-      if (!interaction.guildId) {
-        throw new MatchServiceError('This command can only be used in a server.');
-      }
-      const resolved = await resolveLeagueIdFromInteraction(
-        interaction,
-        getLeagueOption(interaction),
-      );
-      if (!resolved.ok) {
-        await replyMatchRead(interaction, { content: resolved.message });
-        return;
-      }
+if (subcommand === 'list') {
+  if (!interaction.guildId) {
+    throw new MatchServiceError('This command can only be used in a server.');
+  }
+  const resolved = await resolveLeagueIdFromInteraction(interaction, getLeagueOption(interaction));
+  if (!resolved.ok) {
+    await replyMatchRead(interaction, { content: resolved.message });
+    return;
+  }
 
-      const gameProfile = await getGameProfileForLeague(resolved.leagueId);
-      const pageNum = interaction.options.getInteger('page') ?? 1;
-      const pageData = await loadMatchListPage({
-        leagueId: resolved.leagueId,
-        page: pageNum,
-      });
-      const embed = buildMatchListEmbed(pageData, (team) =>
-        teamDisplayName(team, gameProfile),
-      );
-      const components = buildMatchListPageButtons({
-        invokerId: interaction.user.id,
-        leagueId: resolved.leagueId,
-        page: pageData.page,
-        totalPages: pageData.totalPages,
-      });
-      await replyMatchRead(interaction, { embeds: [embed], components });
-      return;
-    }
+  const gameProfile = await getGameProfileForLeague(resolved.leagueId);
+  const pageNum = interaction.options.getInteger('page') ?? 1;
+  const pageData = await loadMatchListPage({
+    leagueId: resolved.leagueId,
+    page: pageNum,
+  });
+  const embed = buildMatchListEmbed(pageData, (team) => teamDisplayName(team, gameProfile));
+  const components = buildMatchListPageButtons({
+    invokerId: interaction.user.id,
+    leagueId: resolved.leagueId,
+    page: pageData.page,
+    totalPages: pageData.totalPages,
+  });
+  await replyMatchRead(interaction, { embeds: [embed], components });
+  return;
+}
 ```
 
 In `docs/discord/public/07-cheat-sheet.md`, under **Match (anyone)**, add the list line above show:
@@ -914,10 +907,12 @@ EOF
 ### Task 4: Page buttons
 
 **Files:**
+
 - Create: `src/discord/interactions/match-list-interactions.ts`
 - Modify: `src/events/interaction-create.ts`
 
 **Interfaces:**
+
 - Consumes: `parseMatchListPageCustomId`, `loadMatchListPage`, `buildMatchListEmbed`, `buildMatchListPageButtons`
 - Produces: `export async function handleMatchListInteraction(interaction: Interaction): Promise<boolean>`
 
@@ -940,9 +935,7 @@ import {
 
 const NOT_YOUR_PAGE = 'Only the person who ran the command can change pages.';
 
-export async function handleMatchListInteraction(
-  interaction: Interaction,
-): Promise<boolean> {
+export async function handleMatchListInteraction(interaction: Interaction): Promise<boolean> {
   if (!interaction.isButton()) {
     return false;
   }
@@ -967,9 +960,7 @@ export async function handleMatchListInteraction(
   });
   const profile = await getGameProfileForLeague(parsed.leagueId);
   await interaction.editReply({
-    embeds: [
-      buildMatchListEmbed(pageData, (team) => teamDisplayName(team, profile)),
-    ],
+    embeds: [buildMatchListEmbed(pageData, (team) => teamDisplayName(team, profile))],
     components: buildMatchListPageButtons({
       invokerId: parsed.invokerId,
       leagueId: parsed.leagueId,
@@ -992,10 +983,10 @@ import { handleMatchListInteraction } from '../discord/interactions/match-list-i
 Immediately after the `handleMatchHistoryInteraction` block:
 
 ```typescript
-    if (await handleMatchListInteraction(interaction)) {
-      log.debug({ userId: interaction.user.id }, 'Match list interaction handled');
-      return;
-    }
+if (await handleMatchListInteraction(interaction)) {
+  log.debug({ userId: interaction.user.id }, 'Match list interaction handled');
+  return;
+}
 ```
 
 - [ ] **Step 3: Run unit tests (no live Discord)**
@@ -1026,17 +1017,17 @@ EOF
 
 ## Spec coverage
 
-| Spec requirement | Task |
-|------------------|------|
-| `/match list` public, no `/link` | 3 |
-| `COMPLETED` only, newest first, page size 10, clamp | 2 |
-| Row: date, winner, `4v6` team-1 vs team-2, copyable id | 1 + 2 |
-| Embed author = league name, title `Match list` | 2 |
-| Empty embed, not an error | 2 |
-| `ml:p:` customId, compact UUID, ≤ 100 chars | 1 |
-| Invoker-only Prev/Next | 4 |
-| `/match show` unchanged | (no task) |
-| `/match history` command behavior unchanged | (Task 1 may only import shared compact helpers) |
-| Lobby deny + test | 3 |
-| Cheat sheet line | 3 |
-| Dedicated list module; shared `compact-custom-id.ts`; reuse clamp + winningTeam only | 1 + 2 |
+| Spec requirement                                                                     | Task                                            |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| `/match list` public, no `/link`                                                     | 3                                               |
+| `COMPLETED` only, newest first, page size 10, clamp                                  | 2                                               |
+| Row: date, winner, `4v6` team-1 vs team-2, copyable id                               | 1 + 2                                           |
+| Embed author = league name, title `Match list`                                       | 2                                               |
+| Empty embed, not an error                                                            | 2                                               |
+| `ml:p:` customId, compact UUID, ≤ 100 chars                                          | 1                                               |
+| Invoker-only Prev/Next                                                               | 4                                               |
+| `/match show` unchanged                                                              | (no task)                                       |
+| `/match history` command behavior unchanged                                          | (Task 1 may only import shared compact helpers) |
+| Lobby deny + test                                                                    | 3                                               |
+| Cheat sheet line                                                                     | 3                                               |
+| Dedicated list module; shared `compact-custom-id.ts`; reuse clamp + winningTeam only | 1 + 2                                           |

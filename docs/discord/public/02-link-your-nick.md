@@ -3,12 +3,15 @@
 The bot needs to know who you are in the game.
 
 **Link yourself**
+
 ```
 /link nick:YourInGameNick
 ```
+
 That’s it. Now Discord ↔ your WC3 nick are friends.
 
 **Unlink yourself**
+
 ```
 /unlink
 ```
@@ -30,6 +33,7 @@ Use `/link` in a channel bound to the right league (or pass `league:` when you h
 • Optional: servers may ping you when wc3stats finds your Warcraft lobby — turn that off with `/settings set host_prompt_pings`
 
 **Personal settings**
+
 ```
 /settings view
 /settings set host_prompt_pings enabled:False

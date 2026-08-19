@@ -19,12 +19,15 @@ export type Wc3statsGameDetail = {
   id: number;
   name?: string;
   host?: { battleTag?: string | null; name?: string | null } | string | null;
-  map?: {
-    path?: string;
-    normalizedName?: string;
-    sha1?: string;
-    name?: string;
-  } | string | null;
+  map?:
+    | {
+        path?: string;
+        normalizedName?: string;
+        sha1?: string;
+        name?: string;
+      }
+    | string
+    | null;
   numPlayers?: number;
   slotsTaken?: number;
   numSlots?: number;
@@ -105,9 +108,7 @@ function parseListGame(value: unknown): Wc3statsListGame | null {
   };
 }
 
-function parseDetailMap(
-  value: unknown,
-): Wc3statsGameDetail['map'] {
+function parseDetailMap(value: unknown): Wc3statsGameDetail['map'] {
   if (typeof value === 'string') {
     return { name: value, path: value };
   }
@@ -172,18 +173,13 @@ export async function fetchGamelist(timeoutMs: number): Promise<Wc3statsListGame
     throw new Wc3statsClientError('wc3stats gamelist was not a list.');
   }
 
-  return rows
-    .map(parseListGame)
-    .filter((game): game is Wc3statsListGame => game !== null);
+  return rows.map(parseListGame).filter((game): game is Wc3statsListGame => game !== null);
 }
 
 /**
  * Fetch one lobby including slots when wc3stats has published them.
  */
-export async function fetchGameDetail(
-  id: number,
-  timeoutMs: number,
-): Promise<Wc3statsGameDetail> {
+export async function fetchGameDetail(id: number, timeoutMs: number): Promise<Wc3statsGameDetail> {
   const payload = unwrapBody(await getJson(detailUrl(id), timeoutMs));
   const detail = parseGameDetail(payload);
   if (!detail) {

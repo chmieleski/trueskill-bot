@@ -17,21 +17,21 @@ Operators can expose a **guild-wide quitter leaderboard**: lifetime quit count a
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Ladder scope | **Guild-wide** — all leagues with `league.guildId` = this Discord |
-| Metrics | **Quit count** and **quit rate** |
-| Display modes | `count` \| `rate` \| `both` (moderator-configured) |
-| Sort | `count` \| `rate` (moderator-configured; may sort by a metric not shown in columns) |
-| Config home | **`GuildConfig`** (not `League`) |
-| Live size | **10–100**, default **10**, chunk **25** rows/embed (mirror overall live packing) |
-| Slash pages | **10 per page**, Prev/Next buttons, **invoker-only** |
-| Quit count | `MatchPlayer.isQuitter = true` on matches in guild leagues |
-| Completed (denominator) | Roster appearances on **`COMPLETED`** matches in those leagues |
-| Rate | `quitCount / completedCount`; eligible when **completed ≥ 1** (no extra floor) |
-| Rank ties | Competition rank; secondary: other metric desc, then username asc |
-| Refresh | Match outcome / correction / quitter flag changes that affect counts; bot start; **15 min** fallback; immediate on config change |
-| Language | English user-facing strings |
+| Topic                   | Choice                                                                                                                           |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Ladder scope            | **Guild-wide** — all leagues with `league.guildId` = this Discord                                                                |
+| Metrics                 | **Quit count** and **quit rate**                                                                                                 |
+| Display modes           | `count` \| `rate` \| `both` (moderator-configured)                                                                               |
+| Sort                    | `count` \| `rate` (moderator-configured; may sort by a metric not shown in columns)                                              |
+| Config home             | **`GuildConfig`** (not `League`)                                                                                                 |
+| Live size               | **10–100**, default **10**, chunk **25** rows/embed (mirror overall live packing)                                                |
+| Slash pages             | **10 per page**, Prev/Next buttons, **invoker-only**                                                                             |
+| Quit count              | `MatchPlayer.isQuitter = true` on matches in guild leagues                                                                       |
+| Completed (denominator) | Roster appearances on **`COMPLETED`** matches in those leagues                                                                   |
+| Rate                    | `quitCount / completedCount`; eligible when **completed ≥ 1** (no extra floor)                                                   |
+| Rank ties               | Competition rank; secondary: other metric desc, then username asc                                                                |
+| Refresh                 | Match outcome / correction / quitter flag changes that affect counts; bot start; **15 min** fallback; immediate on config change |
+| Language                | English user-facing strings                                                                                                      |
 
 ## Approach
 
@@ -67,10 +67,10 @@ Reject sizes outside `[10, 100]` with a clear English error (do not silently cla
 
 ### Eligibility
 
-| Sort | Who appears |
-|------|-------------|
-| `count` | Players with **≥1 quit** in guild leagues |
-| `rate` | Players with **≥1 completed** match in guild leagues (rate may be `0%`) |
+| Sort    | Who appears                                                             |
+| ------- | ----------------------------------------------------------------------- |
+| `count` | Players with **≥1 quit** in guild leagues                               |
+| `rate`  | Players with **≥1 completed** match in guild leagues (rate may be `0%`) |
 
 ## Metrics (precise)
 
@@ -88,17 +88,17 @@ Source of truth remains `MatchPlayer.isQuitter` (same as match report), keyed by
 
 ### `/config` (guild-scoped — **no** `league` option)
 
-| Subcommand | Effect |
-|------------|--------|
-| `set quitter_leaderboard_channel` | Bind/repost live message in chosen guild text channel |
-| `set quitter_leaderboard_size` | Persist size; refresh if bound |
-| `set quitter_leaderboard_display` | `count` \| `rate` \| `both` |
-| `set quitter_leaderboard_sort` | `count` \| `rate` |
-| `clear quitter_leaderboard_channel` | Unbind + best-effort delete message |
-| `clear quitter_leaderboard_size` | Reset to **10** + refresh if bound |
-| `clear quitter_leaderboard_display` | Reset to **both** |
-| `clear quitter_leaderboard_sort` | Reset to **count** |
-| `view` | Include channel · message · size · display · sort |
+| Subcommand                          | Effect                                                |
+| ----------------------------------- | ----------------------------------------------------- |
+| `set quitter_leaderboard_channel`   | Bind/repost live message in chosen guild text channel |
+| `set quitter_leaderboard_size`      | Persist size; refresh if bound                        |
+| `set quitter_leaderboard_display`   | `count` \| `rate` \| `both`                           |
+| `set quitter_leaderboard_sort`      | `count` \| `rate`                                     |
+| `clear quitter_leaderboard_channel` | Unbind + best-effort delete message                   |
+| `clear quitter_leaderboard_size`    | Reset to **10** + refresh if bound                    |
+| `clear quitter_leaderboard_display` | Reset to **both**                                     |
+| `clear quitter_leaderboard_sort`    | Reset to **count**                                    |
+| `view`                              | Include channel · message · size · display · sort     |
 
 Auth: `assertCanConfigureBot` (same as other `/config`).
 
@@ -106,8 +106,8 @@ Mismatched sort vs display (e.g. sort `rate` while display `count` only) is **al
 
 ### `/leaderboard quitters`
 
-| Option | Type | Notes |
-|--------|------|-------|
+| Option | Type       | Notes       |
+| ------ | ---------- | ----------- |
 | `page` | integer ≥1 | Default `1` |
 
 - No league option (guild-wide).
@@ -156,12 +156,12 @@ Hook guild quitter refresh wherever overall leaderboards already refresh after m
 
 ## Error copy (English)
 
-| Case | Message |
-|------|---------|
-| Size out of range | `Quitter leaderboard size must be between 10 and 100.` |
-| Not a guild text channel | Same tone as overall live board channel errors |
-| Config forbidden | Existing configure-bot message |
-| DM / no guild | Reject with existing guild-only messaging |
+| Case                     | Message                                                |
+| ------------------------ | ------------------------------------------------------ |
+| Size out of range        | `Quitter leaderboard size must be between 10 and 100.` |
+| Not a guild text channel | Same tone as overall live board channel errors         |
+| Config forbidden         | Existing configure-bot message                         |
+| DM / no guild            | Reject with existing guild-only messaging              |
 
 ## Testing
 

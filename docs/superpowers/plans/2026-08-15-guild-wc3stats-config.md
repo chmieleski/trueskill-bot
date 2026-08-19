@@ -27,30 +27,32 @@
 
 ## File structure
 
-| File | Responsibility |
-|------|----------------|
-| `prisma/schema.prisma` + migration | `wc3statsEnabled`, `wc3statsMapPattern`, `wc3statsMapSha1` |
-| `src/services/wc3stats/wc3stats-slot-map.ts` | UDBR pattern/sha1 constants + `parseWc3statsMapSha1` |
-| `src/services/guild/guild-config.ts` | Resolve new fields; `applyUdbrWc3statsPreset`; `clearGuildWc3statsPackage` |
-| `src/services/guild/guild-config.test.ts` | Resolve defaults, preset, clear |
-| `src/services/wc3stats/wc3stats-resolve.ts` | Accept map filter args; stop reading env pattern/sha1 |
-| `src/commands/config/config.ts` | Preset package write; `clear wc3stats`; view lines |
-| `src/commands/lobby/register-lobby.ts` | Resolve guild; pass enabled/filter |
-| `src/services/lobby/wc3stats-refresh.ts` | Guild-resolved enable + filter |
-| `src/services/lobby/discord-sync.ts` | Guild-resolved enable for buttons |
-| `src/config/env.ts` + `.env.example` + `scripts-and-env.mdc` | Drop three keys; keep timeout |
-| `infra/aws/*` + `deploy/aws/refresh-env.sh` | Drop three SSM/env writer lines |
-| `docs/discord/staff/a4-wc3stats-mapping.md` | Preset-only enable (not ops `.env`) |
+| File                                                         | Responsibility                                                             |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `prisma/schema.prisma` + migration                           | `wc3statsEnabled`, `wc3statsMapPattern`, `wc3statsMapSha1`                 |
+| `src/services/wc3stats/wc3stats-slot-map.ts`                 | UDBR pattern/sha1 constants + `parseWc3statsMapSha1`                       |
+| `src/services/guild/guild-config.ts`                         | Resolve new fields; `applyUdbrWc3statsPreset`; `clearGuildWc3statsPackage` |
+| `src/services/guild/guild-config.test.ts`                    | Resolve defaults, preset, clear                                            |
+| `src/services/wc3stats/wc3stats-resolve.ts`                  | Accept map filter args; stop reading env pattern/sha1                      |
+| `src/commands/config/config.ts`                              | Preset package write; `clear wc3stats`; view lines                         |
+| `src/commands/lobby/register-lobby.ts`                       | Resolve guild; pass enabled/filter                                         |
+| `src/services/lobby/wc3stats-refresh.ts`                     | Guild-resolved enable + filter                                             |
+| `src/services/lobby/discord-sync.ts`                         | Guild-resolved enable for buttons                                          |
+| `src/config/env.ts` + `.env.example` + `scripts-and-env.mdc` | Drop three keys; keep timeout                                              |
+| `infra/aws/*` + `deploy/aws/refresh-env.sh`                  | Drop three SSM/env writer lines                                            |
+| `docs/discord/staff/a4-wc3stats-mapping.md`                  | Preset-only enable (not ops `.env`)                                        |
 
 ---
 
 ### Task 1: Prisma columns + migration
 
 **Files:**
+
 - Modify: `prisma/schema.prisma` (`GuildConfig` model)
 - Create: `prisma/migrations/<timestamp>_guild_wc3stats_config/migration.sql`
 
 **Interfaces:**
+
 - Produces: `GuildConfig.wc3statsEnabled Boolean @default(false)`, `wc3statsMapPattern String?`, `wc3statsMapSha1 String?`
 
 - [ ] **Step 1: Extend `GuildConfig` in schema**
@@ -96,11 +98,13 @@ EOF
 ### Task 2: UDBR filter constants + sha1 parser
 
 **Files:**
+
 - Modify: `src/services/wc3stats/wc3stats-slot-map.ts`
 - Modify: `src/services/wc3stats/wc3stats-slot-map.test.ts`
 - Modify: `src/services/wc3stats/index.ts` (re-exports)
 
 **Interfaces:**
+
 - Produces:
   - `UDBR_WC3STATS_MAP_PATTERN = 'ultimate.?dragon.?ball.?reborn|udbr'`
   - `UDBR_WC3STATS_MAP_SHA1 = '19783c6259e86253a8c940ede63a87e18204bd94'`
@@ -132,9 +136,7 @@ describe('parseWc3statsMapSha1', () => {
 describe('UDBR filter constants', () => {
   it('matches the historical env defaults', () => {
     expect(UDBR_WC3STATS_MAP_PATTERN).toBe('ultimate.?dragon.?ball.?reborn|udbr');
-    expect(UDBR_WC3STATS_MAP_SHA1).toBe(
-      '19783c6259e86253a8c940ede63a87e18204bd94',
-    );
+    expect(UDBR_WC3STATS_MAP_SHA1).toBe('19783c6259e86253a8c940ede63a87e18204bd94');
   });
 });
 ```
@@ -154,8 +156,7 @@ In `wc3stats-slot-map.ts`, after `UDBR_WC3STATS_SLOT_MAP`:
 export const UDBR_WC3STATS_MAP_PATTERN = 'ultimate.?dragon.?ball.?reborn|udbr';
 
 /** Comma-separated map.sha1 allowlist for UDBR 2.4f (gamelist detail, not list hash). */
-export const UDBR_WC3STATS_MAP_SHA1 =
-  '19783c6259e86253a8c940ede63a87e18204bd94';
+export const UDBR_WC3STATS_MAP_SHA1 = '19783c6259e86253a8c940ede63a87e18204bd94';
 
 export function parseWc3statsMapSha1(raw: string | null | undefined): string[] {
   return (raw ?? '')
@@ -189,11 +190,13 @@ EOF
 ### Task 3: Resolve + apply preset + clear package
 
 **Files:**
+
 - Modify: `src/services/guild/guild-config.ts`
 - Modify: `src/services/guild/guild-config.test.ts`
 - Modify: `src/services/guild/index.ts`
 
 **Interfaces:**
+
 - Consumes: `UDBR_WC3STATS_*`, `parseWc3statsMapSha1`, `replaceGuildWc3statsSlotMaps`, `clearAllGuildWc3statsSlotMaps`, `UDBR_WC3STATS_SLOT_MAP`
 - Produces (extend `ResolvedGuildConfig`):
   - `wc3statsEnabled: boolean`
@@ -205,6 +208,7 @@ EOF
   - `isGuildWc3statsImportReady(resolved: Pick<ResolvedGuildConfig, 'wc3statsEnabled' | 'wc3statsMapPattern'>): boolean` — `enabled && Boolean(pattern)`
 
 **Resolution rules (no env):**
+
 - `wc3statsEnabled` → `row?.wc3statsEnabled === true` else `false`
 - pattern → trimmed non-empty DB string else `undefined`
 - sha1 → `parseWc3statsMapSha1(row?.wc3statsMapSha1)`
@@ -349,10 +353,12 @@ EOF
 ### Task 4: `/config` command — preset, clear, view
 
 **Files:**
+
 - Modify: `src/commands/config/config.ts`
 - Modify: `docs/discord/staff/a4-wc3stats-mapping.md`
 
 **Interfaces:**
+
 - Consumes: `applyUdbrWc3statsPreset`, `clearGuildWc3statsPackage`, `resolveGuildConfig`
 - Produces: slash `clear wc3stats`; preset no longer only replaces slots
 
@@ -377,10 +383,7 @@ function formatWc3statsEnabledLine(enabled: boolean): string {
   return `**wc3stats import:** \`${enabled ? 'on' : 'off'}\``;
 }
 
-function formatWc3statsFilterLines(
-  pattern: string | undefined,
-  sha1: string[],
-): string[] {
+function formatWc3statsFilterLines(pattern: string | undefined, sha1: string[]): string[] {
   return [
     `**wc3stats map pattern:** ${pattern ? `\`${pattern}\`` : '`unset`'}`,
     `**wc3stats map sha1:** ${
@@ -411,8 +414,7 @@ In `clear` group:
 if (subcommand === 'wc3stats') {
   await clearGuildWc3statsPackage(interaction.guildId);
   await interaction.reply({
-    content:
-      'wc3stats import disabled. Map filter and slot mappings cleared for this server.',
+    content: 'wc3stats import disabled. Map filter and slot mappings cleared for this server.',
     flags: MessageFlags.Ephemeral,
   });
   return;
@@ -451,10 +453,12 @@ EOF
 ### Task 5: `importWc3statsLobby` takes filter from caller
 
 **Files:**
+
 - Modify: `src/services/wc3stats/wc3stats-resolve.ts`
 - Modify: `src/services/wc3stats/wc3stats-resolve.test.ts` (any tests that call import)
 
 **Interfaces:**
+
 - Consumes: still `env.wc3statsTimeoutMs` only
 - Produces: `importWc3statsLobby` input adds required:
   - `mapPattern: string`
@@ -514,11 +518,13 @@ EOF
 ### Task 6: Wire register / refresh / discord-sync
 
 **Files:**
+
 - Modify: `src/commands/lobby/register-lobby.ts`
 - Modify: `src/services/lobby/wc3stats-refresh.ts`
 - Modify: `src/services/lobby/discord-sync.ts`
 
 **Interfaces:**
+
 - Consumes: `resolveGuildConfig`, `isGuildWc3statsImportReady`
 - Pattern: resolve once per guild interaction; pass `wc3statsEnabled: isGuildWc3statsImportReady(resolved)` into source/preview; pass pattern/sha1 into `importWc3statsLobby`
 
@@ -527,12 +533,8 @@ EOF
 Near start (after guildId known):
 
 ```typescript
-const guildConfig = interaction.guildId
-  ? await resolveGuildConfig(interaction.guildId)
-  : null;
-const wc3statsReady = guildConfig
-  ? isGuildWc3statsImportReady(guildConfig)
-  : false;
+const guildConfig = interaction.guildId ? await resolveGuildConfig(interaction.guildId) : null;
+const wc3statsReady = guildConfig ? isGuildWc3statsImportReady(guildConfig) : false;
 ```
 
 Replace every `env.wc3statsEnabled` with `wc3statsReady`.
@@ -553,7 +555,9 @@ Remove `env` import if unused.
 Replace `env.wc3statsEnabled` checks with resolve on `input.guildId` / channel-derived guild:
 
 ```typescript
-async function assertWc3statsImportReady(guildId: string | null | undefined): Promise<ResolvedGuildConfig> {
+async function assertWc3statsImportReady(
+  guildId: string | null | undefined,
+): Promise<ResolvedGuildConfig> {
   if (!guildId) {
     throw new MatchServiceError(WC3STATS_IMPORT_DISABLED_MESSAGE);
   }
@@ -597,6 +601,7 @@ EOF
 ### Task 7: Remove process env + AWS SSM keys
 
 **Files:**
+
 - Modify: `src/config/env.ts`
 - Modify: `.env.example`
 - Modify: `.cursor/rules/scripts-and-env.mdc`
@@ -686,18 +691,18 @@ Do not implement team names, hero catalogs, or extra presets in this plan. Spec 
 
 ## Self-review (plan vs spec)
 
-| Spec requirement | Task |
-|------------------|------|
-| Three `GuildConfig` columns | Task 1 |
-| No env fallback; default off/empty | Tasks 3, 7 |
-| UDBR constants copied by preset | Tasks 2–4 |
-| `clear wc3stats` full package; layout clears unchanged | Task 4 |
-| `view` shows enabled/pattern/sha1 | Task 4 |
-| Call sites use resolve, not env | Tasks 5–6 |
-| Empty filter fail-closed | Tasks 3 (`isGuildWc3statsImportReady`), 5 (empty pattern throw) |
-| Remove three env/SSM keys; keep timeout | Task 7 |
-| Staff docs | Task 4 |
-| Post-deploy preset once | Task 8 |
-| Part 2 fat presets documented, not built | Global Constraints + Task 8 |
+| Spec requirement                                       | Task                                                            |
+| ------------------------------------------------------ | --------------------------------------------------------------- |
+| Three `GuildConfig` columns                            | Task 1                                                          |
+| No env fallback; default off/empty                     | Tasks 3, 7                                                      |
+| UDBR constants copied by preset                        | Tasks 2–4                                                       |
+| `clear wc3stats` full package; layout clears unchanged | Task 4                                                          |
+| `view` shows enabled/pattern/sha1                      | Task 4                                                          |
+| Call sites use resolve, not env                        | Tasks 5–6                                                       |
+| Empty filter fail-closed                               | Tasks 3 (`isGuildWc3statsImportReady`), 5 (empty pattern throw) |
+| Remove three env/SSM keys; keep timeout                | Task 7                                                          |
+| Staff docs                                             | Task 4                                                          |
+| Post-deploy preset once                                | Task 8                                                          |
+| Part 2 fat presets documented, not built               | Global Constraints + Task 8                                     |
 
 No intentional placeholders. Type names: `applyUdbrWc3statsPreset`, `clearGuildWc3statsPackage`, `isGuildWc3statsImportReady`, `parseWc3statsMapSha1` consistent across tasks.

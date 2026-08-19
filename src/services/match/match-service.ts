@@ -10,12 +10,13 @@ import { prisma } from '../../lib/prisma.js';
 import { createLogger } from '../../lib/logger.js';
 import type { LobbyPlayer } from '../lobby/lobby-ocr.js';
 import { normalizeNick } from '../player/player-nick.js';
-import { assertHeroCatalogReady, assertHeroExists, HeroCatalogError } from '../guild/hero-catalog.js';
-import { isLeagueWritable, LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
 import {
-  getGameProfileForLeague,
-  LeagueNotFoundError,
-} from '../league/league-profile.js';
+  assertHeroCatalogReady,
+  assertHeroExists,
+  HeroCatalogError,
+} from '../guild/hero-catalog.js';
+import { isLeagueWritable, LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
+import { getGameProfileForLeague, LeagueNotFoundError } from '../league/league-profile.js';
 
 const log = createLogger('match');
 
@@ -213,10 +214,7 @@ export function duplicateWc3statsMatchMessage(matchId: string): string {
   return `That Warcraft lobby is already registered as match ${matchId}.`;
 }
 
-export function hostLobbyCapMessage(
-  status: 'PENDING' | 'IN_PROGRESS',
-  matchId: string,
-): string {
+export function hostLobbyCapMessage(status: 'PENDING' | 'IN_PROGRESS', matchId: string): string {
   if (status === 'IN_PROGRESS') {
     return `You already have a match in progress (${matchId}). Report or cancel it before opening another lobby.`;
   }
@@ -462,9 +460,7 @@ export async function getMatchById(matchId: string): Promise<MatchWithPlayers | 
   });
 }
 
-export async function findPendingMatchesByHost(
-  hostDiscordId: string,
-): Promise<MatchWithPlayers[]> {
+export async function findPendingMatchesByHost(hostDiscordId: string): Promise<MatchWithPlayers[]> {
   return prisma.match.findMany({
     where: {
       hostDiscordId,
@@ -679,7 +675,10 @@ export async function cancelStalePendingMatches(
     data: { status: 'CANCELLED' },
   });
 
-  log.info({ cancelled: stale.length, cutoff: cutoff.toISOString() }, 'Cancelled stale pending matches');
+  log.info(
+    { cancelled: stale.length, cutoff: cutoff.toISOString() },
+    'Cancelled stale pending matches',
+  );
 
   return stale;
 }

@@ -21,10 +21,7 @@ describe('QUITTER_SYNTHETIC_LOSSES', () => {
 
 describe('buildDummyOpponentTeam', () => {
   it('mirrors the player team μ/σ (peer dummy, not a fixed strong opponent)', () => {
-    const playerTeam = [
-      rating({ mu: 28, sigma: 6 }),
-      rating({ mu: 22, sigma: 7.5 }),
-    ];
+    const playerTeam = [rating({ mu: 28, sigma: 6 }), rating({ mu: 22, sigma: 7.5 })];
     const dummy = buildDummyOpponentTeam(playerTeam);
 
     expect(dummy).toHaveLength(2);
@@ -37,10 +34,7 @@ describe('buildDummyOpponentTeam', () => {
 
 describe('applySyntheticLosses', () => {
   it('lowers the player team after peer losses', () => {
-    const before = [
-      rating({ mu: 25, sigma: 8.333 }),
-      rating({ mu: 25, sigma: 8.333 }),
-    ];
+    const before = [rating({ mu: 25, sigma: 8.333 }), rating({ mu: 25, sigma: 8.333 })];
 
     const after = applySyntheticLosses(before);
 
@@ -50,10 +44,7 @@ describe('applySyntheticLosses', () => {
   });
 
   it('drops cold-start mu more than the old strong-dummy N=3 path (~23.55)', () => {
-    const before = [
-      rating({ mu: 25, sigma: 8.333 }),
-      rating({ mu: 25, sigma: 8.333 }),
-    ];
+    const before = [rating({ mu: 25, sigma: 8.333 }), rating({ mu: 25, sigma: 8.333 })];
 
     const after = applySyntheticLosses(before);
 

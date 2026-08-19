@@ -1,9 +1,5 @@
 import type { GameProfile, TeamId } from '../../domain/game-profile.js';
-import {
-  invalidSlotMessage,
-  isSlotInProfile,
-  teamForSlot,
-} from '../../domain/game-profile.js';
+import { invalidSlotMessage, isSlotInProfile, teamForSlot } from '../../domain/game-profile.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
 import { MatchServiceError } from '../match/match-service.js';
 import { normalizeNick } from '../player/player-nick.js';
@@ -29,20 +25,10 @@ export function parseTeamInput(raw: string, profile: GameProfile): TeamId {
     );
   }
 
-  if (
-    trimmed === '1' ||
-    trimmed === 'a' ||
-    trimmed === 'team a' ||
-    trimmed === 'team 1'
-  ) {
+  if (trimmed === '1' || trimmed === 'a' || trimmed === 'team a' || trimmed === 'team 1') {
     return 1;
   }
-  if (
-    trimmed === '2' ||
-    trimmed === 'b' ||
-    trimmed === 'team b' ||
-    trimmed === 'team 2'
-  ) {
+  if (trimmed === '2' || trimmed === 'b' || trimmed === 'team b' || trimmed === 'team 2') {
     return 2;
   }
 
@@ -55,9 +41,7 @@ export function parseTeamInput(raw: string, profile: GameProfile): TeamId {
     return 2;
   }
 
-  throw new MatchServiceError(
-    `Enter 1 (${profile.teamNames[1]}) or 2 (${profile.teamNames[2]}).`,
-  );
+  throw new MatchServiceError(`Enter 1 (${profile.teamNames[1]}) or 2 (${profile.teamNames[2]}).`);
 }
 
 /** Lowest empty slot on the given team, or throw if that team is full. */
@@ -133,9 +117,7 @@ export function removePlayer(
       const nick = normalizeNick(nickRaw);
 
       if (target.nick !== nick) {
-        throw new MatchServiceError(
-          `Slot ${slot} is occupied by "${target.nick}", not "${nick}".`,
-        );
+        throw new MatchServiceError(`Slot ${slot} is occupied by "${target.nick}", not "${nick}".`);
       }
     }
   } else {
@@ -171,9 +153,7 @@ export function movePlayer(
     return swapPlayers(players, fromSlot, toSlot, profile);
   }
 
-  return players.map((player) =>
-    player.slot === fromSlot ? { ...player, slot: toSlot } : player,
-  );
+  return players.map((player) => (player.slot === fromSlot ? { ...player, slot: toSlot } : player));
 }
 
 export function swapPlayers(

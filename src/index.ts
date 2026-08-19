@@ -15,7 +15,11 @@ let client: Client | undefined;
 
 async function bootstrap(): Promise<void> {
   log.info(
-    { autoDeployCommands: env.autoDeployCommands, isDev: env.isDev, logLevel: env.logLevel ?? (env.isDev ? 'debug' : 'info') },
+    {
+      autoDeployCommands: env.autoDeployCommands,
+      isDev: env.isDev,
+      logLevel: env.logLevel ?? (env.isDev ? 'debug' : 'info'),
+    },
     'Starting bot',
   );
 

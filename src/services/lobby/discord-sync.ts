@@ -102,8 +102,9 @@ export async function syncLobbyDiscordMessage(
       match.leagueId,
       matchPlayersToRatingEntries(match.players),
     );
-    const { playerClaimEnabled, wc3statsReady } =
-      await resolveLeagueSettingsForLobby(match.leagueId);
+    const { playerClaimEnabled, wc3statsReady } = await resolveLeagueSettingsForLobby(
+      match.leagueId,
+    );
     payload = {
       embeds: [
         buildMatchLobbyEmbed(match.id, players, {
@@ -149,12 +150,7 @@ export async function syncLobbyDiscordMessage(
     };
   } else {
     payload = {
-      embeds: [
-        buildMatchCancelledEmbed(
-          match.id,
-          options.cancelReason ?? 'by the host',
-        ),
-      ],
+      embeds: [buildMatchCancelledEmbed(match.id, options.cancelReason ?? 'by the host')],
       components: [],
     };
   }

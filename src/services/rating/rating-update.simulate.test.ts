@@ -62,17 +62,9 @@ describe('simulatePostMatchRatings', () => {
       ['lowC', 20],
     ]);
 
-    const after = simulatePostMatchRatings(
-      entries,
-      2,
-      startGlobal,
-      startHero,
-      games,
-    );
-    const highDelta =
-      displayOrdinal(after.globalByPlayer.get('high')!.mu, highSigma, 21) - highKi;
-    const lowDelta =
-      displayOrdinal(after.globalByPlayer.get('lowA')!.mu, lowSigma, 21) - lowKi;
+    const after = simulatePostMatchRatings(entries, 2, startGlobal, startHero, games);
+    const highDelta = displayOrdinal(after.globalByPlayer.get('high')!.mu, highSigma, 21) - highKi;
+    const lowDelta = displayOrdinal(after.globalByPlayer.get('lowA')!.mu, lowSigma, 21) - lowKi;
 
     expect(Math.abs(highDelta)).toBeGreaterThan(15);
     expect(Math.abs(lowDelta)).toBeLessThan(Math.abs(highDelta) * 3);

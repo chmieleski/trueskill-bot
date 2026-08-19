@@ -3,10 +3,12 @@
 **Quitters** = players who left early / abandoned.
 
 Mark them **before** or **with** the final report:
+
 ```
 /match quitters slots:2,8
 /match complete winner:Evil quitters:2,8
 ```
+
 Slots are **1–12**, comma-separated.
 
 **What happens**
@@ -15,9 +17,11 @@ Slots are **1–12**, comma-separated.
 • Everyone else still gets a normal win/loss update when you complete
 
 **Cancel**
+
 ```
 /match cancel
 ```
+
 If quitters were already marked, cancel can still apply those penalties.
 Use cancel for broken lobbies / wrong starts — not to hide a real loss.
 

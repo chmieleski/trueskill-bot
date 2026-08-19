@@ -8,7 +8,7 @@
 
 ## Goal
 
-When a Discord channel is a **ready** lobby channel for **any** league in the guild, keep that channel focused on live lobby/match ops. Unrelated slash commands are refused with an ephemeral error. Lobby **creation** remains gated *into* that channel by the existing create assert; this feature only restricts what else can run *inside* it.
+When a Discord channel is a **ready** lobby channel for **any** league in the guild, keep that channel focused on live lobby/match ops. Unrelated slash commands are refused with an ephemeral error. Lobby **creation** remains gated _into_ that channel by the existing create assert; this feature only restricts what else can run _inside_ it.
 
 ## Non-goals
 
@@ -22,20 +22,20 @@ When a Discord channel is a **ready** lobby channel for **any** league in the gu
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Trigger | Channel is a ready lobby channel if **any** `League` in the guild has `lobbyChannelEnabled === true` and trimmed `lobbyChannelId === interaction.channelId` |
-| Gate off | If no such league → no allowlist (unchanged behavior) |
-| Enforcement | Central gate in `interaction-create.ts` before slash `execute` **and** before command autocomplete |
-| Components | **Not** gated |
-| Create gate | Unchanged (`assertLeagueLobbyCreateChannel`) |
-| Allowlist roots | `/register_lobby`, `/lobby` (all subcommands) |
-| `/match` allowlist | Subcommands **only**: `complete`, `cancel`, `quitters` |
-| `/match` blocked | `history`, `show`, `flip`, `void` (and any future subcommand not on the allowlist) |
-| All other slash commands | Blocked in that channel (`/rank`, `/link`, `/leaderboard`, `/config`, `/league`, `/settings`, …) |
-| New commands | Default **blocked** in lobby channel unless added to the allowlist |
-| Error copy | `Only lobby and match commands can be used in <#lobbyChannelId>.` |
-| Tenancy | Lookup by `guildId` + `channelId` across leagues; no change to match/rating isolation |
+| Topic                    | Choice                                                                                                                                                      |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Trigger                  | Channel is a ready lobby channel if **any** `League` in the guild has `lobbyChannelEnabled === true` and trimmed `lobbyChannelId === interaction.channelId` |
+| Gate off                 | If no such league → no allowlist (unchanged behavior)                                                                                                       |
+| Enforcement              | Central gate in `interaction-create.ts` before slash `execute` **and** before command autocomplete                                                          |
+| Components               | **Not** gated                                                                                                                                               |
+| Create gate              | Unchanged (`assertLeagueLobbyCreateChannel`)                                                                                                                |
+| Allowlist roots          | `/register_lobby`, `/lobby` (all subcommands)                                                                                                               |
+| `/match` allowlist       | Subcommands **only**: `complete`, `cancel`, `quitters`                                                                                                      |
+| `/match` blocked         | `history`, `show`, `flip`, `void` (and any future subcommand not on the allowlist)                                                                          |
+| All other slash commands | Blocked in that channel (`/rank`, `/link`, `/leaderboard`, `/config`, `/league`, `/settings`, …)                                                            |
+| New commands             | Default **blocked** in lobby channel unless added to the allowlist                                                                                          |
+| Error copy               | `Only lobby and match commands can be used in <#lobbyChannelId>.`                                                                                           |
+| Tenancy                  | Lookup by `guildId` + `channelId` across leagues; no change to match/rating isolation                                                                       |
 
 ## Allowlist
 
@@ -58,11 +58,11 @@ ChatInputCommand | Autocomplete
   → else existing dispatch
 ```
 
-| Helper | Role |
-|--------|------|
-| `isGuildLobbyChannel(guildId, channelId)` | DB: any ready league in guild with that `lobbyChannelId` |
-| `isLobbyChannelAllowedCommand(commandName, subcommand?)` | Pure allowlist |
-| Optional thin wrapper | Resolve deny message for callers |
+| Helper                                                   | Role                                                     |
+| -------------------------------------------------------- | -------------------------------------------------------- |
+| `isGuildLobbyChannel(guildId, channelId)`                | DB: any ready league in guild with that `lobbyChannelId` |
+| `isLobbyChannelAllowedCommand(commandName, subcommand?)` | Pure allowlist                                           |
+| Optional thin wrapper                                    | Resolve deny message for callers                         |
 
 Prefer colocating these next to existing lobby-channel helpers (`src/services/league/league-lobby-channel.ts` or a small sibling module re-exported from `src/services/league/index.ts`).
 
@@ -87,34 +87,34 @@ interaction-create (slash / autocomplete)
   → (components unchanged — no gate)
 ```
 
-| File | Change |
-|------|--------|
-| `src/services/league/league-lobby-channel.ts` (or sibling) | `isGuildLobbyChannel`, allowlist helper, deny message |
-| `src/services/league/league-lobby-channel.test.ts` (or sibling test) | Unit tests for ready lookup + allowlist |
-| `src/services/league/index.ts` | Re-export if needed |
-| `src/events/interaction-create.ts` | Gate before autocomplete and `execute` |
+| File                                                                 | Change                                                |
+| -------------------------------------------------------------------- | ----------------------------------------------------- |
+| `src/services/league/league-lobby-channel.ts` (or sibling)           | `isGuildLobbyChannel`, allowlist helper, deny message |
+| `src/services/league/league-lobby-channel.test.ts` (or sibling test) | Unit tests for ready lookup + allowlist               |
+| `src/services/league/index.ts`                                       | Re-export if needed                                   |
+| `src/events/interaction-create.ts`                                   | Gate before autocomplete and `execute`                |
 
 No Prisma migration. No `/config` copy change required (optional later: staff docs note that the lobby channel also limits slash commands).
 
 ## Edge cases
 
-| Case | Behavior |
-|------|----------|
-| Lobby channel not ready / disabled | No allowlist |
-| Same channel ready for two leagues | Still gated once (any-league trigger) |
-| DM / no `channelId` | Skip gate (existing command handling) |
-| `/match history` in lobby channel | Deny |
-| `/match complete` in lobby channel | Allow (subject to existing auth) |
-| `/config view` in lobby channel | Deny |
-| Button on lobby embed in lobby channel | Allow (no gate) |
-| Leaderboard pagination button in lobby channel | Allow (no gate; rare if message was posted there) |
-| Autocomplete for `/rank` in lobby channel | No choices; do not execute underlying autocomplete |
-| Command used outside lobby channel | Unchanged (create still limited *to* lobby when ready) |
+| Case                                           | Behavior                                               |
+| ---------------------------------------------- | ------------------------------------------------------ |
+| Lobby channel not ready / disabled             | No allowlist                                           |
+| Same channel ready for two leagues             | Still gated once (any-league trigger)                  |
+| DM / no `channelId`                            | Skip gate (existing command handling)                  |
+| `/match history` in lobby channel              | Deny                                                   |
+| `/match complete` in lobby channel             | Allow (subject to existing auth)                       |
+| `/config view` in lobby channel                | Deny                                                   |
+| Button on lobby embed in lobby channel         | Allow (no gate)                                        |
+| Leaderboard pagination button in lobby channel | Allow (no gate; rare if message was posted there)      |
+| Autocomplete for `/rank` in lobby channel      | No choices; do not execute underlying autocomplete     |
+| Command used outside lobby channel             | Unchanged (create still limited _to_ lobby when ready) |
 
 ## Error copy (English)
 
-| Case | Message |
-|------|---------|
+| Case                                   | Message                                               |
+| -------------------------------------- | ----------------------------------------------------- |
 | Slash command blocked in lobby channel | `Only lobby and match commands can be used in <#id>.` |
 
 Use the interaction’s `channelId` (the ready lobby channel) in the mention.

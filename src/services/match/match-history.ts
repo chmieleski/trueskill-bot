@@ -1,9 +1,4 @@
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder,
-} from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { prisma } from '../../lib/prisma.js';
 import { loadHeroCatalog } from '../guild/hero-catalog.js';
 import { listLeaguesForGuild } from '../league/league.js';
@@ -21,10 +16,7 @@ import {
   countCompletedGamesThrough,
   loadLatestRankResetAtByPlayer,
 } from '../rating/rank-reset-display.js';
-import {
-  findPlayerForRankLookup,
-  type RankLookup,
-} from '../player/player-profile.js';
+import { findPlayerForRankLookup, type RankLookup } from '../player/player-profile.js';
 import {
   loadPlayerGlobalDeltaForMatch,
   resolveCompletedRatingPreview,
@@ -153,9 +145,7 @@ export async function resolveHistoryPlayer(
   lookup: RankLookup,
 ): Promise<{ id: string; username: string }> {
   if (lookup.kind === 'both') {
-    throw new MatchServiceError(
-      'Provide either a Discord user or a nick, not both.',
-    );
+    throw new MatchServiceError('Provide either a Discord user or a nick, not both.');
   }
 
   const player = await findPlayerForRankLookup(gameId, lookup);
@@ -278,7 +268,9 @@ export function buildMatchHistoryEmbed(
     .setColor(0xf0b232)
     .setAuthor({ name: page.targetUsername })
     .setTitle('Match history')
-    .setDescription(`Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`);
+    .setDescription(
+      `Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`,
+    );
 
   if (page.rows.length === 0) {
     embed.addFields({

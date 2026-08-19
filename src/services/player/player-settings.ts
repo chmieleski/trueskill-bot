@@ -1,8 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
 import { PlayerServiceError } from './player-profile.js';
 
-const NOT_LINKED =
-  'Link your nick with /link before changing host lobby prompt settings.';
+const NOT_LINKED = 'Link your nick with /link before changing host lobby prompt settings.';
 
 /**
  * Read whether a linked player wants wc3stats host-lobby pings.

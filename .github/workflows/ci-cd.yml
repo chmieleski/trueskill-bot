@@ -13,17 +13,17 @@ jobs:
       contents: read
     env:
       DISCORD_TOKEN: ci
-      CLIENT_ID: "0"
-      GUILD_ID: "0"
+      CLIENT_ID: '0'
+      GUILD_ID: '0'
       DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
       DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/ci
       GEMINI_API_KEY: ci
-      HUSKY: "0"
+      HUSKY: '0'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
           cache: npm
       - run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
       - run: 'git config --global url."https://github.com/".insteadOf git@github.com:'
@@ -33,6 +33,26 @@ jobs:
       - run: npx prisma generate
       - run: npm test
 
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      HUSKY: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+      - run: 'git config --global url."https://github.com/".insteadOf git@github.com:'
+      - run: git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
+      - run: npm install -g npm@11
+      - run: npm ci
+      - run: npm run format:check
+
   commitlint:
     name: Commitlint
     if: github.event_name == 'pull_request'
@@ -40,12 +60,12 @@ jobs:
     permissions:
       contents: read
     env:
-      HUSKY: "0"
+      HUSKY: '0'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
           cache: npm
       - run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
       - run: 'git config --global url."https://github.com/".insteadOf git@github.com:'
@@ -59,7 +79,7 @@ jobs:
 
   release:
     name: Release
-    needs: test
+    needs: [test, format]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -67,7 +87,7 @@ jobs:
       issues: write
       pull-requests: write
     env:
-      HUSKY: "0"
+      HUSKY: '0'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -75,7 +95,7 @@ jobs:
           persist-credentials: true
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
           cache: npm
       - run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
       - run: 'git config --global url."https://github.com/".insteadOf git@github.com:'

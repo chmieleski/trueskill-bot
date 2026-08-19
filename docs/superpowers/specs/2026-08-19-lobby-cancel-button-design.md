@@ -21,16 +21,16 @@ Hosts and match mods can cancel a **pending** lobby from the public lobby card, 
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Who | Host, match-mod role, or universal match mod (`assertCanManageMatch`) |
-| Confirm | Ephemeral Confirm / Keep before cancel |
-| Placement | Own last row on the pending card (not on Start / Refresh) |
-| Visibility | Always on unlocked pending cards, including when Start is hidden |
-| Public style | Label `Cancel`, `ButtonStyle.Secondary` (same as in-progress) |
-| Confirm labels | `Cancel Lobby` (Danger), `Keep Lobby` (Secondary) |
-| Use-case | Existing `cancelLobbyMatch` with `matchId` from the card |
-| Slash command | Unchanged |
+| Topic          | Choice                                                                |
+| -------------- | --------------------------------------------------------------------- |
+| Who            | Host, match-mod role, or universal match mod (`assertCanManageMatch`) |
+| Confirm        | Ephemeral Confirm / Keep before cancel                                |
+| Placement      | Own last row on the pending card (not on Start / Refresh)             |
+| Visibility     | Always on unlocked pending cards, including when Start is hidden      |
+| Public style   | Label `Cancel`, `ButtonStyle.Secondary` (same as in-progress)         |
+| Confirm labels | `Cancel Lobby` (Danger), `Keep Lobby` (Secondary)                     |
+| Use-case       | Existing `cancelLobbyMatch` with `matchId` from the card              |
+| Slash command  | Unchanged                                                             |
 
 ## Architecture
 
@@ -45,11 +45,11 @@ public Cancel (lobby:cancel)
 
 Custom ids stay in the lobby namespace so they never collide with in-progress `match:cancel`:
 
-| Step | customId |
-|------|----------|
-| Public button | `lobby:cancel` |
-| Confirm | `lobby:cancel:ok:{matchId}` |
-| Keep | `lobby:cancel:no:{matchId}` |
+| Step          | customId                    |
+| ------------- | --------------------------- |
+| Public button | `lobby:cancel`              |
+| Confirm       | `lobby:cancel:ok:{matchId}` |
+| Keep          | `lobby:cancel:no:{matchId}` |
 
 Pending cancel never applies quitter penalties. Confirm copy must not mention them. `cancelLobbyMatch` already sets `cancelReason` to `by the host` or `by a moderator`.
 
@@ -57,12 +57,12 @@ Everyone can see the public button. Unauthorized clicks get `Only the match host
 
 ## Components
 
-| Piece | Role |
-|-------|------|
-| `src/services/lobby/lobby-preview.ts` | `LOBBY_CUSTOM_IDS.cancel = 'lobby:cancel'`. `buildLobbyButtons` always appends a last row with Cancel when the card is not `locked`. |
+| Piece                                            | Role                                                                                                                                                                                    |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/services/lobby/lobby-preview.ts`            | `LOBBY_CUSTOM_IDS.cancel = 'lobby:cancel'`. `buildLobbyButtons` always appends a last row with Cancel when the card is not `locked`.                                                    |
 | `src/discord/interactions/lobby-interactions.ts` | Thin adapter: resolve pending match, auth, ephemeral confirm, then `cancelLobbyMatch`. Uses existing `replyEphemeral` / `updateEphemeral` (delete-previous on new public→private open). |
-| `src/services/lobby/lifecycle.ts` | `cancelLobbyMatch` unchanged. Confirm passes `matchId`. |
-| `docs/discord/public/04-fix-the-lobby.md` | List Cancel with the other host tools. |
+| `src/services/lobby/lifecycle.ts`                | `cancelLobbyMatch` unchanged. Confirm passes `matchId`.                                                                                                                                 |
+| `docs/discord/public/04-fix-the-lobby.md`        | List Cancel with the other host tools.                                                                                                                                                  |
 
 `/lobby cancel` continues to call `cancelLobbyMatch`. Do not fork cancel logic into the button handler.
 
@@ -84,15 +84,15 @@ Keep: do **not** resolve PENDING and do **not** call `cancelLobbyMatch`. Update 
 
 ## Error handling
 
-| Case | Behavior |
-|------|----------|
-| Not host / not match mod | Ephemeral: `Only the match host or a match moderator can do that.` No confirm. |
-| Not in a guild | Server-only error; no confirm. |
-| Message has no PENDING match / already started or cancelled | Existing resolve copy: not found or `This match can no longer be edited.` |
-| Confirm after someone else cancelled or started | Re-resolve by `matchId`; same not-editable / not-found errors. Public card already updated. |
-| Keep after it was already cancelled | Still “was not cancelled” for this click; do not restore the lobby. |
-| Two people confirm at once | `cancelMatch` refuses non-PENDING. Second click gets the not-editable message. |
-| Stale 2h auto-cancel | Same as today; button gone once the card is locked. |
+| Case                                                        | Behavior                                                                                    |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Not host / not match mod                                    | Ephemeral: `Only the match host or a match moderator can do that.` No confirm.              |
+| Not in a guild                                              | Server-only error; no confirm.                                                              |
+| Message has no PENDING match / already started or cancelled | Existing resolve copy: not found or `This match can no longer be edited.`                   |
+| Confirm after someone else cancelled or started             | Re-resolve by `matchId`; same not-editable / not-found errors. Public card already updated. |
+| Keep after it was already cancelled                         | Still “was not cancelled” for this click; do not restore the lobby.                         |
+| Two people confirm at once                                  | `cancelMatch` refuses non-PENDING. Second click gets the not-editable message.              |
+| Stale 2h auto-cancel                                        | Same as today; button gone once the card is locked.                                         |
 
 Row budget: pending cards already use at most three rows (Start/Refresh, roster, claim). Cancel adds a fourth. Discord’s max is five.
 
@@ -113,9 +113,9 @@ Manual:
 
 ## Rejected alternatives
 
-| Option | Why not |
-|--------|---------|
-| Reuse `match:cancel` in match-interactions | Mixes pending void with in-progress cancel (quitter penalties) |
-| Confirm on the public card | Other players see it; Start/Refresh can race with it |
-| Immediate cancel (no confirm) | Easy to misclick a public button |
-| Anyone who can see the lobby | Roster buttons are open; cancel is destructive and already host/mod on the slash path |
+| Option                                     | Why not                                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------------------- |
+| Reuse `match:cancel` in match-interactions | Mixes pending void with in-progress cancel (quitter penalties)                        |
+| Confirm on the public card                 | Other players see it; Start/Refresh can race with it                                  |
+| Immediate cancel (no confirm)              | Easy to misclick a public button                                                      |
+| Anyone who can see the lobby               | Roster buttons are open; cancel is destructive and already host/mod on the slash path |

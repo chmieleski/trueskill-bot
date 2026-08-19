@@ -8,10 +8,7 @@ export const UNLINKED_DISCORD_MESSAGE =
  * Resolve the linked in-game nick for a Discord user in a specific game.
  * Throws when the account has no Player bind for that gameId.
  */
-export async function nickForDiscordId(
-  discordId: string,
-  gameId: string,
-): Promise<string> {
+export async function nickForDiscordId(discordId: string, gameId: string): Promise<string> {
   const player = await prisma.player.findUnique({
     where: { gameId_discordId: { gameId, discordId } },
   });

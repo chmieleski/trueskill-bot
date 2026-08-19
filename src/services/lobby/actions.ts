@@ -14,10 +14,7 @@ import {
 } from './roster.js';
 import { applyRemapPairs } from './remap.js';
 import { applyRosterAndSync, type LobbyActionResult } from './discord-sync.js';
-import {
-  resolveHostPendingMatch,
-  resolvePendingMatchByMessageId,
-} from './resolve.js';
+import { resolveHostPendingMatch, resolvePendingMatchByMessageId } from './resolve.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
 
 export type { LobbyActionResult };

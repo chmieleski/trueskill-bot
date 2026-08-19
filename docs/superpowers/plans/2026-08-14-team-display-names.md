@@ -21,26 +21,28 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `src/services/team-names.ts` | **Create** — constants + `teamDisplayName` / `teamDisplayNameForSlot` |
-| `src/services/team-names.test.ts` | **Create** — unit tests |
-| `src/services/lobby-preview.ts` | Embed field names + winner description |
-| `src/services/lobby-preview.test.ts` | Assert new winner copy |
-| `src/handlers/match-interactions.ts` | Remove local `teamLabel`; buttons + winner text |
-| `src/handlers/lobby-interactions.ts` | Slot select labels / descriptions |
-| `src/commands/match/match.ts` | Slash winner choice **names** only |
-| `src/services/lobby-ocr.ts` | User-facing “both teams” validation error |
+| File                                 | Role                                                                  |
+| ------------------------------------ | --------------------------------------------------------------------- |
+| `src/services/team-names.ts`         | **Create** — constants + `teamDisplayName` / `teamDisplayNameForSlot` |
+| `src/services/team-names.test.ts`    | **Create** — unit tests                                               |
+| `src/services/lobby-preview.ts`      | Embed field names + winner description                                |
+| `src/services/lobby-preview.test.ts` | Assert new winner copy                                                |
+| `src/handlers/match-interactions.ts` | Remove local `teamLabel`; buttons + winner text                       |
+| `src/handlers/lobby-interactions.ts` | Slot select labels / descriptions                                     |
+| `src/commands/match/match.ts`        | Slash winner choice **names** only                                    |
+| `src/services/lobby-ocr.ts`          | User-facing “both teams” validation error                             |
 
 ---
 
 ### Task 1: `team-names` helper + tests
 
 **Files:**
+
 - Create: `src/services/team-names.ts`
 - Create: `src/services/team-names.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `teamDisplayName(team: 1 | 2): string`
   - `teamDisplayNameForSlot(slot: number): string` — slot ≤ 6 → team 1, else team 2
@@ -123,10 +125,12 @@ EOF
 ### Task 2: Lobby / match embeds (`lobby-preview`)
 
 **Files:**
+
 - Modify: `src/services/lobby-preview.ts`
 - Modify: `src/services/lobby-preview.test.ts` (winner description assertion ~line 388)
 
 **Interfaces:**
+
 - Consumes: `teamDisplayName` from `./team-names.js`
 
 - [ ] **Step 1: Update the failing assertion**
@@ -212,9 +216,11 @@ EOF
 ### Task 3: Match report UI (`match-interactions`)
 
 **Files:**
+
 - Modify: `src/handlers/match-interactions.ts`
 
 **Interfaces:**
+
 - Consumes: `teamDisplayName` from `../services/team-names.js`
 - Removes local `teamLabel` function
 
@@ -271,11 +277,13 @@ EOF
 ### Task 4: Lobby slot selects + slash choices + OCR error
 
 **Files:**
+
 - Modify: `src/handlers/lobby-interactions.ts`
 - Modify: `src/commands/match/match.ts`
 - Modify: `src/services/lobby-ocr.ts`
 
 **Interfaces:**
+
 - Consumes: `teamDisplayName` / `teamDisplayNameForSlot` from `team-names.js`
 
 - [ ] **Step 1: Lobby slot select labels**
@@ -347,6 +355,7 @@ npm test
 ```
 
 Expected:
+
 - `rg`: only non-user-facing hits (e.g. `rating-math.ts` JSDoc, `lobby-ocr.ts` JSDoc) — **zero** string literals in handlers/commands/embeds/errors
 - `npm test`: all PASS
 
@@ -385,16 +394,16 @@ With `AUTO_DEPLOY_COMMANDS` enabled, restart `npm run dev` (or run `npm run depl
 
 ## Spec coverage checklist
 
-| Spec requirement | Task |
-|------------------|------|
-| `team-names.ts` + `teamDisplayName` | Task 1 |
-| `teamDisplayNameForSlot` | Task 1, used in Task 4 |
-| Hardcoded Z Fighters / Evil | Task 1 |
-| Lobby embeds / win % | Task 2 |
-| Completed winner description | Task 2 |
-| Report buttons & winner copy | Task 3 |
-| Lobby slot messages/selects | Task 4 |
-| Slash choice labels only | Task 4 |
-| OCR error | Task 4 |
-| Tests + command redeploy note | Tasks 1–2, 5 |
-| No env/guild/DB | All tasks respect non-goals |
+| Spec requirement                    | Task                        |
+| ----------------------------------- | --------------------------- |
+| `team-names.ts` + `teamDisplayName` | Task 1                      |
+| `teamDisplayNameForSlot`            | Task 1, used in Task 4      |
+| Hardcoded Z Fighters / Evil         | Task 1                      |
+| Lobby embeds / win %                | Task 2                      |
+| Completed winner description        | Task 2                      |
+| Report buttons & winner copy        | Task 3                      |
+| Lobby slot messages/selects         | Task 4                      |
+| Slash choice labels only            | Task 4                      |
+| OCR error                           | Task 4                      |
+| Tests + command redeploy note       | Tasks 1–2, 5                |
+| No env/guild/DB                     | All tasks respect non-goals |

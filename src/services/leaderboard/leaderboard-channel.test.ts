@@ -74,11 +74,7 @@ describe('refreshLeagueLeaderboard', () => {
     await refreshLeagueLeaderboard(client, 'league-1');
 
     expect(loadOverallLeaderboardTop).toHaveBeenCalledWith('league-1', 50);
-    expect(buildOverallLiveLeaderboardEmbeds).toHaveBeenCalledWith(
-      [],
-      expect.any(Date),
-      'ki',
-    );
+    expect(buildOverallLiveLeaderboardEmbeds).toHaveBeenCalledWith([], expect.any(Date), 'ki');
     expect(edit).toHaveBeenCalledWith('msg-1', {
       embeds: [{ fake: true }],
     });

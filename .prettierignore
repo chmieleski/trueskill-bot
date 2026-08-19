@@ -1,0 +1,9 @@
+node_modules/
+dist/
+package-lock.json
+src/generated/
+.local/
+.worktrees/
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*

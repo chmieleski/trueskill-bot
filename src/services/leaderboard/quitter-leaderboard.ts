@@ -36,9 +36,7 @@ export function assertQuitterLeaderboardSize(size: number): number {
     size < LIVE_LEADERBOARD_MIN_SIZE ||
     size > LIVE_LEADERBOARD_MAX_SIZE
   ) {
-    throw new LeaderboardServiceError(
-      'Quitter leaderboard size must be between 10 and 100.',
-    );
+    throw new LeaderboardServiceError('Quitter leaderboard size must be between 10 and 100.');
   }
   return size;
 }

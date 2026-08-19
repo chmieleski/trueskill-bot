@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Prisma } from '@prisma/client';
-import {
-  assertHostLobbyCapInTx,
-  hostLobbyCapMessage,
-  MatchServiceError,
-} from './match-service.js';
+import { assertHostLobbyCapInTx, hostLobbyCapMessage, MatchServiceError } from './match-service.js';
 
 function fakeTx(row: { id: string; status: 'PENDING' | 'IN_PROGRESS' } | null) {
   const findFirst = vi.fn().mockResolvedValue(row);

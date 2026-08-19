@@ -30,46 +30,48 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `src/services/release/changelog.ts` | Parse `CHANGELOG.md` section; read `package.json` version |
-| `src/services/release/changelog.test.ts` | Parser + placeholder skip helpers |
-| `src/services/release/errors.ts` | `ReleaseServiceError` |
-| `src/services/release/release-config.ts` | Guild changelog / draft channel get/set/clear + uniqueness |
-| `src/services/release/release-config.test.ts` | Draft-channel uniqueness |
-| `src/services/release/release-draft.ts` | Ensure draft row; post/re-post staff cards |
-| `src/services/release/release-draft.test.ts` | Skip `0.1.0`; insert once; missing changelog |
-| `src/services/release/release-publish.ts` | Publish / dismiss / record posts |
-| `src/services/release/release-publish.test.ts` | Empty notes, retry skip, dismiss |
-| `src/services/release/release-embed.ts` | Staff + player embeds, buttons, custom ids |
-| `src/services/release/release-embed.test.ts` | Custom-id parse; field truncate |
-| `src/services/release/index.ts` | Barrel |
-| `prisma/schema.prisma` | `GuildConfig` columns, `BotRelease`, `BotReleasePost`, enum |
-| `prisma/migrations/20260818200000_bot_release_changelog/migration.sql` | SQL |
-| `src/services/guild/guild-config.ts` | `ResolvedGuildConfig` changelog fields |
-| `src/commands/config/config.ts` | set/clear/view wiring only |
-| `src/discord/interactions/release-interactions.ts` | Buttons + modal |
-| `src/events/interaction-create.ts` | Dispatch |
-| `src/events/ready.ts` | Production draft sync |
-| `commitlint.config.js` | Conventional commits |
-| `.releaserc.json` | semantic-release |
-| `.github/workflows/ci-cd.yml` | commitlint + release jobs |
-| `package.json` | DevDependencies only |
-| `.cursor/rules/conventional-commits.mdc` | Agent/human commit format |
-| `.cursor/rules/database-domain.mdc` | Mention `BotRelease` |
-| `docs/discord/staff/a5-admin-cheat-sheet.md` | Config + draft buttons |
+| File                                                                   | Role                                                        |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `src/services/release/changelog.ts`                                    | Parse `CHANGELOG.md` section; read `package.json` version   |
+| `src/services/release/changelog.test.ts`                               | Parser + placeholder skip helpers                           |
+| `src/services/release/errors.ts`                                       | `ReleaseServiceError`                                       |
+| `src/services/release/release-config.ts`                               | Guild changelog / draft channel get/set/clear + uniqueness  |
+| `src/services/release/release-config.test.ts`                          | Draft-channel uniqueness                                    |
+| `src/services/release/release-draft.ts`                                | Ensure draft row; post/re-post staff cards                  |
+| `src/services/release/release-draft.test.ts`                           | Skip `0.1.0`; insert once; missing changelog                |
+| `src/services/release/release-publish.ts`                              | Publish / dismiss / record posts                            |
+| `src/services/release/release-publish.test.ts`                         | Empty notes, retry skip, dismiss                            |
+| `src/services/release/release-embed.ts`                                | Staff + player embeds, buttons, custom ids                  |
+| `src/services/release/release-embed.test.ts`                           | Custom-id parse; field truncate                             |
+| `src/services/release/index.ts`                                        | Barrel                                                      |
+| `prisma/schema.prisma`                                                 | `GuildConfig` columns, `BotRelease`, `BotReleasePost`, enum |
+| `prisma/migrations/20260818200000_bot_release_changelog/migration.sql` | SQL                                                         |
+| `src/services/guild/guild-config.ts`                                   | `ResolvedGuildConfig` changelog fields                      |
+| `src/commands/config/config.ts`                                        | set/clear/view wiring only                                  |
+| `src/discord/interactions/release-interactions.ts`                     | Buttons + modal                                             |
+| `src/events/interaction-create.ts`                                     | Dispatch                                                    |
+| `src/events/ready.ts`                                                  | Production draft sync                                       |
+| `commitlint.config.js`                                                 | Conventional commits                                        |
+| `.releaserc.json`                                                      | semantic-release                                            |
+| `.github/workflows/ci-cd.yml`                                          | commitlint + release jobs                                   |
+| `package.json`                                                         | DevDependencies only                                        |
+| `.cursor/rules/conventional-commits.mdc`                               | Agent/human commit format                                   |
+| `.cursor/rules/database-domain.mdc`                                    | Mention `BotRelease`                                        |
+| `docs/discord/staff/a5-admin-cheat-sheet.md`                           | Config + draft buttons                                      |
 
 ---
 
 ### Task 1: Changelog parser (TDD)
 
 **Files:**
+
 - Create: `src/services/release/changelog.ts`
 - Create: `src/services/release/changelog.test.ts`
 - Create: `src/services/release/errors.ts`
 - Create: `src/services/release/index.ts`
 
 **Interfaces:**
+
 - Consumes: `node:fs`, `node:path`
 - Produces:
   - `PLACEHOLDER_VERSION = '0.1.0'`
@@ -119,9 +121,7 @@ describe('extractChangelogSection', () => {
   });
 
   it('returns the 1.1.1 body', () => {
-    expect(extractChangelogSection(SAMPLE, '1.1.1')).toBe(
-      '### Bug Fixes\n\n* calibrating gate',
-    );
+    expect(extractChangelogSection(SAMPLE, '1.1.1')).toBe('### Bug Fixes\n\n* calibrating gate');
   });
 
   it('returns null when the version heading is missing', () => {
@@ -247,11 +247,13 @@ EOF
 ### Task 2: Prisma schema and migration
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: `prisma/migrations/20260818200000_bot_release_changelog/migration.sql`
 - Modify: `.cursor/rules/database-domain.mdc`
 
 **Interfaces:**
+
 - Consumes: existing `GuildConfig` model
 - Produces: `BotReleaseStatus` enum; `BotRelease`; `BotReleasePost`; `GuildConfig.changelogChannelId`; `GuildConfig.changelogDraftChannelId`
 
@@ -388,6 +390,7 @@ EOF
 ### Task 3: Guild changelog channel config (TDD)
 
 **Files:**
+
 - Create: `src/services/release/release-config.ts`
 - Create: `src/services/release/release-config.test.ts`
 - Modify: `src/services/release/index.ts`
@@ -395,6 +398,7 @@ EOF
 - Modify: `src/services/guild/guild-config.test.ts`
 
 **Interfaces:**
+
 - Consumes: `prisma`, `ReleaseServiceError`
 - Produces:
   - `DRAFT_CHANNEL_TAKEN = 'A changelog draft channel is already set in another server. Clear it there first.'`
@@ -425,10 +429,7 @@ vi.mock('../../lib/prisma.js', () => ({
   },
 }));
 
-import {
-  DRAFT_CHANNEL_TAKEN,
-  setChangelogDraftChannel,
-} from './release-config.js';
+import { DRAFT_CHANNEL_TAKEN, setChangelogDraftChannel } from './release-config.js';
 import { ReleaseServiceError } from './errors.js';
 
 describe('setChangelogDraftChannel', () => {
@@ -535,9 +536,7 @@ export async function listPlayerChangelogChannels(): Promise<
     select: { guildId: true, changelogChannelId: true },
   });
   return rows.flatMap((row) =>
-    row.changelogChannelId
-      ? [{ guildId: row.guildId, channelId: row.changelogChannelId }]
-      : [],
+    row.changelogChannelId ? [{ guildId: row.guildId, channelId: row.changelogChannelId }] : [],
   );
 }
 ```
@@ -545,8 +544,8 @@ export async function listPlayerChangelogChannels(): Promise<
 On `ResolvedGuildConfig` add:
 
 ```typescript
-  changelogChannelId: string | undefined;
-  changelogDraftChannelId: string | undefined;
+changelogChannelId: string | undefined;
+changelogDraftChannelId: string | undefined;
 ```
 
 In `resolveGuildConfig` return `trimOptionalId(row?.changelogChannelId)` and `trimOptionalId(row?.changelogDraftChannelId)`.
@@ -577,11 +576,13 @@ EOF
 ### Task 4: Ensure draft row (TDD)
 
 **Files:**
+
 - Create: `src/services/release/release-draft.ts`
 - Create: `src/services/release/release-draft.test.ts`
 - Modify: `src/services/release/index.ts`
 
 **Interfaces:**
+
 - Consumes: `extractChangelogSection`, `isPlaceholderVersion`, `prisma.botRelease`
 - Produces:
   - `ensureDraftForVersion(input: { version: string; changelogMarkdown: string }): Promise<'skipped_placeholder' | 'missing_notes' | 'exists' | 'created'>`
@@ -731,11 +732,13 @@ EOF
 ### Task 5: Publish and dismiss (TDD)
 
 **Files:**
+
 - Create: `src/services/release/release-publish.ts`
 - Create: `src/services/release/release-publish.test.ts`
 - Modify: `src/services/release/index.ts`
 
 **Interfaces:**
+
 - Consumes: `prisma.botRelease`, `prisma.botReleasePost`, `ReleaseServiceError`, `listPlayerChangelogChannels`
 - Produces:
   - `EMPTY_PLAYER_NOTES = 'Write player notes before publishing. Use Dismiss if this version should not be announced.'`
@@ -811,11 +814,13 @@ EOF
 ### Task 6: Embeds and custom ids (TDD)
 
 **Files:**
+
 - Create: `src/services/release/release-embed.ts`
 - Create: `src/services/release/release-embed.test.ts`
 - Modify: `src/services/release/index.ts`
 
 **Interfaces:**
+
 - Consumes: discord.js `EmbedBuilder`, `ActionRowBuilder`, `ButtonBuilder`, `ButtonStyle`
 - Produces:
   - `RELEASE_CUSTOM_PREFIX = 'changelog:'`
@@ -861,9 +866,11 @@ EOF
 ### Task 7: `/config` changelog channels
 
 **Files:**
+
 - Modify: `src/commands/config/config.ts`
 
 **Interfaces:**
+
 - Consumes: `setChangelogChannel`, `clearChangelogChannel`, `setChangelogDraftChannel`, `clearChangelogDraftChannel`, `findChangelogDraftChannel`, `ReleaseServiceError`, plus `postPendingStaffCards` from Task 8 — **if Task 8 is not done yet**, set/clear only; call `postPendingStaffCards` in Task 8 after it exists.
 - Produces: subcommands `changelog_channel` and `changelog_draft_channel` under `set` and `clear`; view lines
 
@@ -887,9 +894,7 @@ View helpers:
 
 ```typescript
 function formatChangelogChannelLine(channelId: string | undefined): string {
-  return channelId
-    ? `**Changelog channel:** <#${channelId}>`
-    : '**Changelog channel:** `unset`';
+  return channelId ? `**Changelog channel:** <#${channelId}>` : '**Changelog channel:** `unset`';
 }
 
 function formatChangelogDraftLine(channelId: string | undefined): string {
@@ -925,6 +930,7 @@ EOF
 ### Task 8: Discord cards, interactions, production `ready`
 
 **Files:**
+
 - Create: `src/discord/interactions/release-interactions.ts`
 - Modify: `src/services/release/release-draft.ts` — add `syncCurrentReleaseDraft` + `postPendingStaffCards`
 - Modify: `src/events/interaction-create.ts`
@@ -933,6 +939,7 @@ EOF
 - Modify: `src/services/release/index.ts`
 
 **Interfaces:**
+
 - Consumes: all prior release exports; `assertCanConfigureBot`; `env.isDev`; discord.js `Client`
 - Produces:
   - `postPendingStaffCards(client: Client): Promise<void>`
@@ -1005,12 +1012,14 @@ EOF
 ### Task 9: commitlint and Cursor rule
 
 **Files:**
+
 - Create: `commitlint.config.js`
 - Create: `.cursor/rules/conventional-commits.mdc`
 - Modify: `package.json` (devDependencies)
 - Modify: `.github/workflows/ci-cd.yml` (commitlint job only in this task)
 
 **Interfaces:**
+
 - Consumes: `@commitlint/cli`, `@commitlint/config-conventional`
 - Produces: PR-title lint; agent rule
 
@@ -1032,7 +1041,7 @@ export default {
 
 Create `.cursor/rules/conventional-commits.mdc`:
 
-```markdown
+````markdown
 ---
 description: Conventional Commits for version bumps and CHANGELOG.md
 alwaysApply: true
@@ -1047,20 +1056,22 @@ Every commit message and **squash PR title** must follow Conventional Commits. C
 ```text
 type(optional-scope): short summary
 ```
+````
 
 Types:
 
-| Type | Version bump |
-|------|----------------|
-| `feat` | minor |
-| `fix` | patch |
-| `feat!` / `fix!` / footer `BREAKING CHANGE:` | major |
-| `docs`, `chore`, `refactor`, `test`, `perf`, `style` | none |
+| Type                                                 | Version bump |
+| ---------------------------------------------------- | ------------ |
+| `feat`                                               | minor        |
+| `fix`                                                | patch        |
+| `feat!` / `fix!` / footer `BREAKING CHANGE:`         | major        |
+| `docs`, `chore`, `refactor`, `test`, `perf`, `style` | none         |
 
 Examples: `feat(lobby): always show the balance hint`, `fix: hide ki while calibrating`, `docs: add changelog spec`.
 
 Do not use Commitizen. Do not use a subject of `.` or untyped prose on `main`.
-```
+
+````
 
 - [ ] **Step 2: Add the `commitlint` job** to `.github/workflows/ci-cd.yml` **before** `deploy`, PR only:
 
@@ -1082,7 +1093,7 @@ Do not use Commitizen. Do not use a subject of `.` or untyped prose on `main`.
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: printf '%s\n' "$TITLE" | npx commitlint
-```
+````
 
 Do not change `deploy` in this task.
 
@@ -1112,11 +1123,13 @@ EOF
 ### Task 10: semantic-release on `main`
 
 **Files:**
+
 - Create: `.releaserc.json`
 - Modify: `package.json` (devDependencies)
 - Modify: `.github/workflows/ci-cd.yml`
 
 **Interfaces:**
+
 - Consumes: semantic-release plugins listed below
 - Produces: release job; deploy `needs: [test, release]`
 
@@ -1158,41 +1171,41 @@ Do **not** add a `v0.1.0` tag. First releasable `main` commit becomes **1.0.0**.
 After `test` / `commitlint`, add:
 
 ```yaml
-  release:
-    name: Release
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: true
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-      - run: npm ci
-      - run: npx semantic-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GIT_AUTHOR_NAME: github-actions[bot]
-          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
-          GIT_COMMITTER_NAME: github-actions[bot]
-          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+release:
+  name: Release
+  needs: test
+  if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  runs-on: ubuntu-latest
+  permissions:
+    contents: write
+    issues: write
+    pull-requests: write
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        persist-credentials: true
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: npm
+    - run: npm ci
+    - run: npx semantic-release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GIT_AUTHOR_NAME: github-actions[bot]
+        GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        GIT_COMMITTER_NAME: github-actions[bot]
+        GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
 ```
 
 Change deploy:
 
 ```yaml
-  deploy:
-    name: Deploy
-    needs: [test, release]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+deploy:
+  name: Deploy
+  needs: [test, release]
+  if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 ```
 
 Keep the rest of deploy as-is. `release` must **not** use `[skip ci]` on the triggering push; only the version commit semantic-release pushes includes `[skip ci]`.
@@ -1215,9 +1228,11 @@ EOF
 ### Task 11: Staff cheat sheet
 
 **Files:**
+
 - Modify: `docs/discord/staff/a5-admin-cheat-sheet.md`
 
 **Interfaces:**
+
 - Consumes: locked `/config` names from the spec
 - Produces: staff copy
 
@@ -1253,21 +1268,21 @@ EOF
 
 **Spec coverage**
 
-| Spec item | Task |
-|-----------|------|
-| semantic-release on `main` after tests, then deploy | 10 |
-| commitlint PR title; squash; no Commitizen/Husky | 9 |
-| `CHANGELOG.md` + `package.json` + GitHub Release; no npm publish | 10 |
-| Runtime version from `package.json`; notes from `CHANGELOG.md` | 1, 4, 8 |
-| Skip `0.1.0`; first tag 1.0.0 | 4, 10 |
-| `GuildConfig` channels; one draft channel | 2, 3, 7 |
-| `BotRelease` / `BotReleasePost` | 2, 4, 5 |
-| Staff Edit / Publish / Dismiss; fan-out; retry-safe posts | 5, 6, 8 |
-| Production `ready` only; bootstrap must not fail | 8 |
-| Empty notes cannot Publish; Dismiss → `skipped` | 5, 8 |
-| No new env/SSM; no GitHub token in bot | all |
-| Staff cheat sheet | 11 |
-| Tests listed in spec | 1, 3, 4, 5, 6 |
+| Spec item                                                        | Task          |
+| ---------------------------------------------------------------- | ------------- |
+| semantic-release on `main` after tests, then deploy              | 10            |
+| commitlint PR title; squash; no Commitizen/Husky                 | 9             |
+| `CHANGELOG.md` + `package.json` + GitHub Release; no npm publish | 10            |
+| Runtime version from `package.json`; notes from `CHANGELOG.md`   | 1, 4, 8       |
+| Skip `0.1.0`; first tag 1.0.0                                    | 4, 10         |
+| `GuildConfig` channels; one draft channel                        | 2, 3, 7       |
+| `BotRelease` / `BotReleasePost`                                  | 2, 4, 5       |
+| Staff Edit / Publish / Dismiss; fan-out; retry-safe posts        | 5, 6, 8       |
+| Production `ready` only; bootstrap must not fail                 | 8             |
+| Empty notes cannot Publish; Dismiss → `skipped`                  | 5, 8          |
+| No new env/SSM; no GitHub token in bot                           | all           |
+| Staff cheat sheet                                                | 11            |
+| Tests listed in spec                                             | 1, 3, 4, 5, 6 |
 
 **Placeholders:** none.
 

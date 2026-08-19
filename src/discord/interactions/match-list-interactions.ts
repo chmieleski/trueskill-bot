@@ -10,9 +10,7 @@ import {
 
 const NOT_YOUR_PAGE = 'Only the person who ran the command can change pages.';
 
-export async function handleMatchListInteraction(
-  interaction: Interaction,
-): Promise<boolean> {
+export async function handleMatchListInteraction(interaction: Interaction): Promise<boolean> {
   if (!interaction.isButton()) {
     return false;
   }
@@ -37,9 +35,7 @@ export async function handleMatchListInteraction(
   });
   const profile = await getGameProfileForLeague(parsed.leagueId);
   await interaction.editReply({
-    embeds: [
-      buildMatchListEmbed(pageData, (team) => teamDisplayName(team, profile)),
-    ],
+    embeds: [buildMatchListEmbed(pageData, (team) => teamDisplayName(team, profile))],
     components: buildMatchListPageButtons({
       invokerId: parsed.invokerId,
       leagueId: parsed.leagueId,

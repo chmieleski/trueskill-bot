@@ -27,10 +27,7 @@ export async function registerCommands(): Promise<number> {
     return data.length;
   }
 
-  log.info(
-    { count: commands.length, clientId: env.clientId },
-    'Registering global slash commands',
-  );
+  log.info({ count: commands.length, clientId: env.clientId }, 'Registering global slash commands');
 
   const data = (await rest.put(Routes.applicationCommands(env.clientId), {
     body: commands,

@@ -105,10 +105,7 @@ describe('ratingPreviewFromStoredMatchPlayers', () => {
       ['P2', 4],
     ]);
 
-    const preview = ratingPreviewFromStoredMatchPlayers(
-      storedMatchFixture(),
-      leagueGamesByPlayer,
-    );
+    const preview = ratingPreviewFromStoredMatchPlayers(storedMatchFixture(), leagueGamesByPlayer);
 
     expect(preview?.players).toEqual([
       expect.objectContaining({ slot: 3, leagueGames: 2 }),

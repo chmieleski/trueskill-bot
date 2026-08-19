@@ -23,20 +23,20 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `prisma/schema.prisma` | League prompt fields + `Player.wc3statsHostPromptPingsEnabled` |
-| `prisma/migrations/20260815173000_league_wc3stats_host_prompt/` | League migration (done) |
-| `prisma/migrations/…_player_host_prompt_pings/` | Player preference migration |
-| `src/services/league/league-wc3stats.ts` | Resolve/set/clear + `isLeagueWc3statsHostPromptReady` |
-| `src/services/wc3stats/wc3stats-host-prompt.ts` | Custom ids, message builders, map+host filter |
-| `src/services/wc3stats/wc3stats-host-prompt-poller.ts` | Scheduler + tick |
-| `src/services/lobby/create-from-wc3stats.ts` | Shared Open create path |
-| `src/discord/interactions/wc3stats-host-prompt-interactions.ts` | Button adapter |
-| `src/commands/config/config.ts` | League set/clear/view |
-| `src/services/player/player-settings.ts` | Get/set ping preference |
-| `src/commands/player/settings.ts` | `/settings view` + `/settings set host_prompt_pings` |
-| `src/events/ready.ts` / `src/index.ts` / `interaction-create.ts` | Wire scheduler + buttons |
+| File                                                             | Role                                                           |
+| ---------------------------------------------------------------- | -------------------------------------------------------------- |
+| `prisma/schema.prisma`                                           | League prompt fields + `Player.wc3statsHostPromptPingsEnabled` |
+| `prisma/migrations/20260815173000_league_wc3stats_host_prompt/`  | League migration (done)                                        |
+| `prisma/migrations/…_player_host_prompt_pings/`                  | Player preference migration                                    |
+| `src/services/league/league-wc3stats.ts`                         | Resolve/set/clear + `isLeagueWc3statsHostPromptReady`          |
+| `src/services/wc3stats/wc3stats-host-prompt.ts`                  | Custom ids, message builders, map+host filter                  |
+| `src/services/wc3stats/wc3stats-host-prompt-poller.ts`           | Scheduler + tick                                               |
+| `src/services/lobby/create-from-wc3stats.ts`                     | Shared Open create path                                        |
+| `src/discord/interactions/wc3stats-host-prompt-interactions.ts`  | Button adapter                                                 |
+| `src/commands/config/config.ts`                                  | League set/clear/view                                          |
+| `src/services/player/player-settings.ts`                         | Get/set ping preference                                        |
+| `src/commands/player/settings.ts`                                | `/settings view` + `/settings set host_prompt_pings`           |
+| `src/events/ready.ts` / `src/index.ts` / `interaction-create.ts` | Wire scheduler + buttons                                       |
 
 ---
 
@@ -51,6 +51,7 @@
 ### Task 2: Player ping preference (schema + service)
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: `prisma/migrations/20260815180000_player_wc3stats_host_prompt_pings/migration.sql`
 - Create: `src/services/player/player-settings.ts`
@@ -58,6 +59,7 @@
 - Modify: `src/services/player/index.ts`
 
 **Interfaces:**
+
 - `Player.wc3statsHostPromptPingsEnabled Boolean @default(true)`
 - `getPlayerHostPromptPingsEnabled(discordId): Promise<boolean | null>` — `null` if no linked player
 - `setPlayerHostPromptPingsEnabled(discordId, enabled): Promise<{ username: string; enabled: boolean }>` — throws `PlayerServiceError` if not linked
@@ -73,6 +75,7 @@
 ### Task 3: Poller respects opt-out
 
 **Files:**
+
 - Modify: `src/services/wc3stats/wc3stats-host-prompt-poller.ts`
 - Modify: `src/services/wc3stats/wc3stats-host-prompt-poller.test.ts`
 
@@ -85,6 +88,7 @@
 ### Task 4: `/settings` slash command
 
 **Files:**
+
 - Create: `src/commands/player/settings.ts`
 - Modify: public Discord docs briefly (`docs/discord/public/02-link-your-nick.md` or cheat sheet)
 

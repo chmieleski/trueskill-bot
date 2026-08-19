@@ -22,28 +22,29 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `prisma/schema.prisma` | Add `League.leaderboardSize Int @default(10)` |
-| `prisma/migrations/…_add_league_leaderboard_size/` | Migration SQL |
-| `src/services/leaderboard/leaderboard.ts` | Replace fixed `LIVE_LEADERBOARD_SIZE` with min/max/default/chunk constants + `assertLiveLeaderboardSize` + `chunkLeaderboardEntries` |
-| `src/services/leaderboard/leaderboard.test.ts` | Tests for assert + chunk |
-| `src/services/leaderboard/leaderboard-embed.ts` | `buildOverallLiveLeaderboardEmbeds` |
-| `src/services/leaderboard/leaderboard-embed.test.ts` | Multi-embed / timestamp / empty tests |
-| `src/services/leaderboard/leaderboard-channel.ts` | Read size; send/edit embeds array |
-| `src/services/leaderboard/leaderboard-channel.test.ts` | Mock size; assert `embeds` passed |
-| `src/services/leaderboard/index.ts` | Re-export new symbols as needed |
-| `src/services/league/league-wc3stats.ts` | Resolve + set/clear size |
-| `src/services/league/index.ts` | Re-export setters |
-| `src/commands/config/config.ts` | set/clear/view `leaderboard_size` |
-| `docs/discord/staff/a1-roles-and-setup.md` | Document size config |
-| `docs/discord/staff/a5-admin-cheat-sheet.md` | One-line cheat |
+| File                                                   | Role                                                                                                                                 |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `prisma/schema.prisma`                                 | Add `League.leaderboardSize Int @default(10)`                                                                                        |
+| `prisma/migrations/…_add_league_leaderboard_size/`     | Migration SQL                                                                                                                        |
+| `src/services/leaderboard/leaderboard.ts`              | Replace fixed `LIVE_LEADERBOARD_SIZE` with min/max/default/chunk constants + `assertLiveLeaderboardSize` + `chunkLeaderboardEntries` |
+| `src/services/leaderboard/leaderboard.test.ts`         | Tests for assert + chunk                                                                                                             |
+| `src/services/leaderboard/leaderboard-embed.ts`        | `buildOverallLiveLeaderboardEmbeds`                                                                                                  |
+| `src/services/leaderboard/leaderboard-embed.test.ts`   | Multi-embed / timestamp / empty tests                                                                                                |
+| `src/services/leaderboard/leaderboard-channel.ts`      | Read size; send/edit embeds array                                                                                                    |
+| `src/services/leaderboard/leaderboard-channel.test.ts` | Mock size; assert `embeds` passed                                                                                                    |
+| `src/services/leaderboard/index.ts`                    | Re-export new symbols as needed                                                                                                      |
+| `src/services/league/league-wc3stats.ts`               | Resolve + set/clear size                                                                                                             |
+| `src/services/league/index.ts`                         | Re-export setters                                                                                                                    |
+| `src/commands/config/config.ts`                        | set/clear/view `leaderboard_size`                                                                                                    |
+| `docs/discord/staff/a1-roles-and-setup.md`             | Document size config                                                                                                                 |
+| `docs/discord/staff/a5-admin-cheat-sheet.md`           | One-line cheat                                                                                                                       |
 
 ---
 
 ### Task 1: Schema + size constants + league setters
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: migration via `npm run db:migrate`
 - Modify: `src/services/leaderboard/leaderboard.ts`
@@ -53,6 +54,7 @@
 - Modify: `src/services/leaderboard/index.ts` (export new constants/helpers)
 
 **Interfaces:**
+
 - Produces:
   - `LIVE_LEADERBOARD_MIN_SIZE = 10`
   - `LIVE_LEADERBOARD_MAX_SIZE = 100`
@@ -98,10 +100,7 @@ describe('assertLiveLeaderboardSize', () => {
 describe('chunkLeaderboardEntries', () => {
   it('chunks by 25', () => {
     const entries = Array.from({ length: 26 }, (_, i) => i);
-    expect(chunkLeaderboardEntries(entries)).toEqual([
-      entries.slice(0, 25),
-      entries.slice(25),
-    ]);
+    expect(chunkLeaderboardEntries(entries)).toEqual([entries.slice(0, 25), entries.slice(25)]);
     expect(chunkLeaderboardEntries(entries.slice(0, 10))).toEqual([entries.slice(0, 10)]);
     expect(chunkLeaderboardEntries(Array.from({ length: 100 }, (_, i) => i))).toHaveLength(4);
     expect(LIVE_LEADERBOARD_CHUNK_SIZE).toBe(25);
@@ -154,9 +153,7 @@ export function assertLiveLeaderboardSize(size: number): number {
     size < LIVE_LEADERBOARD_MIN_SIZE ||
     size > LIVE_LEADERBOARD_MAX_SIZE
   ) {
-    throw new LeaderboardServiceError(
-      'Live leaderboard size must be between 10 and 100.',
-    );
+    throw new LeaderboardServiceError('Live leaderboard size must be between 10 and 100.');
   }
   return size;
 }
@@ -202,7 +199,7 @@ import {
 Extend `ResolvedLeagueConfig`:
 
 ```typescript
-  leaderboardSize: number;
+leaderboardSize: number;
 ```
 
 In `resolveLeagueConfig`:
@@ -219,10 +216,7 @@ In `resolveLeagueConfig`:
 Add:
 
 ```typescript
-export async function setLeagueLeaderboardSize(
-  leagueId: string,
-  size: number,
-): Promise<void> {
+export async function setLeagueLeaderboardSize(leagueId: string, size: number): Promise<void> {
   const safe = assertLiveLeaderboardSize(size);
   await prisma.league.update({
     where: { id: leagueId },
@@ -265,16 +259,19 @@ EOF
 ### Task 2: Multi-embed live builder
 
 **Files:**
+
 - Modify: `src/services/leaderboard/leaderboard-embed.ts`
 - Modify: `src/services/leaderboard/leaderboard-embed.test.ts`
 - Modify: `src/services/leaderboard/index.ts`
 
 **Interfaces:**
+
 - Consumes: `formatOverallTable`, `chunkLeaderboardEntries`, `OverallLeaderboardEntry`
 - Produces:
   - `buildOverallLiveLeaderboardEmbeds(entries: OverallLeaderboardEntry[], updatedAt: Date): EmbedBuilder[]`
 
 Behavior:
+
 - Empty entries → one embed, title `Global Leaderboard`, description empty-table copy + timestamp
 - Non-empty → chunk by 25; first title `Global Leaderboard`; later `Global Leaderboard (continued)`; timestamp only on last embed description
 - Color `0xf0b232`
@@ -363,13 +360,11 @@ export function buildOverallLiveLeaderboardEmbeds(
 ): EmbedBuilder[] {
   const unix = Math.floor(updatedAt.getTime() / 1000);
   const stamp = `\n\nUpdated <t:${unix}:R>`;
-  const chunks =
-    entries.length === 0 ? [[]] : chunkLeaderboardEntries(entries);
+  const chunks = entries.length === 0 ? [[]] : chunkLeaderboardEntries(entries);
 
   return chunks.map((chunk, index) => {
     const isLast = index === chunks.length - 1;
-    const title =
-      index === 0 ? 'Global Leaderboard' : 'Global Leaderboard (continued)';
+    const title = index === 0 ? 'Global Leaderboard' : 'Global Leaderboard (continued)';
     let description = formatOverallTable(chunk);
     if (isLast) {
       description += stamp;
@@ -404,11 +399,13 @@ EOF
 ### Task 3: Wire setup / refresh to league size
 
 **Files:**
+
 - Modify: `src/services/leaderboard/leaderboard-channel.ts`
 - Modify: `src/services/leaderboard/leaderboard-channel.test.ts`
 - Modify: `src/services/leaderboard/leaderboard.ts` (remove `LIVE_LEADERBOARD_SIZE` alias if still present)
 
 **Interfaces:**
+
 - Consumes: `buildOverallLiveLeaderboardEmbeds`, `loadOverallLeaderboardTop`, `LIVE_LEADERBOARD_DEFAULT_SIZE`
 - Changes: `buildLiveOverallEmbed` → returns `EmbedBuilder[]`; `send`/`edit` use `{ embeds }`
 
@@ -442,7 +439,7 @@ it('edits message with embeds array when bound', async () => {
       fetch: vi.fn().mockResolvedValue({
         isTextBased: () => true,
         isDMBased: () => false,
-        messages: { edit, delete: vi.fn(), },
+        messages: { edit, delete: vi.fn() },
       }),
     },
   } as never;
@@ -468,10 +465,7 @@ Expected: FAIL until channel uses multi-embed path / selects `leaderboardSize`.
 In `leaderboard-channel.ts`:
 
 ```typescript
-import {
-  LIVE_LEADERBOARD_DEFAULT_SIZE,
-  loadOverallLeaderboardTop,
-} from './leaderboard.js';
+import { LIVE_LEADERBOARD_DEFAULT_SIZE, loadOverallLeaderboardTop } from './leaderboard.js';
 import { buildOverallLiveLeaderboardEmbeds } from './leaderboard-embed.js';
 
 async function buildLiveOverallEmbeds(leagueId: string) {
@@ -521,11 +515,13 @@ EOF
 ### Task 4: `/config` set · clear · view + staff docs
 
 **Files:**
+
 - Modify: `src/commands/config/config.ts`
 - Modify: `docs/discord/staff/a1-roles-and-setup.md`
 - Modify: `docs/discord/staff/a5-admin-cheat-sheet.md`
 
 **Interfaces:**
+
 - Consumes: `setLeagueLeaderboardSize`, `clearLeagueLeaderboardSize`, `refreshLeagueLeaderboard`, `resolveLeagueConfig.leaderboardSize`, `LeaderboardServiceError`
 - Discord options: `size` integer `setMinValue(10)` `setMaxValue(100)`
 
@@ -664,7 +660,9 @@ In `a1-roles-and-setup.md`, after the live channel section:
 ```markdown
 Optional size (default 10, max 100; Discord splits every 25 ranks into another embed):
 ```
+
 /config set leaderboard_size size:50
+
 ```
 Reset: `/config clear leaderboard_size`
 ```
@@ -706,12 +704,12 @@ EOF
 
 - [ ] **Step 1: Local verify**
 
-1. `npm run db:migrate` if another env needs the column  
-2. Restart bot (`npm run dev`) so commands redeploy  
-3. `/config set leaderboard_size size:50` → ephemeral confirms; live message shows up to 50 ranks / 2 embeds when enough players  
-4. `/config view` shows `size 50`  
-5. `/config clear leaderboard_size` → size 10; message shrinks  
-6. `/leaderboard show` still paginates 10  
+1. `npm run db:migrate` if another env needs the column
+2. Restart bot (`npm run dev`) so commands redeploy
+3. `/config set leaderboard_size size:50` → ephemeral confirms; live message shows up to 50 ranks / 2 embeds when enough players
+4. `/config view` shows `size 50`
+5. `/config clear leaderboard_size` → size 10; message shrinks
+6. `/leaderboard show` still paginates 10
 
 - [ ] **Step 2: Final commit only if docs/tests tweaked during smoke**
 
@@ -721,18 +719,18 @@ Otherwise done — no empty commit.
 
 ## Spec coverage checklist
 
-| Spec item | Task |
-|-----------|------|
-| `League.leaderboardSize` default 10 | 1 |
-| Min 10 / max 100 / reject invalid | 1, 4 |
-| Chunk every 25 / multi-embed | 2, 3 |
-| Timestamp on last embed | 2 |
-| Setup/refresh/edit embeds array | 3 |
-| `/config set\|clear leaderboard_size` + refresh | 4 |
-| `/config view` shows size | 4 |
-| Slash page size unchanged | 3–4 (no changes to show path) |
-| Staff docs | 4 |
-| Tests for chunk/assert/embeds | 1–3 |
+| Spec item                                       | Task                          |
+| ----------------------------------------------- | ----------------------------- |
+| `League.leaderboardSize` default 10             | 1                             |
+| Min 10 / max 100 / reject invalid               | 1, 4                          |
+| Chunk every 25 / multi-embed                    | 2, 3                          |
+| Timestamp on last embed                         | 2                             |
+| Setup/refresh/edit embeds array                 | 3                             |
+| `/config set\|clear leaderboard_size` + refresh | 4                             |
+| `/config view` shows size                       | 4                             |
+| Slash page size unchanged                       | 3–4 (no changes to show path) |
+| Staff docs                                      | 4                             |
+| Tests for chunk/assert/embeds                   | 1–3                           |
 
 ## Placeholder / consistency self-review
 

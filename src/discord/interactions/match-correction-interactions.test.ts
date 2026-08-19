@@ -43,9 +43,17 @@ vi.mock('../../services/match/index.js', () => {
     assertHasMatchModRole,
     flipCompletedMatch,
     parseMatchCorrectionButtonCustomId,
-    buildMatchCorrectionConfirmCustomId: (input: { action: string; matchId: string; actorDiscordId: string }) =>
+    buildMatchCorrectionConfirmCustomId: (input: {
+      action: string;
+      matchId: string;
+      actorDiscordId: string;
+    }) =>
       buildCustomId('ok', input.action === 'flip' ? 'f' : 'v', input.matchId, input.actorDiscordId),
-    buildMatchCorrectionCancelCustomId: (input: { action: string; matchId: string; actorDiscordId: string }) =>
+    buildMatchCorrectionCancelCustomId: (input: {
+      action: string;
+      matchId: string;
+      actorDiscordId: string;
+    }) =>
       buildCustomId('no', input.action === 'flip' ? 'f' : 'v', input.matchId, input.actorDiscordId),
     voidCompletedMatch,
     MatchServiceError,
@@ -71,10 +79,7 @@ import {
 } from './match-correction-interactions.js';
 import { MatchServiceError } from '../../services/match/index.js';
 
-function buttonInteraction(
-  customId: string,
-  overrides: Record<string, unknown> = {},
-): Interaction {
+function buttonInteraction(customId: string, overrides: Record<string, unknown> = {}): Interaction {
   return {
     isButton: () => true,
     customId,

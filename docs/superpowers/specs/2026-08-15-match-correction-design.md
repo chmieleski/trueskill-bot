@@ -23,19 +23,19 @@ Match moderators can fix a wrongly reported **completed** match within **24 hour
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Commands | `/match flip` and `/match void`; both require `match_id` |
-| Auth | `assertHasMatchModRole` only (not host) |
-| Flip inputs | Required `winner` (A/B); optional `quitters` (omit → keep current flags) |
-| Void effect | Restore snapshots → clear `result` / `isQuitter` → `status = CANCELLED` → refresh Discord embed |
-| Window | Allowed only if `now - Match.completedAt ≤ 24 hours` |
-| Later games | Always allow within window; **warn** on confirm if any roster player has a newer `COMPLETED` match in the same league |
-| Rating approach | Pre-apply μ/σ (+ hero `matchesPlayed`) **snapshots** written in `completeMatch` before rating writes |
-| Pre-feature / missing snapshots | Reject with a clear English error |
-| Snapshot lifecycle | Written once on first complete; never replaced by flip |
-| Confirmation | Ephemeral Confirm / Cancel (same pattern as rank reset / match cancel) |
-| `completedAt` | Set once when first transitioning to `COMPLETED`; **not** bumped on flip; null or >24h → not correctable |
+| Topic                           | Choice                                                                                                                |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Commands                        | `/match flip` and `/match void`; both require `match_id`                                                              |
+| Auth                            | `assertHasMatchModRole` only (not host)                                                                               |
+| Flip inputs                     | Required `winner` (A/B); optional `quitters` (omit → keep current flags)                                              |
+| Void effect                     | Restore snapshots → clear `result` / `isQuitter` → `status = CANCELLED` → refresh Discord embed                       |
+| Window                          | Allowed only if `now - Match.completedAt ≤ 24 hours`                                                                  |
+| Later games                     | Always allow within window; **warn** on confirm if any roster player has a newer `COMPLETED` match in the same league |
+| Rating approach                 | Pre-apply μ/σ (+ hero `matchesPlayed`) **snapshots** written in `completeMatch` before rating writes                  |
+| Pre-feature / missing snapshots | Reject with a clear English error                                                                                     |
+| Snapshot lifecycle              | Written once on first complete; never replaced by flip                                                                |
+| Confirmation                    | Ephemeral Confirm / Cancel (same pattern as rank reset / match cancel)                                                |
+| `completedAt`                   | Set once when first transitioning to `COMPLETED`; **not** bumped on flip; null or >24h → not correctable              |
 
 ## Architecture
 
@@ -93,16 +93,16 @@ completedAt DateTime?
 
 One row per rating entity touched by the match apply. Use an explicit kind so Postgres uniqueness is clean:
 
-| Field | Notes |
-|-------|--------|
-| `id` | cuid |
-| `matchId` | FK → Match, cascade delete |
-| `playerId` | FK → Player |
-| `entityKind` | `GLOBAL` \| `HERO` |
-| `heroId` | Required when `HERO`; unused/`0` or omitted when `GLOBAL` (implementation picks one convention and sticks to it) |
-| `mu` / `sigma` | Pre-apply values |
-| `matchesPlayed` | Pre-apply hero count; unused/null for `GLOBAL` |
-| `createdAt` | When snapshot was written |
+| Field           | Notes                                                                                                            |
+| --------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `id`            | cuid                                                                                                             |
+| `matchId`       | FK → Match, cascade delete                                                                                       |
+| `playerId`      | FK → Player                                                                                                      |
+| `entityKind`    | `GLOBAL` \| `HERO`                                                                                               |
+| `heroId`        | Required when `HERO`; unused/`0` or omitted when `GLOBAL` (implementation picks one convention and sticks to it) |
+| `mu` / `sigma`  | Pre-apply values                                                                                                 |
+| `matchesPlayed` | Pre-apply hero count; unused/null for `GLOBAL`                                                                   |
+| `createdAt`     | When snapshot was written                                                                                        |
 
 Constraints:
 
@@ -115,19 +115,19 @@ Exactly one snapshot set per completed match that used the new path. Correction 
 
 ### `/match flip`
 
-| Option | Required | Notes |
-|--------|----------|--------|
-| `match_id` | yes | Completed match id |
-| `winner` | yes | A / B (team display names in choices) |
-| `quitters` | no | Comma-separated slots; omit keeps current flags |
+| Option     | Required | Notes                                           |
+| ---------- | -------- | ----------------------------------------------- |
+| `match_id` | yes      | Completed match id                              |
+| `winner`   | yes      | A / B (team display names in choices)           |
+| `quitters` | no       | Comma-separated slots; omit keeps current flags |
 
 Flow: defer ephemeral → validate → confirm summary (winner, quitters, 24h remaining optional, later-match warning if any) → Confirm runs correction → success reply; sync channel embed.
 
 ### `/match void`
 
-| Option | Required | Notes |
-|--------|----------|--------|
-| `match_id` | yes | Completed match id |
+| Option     | Required | Notes              |
+| ---------- | -------- | ------------------ |
+| `match_id` | yes      | Completed match id |
 
 Same confirm pattern; success → cancelled embed in channel.
 
@@ -141,17 +141,17 @@ Bind `matchId`, actor Discord id, and action payload (flip: winner + quitters en
 
 ## Edge cases
 
-| Case | Behavior |
-|------|----------|
-| Unauthorized / mod role unset | Existing mod-role errors |
-| Not `COMPLETED` | Reject |
-| `completedAt` null or older than 24h | Reject |
-| Snapshots missing or incomplete | Reject |
-| Flip leaves a team with zero non-quitters | Reject (same message family as complete) |
-| Concurrent double-confirm | Row lock + status check; second fails |
-| After void | Not correctable again |
-| Later completed matches exist | Warn on confirm; still proceed |
-| Leaderboard | Refresh after successful flip/void (same hook pattern as complete) |
+| Case                                      | Behavior                                                           |
+| ----------------------------------------- | ------------------------------------------------------------------ |
+| Unauthorized / mod role unset             | Existing mod-role errors                                           |
+| Not `COMPLETED`                           | Reject                                                             |
+| `completedAt` null or older than 24h      | Reject                                                             |
+| Snapshots missing or incomplete           | Reject                                                             |
+| Flip leaves a team with zero non-quitters | Reject (same message family as complete)                           |
+| Concurrent double-confirm                 | Row lock + status check; second fails                              |
+| After void                                | Not correctable again                                              |
+| Later completed matches exist             | Warn on confirm; still proceed                                     |
+| Leaderboard                               | Refresh after successful flip/void (same hook pattern as complete) |
 
 ## Error copy (English)
 

@@ -32,7 +32,7 @@ const GROUP_1 = {
     'jafar2700',
     'Ghorderis',
     'B0jan',
-    'reron'
+    'reron',
   ],
 } as const;
 

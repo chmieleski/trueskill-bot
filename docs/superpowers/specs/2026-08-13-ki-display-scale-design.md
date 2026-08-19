@@ -17,14 +17,14 @@ Show player skill as **ki** with a Dragon Ball–friendly scale: new players nea
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Transform | Display-only |
-| Formula | `ki = round(1000 + 200 × ordinal(μ, σ))` where `ordinal = μ − 3σ` |
-| Cold start | ≈ **1000** |
-| Elite anchor | ≈ **8000** (μ≈40, σ≈1.5) |
-| Public copy | Footer / labels say **ki**, not “ordinal” |
-| DTO names | Keep `globalOrdinal` / `heroOrdinal`; values hold **display ki** |
+| Topic        | Choice                                                            |
+| ------------ | ----------------------------------------------------------------- |
+| Transform    | Display-only                                                      |
+| Formula      | `ki = round(1000 + 200 × ordinal(μ, σ))` where `ordinal = μ − 3σ` |
+| Cold start   | ≈ **1000**                                                        |
+| Elite anchor | ≈ **8000** (μ≈40, σ≈1.5)                                          |
+| Public copy  | Footer / labels say **ki**, not “ordinal”                         |
+| DTO names    | Keep `globalOrdinal` / `heroOrdinal`; values hold **display ki**  |
 
 ## Math
 
@@ -34,12 +34,12 @@ KI_SCALE  = 200
 ki = round(KI_OFFSET + KI_SCALE * ordinal({ mu, sigma }))
 ```
 
-| Profile | μ / σ (approx) | Ordinal | Ki |
-|---------|----------------|---------|-----|
-| Cold start | 25 / 8.333 | 0 | 1000 |
-| Solid | 30 / 2 | 24 | 5800 |
-| Strong | 35 / 2 | 29 | 6800 |
-| Elite | 40 / 1.5 | ≈35.5 | ≈8100 |
+| Profile    | μ / σ (approx) | Ordinal | Ki    |
+| ---------- | -------------- | ------- | ----- |
+| Cold start | 25 / 8.333     | 0       | 1000  |
+| Solid      | 30 / 2         | 24      | 5800  |
+| Strong     | 35 / 2         | 29      | 6800  |
+| Elite      | 40 / 1.5       | ≈35.5   | ≈8100 |
 
 ## Architecture
 

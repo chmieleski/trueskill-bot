@@ -105,10 +105,7 @@ function formatRankResetLine(enabled: boolean, cooldownDays: number): string {
   return `**Rank reset:** \`${enabled ? 'on' : 'off'}\` · cooldown \`${cooldownDays}d\``;
 }
 
-function formatWc3statsHostPromptLine(
-  enabled: boolean,
-  channelId: string | undefined,
-): string {
+function formatWc3statsHostPromptLine(enabled: boolean, channelId: string | undefined): string {
   if (!enabled || !channelId) {
     return '**wc3stats host lobby prompt:** `off`';
   }
@@ -119,10 +116,7 @@ function formatWc3statsEnabledLine(enabled: boolean): string {
   return `**wc3stats import:** \`${enabled ? 'on' : 'off'}\``;
 }
 
-function formatWc3statsFilterLines(
-  pattern: string | undefined,
-  sha1: string[],
-): string[] {
+function formatWc3statsFilterLines(pattern: string | undefined, sha1: string[]): string[] {
   return [
     `**wc3stats map pattern:** ${pattern ? `\`${pattern}\`` : '`unset`'}`,
     `**wc3stats map sha1:** ${
@@ -160,9 +154,7 @@ function formatQuitterLeaderboardLine(
 }
 
 function formatChangelogChannelLine(channelId: string | undefined): string {
-  return channelId
-    ? `**Changelog channel:** <#${channelId}>`
-    : '**Changelog channel:** `unset`';
+  return channelId ? `**Changelog channel:** <#${channelId}>` : '**Changelog channel:** `unset`';
 }
 
 function formatChangelogDraftLine(channelId: string | undefined): string {
@@ -258,10 +250,7 @@ export const data = new SlashCommandBuilder()
               .setName('sort')
               .setDescription('Rank by quit count or quit rate')
               .setRequired(true)
-              .addChoices(
-                { name: 'count', value: 'count' },
-                { name: 'rate', value: 'rate' },
-              ),
+              .addChoices({ name: 'count', value: 'count' }, { name: 'rate', value: 'rate' }),
           ),
       )
       .addSubcommand((subcommand) =>
@@ -546,13 +535,8 @@ export const data = new SlashCommandBuilder()
   );
 
 /** Resolve league from interaction; reply ephemeral on failure. */
-async function requireLeagueId(
-  interaction: ChatInputCommandInteraction,
-): Promise<string | null> {
-  const resolved = await resolveLeagueFromInteraction(
-    interaction,
-    getLeagueOption(interaction),
-  );
+async function requireLeagueId(interaction: ChatInputCommandInteraction): Promise<string | null> {
+  const resolved = await resolveLeagueFromInteraction(interaction, getLeagueOption(interaction));
   if (!resolved.ok) {
     await interaction.reply({
       content: leagueResolveFailureMessage(resolved.reason),
@@ -649,11 +633,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         content: [
           'Bot configuration for this server:',
           formatLeagueLine(leagueContext.league.name),
-          formatRoleLine(
-            'Create role',
-            resolved.matchCreateRoleId,
-            resolved.matchCreateRoleSource,
-          ),
+          formatRoleLine('Create role', resolved.matchCreateRoleId, resolved.matchCreateRoleSource),
           formatRoleLine('Mod role', resolved.matchModRoleId, resolved.matchModRoleSource),
           formatQuitterLeaderboardLine(
             resolved.quitterLeaderboardChannelId,
@@ -674,10 +654,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
             leagueConfig.lobbyChannelEnabled,
             leagueConfig.lobbyChannelId,
           ),
-          formatRankResetLine(
-            leagueConfig.rankResetEnabled,
-            leagueConfig.rankResetCooldownDays,
-          ),
+          formatRankResetLine(leagueConfig.rankResetEnabled, leagueConfig.rankResetCooldownDays),
           formatWc3statsEnabledLine(leagueConfig.wc3statsEnabled),
           ...formatWc3statsFilterLines(
             leagueConfig.wc3statsMapPattern,
@@ -817,10 +794,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
       if (subcommand === 'changelog_channel') {
         const channel = interaction.options.getChannel('channel', true);
-        const allowedTypes = new Set([
-          ChannelType.GuildText,
-          ChannelType.GuildAnnouncement,
-        ]);
+        const allowedTypes = new Set([ChannelType.GuildText, ChannelType.GuildAnnouncement]);
         if (!allowedTypes.has(channel.type)) {
           await interaction.reply({
             content: 'Choose a server text or announcement channel for changelogs.',
@@ -847,10 +821,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
       if (subcommand === 'changelog_draft_channel') {
         const channel = interaction.options.getChannel('channel', true);
-        const allowedTypes = new Set([
-          ChannelType.GuildText,
-          ChannelType.GuildAnnouncement,
-        ]);
+        const allowedTypes = new Set([ChannelType.GuildText, ChannelType.GuildAnnouncement]);
         if (!allowedTypes.has(channel.type)) {
           await interaction.reply({
             content: 'Choose a server text or announcement channel for changelog drafts.',
@@ -911,10 +882,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         }
 
         if (channel) {
-          const allowedTypes = new Set([
-            ChannelType.GuildText,
-            ChannelType.GuildAnnouncement,
-          ]);
+          const allowedTypes = new Set([ChannelType.GuildText, ChannelType.GuildAnnouncement]);
           if (!allowedTypes.has(channel.type)) {
             await interaction.reply({
               content: 'Choose a server text channel for lobbies.',
@@ -957,11 +925,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         const enabled = interaction.options.getBoolean('enabled', true);
         const cooldownDays = interaction.options.getInteger('cooldown_days');
         try {
-          await setLeagueRankResetEnabled(
-            leagueId,
-            enabled,
-            cooldownDays ?? undefined,
-          );
+          await setLeagueRankResetEnabled(leagueId, enabled, cooldownDays ?? undefined);
         } catch (error) {
           if (error instanceof RankResetServiceError) {
             await interaction.reply({
@@ -986,9 +950,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         const cooldownNote =
           cooldownDays != null ? ` Cooldown set to \`${cooldownDays}\` days.` : '';
         await interaction.reply({
-          content: enabled
-            ? `Rank reset enabled.${cooldownNote}`
-            : 'Rank reset disabled.',
+          content: enabled ? `Rank reset enabled.${cooldownNote}` : 'Rank reset disabled.',
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -1096,7 +1058,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         const heroSlot = interaction.options.getInteger('hero_slot', true);
         await setLeagueWc3statsSlotMap(leagueId, wc3Slot, heroSlot);
         log.info(
-          { guildId: interaction.guildId, leagueId, wc3Slot, heroSlot, userId: interaction.user.id },
+          {
+            guildId: interaction.guildId,
+            leagueId,
+            wc3Slot,
+            heroSlot,
+            userId: interaction.user.id,
+          },
           'wc3stats slot map entry updated',
         );
         await interaction.reply({
@@ -1110,12 +1078,15 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         const leagueId = await requireWc3statsLeague(interaction);
         if (!leagueId) return;
 
-        const entries = parseWc3statsSlotMapEntries(
-          interaction.options.getString('entries', true),
-        );
+        const entries = parseWc3statsSlotMapEntries(interaction.options.getString('entries', true));
         await replaceLeagueWc3statsSlotMaps(leagueId, entries);
         log.info(
-          { guildId: interaction.guildId, leagueId, count: entries.length, userId: interaction.user.id },
+          {
+            guildId: interaction.guildId,
+            leagueId,
+            count: entries.length,
+            userId: interaction.user.id,
+          },
           'wc3stats slot map replaced',
         );
         await interaction.reply({
@@ -1180,10 +1151,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           return;
         }
 
-        const allowedTypes = new Set([
-          ChannelType.GuildText,
-          ChannelType.GuildAnnouncement,
-        ]);
+        const allowedTypes = new Set([ChannelType.GuildText, ChannelType.GuildAnnouncement]);
         if (!allowedTypes.has(channel.type)) {
           await interaction.reply({
             content: 'Choose a server text channel for host lobby prompts.',

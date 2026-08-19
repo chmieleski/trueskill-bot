@@ -26,16 +26,16 @@ Multi-league already isolates **Elo** per league; identity was deliberately left
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Isolation key | **`Game.id`** (not league, not guild) |
-| Player identity | **`(gameId, username)`** — same nick string on two games = two `Player` rows |
-| Discord bind | On `Player`: at most one linked Discord per `(gameId, discordId)`; at most one nick per Discord per game |
-| World scope | Bind is **global for that game** — not per guild. Documented below. |
-| Game selection UX | **League resolve** only (same as `/rank`) |
-| Legacy migration | All existing `Player` rows → `gameId = warcraft3_udbr`; existing Discord binds become UDBR binds |
-| New games | Fresh `Player` rows + fresh `/link`s (no auto-copy from UDBR) |
-| Schema approach | Add `gameId` on `Player`; drop global uniques on `username` / `discordId` |
+| Topic             | Choice                                                                                                   |
+| ----------------- | -------------------------------------------------------------------------------------------------------- |
+| Isolation key     | **`Game.id`** (not league, not guild)                                                                    |
+| Player identity   | **`(gameId, username)`** — same nick string on two games = two `Player` rows                             |
+| Discord bind      | On `Player`: at most one linked Discord per `(gameId, discordId)`; at most one nick per Discord per game |
+| World scope       | Bind is **global for that game** — not per guild. Documented below.                                      |
+| Game selection UX | **League resolve** only (same as `/rank`)                                                                |
+| Legacy migration  | All existing `Player` rows → `gameId = warcraft3_udbr`; existing Discord binds become UDBR binds         |
+| New games         | Fresh `Player` rows + fresh `/link`s (no auto-copy from UDBR)                                            |
+| Schema approach   | Add `gameId` on `Player`; drop global uniques on `username` / `discordId`                                |
 
 ### Documented rule — worldwide per-game bind
 
@@ -50,11 +50,11 @@ This is intentional. Operators and public docs must say so.
 
 ## Relationship to prior specs
 
-| Spec | Change |
-|------|--------|
-| [2026-08-15-multi-league-ihl-design](./2026-08-15-multi-league-ihl-design.md) | **Supersedes** locked “global Player; unique `discordId`” and the non-goal “per-league Player / Discord link” **only for identity**. Ratings/matches remain `leagueId`-scoped. Leave a short supersession note in that doc when implementing. |
-| [2026-08-14-player-rank-link-design](./2026-08-14-player-rank-link-design.md) | `/link` / `/unlink` / Discord lookup for `/rank` gain `gameId` via league resolve; auth and conflict copy stay the same shape. |
-| [2026-08-15-wc3stats-host-lobby-prompt-design](./2026-08-15-wc3stats-host-lobby-prompt-design.md) | Host nick match and ping preference resolve against the **league’s game** `Player` row. |
+| Spec                                                                                              | Change                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [2026-08-15-multi-league-ihl-design](./2026-08-15-multi-league-ihl-design.md)                     | **Supersedes** locked “global Player; unique `discordId`” and the non-goal “per-league Player / Discord link” **only for identity**. Ratings/matches remain `leagueId`-scoped. Leave a short supersession note in that doc when implementing. |
+| [2026-08-14-player-rank-link-design](./2026-08-14-player-rank-link-design.md)                     | `/link` / `/unlink` / Discord lookup for `/rank` gain `gameId` via league resolve; auth and conflict copy stay the same shape.                                                                                                                |
+| [2026-08-15-wc3stats-host-lobby-prompt-design](./2026-08-15-wc3stats-host-lobby-prompt-design.md) | Host nick match and ping preference resolve against the **league’s game** `Player` row.                                                                                                                                                       |
 
 ## Data model
 
@@ -111,13 +111,13 @@ No duplication of players into other games.
 
 Then use `league.gameId`.
 
-| Surface | Behavior |
-|---------|----------|
-| `/link` | Resolve league → bind Discord to `(gameId, nick)`. Create `Player` for that game if nick unseen there. First-time bind open; relink needs mod `allowRelink`. |
-| `/unlink` | Resolve league → clear `discordId` only on that game’s row. |
-| `/rank` | Ratings already use `leagueId`; Discord/nick → `Player` must filter by that league’s `gameId`. |
-| Lobby claim / `/lobby add user:` | Use the **match’s** league `gameId` (match already has `leagueId`). |
-| Host prompt / player host-ping settings | League/channel context → that game’s `Player`; preference remains on the per-game row. |
+| Surface                                 | Behavior                                                                                                                                                     |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/link`                                 | Resolve league → bind Discord to `(gameId, nick)`. Create `Player` for that game if nick unseen there. First-time bind open; relink needs mod `allowRelink`. |
+| `/unlink`                               | Resolve league → clear `discordId` only on that game’s row.                                                                                                  |
+| `/rank`                                 | Ratings already use `leagueId`; Discord/nick → `Player` must filter by that league’s `gameId`.                                                               |
+| Lobby claim / `/lobby add user:`        | Use the **match’s** league `gameId` (match already has `leagueId`).                                                                                          |
+| Host prompt / player host-ping settings | League/channel context → that game’s `Player`; preference remains on the per-game row.                                                                       |
 
 **Copy:** English. Unlinked errors may name the game when helpful (e.g. not linked for this league’s game).
 

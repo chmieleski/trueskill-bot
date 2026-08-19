@@ -21,29 +21,31 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `src/services/match-auth.ts` | Add `hasMatchModRole` / `assertHasMatchModRole` |
-| `src/services/match-auth.test.ts` | Cover new helpers |
-| `src/services/player-profile.ts` | Resolve player, load profile DTO, pure rank/W/L helpers |
-| `src/services/player-profile.test.ts` | Unit tests for helpers + resolve errors |
-| `src/services/player-link.ts` | link / unlink + conflicts |
-| `src/services/player-link.test.ts` | Conflict / auth-message unit coverage via injectable deps |
-| `src/services/rank-embed.ts` | Layout A `EmbedBuilder` |
-| `src/services/rank-embed.test.ts` | Field/title/color assertions |
-| `src/commands/player/rank.ts` | `/rank` adapter |
-| `src/commands/player/link.ts` | `/link` adapter |
-| `src/commands/player/unlink.ts` | `/unlink` adapter |
+| File                                  | Role                                                      |
+| ------------------------------------- | --------------------------------------------------------- |
+| `src/services/match-auth.ts`          | Add `hasMatchModRole` / `assertHasMatchModRole`           |
+| `src/services/match-auth.test.ts`     | Cover new helpers                                         |
+| `src/services/player-profile.ts`      | Resolve player, load profile DTO, pure rank/W/L helpers   |
+| `src/services/player-profile.test.ts` | Unit tests for helpers + resolve errors                   |
+| `src/services/player-link.ts`         | link / unlink + conflicts                                 |
+| `src/services/player-link.test.ts`    | Conflict / auth-message unit coverage via injectable deps |
+| `src/services/rank-embed.ts`          | Layout A `EmbedBuilder`                                   |
+| `src/services/rank-embed.test.ts`     | Field/title/color assertions                              |
+| `src/commands/player/rank.ts`         | `/rank` adapter                                           |
+| `src/commands/player/link.ts`         | `/link` adapter                                           |
+| `src/commands/player/unlink.ts`       | `/unlink` adapter                                         |
 
 ---
 
 ### Task 1: Match mod role helper (no host bypass)
 
 **Files:**
+
 - Modify: `src/services/match-auth.ts`
 - Modify: `src/services/match-auth.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `hasMatchModRole(input: { memberRoleIds: string[]; matchModRoleId?: string }): boolean`
   - `assertHasMatchModRole(input: { memberRoleIds: string[]; matchModRoleId?: string }): void` — throws `MatchServiceError` with either `Match moderator role is not configured.` or `Only match moderators can do that.`
@@ -59,9 +61,7 @@ describe('hasMatchModRole', () => {
   });
 
   it('returns false when member lacks the role', () => {
-    expect(
-      hasMatchModRole({ memberRoleIds: ['other'], matchModRoleId: 'role-mod' }),
-    ).toBe(false);
+    expect(hasMatchModRole({ memberRoleIds: ['other'], matchModRoleId: 'role-mod' })).toBe(false);
   });
 
   it('returns true when member has the role', () => {
@@ -82,9 +82,9 @@ describe('assertHasMatchModRole', () => {
   });
 
   it('throws forbidden when member lacks role', () => {
-    expect(() =>
-      assertHasMatchModRole({ memberRoleIds: [], matchModRoleId: 'role-mod' }),
-    ).toThrow('Only match moderators can do that.');
+    expect(() => assertHasMatchModRole({ memberRoleIds: [], matchModRoleId: 'role-mod' })).toThrow(
+      'Only match moderators can do that.',
+    );
   });
 });
 ```
@@ -153,10 +153,12 @@ EOF
 ### Task 2: Player profile service (pure helpers + load)
 
 **Files:**
+
 - Create: `src/services/player-profile.ts`
 - Create: `src/services/player-profile.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `export class PlayerServiceError extends Error`
   - `export type PlayerProfileHero = { heroId: number; name: string; ki: number; matchesPlayed: number }`
@@ -212,15 +214,17 @@ describe('parseRankOptions', () => {
   });
 
   it('prefers user when only user set', () => {
-    expect(
-      parseRankOptions({ selfDiscordId: 'me', userDiscordId: 'u1', nick: null }),
-    ).toEqual({ kind: 'user', discordId: 'u1' });
+    expect(parseRankOptions({ selfDiscordId: 'me', userDiscordId: 'u1', nick: null })).toEqual({
+      kind: 'user',
+      discordId: 'u1',
+    });
   });
 
   it('uses nick when only nick set', () => {
-    expect(
-      parseRankOptions({ selfDiscordId: 'me', userDiscordId: null, nick: 'Tinys' }),
-    ).toEqual({ kind: 'nick', nick: 'Tinys' });
+    expect(parseRankOptions({ selfDiscordId: 'me', userDiscordId: null, nick: 'Tinys' })).toEqual({
+      kind: 'nick',
+      nick: 'Tinys',
+    });
   });
 
   it('defaults to self', () => {
@@ -339,9 +343,7 @@ async function findPlayerByNick(nick: string) {
 
 export async function loadPlayerProfile(lookup: RankLookup): Promise<PlayerProfile> {
   if (lookup.kind === 'both') {
-    throw new PlayerServiceError(
-      'Provide either a Discord user or a nick, not both.',
-    );
+    throw new PlayerServiceError('Provide either a Discord user or a nick, not both.');
   }
 
   let player =
@@ -375,9 +377,7 @@ export async function loadPlayerProfile(lookup: RankLookup): Promise<PlayerProfi
     }),
   ]);
 
-  const globalKi = rating
-    ? displayOrdinal(rating.mu, rating.sigma)
-    : coldStartKi();
+  const globalKi = rating ? displayOrdinal(rating.mu, rating.sigma) : coldStartKi();
 
   const allKis = allRatings.map((row) => displayOrdinal(row.mu, row.sigma));
   if (!rating) {
@@ -397,8 +397,7 @@ export async function loadPlayerProfile(lookup: RankLookup): Promise<PlayerProfi
   }
 
   const games = wins + losses;
-  const winRatePercent =
-    games > 0 ? Math.round((wins / games) * 1000) / 10 : null;
+  const winRatePercent = games > 0 ? Math.round((wins / games) * 1000) / 10 : null;
 
   const heroes: PlayerProfileHero[] = heroRatings
     .map((row) => ({
@@ -447,10 +446,12 @@ EOF
 ### Task 3: Player link / unlink service
 
 **Files:**
+
 - Create: `src/services/player-link.ts`
 - Create: `src/services/player-link.test.ts`
 
 **Interfaces:**
+
 - Consumes: `PlayerServiceError` from `player-profile.ts` (reuse for user-facing errors)
 - Produces:
   - `async linkPlayer(input: { nick: string; discordId: string }): Promise<{ username: string; discordId: string }>`
@@ -494,9 +495,9 @@ import { PlayerServiceError } from './player-profile.js';
 
 describe('assertLinkAllowed', () => {
   it('rejects missing nick', () => {
-    expect(() =>
-      assertLinkAllowed({ player: null, existingByDiscord: null }),
-    ).toThrow('No player with that nick.');
+    expect(() => assertLinkAllowed({ player: null, existingByDiscord: null })).toThrow(
+      'No player with that nick.',
+    );
   });
 
   it('rejects nick already linked', () => {
@@ -519,9 +520,7 @@ describe('assertLinkAllowed', () => {
 
   it('allows a free nick and free discord', () => {
     const player = { id: '1', username: 'Tinys', discordId: null };
-    expect(
-      assertLinkAllowed({ player, existingByDiscord: null }),
-    ).toEqual(player);
+    expect(assertLinkAllowed({ player, existingByDiscord: null })).toEqual(player);
   });
 });
 ```
@@ -607,9 +606,7 @@ export async function unlinkByDiscordId(
 
   if (!player) {
     throw new PlayerServiceError(
-      options.self
-        ? 'Your Discord is not linked.'
-        : 'That Discord account is not linked.',
+      options.self ? 'Your Discord is not linked.' : 'That Discord account is not linked.',
     );
   }
 
@@ -633,10 +630,12 @@ Run: `npm test -- src/services/player-link.test.ts`
 ### Task 4: Rank embed (layout A)
 
 **Files:**
+
 - Create: `src/services/rank-embed.ts`
 - Create: `src/services/rank-embed.test.ts`
 
 **Interfaces:**
+
 - Consumes: `PlayerProfile`
 - Produces: `buildRankEmbed(profile: PlayerProfile, options?: { avatarUrl?: string | null }): EmbedBuilder`
 
@@ -769,9 +768,11 @@ Note: Discord footers do not resolve mentions; that is acceptable per design (�
 ### Task 5: `/rank` command
 
 **Files:**
+
 - Create: `src/commands/player/rank.ts`
 
 **Interfaces:**
+
 - Consumes: `parseRankOptions`, `loadPlayerProfile`, `PlayerServiceError`, `buildRankEmbed`
 - Produces: slash command `rank` auto-loaded by `load-commands.ts`
 
@@ -794,16 +795,10 @@ export const data = new SlashCommandBuilder()
   .setName('rank')
   .setDescription('Show your rank profile or look up another player')
   .addUserOption((option) =>
-    option
-      .setName('user')
-      .setDescription('Discord user to look up')
-      .setRequired(false),
+    option.setName('user').setDescription('Discord user to look up').setRequired(false),
   )
   .addStringOption((option) =>
-    option
-      .setName('nick')
-      .setDescription('In-game nick to look up')
-      .setRequired(false),
+    option.setName('nick').setDescription('In-game nick to look up').setRequired(false),
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
@@ -860,9 +855,9 @@ Expected: no errors related to `rank.ts`.
 
 With `npm run dev` (auto-deploy on):
 
-1. `/rank nick:<seeded veteran>` → embed gold, title with ki  
-2. `/rank` without link → English not-linked message  
-3. `/rank user:@x nick:y` → both-options error  
+1. `/rank nick:<seeded veteran>` → embed gold, title with ki
+2. `/rank` without link → English not-linked message
+3. `/rank user:@x nick:y` → both-options error
 
 - [ ] **Step 4: Commit** (only if asked)
 
@@ -871,10 +866,12 @@ With `npm run dev` (auto-deploy on):
 ### Task 6: `/link` and `/unlink` commands
 
 **Files:**
+
 - Create: `src/commands/player/link.ts`
 - Create: `src/commands/player/unlink.ts`
 
 **Interfaces:**
+
 - Consumes: `resolveGuildConfig`, `assertHasMatchModRole`, `linkPlayer`, `unlinkByDiscordId`, `PlayerServiceError`, `MatchServiceError`
 - Reuse the same `memberRoleIds(interaction)` helper pattern as `register-lobby.ts` (copy the small local function into each file, or extract later — do **not** block on a shared util refactor).
 
@@ -1044,10 +1041,10 @@ Expected: all existing + new tests PASS.
 
 - [ ] **Step 4: Manual smoke**
 
-1. Non-mod `/link` → mod forbidden / not configured  
-2. Mod `/link nick:Tinys user:@you` → success; `/rank` no-args shows profile  
-3. `/unlink` self → success; `/rank` no-args → not linked  
-4. Conflicting second link → already linked error  
+1. Non-mod `/link` → mod forbidden / not configured
+2. Mod `/link nick:Tinys user:@you` → success; `/rank` no-args shows profile
+3. `/unlink` self → success; `/rank` no-args → not linked
+4. Conflicting second link → already linked error
 
 - [ ] **Step 5: Commit** (only if asked)
 
@@ -1064,18 +1061,18 @@ EOF
 
 ## Spec coverage checklist
 
-| Spec item | Task |
-|-----------|------|
-| `/rank` user \| nick \| self | 2, 5 |
-| Profile ki, rank #, W/L, heroes | 2, 4 |
-| Competition ties 1,2,2,4 | 2 |
-| Layout A gold embed | 4 |
-| `/link` mod-only + existing nick | 1, 3, 6 |
-| `/unlink` self + mod target | 3, 6 |
-| Guild config mod role resolve | 6 |
-| Error copy table | 2, 3, 1 |
-| Tech debt C noted (not built) | — documented in spec only |
-| No schema migration | — |
+| Spec item                        | Task                      |
+| -------------------------------- | ------------------------- |
+| `/rank` user \| nick \| self     | 2, 5                      |
+| Profile ki, rank #, W/L, heroes  | 2, 4                      |
+| Competition ties 1,2,2,4         | 2                         |
+| Layout A gold embed              | 4                         |
+| `/link` mod-only + existing nick | 1, 3, 6                   |
+| `/unlink` self + mod target      | 3, 6                      |
+| Guild config mod role resolve    | 6                         |
+| Error copy table                 | 2, 3, 1                   |
+| Tech debt C noted (not built)    | — documented in spec only |
+| No schema migration              | —                         |
 
 ## Placeholder / consistency review
 

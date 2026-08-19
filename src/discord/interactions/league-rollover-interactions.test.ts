@@ -23,11 +23,8 @@ vi.mock('../../services/leaderboard/index.js', () => ({
 
 vi.mock('../../services/league/index.js', () => {
   class LeagueRolloverError extends Error {}
-  const buildCustomId = (
-    action: 'c' | 'x',
-    draftId: string,
-    actorDiscordId: string,
-  ) => `lv:${action}:${draftId}:${actorDiscordId}`;
+  const buildCustomId = (action: 'c' | 'x', draftId: string, actorDiscordId: string) =>
+    `lv:${action}:${draftId}:${actorDiscordId}`;
 
   return {
     applyLeagueRollover,
@@ -39,8 +36,7 @@ vi.mock('../../services/league/index.js', () => {
     getLeagueById,
     LeagueRolloverError,
     parseRolloverButtonCustomId: (customId: string) => {
-      const [prefix, action, draftId, actorDiscordId, extra] =
-        customId.split(':');
+      const [prefix, action, draftId, actorDiscordId, extra] = customId.split(':');
       if (
         prefix !== 'lv' ||
         (action !== 'c' && action !== 'x') ||
@@ -65,10 +61,7 @@ import {
 } from './league-rollover-interactions.js';
 import { LeagueRolloverError } from '../../services/league/index.js';
 
-function buttonInteraction(
-  customId: string,
-  overrides: Record<string, unknown> = {},
-): Interaction {
+function buttonInteraction(customId: string, overrides: Record<string, unknown> = {}): Interaction {
   return {
     isButton: () => true,
     customId,
@@ -135,9 +128,7 @@ describe('handleLeagueRolloverInteraction', () => {
   });
 
   it('returns false for non-lv custom ids', async () => {
-    expect(await handleLeagueRolloverInteraction(buttonInteraction('rr:c:x:y:z'))).toBe(
-      false,
-    );
+    expect(await handleLeagueRolloverInteraction(buttonInteraction('rr:c:x:y:z'))).toBe(false);
   });
 
   it('ignores unrelated interactions', async () => {
@@ -252,11 +243,7 @@ describe('handleLeagueRolloverInteraction', () => {
       'channel-1',
       'msg-old',
     );
-    expect(setupLiveLeaderboard).toHaveBeenCalledWith(
-      interaction.client,
-      'dst',
-      'channel-1',
-    );
+    expect(setupLiveLeaderboard).toHaveBeenCalledWith(interaction.client, 'dst', 'channel-1');
     expect(interaction.editReply).toHaveBeenCalledWith({
       content: [
         'Rollover complete.',
@@ -305,8 +292,7 @@ describe('handleLeagueRolloverInteraction', () => {
 
     await expect(handleLeagueRolloverInteraction(interaction)).resolves.toBe(true);
     expect(interaction.editReply).toHaveBeenCalledWith({
-      content:
-        'A league with that name already exists for this game on this server.',
+      content: 'A league with that name already exists for this game on this server.',
       components: [],
     });
     expect(setupLiveLeaderboard).not.toHaveBeenCalled();
