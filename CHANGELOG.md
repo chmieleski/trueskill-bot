@@ -1,3 +1,12 @@
+## [1.5.1](https://github.com/chmieleski/trueskill-bot/compare/v1.5.0...v1.5.1) (2026-08-19)
+
+
+### Bug Fixes
+
+* **ci:** quote git config run step with trailing colon ([#51](https://github.com/chmieleski/trueskill-bot/issues/51)) ([3857cc1](https://github.com/chmieleski/trueskill-bot/commit/3857cc1076bafa6b1e2d6f64ed42e9c59456a667))
+* **ci:** rewrite GitHub git deps to HTTPS ([#50](https://github.com/chmieleski/trueskill-bot/issues/50)) ([57d5047](https://github.com/chmieleski/trueskill-bot/commit/57d50473fa66071fa8f88b86daea330484894e9f))
+* **ci:** use HTTPS for GitHub git deps in CI ([#49](https://github.com/chmieleski/trueskill-bot/issues/49)) ([0cefa13](https://github.com/chmieleski/trueskill-bot/commit/0cefa137225f6c88f8045fe12ca02f7944808ff4))
+
 # [1.5.0](https://github.com/chmieleski/trueskill-bot/compare/v1.4.0...v1.5.0) (2026-08-19)
 
 
