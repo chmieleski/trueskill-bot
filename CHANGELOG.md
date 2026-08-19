@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/chmieleski/trueskill-bot/compare/v1.5.2...v1.6.0) (2026-08-19)
+
+
+### Features
+
+* **match:** add nick lookup to /match history ([#52](https://github.com/chmieleski/trueskill-bot/issues/52)) ([06aa379](https://github.com/chmieleski/trueskill-bot/commit/06aa379f4e8c23391f7882c192f9ead218d7518f))
+
 ## [1.5.2](https://github.com/chmieleski/trueskill-bot/compare/v1.5.1...v1.5.2) (2026-08-19)
 
 
