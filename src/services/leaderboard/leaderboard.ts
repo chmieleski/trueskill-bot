@@ -3,7 +3,10 @@ import { prisma } from '../../lib/prisma.js';
 import { displayOrdinal, isCalibrating } from '../rating/rating-math.js';
 import {
   gamesByPlayerFromStats,
+  heroStatsFor,
+  loadMatchDisplayStats,
   loadMatchDisplayStatsByPlayer,
+  winRatePercent,
 } from '../rating/rank-reset-display.js';
 
 export const LEADERBOARD_PAGE_SIZE = 10;
@@ -63,6 +66,7 @@ export type OverallLeaderboardEntry = {
   games: number;
   leagueGames: number;
   discordId: string | null;
+  winRatePercent: number | null;
 };
 
 export type HeroLeaderboardEntry = {
@@ -72,6 +76,7 @@ export type HeroLeaderboardEntry = {
   ki: number;
   matchesPlayed: number;
   leagueGames: number;
+  winRatePercent: number | null;
 };
 
 export type OverallLeaderboardPage = {
@@ -167,6 +172,7 @@ async function loadEligibleOverallRows(leagueId: string): Promise<OverallLeaderb
   const mapped = ratings
     .map((row) => {
       const games = gamesByPlayer.get(row.playerId) ?? 0;
+      const stats = displayStatsByPlayer.get(row.playerId);
       return {
         playerId: row.playerId,
         username: row.player.username,
@@ -174,6 +180,7 @@ async function loadEligibleOverallRows(leagueId: string): Promise<OverallLeaderb
         ki: displayOrdinal(row.mu, row.sigma, games),
         games,
         leagueGames: games,
+        winRatePercent: winRatePercent(stats?.wins ?? 0, stats?.losses ?? 0),
       };
     })
     .filter((row) => row.games >= 1);
@@ -186,6 +193,7 @@ async function loadEligibleOverallRows(leagueId: string): Promise<OverallLeaderb
     games: row.games,
     leagueGames: row.leagueGames,
     discordId: row.discordId,
+    winRatePercent: row.winRatePercent,
   }));
 }
 
@@ -214,17 +222,23 @@ function mapHeroRatings(
     player: { username: string };
   }[],
   leagueGamesByPlayer: Map<string, number>,
+  byHero: Map<string, Map<number, { wins: number; losses: number }>>,
+  heroId: number,
   limit: number,
 ): HeroLeaderboardEntry[] {
   const mapped = rows
     .filter((row) => row.matchesPlayed > 0)
-    .map((row) => ({
-      playerId: row.playerId,
-      username: row.player.username,
-      ki: displayOrdinal(row.mu, row.sigma, row.matchesPlayed),
-      matchesPlayed: row.matchesPlayed,
-      leagueGames: leagueGamesByPlayer.get(row.playerId) ?? 0,
-    }));
+    .map((row) => {
+      const heroWl = heroStatsFor(byHero, row.playerId, heroId);
+      return {
+        playerId: row.playerId,
+        username: row.player.username,
+        ki: displayOrdinal(row.mu, row.sigma, row.matchesPlayed),
+        matchesPlayed: row.matchesPlayed,
+        leagueGames: leagueGamesByPlayer.get(row.playerId) ?? 0,
+        winRatePercent: winRatePercent(heroWl.wins, heroWl.losses),
+      };
+    });
 
   return rankLeaderboardRows(mapped, (row) => row.leagueGames)
     .slice(0, limit)
@@ -235,6 +249,7 @@ function mapHeroRatings(
       ki: row.ki,
       matchesPlayed: row.matchesPlayed,
       leagueGames: row.leagueGames,
+      winRatePercent: row.winRatePercent,
     }));
 }
 
@@ -248,21 +263,24 @@ export async function loadHeroLeaderboard(
     throw new LeaderboardServiceError('Unknown hero.');
   }
 
-  const [rows, displayStatsByPlayer] = await Promise.all([
+  const [rows, displayStats] = await Promise.all([
     prisma.playerHeroRating.findMany({
       where: { leagueId, heroId, matchesPlayed: { gt: 0 } },
       include: { player: { select: { username: true } } },
     }),
-    loadMatchDisplayStatsByPlayer(leagueId),
+    loadMatchDisplayStats(leagueId),
   ]);
-  const leagueGamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
-  return { heroName: hero.name, entries: mapHeroRatings(rows, leagueGamesByPlayer, limit) };
+  const leagueGamesByPlayer = gamesByPlayerFromStats(displayStats.byPlayer);
+  return {
+    heroName: hero.name,
+    entries: mapHeroRatings(rows, leagueGamesByPlayer, displayStats.byHero, heroId, limit),
+  };
 }
 
 export async function loadAllHeroLeaderboards(leagueId: string): Promise<HeroBoardSlice[]> {
   const heroes = await loadHeroCatalog();
-  const displayStatsByPlayer = await loadMatchDisplayStatsByPlayer(leagueId);
-  const leagueGamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
+  const displayStats = await loadMatchDisplayStats(leagueId);
+  const leagueGamesByPlayer = gamesByPlayerFromStats(displayStats.byPlayer);
   const slices: HeroBoardSlice[] = [];
 
   for (const hero of heroes) {
@@ -273,7 +291,13 @@ export async function loadAllHeroLeaderboards(leagueId: string): Promise<HeroBoa
     slices.push({
       heroId: hero.id,
       heroName: hero.name,
-      entries: mapHeroRatings(rows, leagueGamesByPlayer, HERO_COMPACT_TOP),
+      entries: mapHeroRatings(
+        rows,
+        leagueGamesByPlayer,
+        displayStats.byHero,
+        hero.id,
+        HERO_COMPACT_TOP,
+      ),
     });
   }
 

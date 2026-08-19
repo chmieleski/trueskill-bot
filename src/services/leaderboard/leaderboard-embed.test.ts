@@ -20,6 +20,7 @@ function fakeEntry(rank: number): OverallLeaderboardEntry {
     games: 10,
     leagueGames: 10,
     discordId: null,
+    winRatePercent: 50,
   };
 }
 
@@ -53,6 +54,7 @@ describe('formatOverallTable', () => {
         games: 20,
         leagueGames: 20,
         discordId: null,
+        winRatePercent: 50,
       },
       {
         rank: null,
@@ -62,11 +64,46 @@ describe('formatOverallTable', () => {
         games: 2,
         leagueGames: 2,
         discordId: null,
+        winRatePercent: 50,
       },
     ]);
     expect(table).toContain('4820');
     expect(table).toContain('Calibrating');
     expect(table).not.toContain('9000');
+    expect(table).toContain('—');
+  });
+
+  it('adds a WR column', () => {
+    const table = formatOverallTable([
+      {
+        rank: 1,
+        playerId: 'p1',
+        username: 'Tinys',
+        ki: 4200,
+        games: 17,
+        leagueGames: 17,
+        discordId: null,
+        winRatePercent: 70.6,
+      },
+    ]);
+    expect(table).toContain('WR');
+    expect(table).toContain('70.6%');
+  });
+
+  it('prints an em dash when winRatePercent is null', () => {
+    const table = formatOverallTable([
+      {
+        rank: 1,
+        playerId: 'p1',
+        username: 'Tinys',
+        ki: 4200,
+        games: 8,
+        leagueGames: 8,
+        discordId: null,
+        winRatePercent: null,
+      },
+    ]);
+    expect(table).toMatch(/WR/);
     expect(table).toContain('—');
   });
 });
@@ -83,6 +120,7 @@ describe('buildOverallLeaderboardEmbed', () => {
           games: 42,
           leagueGames: 42,
           discordId: null,
+          winRatePercent: 50,
         },
       ],
       page: 1,
@@ -137,6 +175,7 @@ describe('buildHeroLeaderboardEmbed', () => {
         ki: 4200,
         matchesPlayed: 3,
         leagueGames: 2,
+        winRatePercent: 0,
       },
     ]);
     expect(embed.data.description).toContain('Calibrating');
@@ -158,12 +197,17 @@ describe('buildAllHeroLeaderboardsEmbed', () => {
             ki: 4200,
             matchesPlayed: 8,
             leagueGames: 8,
+            winRatePercent: 62.5,
           },
         ],
       },
     ]);
     expect(embed.data.fields).toHaveLength(1);
     expect(embed.data.fields?.[0]?.name).toBe('Goku');
+    expect(embed.data.fields?.[0]?.value).toContain('Tinys');
+    expect(embed.data.fields?.[0]?.value).toContain('4200');
+    expect(embed.data.fields?.[0]?.value).not.toContain('WR');
+    expect(embed.data.fields?.[0]?.value).not.toContain('62.5%');
   });
 });
 

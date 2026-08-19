@@ -6,6 +6,7 @@ export type MatchDisplayStatRow = {
   result: MatchResult | null;
   isQuitter: boolean;
   completedAt: Date | null;
+  heroId?: number | null;
 };
 
 /** Row shape for point-in-time completed-game counts (e.g. match history). */
@@ -20,6 +21,16 @@ export type PlayerMatchDisplayStats = {
   wins: number;
   losses: number;
   quits: number;
+};
+
+export type PlayerHeroMatchDisplayStats = {
+  wins: number;
+  losses: number;
+};
+
+export type MatchDisplayStatsBundle = {
+  byPlayer: Map<string, PlayerMatchDisplayStats>;
+  byHero: Map<string, Map<number, PlayerHeroMatchDisplayStats>>;
 };
 
 type Db = Pick<PrismaClient, 'playerRankReset' | 'matchPlayer'>;
@@ -127,6 +138,62 @@ export function gamesByPlayerFromStats(
   return new Map([...stats.entries()].map(([playerId, row]) => [playerId, row.games]));
 }
 
+/** Public win rate: one decimal, null when no completed WIN/LOSS. */
+export function winRatePercent(wins: number, losses: number): number | null {
+  const games = wins + losses;
+  if (games === 0) {
+    return null;
+  }
+  return Math.round((wins / games) * 1000) / 10;
+}
+
+export function heroStatsFor(
+  byHero: Map<string, Map<number, PlayerHeroMatchDisplayStats>>,
+  playerId: string,
+  heroId: number,
+): PlayerHeroMatchDisplayStats {
+  return byHero.get(playerId)?.get(heroId) ?? { wins: 0, losses: 0 };
+}
+
+/** Aggregate per-hero W/L, applying each player's latest rank-reset cutoff. */
+export function aggregateHeroMatchDisplayStats(
+  rows: MatchDisplayStatRow[],
+  resetAtByPlayer: Map<string, Date>,
+): Map<string, Map<number, PlayerHeroMatchDisplayStats>> {
+  const stats = new Map<string, Map<number, PlayerHeroMatchDisplayStats>>();
+
+  for (const row of rows) {
+    if (row.heroId == null) {
+      continue;
+    }
+    if (row.result !== MatchResult.WIN && row.result !== MatchResult.LOSS) {
+      continue;
+    }
+    const resetAt = resetAtByPlayer.get(row.playerId);
+    if (!isMatchCountedAfterRankReset(row.completedAt, resetAt)) {
+      continue;
+    }
+
+    let byHero = stats.get(row.playerId);
+    if (!byHero) {
+      byHero = new Map();
+      stats.set(row.playerId, byHero);
+    }
+    let bucket = byHero.get(row.heroId);
+    if (!bucket) {
+      bucket = { wins: 0, losses: 0 };
+      byHero.set(row.heroId, bucket);
+    }
+    if (row.result === MatchResult.WIN) {
+      bucket.wins += 1;
+    } else {
+      bucket.losses += 1;
+    }
+  }
+
+  return stats;
+}
+
 /** Latest PlayerRankReset.createdAt per player in a league. */
 export async function loadLatestRankResetAtByPlayer(
   leagueId: string,
@@ -149,11 +216,14 @@ export async function loadLatestRankResetAtByPlayer(
  * Load completed W/L (+ quitter flags) for a league, scoped to optional playerIds,
  * then apply rank-reset cutoffs for public display stats.
  */
-export async function loadMatchDisplayStatsByPlayer(
+async function loadMatchDisplayRows(
   leagueId: string,
-  playerIds?: string[],
-  db: Db = defaultPrisma,
-): Promise<Map<string, PlayerMatchDisplayStats>> {
+  playerIds: string[] | undefined,
+  db: Db,
+): Promise<{
+  resetAtByPlayer: Map<string, Date>;
+  rows: MatchDisplayStatRow[];
+}> {
   const [resetAtByPlayer, matchRows] = await Promise.all([
     loadLatestRankResetAtByPlayer(leagueId, playerIds, db),
     db.matchPlayer.findMany({
@@ -175,6 +245,7 @@ export async function loadMatchDisplayStatsByPlayer(
       },
       select: {
         playerId: true,
+        heroId: true,
         result: true,
         isQuitter: true,
         match: { select: { completedAt: true } },
@@ -184,10 +255,40 @@ export async function loadMatchDisplayStatsByPlayer(
 
   const rows: MatchDisplayStatRow[] = matchRows.map((row) => ({
     playerId: row.playerId,
+    heroId: row.heroId,
     result: row.result,
     isQuitter: row.isQuitter,
     completedAt: row.match.completedAt,
   }));
 
+  return { resetAtByPlayer, rows };
+}
+
+export async function loadMatchDisplayStats(
+  leagueId: string,
+  playerIds?: string[],
+  db: Db = defaultPrisma,
+): Promise<MatchDisplayStatsBundle> {
+  const { resetAtByPlayer, rows } = await loadMatchDisplayRows(
+    leagueId,
+    playerIds,
+    db,
+  );
+  return {
+    byPlayer: aggregateMatchDisplayStats(rows, resetAtByPlayer),
+    byHero: aggregateHeroMatchDisplayStats(rows, resetAtByPlayer),
+  };
+}
+
+export async function loadMatchDisplayStatsByPlayer(
+  leagueId: string,
+  playerIds?: string[],
+  db: Db = defaultPrisma,
+): Promise<Map<string, PlayerMatchDisplayStats>> {
+  const { resetAtByPlayer, rows } = await loadMatchDisplayRows(
+    leagueId,
+    playerIds,
+    db,
+  );
   return aggregateMatchDisplayStats(rows, resetAtByPlayer);
 }

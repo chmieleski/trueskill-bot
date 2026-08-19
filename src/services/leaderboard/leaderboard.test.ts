@@ -126,6 +126,7 @@ describe('paginateOverall', () => {
     games: 5,
     leagueGames: 5,
     discordId: null,
+    winRatePercent: 50,
   }));
 
   it('returns page 2 with 10 entries', () => {

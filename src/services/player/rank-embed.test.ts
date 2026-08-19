@@ -13,17 +13,53 @@ const baseProfile: PlayerProfile = {
   quits: 2,
   winRatePercent: 70.6,
   heroes: [
-    { heroId: 1, name: 'Goku', ki: 4200, matchesPlayed: 8 },
-    { heroId: 2, name: 'Vegeta', ki: 3900, matchesPlayed: 4 },
+    {
+      heroId: 1,
+      name: 'Goku',
+      ki: 4200,
+      matchesPlayed: 8,
+      wins: 5,
+      losses: 3,
+      winRatePercent: 62.5,
+    },
+    {
+      heroId: 2,
+      name: 'Vegeta',
+      ki: 3900,
+      matchesPlayed: 4,
+      wins: 2,
+      losses: 2,
+      winRatePercent: 50,
+    },
   ],
 };
 
 describe('formatHeroTable', () => {
-  it('aligns names and shows ki · matches', () => {
+  it('aligns names and shows ki · W-L · WR', () => {
     const table = formatHeroTable(baseProfile.heroes, 17);
     expect(table).toContain('Goku');
     expect(table).toContain('4200');
-    expect(table).toContain('· 8');
+    expect(table).toContain('5W 3L · 62.5%');
+    expect(table).not.toContain('· 8');
+  });
+
+  it('omits percent when the hero has no counted games', () => {
+    const table = formatHeroTable(
+      [
+        {
+          heroId: 1,
+          name: 'Goku',
+          ki: 4200,
+          matchesPlayed: 8,
+          wins: 0,
+          losses: 0,
+          winRatePercent: null,
+        },
+      ],
+      17,
+    );
+    expect(table).toContain('0W 0L');
+    expect(table).not.toContain('%');
   });
 
   it('returns italic empty copy when no heroes', () => {
@@ -102,13 +138,23 @@ describe('buildRankEmbed', () => {
       losses: 1,
       quits: 0,
       winRatePercent: 66.7,
-      heroes: [{ heroId: 1, name: 'Goku', ki: 4200, matchesPlayed: 2 }],
+      heroes: [
+        {
+          heroId: 1,
+          name: 'Goku',
+          ki: 4200,
+          matchesPlayed: 2,
+          wins: 2,
+          losses: 1,
+          winRatePercent: 66.7,
+        },
+      ],
     });
     const data = embed.toJSON();
     expect(data.title).toBe('Calibrating');
     expect(data.title).not.toContain('1450');
     expect(data.fields?.[0]?.value).toContain('Calibrating');
     expect(data.fields?.[0]?.value).not.toContain('4200');
-    expect(data.fields?.[0]?.value).toContain('· 2');
+    expect(data.fields?.[0]?.value).toContain('2W 1L · 66.7%');
   });
 });

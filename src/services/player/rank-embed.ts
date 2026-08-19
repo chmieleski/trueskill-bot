@@ -16,18 +16,25 @@ export function formatHeroTable(
     return '_No hero games yet_';
   }
 
-  const cells = heroes.map((hero) => ({
-    name: hero.name,
-    ki: formatPublicKi(hero.ki, leagueGames),
-    matchesPlayed: hero.matchesPlayed,
-  }));
+  const cells = heroes.map((hero) => {
+    const record = `${hero.wins}W ${hero.losses}L`;
+    const recordWithWr =
+      hero.winRatePercent === null
+        ? record
+        : `${record} · ${hero.winRatePercent}%`;
+    return {
+      name: hero.name,
+      ki: formatPublicKi(hero.ki, leagueGames),
+      record: recordWithWr,
+    };
+  });
   const nameWidth = Math.max(...cells.map((cell) => cell.name.length));
   const kiWidth = Math.max(...cells.map((cell) => cell.ki.length));
 
   const lines = cells.map((cell) => {
     const name = cell.name.padEnd(nameWidth, ' ');
     const ki = cell.ki.padStart(kiWidth, ' ');
-    return `${name}  ${ki} · ${cell.matchesPlayed}`;
+    return `${name}  ${ki} · ${cell.record}`;
   });
 
   return `\`\`\`\n${lines.join('\n')}\n\`\`\``;
