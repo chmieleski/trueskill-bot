@@ -23,25 +23,25 @@ Ratings remain global (not per-guild). Public scores use **ki** via `displayOrdi
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Overall command | Top **10 per page**, paginated |
-| Overall live channel | Top **10 only**, single edited message |
-| Hero command — no `hero` option | All **12 heroes**, top **3** each (`matchesPlayed > 0`) |
-| Hero command — with `hero` option | Top **10** for that hero |
-| Live channel content | **Overall only** (hero live = tech debt) |
-| Pagination UX | **Buttons** (Prev/Next) **and** slash `page` option |
-| Pagination auth | **Only the invoker** may use page buttons |
-| Live channel setup | `/leaderboard setup` in target channel **and** `/config set leaderboard_channel` to move |
-| Live channel disable | `/config clear leaderboard_channel` |
-| Setup auth | `canConfigureBot` (Manage Guild or hard-coded owner ID) |
-| Refresh triggers | Match **COMPLETED** + **bot start** + **15 min** periodic fallback |
-| Overall eligibility | Player must have **≥1 completed match** (WIN/LOSS on COMPLETED match) |
-| Hero eligibility | `PlayerHeroRating.matchesPlayed > 0` |
-| Rank ties | Competition rank (1, 2, 2, 4) — same as `/rank` |
-| Ladder scope | **Global** across all players in DB |
-| Visual style | Gold accent `0xf0b232`, monospace aligned tables (consistent with `/rank`) |
-| Language | All user-facing strings in **English** |
+| Topic                             | Choice                                                                                   |
+| --------------------------------- | ---------------------------------------------------------------------------------------- |
+| Overall command                   | Top **10 per page**, paginated                                                           |
+| Overall live channel              | Top **10 only**, single edited message                                                   |
+| Hero command — no `hero` option   | All **12 heroes**, top **3** each (`matchesPlayed > 0`)                                  |
+| Hero command — with `hero` option | Top **10** for that hero                                                                 |
+| Live channel content              | **Overall only** (hero live = tech debt)                                                 |
+| Pagination UX                     | **Buttons** (Prev/Next) **and** slash `page` option                                      |
+| Pagination auth                   | **Only the invoker** may use page buttons                                                |
+| Live channel setup                | `/leaderboard setup` in target channel **and** `/config set leaderboard_channel` to move |
+| Live channel disable              | `/config clear leaderboard_channel`                                                      |
+| Setup auth                        | `canConfigureBot` (Manage Guild or hard-coded owner ID)                                  |
+| Refresh triggers                  | Match **COMPLETED** + **bot start** + **15 min** periodic fallback                       |
+| Overall eligibility               | Player must have **≥1 completed match** (WIN/LOSS on COMPLETED match)                    |
+| Hero eligibility                  | `PlayerHeroRating.matchesPlayed > 0`                                                     |
+| Rank ties                         | Competition rank (1, 2, 2, 4) — same as `/rank`                                          |
+| Ladder scope                      | **Global** across all players in DB                                                      |
+| Visual style                      | Gold accent `0xf0b232`, monospace aligned tables (consistent with `/rank`)               |
+| Language                          | All user-facing strings in **English**                                                   |
 
 ## Tech debt
 
@@ -61,11 +61,11 @@ Discord requires **subcommands** when `setup` exists, so the root command is `/l
 
 Options:
 
-| Option | Type | Notes |
-|--------|------|-------|
-| `type` | string choice | `overall` (default) \| `hero` |
+| Option | Type                 | Notes                                                                                                        |
+| ------ | -------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `type` | string choice        | `overall` (default) \| `hero`                                                                                |
 | `hero` | string, autocomplete | When `type=hero`: omit for all-heroes compact view; set for single-hero top 10. Ignored when `type=overall`. |
-| `page` | integer ≥1 | Default `1`; **overall only** |
+| `page` | integer ≥1           | Default `1`; **overall only**                                                                                |
 
 Behavior:
 
@@ -91,11 +91,11 @@ Run in the target channel.
 
 ### `/config` extensions
 
-| Subcommand | Effect |
-|------------|--------|
-| `set leaderboard_channel` + channel option | Same as setup but for chosen channel; repost message |
-| `clear leaderboard_channel` | Null channel/message IDs; best-effort delete old message |
-| `view` | Show leaderboard channel + message ID lines |
+| Subcommand                                 | Effect                                                   |
+| ------------------------------------------ | -------------------------------------------------------- |
+| `set leaderboard_channel` + channel option | Same as setup but for chosen channel; repost message     |
+| `clear leaderboard_channel`                | Null channel/message IDs; best-effort delete old message |
+| `view`                                     | Show leaderboard channel + message ID lines              |
 
 Auth: same as existing `/config` (Manage Guild | owner).
 
@@ -123,11 +123,11 @@ No new tables. Ki always derived from μ/σ at read time.
 
 ```typescript
 type OverallLeaderboardEntry = {
-  rank: number;       // competition rank on full eligible list
+  rank: number; // competition rank on full eligible list
   playerId: string;
   username: string;
   ki: number;
-  games: number;      // completed WIN/LOSS count
+  games: number; // completed WIN/LOSS count
   discordId: string | null;
 };
 ```
@@ -246,33 +246,33 @@ ready
   → refreshAll + scheduler
 ```
 
-| Module | Responsibility |
-|--------|----------------|
-| `src/services/leaderboard.ts` | Queries, pagination, competition rank, hero resolution |
-| `src/services/leaderboard-embed.ts` | Embed builders (overall, hero single, hero all) |
-| `src/services/leaderboard-channel.ts` | Setup, clear, refresh one/all, repost on 404 |
-| `src/services/guild-config.ts` | Extended resolve + set/clear leaderboard fields |
-| `src/commands/player/leaderboard.ts` | Slash command + setup subcommand |
-| `src/handlers/leaderboard-interactions.ts` | Page button handler |
-| `src/commands/config/config.ts` | set/clear/view leaderboard channel |
-| `src/handlers/interaction-create.ts` | Route `leaderboard:*` buttons |
-| `src/services/match-report.ts` | Hook after COMPLETED |
-| `src/events/ready.ts` | Initial refresh + scheduler |
+| Module                                     | Responsibility                                         |
+| ------------------------------------------ | ------------------------------------------------------ |
+| `src/services/leaderboard.ts`              | Queries, pagination, competition rank, hero resolution |
+| `src/services/leaderboard-embed.ts`        | Embed builders (overall, hero single, hero all)        |
+| `src/services/leaderboard-channel.ts`      | Setup, clear, refresh one/all, repost on 404           |
+| `src/services/guild-config.ts`             | Extended resolve + set/clear leaderboard fields        |
+| `src/commands/player/leaderboard.ts`       | Slash command + setup subcommand                       |
+| `src/handlers/leaderboard-interactions.ts` | Page button handler                                    |
+| `src/commands/config/config.ts`            | set/clear/view leaderboard channel                     |
+| `src/handlers/interaction-create.ts`       | Route `leaderboard:*` buttons                          |
+| `src/services/match-report.ts`             | Hook after COMPLETED                                   |
+| `src/events/ready.ts`                      | Initial refresh + scheduler                            |
 
 Auth for setup/config reuses `assertCanConfigureBot` — no match-mod role required.
 
 ## Error copy (English)
 
-| Case | Message |
-|------|---------|
-| Unknown hero | `Unknown hero.` |
-| Invalid page | `Page must be between 1 and {totalPages}.` |
-| Pagination not yours | `Only the person who ran /leaderboard can change pages.` |
-| Setup not in guild | `This command can only be used in a server.` |
-| Config forbidden | `You do not have permission to configure this bot.` |
-| Hero option with overall type | Silently ignore `hero` when `type=overall` |
-| Empty overall ladder | Embed title + `_No ranked players yet._` |
-| Empty hero ladder | `_No games yet for {hero}.` |
+| Case                          | Message                                                  |
+| ----------------------------- | -------------------------------------------------------- |
+| Unknown hero                  | `Unknown hero.`                                          |
+| Invalid page                  | `Page must be between 1 and {totalPages}.`               |
+| Pagination not yours          | `Only the person who ran /leaderboard can change pages.` |
+| Setup not in guild            | `This command can only be used in a server.`             |
+| Config forbidden              | `You do not have permission to configure this bot.`      |
+| Hero option with overall type | Silently ignore `hero` when `type=overall`               |
+| Empty overall ladder          | Embed title + `_No ranked players yet._`                 |
+| Empty hero ladder             | `_No games yet for {hero}.`                              |
 
 ## Testing
 

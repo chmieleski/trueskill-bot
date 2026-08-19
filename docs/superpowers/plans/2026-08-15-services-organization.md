@@ -20,20 +20,20 @@
 
 ## File map (end state)
 
-| Path | Role |
-|------|------|
-| `src/services/lobby/*` | Lobby OCR, preview, balance, identity, register source, actions split |
-| `src/services/match/*` | Match Prisma service, report, auth, cleanup |
-| `src/services/rating/*` | Math, preview, update |
-| `src/services/player/*` | Link, nick, profile, rank embed |
-| `src/services/leaderboard/*` | Queries, embeds, live channel |
-| `src/services/wc3stats/*` | Client, map, resolve, roster, slot-map, match helpers |
-| `src/services/guild/*` | Guild config, hero catalog, team names |
-| `src/services/*/index.ts` | Domain barrels (public re-exports) |
-| `src/discord/interactions/*` | Lobby / match / leaderboard interaction adapters |
-| `src/handlers/{load,register}-*.ts` | Bootstrap only |
-| `.cursor/rules/project-structure.mdc` | Document new tree |
-| `.cursor/rules/shared-domain-logic.mdc` | Point at `services/<domain>/` + `discord/interactions/` |
+| Path                                    | Role                                                                  |
+| --------------------------------------- | --------------------------------------------------------------------- |
+| `src/services/lobby/*`                  | Lobby OCR, preview, balance, identity, register source, actions split |
+| `src/services/match/*`                  | Match Prisma service, report, auth, cleanup                           |
+| `src/services/rating/*`                 | Math, preview, update                                                 |
+| `src/services/player/*`                 | Link, nick, profile, rank embed                                       |
+| `src/services/leaderboard/*`            | Queries, embeds, live channel                                         |
+| `src/services/wc3stats/*`               | Client, map, resolve, roster, slot-map, match helpers                 |
+| `src/services/guild/*`                  | Guild config, hero catalog, team names                                |
+| `src/services/*/index.ts`               | Domain barrels (public re-exports)                                    |
+| `src/discord/interactions/*`            | Lobby / match / leaderboard interaction adapters                      |
+| `src/handlers/{load,register}-*.ts`     | Bootstrap only                                                        |
+| `.cursor/rules/project-structure.mdc`   | Document new tree                                                     |
+| `.cursor/rules/shared-domain-logic.mdc` | Point at `services/<domain>/` + `discord/interactions/`               |
 
 **Removed:** `src/domain/` (empty), `src/services/lobby-actions.ts` (after Phase 2), interaction files under `src/handlers/`.
 
@@ -42,23 +42,25 @@
 ### Task 1: Phase 1 — Create domain folders and move files
 
 **Files:**
+
 - Create dirs: `src/services/{lobby,match,rating,player,leaderboard,wc3stats,guild}/`
 - Move (git mv) every file currently in `src/services/*.ts` into the domain from the mapping below
 - Delete: `src/domain/` (empty directory)
 
 **Domain mapping (basename → folder):**
 
-| Folder | Basenames |
-|--------|-----------|
-| `lobby/` | `lobby-actions`, `lobby-actions-wc3stats.test`, `lobby-balance`, `lobby-balance.test`, `lobby-claim.test`, `lobby-identity`, `lobby-identity.test`, `lobby-ocr`, `lobby-preview`, `lobby-preview.test`, `register-lobby-source`, `register-lobby-source.test` |
-| `match/` | `match-service`, `match-report`, `match-report.test`, `match-auth`, `match-auth.test`, `match-cleanup` |
-| `rating/` | `rating-math`, `rating-math.test`, `rating-preview`, `rating-update`, `rating-update.test` |
-| `player/` | `player-link`, `player-link.test`, `player-nick`, `player-nick.test`, `player-profile`, `player-profile.test`, `rank-embed`, `rank-embed.test` |
-| `leaderboard/` | `leaderboard`, `leaderboard.test`, `leaderboard-embed`, `leaderboard-embed.test`, `leaderboard-channel`, `leaderboard-channel.test` |
-| `wc3stats/` | `wc3stats-client`, `wc3stats-client.test`, `wc3stats-map`, `wc3stats-map.test`, `wc3stats-match.test`, `wc3stats-resolve`, `wc3stats-resolve.test`, `wc3stats-roster`, `wc3stats-roster.test`, `wc3stats-slot-map`, `wc3stats-slot-map.test` |
-| `guild/` | `guild-config`, `guild-config.test`, `hero-catalog`, `team-names`, `team-names.test` |
+| Folder         | Basenames                                                                                                                                                                                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lobby/`       | `lobby-actions`, `lobby-actions-wc3stats.test`, `lobby-balance`, `lobby-balance.test`, `lobby-claim.test`, `lobby-identity`, `lobby-identity.test`, `lobby-ocr`, `lobby-preview`, `lobby-preview.test`, `register-lobby-source`, `register-lobby-source.test` |
+| `match/`       | `match-service`, `match-report`, `match-report.test`, `match-auth`, `match-auth.test`, `match-cleanup`                                                                                                                                                        |
+| `rating/`      | `rating-math`, `rating-math.test`, `rating-preview`, `rating-update`, `rating-update.test`                                                                                                                                                                    |
+| `player/`      | `player-link`, `player-link.test`, `player-nick`, `player-nick.test`, `player-profile`, `player-profile.test`, `rank-embed`, `rank-embed.test`                                                                                                                |
+| `leaderboard/` | `leaderboard`, `leaderboard.test`, `leaderboard-embed`, `leaderboard-embed.test`, `leaderboard-channel`, `leaderboard-channel.test`                                                                                                                           |
+| `wc3stats/`    | `wc3stats-client`, `wc3stats-client.test`, `wc3stats-map`, `wc3stats-map.test`, `wc3stats-match.test`, `wc3stats-resolve`, `wc3stats-resolve.test`, `wc3stats-roster`, `wc3stats-roster.test`, `wc3stats-slot-map`, `wc3stats-slot-map.test`                  |
+| `guild/`       | `guild-config`, `guild-config.test`, `hero-catalog`, `team-names`, `team-names.test`                                                                                                                                                                          |
 
 **Interfaces:**
+
 - Produces: files at new paths; no new exports yet (barrels in Task 2)
 
 - [ ] **Step 1: Create directories**
@@ -150,6 +152,7 @@ Prefer **one commit after Task 2** so `main` never has a broken tree. Do **not**
 ### Task 2: Phase 1 — Fix imports + add domain barrels
 
 **Files:**
+
 - Modify: every moved `src/services/**/*.ts` that imports another former sibling now in a different domain
 - Modify: external consumers under `src/commands/`, `src/handlers/`, `src/events/`
 - Create: `src/services/{lobby,match,rating,player,leaderboard,wc3stats,guild}/index.ts`
@@ -161,44 +164,44 @@ Other domain: `../<domain>/<basename>.js`.
 
 Known cross-domain edges (non-exhaustive — run `rg` after moves):
 
-| From | Old | New |
-|------|-----|-----|
-| `lobby/lobby-actions.ts` | `./match-service.js` | `../match/match-service.js` |
-| `lobby/lobby-actions.ts` | `./rating-preview.js` | `../rating/rating-preview.js` |
-| `lobby/lobby-actions.ts` | `./match-auth.js` | `../match/match-auth.js` |
-| `lobby/lobby-actions.ts` | `./player-nick.js` | `../player/player-nick.js` |
-| `lobby/lobby-actions.ts` | `./guild-config.js` | `../guild/guild-config.js` |
-| `lobby/lobby-actions.ts` | `./wc3stats-*.js` | `../wc3stats/wc3stats-*.js` |
-| `lobby/lobby-ocr.ts` | `./player-nick.js` | `../player/player-nick.js` |
-| `lobby/lobby-ocr.ts` | `./team-names.js` | `../guild/team-names.js` |
-| `lobby/lobby-identity.ts` | `./match-service.js` | `../match/match-service.js` |
-| `lobby/lobby-balance.ts` | `./rating-math.js` | `../rating/rating-math.js` |
-| `match/match-cleanup.ts` | `./lobby-preview.js` | `../lobby/lobby-preview.js` |
-| `match/match-report.ts` | `./rating-*.js` | `../rating/rating-*.js` |
-| `match/guild` — `guild/guild-config.ts` | `./match-service.js` | `../match/match-service.js` |
-| `rating/rating-preview.ts` | `./hero-catalog.js` | `../guild/hero-catalog.js` |
-| `rating/rating-preview.ts` | `./lobby-balance.js` | `../lobby/lobby-balance.js` |
-| `leaderboard/leaderboard.ts` | `./hero-catalog.js` | `../guild/hero-catalog.js` |
-| `leaderboard/leaderboard.ts` | `./rating-math.js` | `../rating/rating-math.js` |
-| `leaderboard/leaderboard-channel.ts` | `./guild-config.js` | `../guild/guild-config.js` |
-| `wc3stats/*` | `./match-service.js` | `../match/match-service.js` |
-| `wc3stats/wc3stats-roster.ts` | `./lobby-ocr.js` | `../lobby/lobby-ocr.js` |
-| `wc3stats/wc3stats-roster.ts` | `./player-nick.js` | `../player/player-nick.js` |
-| `player/player-profile.ts` | `./rating-math.js` | `../rating/rating-math.js` |
-| `player/*.test.ts` | same pattern | same pattern |
+| From                                    | Old                   | New                           |
+| --------------------------------------- | --------------------- | ----------------------------- |
+| `lobby/lobby-actions.ts`                | `./match-service.js`  | `../match/match-service.js`   |
+| `lobby/lobby-actions.ts`                | `./rating-preview.js` | `../rating/rating-preview.js` |
+| `lobby/lobby-actions.ts`                | `./match-auth.js`     | `../match/match-auth.js`      |
+| `lobby/lobby-actions.ts`                | `./player-nick.js`    | `../player/player-nick.js`    |
+| `lobby/lobby-actions.ts`                | `./guild-config.js`   | `../guild/guild-config.js`    |
+| `lobby/lobby-actions.ts`                | `./wc3stats-*.js`     | `../wc3stats/wc3stats-*.js`   |
+| `lobby/lobby-ocr.ts`                    | `./player-nick.js`    | `../player/player-nick.js`    |
+| `lobby/lobby-ocr.ts`                    | `./team-names.js`     | `../guild/team-names.js`      |
+| `lobby/lobby-identity.ts`               | `./match-service.js`  | `../match/match-service.js`   |
+| `lobby/lobby-balance.ts`                | `./rating-math.js`    | `../rating/rating-math.js`    |
+| `match/match-cleanup.ts`                | `./lobby-preview.js`  | `../lobby/lobby-preview.js`   |
+| `match/match-report.ts`                 | `./rating-*.js`       | `../rating/rating-*.js`       |
+| `match/guild` — `guild/guild-config.ts` | `./match-service.js`  | `../match/match-service.js`   |
+| `rating/rating-preview.ts`              | `./hero-catalog.js`   | `../guild/hero-catalog.js`    |
+| `rating/rating-preview.ts`              | `./lobby-balance.js`  | `../lobby/lobby-balance.js`   |
+| `leaderboard/leaderboard.ts`            | `./hero-catalog.js`   | `../guild/hero-catalog.js`    |
+| `leaderboard/leaderboard.ts`            | `./rating-math.js`    | `../rating/rating-math.js`    |
+| `leaderboard/leaderboard-channel.ts`    | `./guild-config.js`   | `../guild/guild-config.js`    |
+| `wc3stats/*`                            | `./match-service.js`  | `../match/match-service.js`   |
+| `wc3stats/wc3stats-roster.ts`           | `./lobby-ocr.js`      | `../lobby/lobby-ocr.js`       |
+| `wc3stats/wc3stats-roster.ts`           | `./player-nick.js`    | `../player/player-nick.js`    |
+| `player/player-profile.ts`              | `./rating-math.js`    | `../rating/rating-math.js`    |
+| `player/*.test.ts`                      | same pattern          | same pattern                  |
 
 Also fix `../config/`, `../lib/` depth: files that used `../config/env.js` must become `../../config/env.js` (one extra `../`).
 
 **External consumers** (update to domain barrels or concrete paths):
 
-| Consumer | Change example |
-|----------|----------------|
-| `src/commands/lobby/*.ts` | `../services/lobby-actions.js` → `../../services/lobby/index.js` (or `../../services/lobby/lobby-actions.js`) |
-| `src/commands/match/match.ts` | same depth + domain |
-| `src/commands/player/*.ts` | `../../services/player/index.js` etc. |
-| `src/commands/config/config.ts` | `../../services/guild/index.js` |
-| `src/handlers/*-interactions.ts` | `../services/...` → `../services/<domain>/...` |
-| `src/events/ready.ts` | update service imports |
+| Consumer                         | Change example                                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `src/commands/lobby/*.ts`        | `../services/lobby-actions.js` → `../../services/lobby/index.js` (or `../../services/lobby/lobby-actions.js`) |
+| `src/commands/match/match.ts`    | same depth + domain                                                                                           |
+| `src/commands/player/*.ts`       | `../../services/player/index.js` etc.                                                                         |
+| `src/commands/config/config.ts`  | `../../services/guild/index.js`                                                                               |
+| `src/handlers/*-interactions.ts` | `../services/...` → `../services/<domain>/...`                                                                |
+| `src/events/ready.ts`            | update service imports                                                                                        |
 
 Prefer barrels for external imports once barrels exist.
 
@@ -225,9 +228,8 @@ For each hit whose target file is not in the same folder, rewrite to `../<domain
 
 ```typescript
 export type { LobbyPlayer, ValidatedLobby } from './lobby-ocr.js';
-export {
-  // re-export whatever commands/handlers import from lobby-* today
-} from './lobby-actions.js';
+export {} from // re-export whatever commands/handlers import from lobby-* today
+'./lobby-actions.js';
 export {
   buildLobbyButtons,
   buildMatchCancelledEmbed,
@@ -298,12 +300,10 @@ export {
   LOBBY_CUSTOM_IDS,
 } from './lobby-preview.js';
 export { nickForDiscordId } from './lobby-identity.js';
-export {
-  // register-lobby-source public API used by register-lobby command
-} from './register-lobby-source.js';
-export {
-  // lobby-balance / ocr exports used externally
-} from './lobby-balance.js';
+export {} from // register-lobby-source public API used by register-lobby command
+'./register-lobby-source.js';
+export {} from // lobby-balance / ocr exports used externally
+'./lobby-balance.js';
 ```
 
 Fill `register-lobby-source` / `lobby-ocr` / `lobby-balance` exports by grepping command imports. Same pattern for `match/index.ts`, `rating/index.ts`, `player/index.ts`, `leaderboard/index.ts`, `wc3stats/index.ts`, `guild/index.ts`.
@@ -347,12 +347,14 @@ EOF
 ### Task 3: Phase 2 — Extract `roster.ts` from `lobby-actions`
 
 **Files:**
+
 - Create: `src/services/lobby/roster.ts`
 - Modify: `src/services/lobby/lobby-actions.ts` (import from roster; delete moved bodies)
 - Modify: `src/services/lobby/index.ts` (re-export roster symbols from `./roster.js` instead of actions if desired)
 - Test: existing `src/services/lobby/lobby-claim.test.ts` and any tests importing roster helpers
 
 **Interfaces:**
+
 - Produces (move **unchanged** bodies from lobby-actions):
   - `addPlayer(players, nickRaw, slot): LobbyPlayer[]`
   - `removePlayer(...)`
@@ -419,6 +421,7 @@ EOF
 ### Task 4: Phase 2 — Extract resolve, lifecycle, discord-sync, wc3stats-refresh, actions
 
 **Files:**
+
 - Create: `src/services/lobby/resolve.ts`
 - Create: `src/services/lobby/lifecycle.ts`
 - Create: `src/services/lobby/discord-sync.ts`
@@ -431,6 +434,7 @@ EOF
 **Interfaces (preserve signatures exactly):**
 
 From **resolve.ts**:
+
 - `resolveHostPendingMatch(input: ResolveHostPendingMatchInput): Promise<MatchWithPlayers>`
 - `resolvePendingMatchByMessageId(...)`
 - `resolveInProgressMatchByMessageId(...)`
@@ -438,15 +442,19 @@ From **resolve.ts**:
 - types: `ResolveHostPendingMatchInput`, ownership helpers as needed
 
 From **lifecycle.ts**:
+
 - `startLobbyMatch`, `startLobbyMatchByMessageId`, `cancelLobbyMatch`
 
 From **discord-sync.ts**:
+
 - `LobbySyncMode`, `syncLobbyDiscordMessage`, `applyRosterAndSync` (export apply if tests need it; else keep package-private by not exporting)
 
 From **wc3stats-refresh.ts**:
+
 - `RefreshLobbyResult`, `refreshLobbyFromWc3stats`, private `importAndMaybeLinkWc3stats`, `refreshResultMessage`
 
 From **actions.ts**:
+
 - `LobbyActionResult`
 - `assertLobbyPlayerClaimEnabled`
 - `addLobbyPlayer`, `addLobbyPlayerFromDiscord`, `claimLobbySlot`, `leaveLobbySlot`
@@ -500,11 +508,7 @@ export {
   resolveHostPendingMatchByMessageId,
 } from './resolve.js';
 export { syncLobbyDiscordMessage } from './discord-sync.js';
-export {
-  startLobbyMatch,
-  startLobbyMatchByMessageId,
-  cancelLobbyMatch,
-} from './lifecycle.js';
+export { startLobbyMatch, startLobbyMatchByMessageId, cancelLobbyMatch } from './lifecycle.js';
 export { refreshLobbyFromWc3stats } from './wc3stats-refresh.js';
 export {
   assertLobbyPlayerClaimEnabled,
@@ -559,6 +563,7 @@ EOF
 ### Task 5: Phase 3 — Move interaction handlers + update Cursor rules
 
 **Files:**
+
 - Create dir: `src/discord/interactions/`
 - Move: `src/handlers/lobby-interactions.ts` → `src/discord/interactions/lobby-interactions.ts`
 - Move: `src/handlers/match-interactions.ts` → `src/discord/interactions/match-interactions.ts`
@@ -569,6 +574,7 @@ EOF
 - Modify: `.cursor/rules/shared-domain-logic.mdc`
 
 **Interfaces:**
+
 - Produces (unchanged signatures):
   - `handleLobbyInteraction(interaction): Promise<boolean>`
   - `handleMatchInteraction(interaction): Promise<boolean>`
@@ -688,19 +694,19 @@ If a Discord token/env is available locally: `npm run dev` and confirm ready log
 
 ## Self-review (plan vs spec)
 
-| Spec item | Task |
-|-----------|------|
-| Domain folders under services | Task 1–2 |
-| Keep basenames | Task 1 |
-| Barrels for public API | Task 2 |
-| Delete empty `src/domain/` | Task 1 |
-| Split lobby-actions modules | Task 3–4 |
-| Same export names | Task 3–4 |
-| Interactions → `discord/interactions/` | Task 5 |
-| handlers = bootstrap only | Task 5 |
-| Update project-structure + shared-domain-logic | Task 5 |
-| No behavior change / tests pass | Tasks 2, 4, 5, 6 |
-| No match-service / lobby-preview deep split | Out of scope (not tasked) |
-| No path aliases | Global constraints |
+| Spec item                                      | Task                      |
+| ---------------------------------------------- | ------------------------- |
+| Domain folders under services                  | Task 1–2                  |
+| Keep basenames                                 | Task 1                    |
+| Barrels for public API                         | Task 2                    |
+| Delete empty `src/domain/`                     | Task 1                    |
+| Split lobby-actions modules                    | Task 3–4                  |
+| Same export names                              | Task 3–4                  |
+| Interactions → `discord/interactions/`         | Task 5                    |
+| handlers = bootstrap only                      | Task 5                    |
+| Update project-structure + shared-domain-logic | Task 5                    |
+| No behavior change / tests pass                | Tasks 2, 4, 5, 6          |
+| No match-service / lobby-preview deep split    | Out of scope (not tasked) |
+| No path aliases                                | Global constraints        |
 
 **Placeholder scan:** none intentional. Barrel export lists in Task 2 must be completed via `rg` inventory during implementation (the plan shows the method and the lobby-actions symbol list).

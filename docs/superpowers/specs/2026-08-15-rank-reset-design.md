@@ -19,19 +19,19 @@ Linked players can **fully reset** their league ki (overall + all hero ratings) 
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| What resets | League-global `PlayerRating` **and** all `PlayerHeroRating` rows for that `(leagueId, playerId)` |
-| Config tenancy | Per **league** |
-| Command visibility | Soft-hide: always deployed; reject when `rankResetEnabled=false` |
-| Who may reset | Linked self; match mod may target another linked user |
-| Staff cooldown | Bypass check; still insert audit row → player cooldown restarts |
-| Confirmation | Ephemeral Confirm / Cancel for **all** resets (self and staff) |
-| Cooldown unit | Days only (`1`–`365`) |
-| Defaults | Feature **off**; `rankResetCooldownDays` schema default **30** so enable can be `enabled:True` alone |
-| Active matches | Block if target is on any **PENDING** or **IN_PROGRESS** match in that league |
-| Architecture | Approach **3**: league flags + `PlayerRankReset` audit table as cooldown source of truth |
-| User-facing wording | **ki** / “rank”, not “Elo” |
+| Topic               | Choice                                                                                               |
+| ------------------- | ---------------------------------------------------------------------------------------------------- |
+| What resets         | League-global `PlayerRating` **and** all `PlayerHeroRating` rows for that `(leagueId, playerId)`     |
+| Config tenancy      | Per **league**                                                                                       |
+| Command visibility  | Soft-hide: always deployed; reject when `rankResetEnabled=false`                                     |
+| Who may reset       | Linked self; match mod may target another linked user                                                |
+| Staff cooldown      | Bypass check; still insert audit row → player cooldown restarts                                      |
+| Confirmation        | Ephemeral Confirm / Cancel for **all** resets (self and staff)                                       |
+| Cooldown unit       | Days only (`1`–`365`)                                                                                |
+| Defaults            | Feature **off**; `rankResetCooldownDays` schema default **30** so enable can be `enabled:True` alone |
+| Active matches      | Block if target is on any **PENDING** or **IN_PROGRESS** match in that league                        |
+| Architecture        | Approach **3**: league flags + `PlayerRankReset` audit table as cooldown source of truth             |
+| User-facing wording | **ki** / “rank”, not “Elo”                                                                           |
 
 ## Data model
 
@@ -84,10 +84,10 @@ Match history (`Match` / `MatchPlayer`) is **not** deleted.
 
 ### `/rank_reset`
 
-| Option | Type | Notes |
-|--------|------|-------|
-| `league` | string (autocomplete) | Optional; same resolve as `/rank` |
-| `user` | user | Optional; omit = self; set ≠ self requires match mod role |
+| Option   | Type                  | Notes                                                     |
+| -------- | --------------------- | --------------------------------------------------------- |
+| `league` | string (autocomplete) | Optional; same resolve as `/rank`                         |
+| `user`   | user                  | Optional; omit = self; set ≠ self requires match mod role |
 
 Auth / validation (command **and** Confirm button, re-checked at confirm time):
 
@@ -105,36 +105,36 @@ Button `customId` must bind `leagueId`, `playerId`, and `actorDiscordId` (and re
 
 ### `/config set rank_reset`
 
-| Option | Type | Notes |
-|--------|------|-------|
-| `enabled` | boolean | Required |
-| `cooldown_days` | integer | Optional `1`–`365`; if omitted, leave existing days |
-| `league` | existing option | Required resolve path like other league config |
+| Option          | Type            | Notes                                               |
+| --------------- | --------------- | --------------------------------------------------- |
+| `enabled`       | boolean         | Required                                            |
+| `cooldown_days` | integer         | Optional `1`–`365`; if omitted, leave existing days |
+| `league`        | existing option | Required resolve path like other league config      |
 
 Auth: `assertCanConfigureBot`.
 
 ### `/config set rank_reset_cooldown`
 
-| Option | Type | Notes |
-|--------|------|-------|
-| `days` | integer | Required `1`–`365` |
-| `league` | existing option | Same resolve |
+| Option   | Type            | Notes              |
+| -------- | --------------- | ------------------ |
+| `days`   | integer         | Required `1`–`365` |
+| `league` | existing option | Same resolve       |
 
 Changes days without toggling enabled.
 
 ### `/config view`
 
-Show e.g. `**Rank reset:** \`off\` · cooldown \`30d\`` or `\`on\` · cooldown \`30d\``.
+Show e.g. `**Rank reset:** \`off\` · cooldown \`30d\``or`\`on\` · cooldown \`30d\``.
 
 ## Services / module layout
 
-| Unit | Responsibility |
-|------|----------------|
-| `src/services/rating/rank-reset.ts` | Eligibility checks, wipe transaction, audit insert |
+| Unit                                      | Responsibility                                                                                      |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `src/services/rating/rank-reset.ts`       | Eligibility checks, wipe transaction, audit insert                                                  |
 | `src/services/league/*` (resolve helpers) | Read/write `rankResetEnabled` / `rankResetCooldownDays` on League; surface in `resolveLeagueConfig` |
-| `src/commands/player/rank-reset.ts` | Slash adapter |
-| `src/discord/interactions/*` | Confirm/Cancel button adapter calling the same use-case |
-| `src/commands/config/config.ts` | set/view wiring |
+| `src/commands/player/rank-reset.ts`       | Slash adapter                                                                                       |
+| `src/discord/interactions/*`              | Confirm/Cancel button adapter calling the same use-case                                             |
+| `src/commands/config/config.ts`           | set/view wiring                                                                                     |
 
 Keep Discord I/O thin; all rules live in the rating use-case (shared-domain-logic).
 

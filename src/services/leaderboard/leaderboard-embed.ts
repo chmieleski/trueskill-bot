@@ -1,9 +1,4 @@
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder,
-} from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { formatPublicKi } from '../rating/rating-math.js';
 import type {
   HeroBoardSlice,
@@ -35,18 +30,13 @@ function formatWinRateCell(percent: number | null): string {
   return percent === null ? '—' : `${percent}%`;
 }
 
-export function formatOverallTable(
-  entries: OverallLeaderboardEntry[],
-  ratingLabel = 'ki',
-): string {
+export function formatOverallTable(entries: OverallLeaderboardEntry[], ratingLabel = 'ki'): string {
   if (entries.length === 0) {
     return '_No ranked players yet._';
   }
 
   const labelHeader =
-    ratingLabel.length === 0
-      ? 'Ki'
-      : ratingLabel.charAt(0).toUpperCase() + ratingLabel.slice(1);
+    ratingLabel.length === 0 ? 'Ki' : ratingLabel.charAt(0).toUpperCase() + ratingLabel.slice(1);
   const nameWidth = Math.max(...entries.map((entry) => entry.username.length), 'Player'.length);
   const kiWidth = Math.max(
     ...entries.map((entry) => formatPublicKi(entry.ki, entry.leagueGames).length),
@@ -56,10 +46,7 @@ export function formatOverallTable(
     ...entries.map((entry) => formatWinRateCell(entry.winRatePercent).length),
     'WR'.length,
   );
-  const gamesWidth = Math.max(
-    ...entries.map((entry) => String(entry.games).length),
-    'G'.length,
-  );
+  const gamesWidth = Math.max(...entries.map((entry) => String(entry.games).length), 'G'.length);
   const header = `${'#'.padEnd(3)} ${'Player'.padEnd(nameWidth)}  ${labelHeader.padStart(kiWidth)} ${'G'.padStart(gamesWidth)}  ${'WR'.padStart(wrWidth)}`;
   const lines = entries.map((entry) => {
     const prefix = formatRankPrefix(entry.rank).padEnd(3);
@@ -128,13 +115,11 @@ export function buildOverallLiveLeaderboardEmbeds(
 ): EmbedBuilder[] {
   const unix = Math.floor(updatedAt.getTime() / 1000);
   const stamp = `\n\nUpdated <t:${unix}:R>`;
-  const chunks =
-    entries.length === 0 ? [[]] : chunkLeaderboardEntries(entries);
+  const chunks = entries.length === 0 ? [[]] : chunkLeaderboardEntries(entries);
 
   return chunks.map((chunk, index) => {
     const isLast = index === chunks.length - 1;
-    const title =
-      index === 0 ? 'Global Leaderboard' : 'Global Leaderboard (continued)';
+    const title = index === 0 ? 'Global Leaderboard' : 'Global Leaderboard (continued)';
     let description = formatOverallTable(chunk, ratingLabel);
     if (isLast) {
       description += stamp;
@@ -231,12 +216,16 @@ export function buildLeaderboardPageButtons(input: {
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(buildLeaderboardPageCustomId(input.invokerId, 'prev', input.page, input.leagueId))
+      .setCustomId(
+        buildLeaderboardPageCustomId(input.invokerId, 'prev', input.page, input.leagueId),
+      )
       .setLabel('Previous')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(input.page <= 1),
     new ButtonBuilder()
-      .setCustomId(buildLeaderboardPageCustomId(input.invokerId, 'next', input.page, input.leagueId))
+      .setCustomId(
+        buildLeaderboardPageCustomId(input.invokerId, 'next', input.page, input.leagueId),
+      )
       .setLabel('Next')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(input.page >= input.totalPages),

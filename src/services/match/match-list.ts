@@ -1,9 +1,4 @@
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder,
-} from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { prisma } from '../../lib/prisma.js';
 import { getLeagueById } from '../league/league.js';
 import { compactUuidForCustomId, expandUuidFromCustomId } from './compact-custom-id.js';
@@ -25,9 +20,10 @@ export function formatMatchListFormat(team1Count: number, team2Count: number): s
 }
 
 /** Count MatchPlayer rows on team 1 and 2. Ignore any other team value. */
-export function countMatchListTeamSizes(
-  players: Array<{ team: number }>,
-): { team1: number; team2: number } {
+export function countMatchListTeamSizes(players: Array<{ team: number }>): {
+  team1: number;
+  team2: number;
+} {
   let team1 = 0;
   let team2 = 0;
   for (const player of players) {
@@ -153,7 +149,9 @@ export function buildMatchListEmbed(
     .setColor(0xf0b232)
     .setAuthor({ name: page.leagueName })
     .setTitle('Match list')
-    .setDescription(`Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`);
+    .setDescription(
+      `Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`,
+    );
 
   if (page.rows.length === 0) {
     embed.addFields({
@@ -188,16 +186,12 @@ export function buildMatchListPageButtons(input: {
   }
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(
-        buildMatchListPageCustomId(input.invokerId, input.leagueId, 'prev', input.page),
-      )
+      .setCustomId(buildMatchListPageCustomId(input.invokerId, input.leagueId, 'prev', input.page))
       .setLabel('Previous')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(input.page <= 1),
     new ButtonBuilder()
-      .setCustomId(
-        buildMatchListPageCustomId(input.invokerId, input.leagueId, 'next', input.page),
-      )
+      .setCustomId(buildMatchListPageCustomId(input.invokerId, input.leagueId, 'next', input.page))
       .setLabel('Next')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(input.page >= input.totalPages),

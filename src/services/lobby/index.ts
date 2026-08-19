@@ -1,9 +1,6 @@
 export type { LobbyPlayer } from './lobby-ocr.js';
 export { extractLobbyPlayers } from './lobby-ocr.js';
-export type {
-  ResolveHostPendingMatchInput,
-  ResolvePendingMatchForManageInput,
-} from './resolve.js';
+export type { ResolveHostPendingMatchInput, ResolvePendingMatchForManageInput } from './resolve.js';
 export type { LobbySyncMode, LobbyActionResult } from './discord-sync.js';
 export type { RefreshLobbyResult } from './wc3stats-refresh.js';
 export type { RefreshLobbyScreenshotResult } from './lobby-screenshot.js';
@@ -11,10 +8,7 @@ export type {
   CreateMatchFromWc3statsInput,
   CreateMatchFromWc3statsResult,
 } from './create-from-wc3stats.js';
-export {
-  attachCreatedMatchMessage,
-  createMatchFromWc3statsLobby,
-} from './create-from-wc3stats.js';
+export { attachCreatedMatchMessage, createMatchFromWc3statsLobby } from './create-from-wc3stats.js';
 export {
   addPlayer,
   editPlayerNick,
@@ -34,11 +28,7 @@ export {
   resolveHostPendingMatchByMessageId,
 } from './resolve.js';
 export { syncLobbyDiscordMessage } from './discord-sync.js';
-export {
-  startLobbyMatch,
-  startLobbyMatchByMessageId,
-  cancelLobbyMatch,
-} from './lifecycle.js';
+export { startLobbyMatch, startLobbyMatchByMessageId, cancelLobbyMatch } from './lifecycle.js';
 export { refreshLobbyFromWc3stats } from './wc3stats-refresh.js';
 export {
   isImageAttachment,
@@ -59,11 +49,7 @@ export {
   editLobbyPlayerNick,
   applyRosterUpdateForMessage,
 } from './actions.js';
-export {
-  applyRemapPairs,
-  parseRemapPairs,
-  resolveSwapForm,
-} from './remap.js';
+export { applyRemapPairs, parseRemapPairs, resolveSwapForm } from './remap.js';
 export {
   buildLobbyButtons,
   buildMatchCancelledEmbed,

@@ -28,34 +28,36 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `prisma/schema.prisma` | `LeagueStatus`, league columns, `LeagueRolloverDraft` |
-| `prisma/migrations/…_league_rollover/` | Migration SQL |
-| `src/services/league/league-rollover.ts` | Math, preview, draft, apply transaction |
-| `src/services/league/league-rollover.test.ts` | Unit tests |
-| `src/services/league/league.ts` | `listActiveLeaguesForGuild`, `listArchivedLeaguesForGuild` |
-| `src/services/league/league-resolve.ts` | Active-only fallback; optional archived reads |
-| `src/services/league/league-interaction.ts` | Autocomplete filters; archived error constant |
-| `src/services/league/index.ts` | Re-exports |
-| `src/commands/league/league.ts` | `rollover` subcommand + list sections |
-| `src/commands/league/league.test.ts` | Slash data tests |
-| `src/discord/interactions/league-rollover-interactions.ts` | Confirm/Cancel handler |
-| `src/discord/interactions/league-rollover-interactions.test.ts` | Button tests |
-| `src/events/interaction-create.ts` | Route rollover buttons |
-| `src/services/rating/rank-reset.ts` | Reject archived league in preview |
-| `src/services/match/match-service.ts` (or create path) | Reject archived on lobby create |
-| `src/commands/config/config.ts` | Reject config writes on archived league |
+| File                                                            | Role                                                       |
+| --------------------------------------------------------------- | ---------------------------------------------------------- |
+| `prisma/schema.prisma`                                          | `LeagueStatus`, league columns, `LeagueRolloverDraft`      |
+| `prisma/migrations/…_league_rollover/`                          | Migration SQL                                              |
+| `src/services/league/league-rollover.ts`                        | Math, preview, draft, apply transaction                    |
+| `src/services/league/league-rollover.test.ts`                   | Unit tests                                                 |
+| `src/services/league/league.ts`                                 | `listActiveLeaguesForGuild`, `listArchivedLeaguesForGuild` |
+| `src/services/league/league-resolve.ts`                         | Active-only fallback; optional archived reads              |
+| `src/services/league/league-interaction.ts`                     | Autocomplete filters; archived error constant              |
+| `src/services/league/index.ts`                                  | Re-exports                                                 |
+| `src/commands/league/league.ts`                                 | `rollover` subcommand + list sections                      |
+| `src/commands/league/league.test.ts`                            | Slash data tests                                           |
+| `src/discord/interactions/league-rollover-interactions.ts`      | Confirm/Cancel handler                                     |
+| `src/discord/interactions/league-rollover-interactions.test.ts` | Button tests                                               |
+| `src/events/interaction-create.ts`                              | Route rollover buttons                                     |
+| `src/services/rating/rank-reset.ts`                             | Reject archived league in preview                          |
+| `src/services/match/match-service.ts` (or create path)          | Reject archived on lobby create                            |
+| `src/commands/config/config.ts`                                 | Reject config writes on archived league                    |
 
 ---
 
 ### Task 1: Schema — league status + rollover draft
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: migration via `npm run db:migrate` (name: `league_rollover`)
 
 **Interfaces:**
+
 - Produces:
   - `enum LeagueStatus { ACTIVE ARCHIVED }`
   - `League.status LeagueStatus @default(ACTIVE)`
@@ -161,11 +163,13 @@ git commit -m "feat(league): add status, lineage, and rollover draft schema"
 ### Task 2: Soft-reset math + rollover use-case (pure + DB)
 
 **Files:**
+
 - Create: `src/services/league/league-rollover.ts`
 - Create: `src/services/league/league-rollover.test.ts`
 - Modify: `src/services/league/index.ts`
 
 **Interfaces:**
+
 - Produces:
 
 ```typescript
@@ -189,14 +193,26 @@ export function seedSoftGlobalRatings(
   compression: number,
 ): Array<{ playerId: string; mu: number; sigma: number }>;
 export function seedSoftHeroRatings(
-  rows: Array<{ playerId: string; heroId: number; mu: number; sigma: number; matchesPlayed: number }>,
+  rows: Array<{
+    playerId: string;
+    heroId: number;
+    mu: number;
+    sigma: number;
+    matchesPlayed: number;
+  }>,
   compression: number,
 ): Array<{ playerId: string; heroId: number; mu: number; sigma: number; matchesPlayed: number }>;
 export function seedContinueGlobalRatings(
   rows: Array<{ playerId: string; mu: number; sigma: number }>,
 ): Array<{ playerId: string; mu: number; sigma: number }>;
 export function seedContinueHeroRatings(
-  rows: Array<{ playerId: string; heroId: number; mu: number; sigma: number; matchesPlayed: number }>,
+  rows: Array<{
+    playerId: string;
+    heroId: number;
+    mu: number;
+    sigma: number;
+    matchesPlayed: number;
+  }>,
 ): Array<{ playerId: string; heroId: number; mu: number; sigma: number; matchesPlayed: number }>;
 
 export type PreviewLeagueRolloverInput = {
@@ -238,11 +254,20 @@ export type LeagueRolloverResult = {
 
 export function buildRolloverConfirmCustomId(draftId: string, actorDiscordId: string): string;
 export function buildRolloverCancelCustomId(draftId: string, actorDiscordId: string): string;
-export function parseRolloverButtonCustomId(customId: string): { action: 'confirm' | 'cancel'; draftId: string; actorDiscordId: string } | null;
+export function parseRolloverButtonCustomId(
+  customId: string,
+): { action: 'confirm' | 'cancel'; draftId: string; actorDiscordId: string } | null;
 
-export async function previewLeagueRollover(input: PreviewLeagueRolloverInput): Promise<LeagueRolloverPreview>;
-export async function applyLeagueRollover(input: ApplyLeagueRolloverInput): Promise<LeagueRolloverResult>;
-export async function cancelLeagueRolloverDraft(draftId: string, actorDiscordId: string): Promise<void>;
+export async function previewLeagueRollover(
+  input: PreviewLeagueRolloverInput,
+): Promise<LeagueRolloverPreview>;
+export async function applyLeagueRollover(
+  input: ApplyLeagueRolloverInput,
+): Promise<LeagueRolloverResult>;
+export async function cancelLeagueRolloverDraft(
+  draftId: string,
+  actorDiscordId: string,
+): Promise<void>;
 ```
 
 - [ ] **Step 1: Write failing tests for math**
@@ -376,7 +401,13 @@ export function seedSoftGlobalRatings(
 }
 
 export function seedSoftHeroRatings(
-  rows: Array<{ playerId: string; heroId: number; mu: number; sigma: number; matchesPlayed: number }>,
+  rows: Array<{
+    playerId: string;
+    heroId: number;
+    mu: number;
+    sigma: number;
+    matchesPlayed: number;
+  }>,
   compression: number,
 ): Array<{ playerId: string; heroId: number; mu: number; sigma: number; matchesPlayed: number }> {
   const byHero = new Map<number, number[]>();
@@ -404,7 +435,13 @@ export function seedContinueGlobalRatings(
 }
 
 export function seedContinueHeroRatings(
-  rows: Array<{ playerId: string; heroId: number; mu: number; sigma: number; matchesPlayed: number }>,
+  rows: Array<{
+    playerId: string;
+    heroId: number;
+    mu: number;
+    sigma: number;
+    matchesPlayed: number;
+  }>,
 ): Array<{ playerId: string; heroId: number; mu: number; sigma: number; matchesPlayed: number }> {
   return rows.map((row) => ({
     playerId: row.playerId,
@@ -500,6 +537,7 @@ Also cover: hard reset defaults only (no hero createMany); soft reset `matchesPl
 - [ ] **Step 5: Implement `previewLeagueRollover`**
 
 Checks:
+
 1. Source exists, `guildId` matches, `status === ACTIVE`
 2. `successorName.trim()` non-empty
 3. `resetMode === 'soft'` → `assertRolloverCompression(compression ?? 0.5)`. `continue`/`hard` + provided compression → throw `Compression is only used with reset:soft.`
@@ -551,12 +589,14 @@ git commit -m "feat(league): add rollover preview, apply, and continue/soft/hard
 ### Task 3: League resolve + list helpers + archived guards
 
 **Files:**
+
 - Modify: `src/services/league/league.ts`
 - Modify: `src/services/league/league-resolve.ts`
 - Modify: `src/services/league/league-resolve.test.ts`
 - Modify: `src/services/league/league-interaction.ts`
 
 **Interfaces:**
+
 - Produces:
 
 ```typescript
@@ -568,8 +608,14 @@ export async function listArchivedLeaguesForGuild(guildId: string): Promise<Leag
 
 export function isLeagueWritable(league: Pick<League, 'status'>): boolean;
 
-export async function autocompleteActiveGuildLeagues(guildId: string, query: string): Promise<Array<{ name: string; value: string }>>;
-export async function autocompleteAllGuildLeagues(guildId: string, query: string): Promise<Array<{ name: string; value: string }>>;
+export async function autocompleteActiveGuildLeagues(
+  guildId: string,
+  query: string,
+): Promise<Array<{ name: string; value: string }>>;
+export async function autocompleteAllGuildLeagues(
+  guildId: string,
+  query: string,
+): Promise<Array<{ name: string; value: string }>>;
 ```
 
 - [ ] **Step 1: Write failing resolve test**
@@ -641,6 +687,7 @@ git commit -m "feat(league): resolve active leagues only; add archived helpers"
 ### Task 4: Block writes on archived leagues
 
 **Files:**
+
 - Modify: `src/services/rating/rank-reset.ts` (`previewRankReset`, after `prisma.league.findUnique`)
 - Modify: `src/services/match/match-service.ts` (`createPendingMatch`, before `loadMatchProfile`)
 - Modify: `src/services/lobby/register-lobby-source.ts` (`assertLeagueAllowsWc3stats` and `assertLeagueAllowsWc3statsImport`)
@@ -649,6 +696,7 @@ git commit -m "feat(league): resolve active leagues only; add archived helpers"
 - Test: `src/services/match/match-service.test.ts` (or the existing createPendingMatch test file)
 
 **Interfaces:**
+
 - Consumes: `isLeagueWritable`, `LEAGUE_ARCHIVED_MESSAGE` from Task 3
 
 - [ ] **Step 1: Rank reset guard**
@@ -704,10 +752,12 @@ git commit -m "fix(league): reject write operations on archived leagues"
 ### Task 5: `/league rollover` command + list sections
 
 **Files:**
+
 - Modify: `src/commands/league/league.ts`
 - Modify: `src/commands/league/league.test.ts`
 
 **Interfaces:**
+
 - Consumes: `previewLeagueRollover`, `buildRolloverConfirmComponents` (from interactions file — or build inline and extract in Task 6)
 
 - [ ] **Step 1: Extend slash command data test**
@@ -805,15 +855,20 @@ git commit -m "feat(league): add rollover subcommand and archived list sections"
 ### Task 6: Confirm/Cancel button handler
 
 **Files:**
+
 - Create: `src/discord/interactions/league-rollover-interactions.ts`
 - Create: `src/discord/interactions/league-rollover-interactions.test.ts`
 - Modify: `src/events/interaction-create.ts`
 
 **Interfaces:**
+
 - Produces:
 
 ```typescript
-export function buildRolloverConfirmComponents(input: { draftId: string; actorDiscordId: string }): ActionRowBuilder<ButtonBuilder>[];
+export function buildRolloverConfirmComponents(input: {
+  draftId: string;
+  actorDiscordId: string;
+}): ActionRowBuilder<ButtonBuilder>[];
 export async function handleLeagueRolloverInteraction(interaction: Interaction): Promise<boolean>;
 ```
 
@@ -841,7 +896,13 @@ vi.mock('../../services/league/index.js', () => ({
     `lv:x:${draftId}:${actorDiscordId}`,
   parseRolloverButtonCustomId: (customId: string) => {
     const [prefix, action, draftId, actorDiscordId, extra] = customId.split(':');
-    if (prefix !== 'lv' || (action !== 'c' && action !== 'x') || !draftId || !actorDiscordId || extra) {
+    if (
+      prefix !== 'lv' ||
+      (action !== 'c' && action !== 'x') ||
+      !draftId ||
+      !actorDiscordId ||
+      extra
+    ) {
       return null;
     }
     return { action: action === 'c' ? 'confirm' : 'cancel', draftId, actorDiscordId };
@@ -871,8 +932,18 @@ describe('buildRolloverConfirmComponents', () => {
     expect(row?.toJSON()).toEqual({
       type: 1,
       components: [
-        { type: 2, custom_id: 'lv:c:draft-1:actor-1', label: 'Confirm rollover', style: ButtonStyle.Danger },
-        { type: 2, custom_id: 'lv:x:draft-1:actor-1', label: 'Cancel', style: ButtonStyle.Secondary },
+        {
+          type: 2,
+          custom_id: 'lv:c:draft-1:actor-1',
+          label: 'Confirm rollover',
+          style: ButtonStyle.Danger,
+        },
+        {
+          type: 2,
+          custom_id: 'lv:x:draft-1:actor-1',
+          label: 'Cancel',
+          style: ButtonStyle.Secondary,
+        },
       ],
     });
   });
@@ -897,7 +968,10 @@ describe('handleLeagueRolloverInteraction', () => {
     const interaction = buttonInteraction('lv:x:draft-1:actor-1');
     await handleLeagueRolloverInteraction(interaction);
     expect(cancelLeagueRolloverDraft).toHaveBeenCalledWith('draft-1', 'actor-1');
-    expect(interaction.update).toHaveBeenCalledWith({ content: 'Rollover cancelled.', components: [] });
+    expect(interaction.update).toHaveBeenCalledWith({
+      content: 'Rollover cancelled.',
+      components: [],
+    });
   });
 
   it('applies rollover and refreshes the successor leaderboard', async () => {
@@ -925,6 +999,7 @@ describe('handleLeagueRolloverInteraction', () => {
 - [ ] **Step 2: Implement handler**
 
 On confirm:
+
 1. `applyLeagueRollover({ draftId, actorDiscordId, expectedSourceLeagueId })`
 2. Optional: `refreshLeagueLeaderboard(client, successorLeagueId)` if channel configured
 3. Success ephemeral with archived + successor ids
@@ -960,12 +1035,14 @@ git commit -m "feat(league): add rollover confirm/cancel interactions"
 ### Task 7: History command autocomplete (archived leagues)
 
 **Files:**
+
 - Modify: `src/services/league/league-interaction.ts` (`respondLeagueAutocomplete`)
 - Modify: `src/commands/match/match.ts`
 - Modify: `src/commands/player/leaderboard.ts`
 - Modify: `src/commands/league/league.ts` (rollover autocomplete stays active-only)
 
 **Interfaces:**
+
 - Consumes: `autocompleteActiveGuildLeagues`, `autocompleteAllGuildLeagues` from Task 3
 
 - [ ] **Step 1: Add includeArchived flag to autocomplete responder**
@@ -1023,6 +1100,7 @@ git commit -m "feat(league): include archived leagues in history autocomplete"
 ### Task 8: Full test pass + spec status
 
 **Files:**
+
 - Modify: `docs/superpowers/specs/2026-08-19-league-rollover-design.md` (status → Implemented when done)
 
 - [ ] **Step 1: Run full suite**
@@ -1044,27 +1122,27 @@ git commit -m "test(league): fix rollover integration regressions"
 
 ## Spec coverage checklist
 
-| Spec requirement | Task |
-|------------------|------|
-| `LeagueStatus` + lineage columns | Task 1 |
-| Block active matches | Task 2 |
-| Continue identity copy (μ, σ, `matchesPlayed`) | Task 2 |
-| Continue does not invent missing globals | Task 2 |
-| Compression rejected for continue/hard | Task 2 |
-| Hard reset seeding | Task 2 |
-| Soft reset global + hero math | Task 2 |
-| Config copy + slot maps + bindings | Task 2 |
-| Archive source league | Task 2 |
-| Continue preview copy (unchanged ki, freeze) | Task 5 |
-| `/league rollover` options including `continue` | Task 5 |
-| Confirm/Cancel buttons | Task 6 |
-| Refresh successor leaderboard after apply | Task 6 |
-| `/league list` sections | Task 5 |
-| Archived write guards | Task 4 |
-| Active-only play autocomplete | Task 3, 5 |
-| History includes archived (`/match list`, `/leaderboard`) | Task 7 |
-| Staff/player docs (continue recipe) | Already committed in spec phase |
-| Error messages English | Tasks 2, 4, 5, 6 |
+| Spec requirement                                          | Task                            |
+| --------------------------------------------------------- | ------------------------------- |
+| `LeagueStatus` + lineage columns                          | Task 1                          |
+| Block active matches                                      | Task 2                          |
+| Continue identity copy (μ, σ, `matchesPlayed`)            | Task 2                          |
+| Continue does not invent missing globals                  | Task 2                          |
+| Compression rejected for continue/hard                    | Task 2                          |
+| Hard reset seeding                                        | Task 2                          |
+| Soft reset global + hero math                             | Task 2                          |
+| Config copy + slot maps + bindings                        | Task 2                          |
+| Archive source league                                     | Task 2                          |
+| Continue preview copy (unchanged ki, freeze)              | Task 5                          |
+| `/league rollover` options including `continue`           | Task 5                          |
+| Confirm/Cancel buttons                                    | Task 6                          |
+| Refresh successor leaderboard after apply                 | Task 6                          |
+| `/league list` sections                                   | Task 5                          |
+| Archived write guards                                     | Task 4                          |
+| Active-only play autocomplete                             | Task 3, 5                       |
+| History includes archived (`/match list`, `/leaderboard`) | Task 7                          |
+| Staff/player docs (continue recipe)                       | Already committed in spec phase |
+| Error messages English                                    | Tasks 2, 4, 5, 6                |
 
 ## Self-review
 

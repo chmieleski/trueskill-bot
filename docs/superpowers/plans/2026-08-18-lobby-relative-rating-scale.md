@@ -23,24 +23,26 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `src/services/rating/lobby-relative-scale.ts` | Constants + pure scale/lobby-avg helpers |
-| `src/services/rating/lobby-relative-scale.test.ts` | Unit tests |
-| `src/services/rating/rating-update.ts` | Wire scaling after `rate()` |
+| File                                                 | Role                                             |
+| ---------------------------------------------------- | ------------------------------------------------ |
+| `src/services/rating/lobby-relative-scale.ts`        | Constants + pure scale/lobby-avg helpers         |
+| `src/services/rating/lobby-relative-scale.test.ts`   | Unit tests                                       |
+| `src/services/rating/rating-update.ts`               | Wire scaling after `rate()`                      |
 | `src/services/rating/rating-update.simulate.test.ts` | Regression: high loser moves more in mixed lobby |
-| `src/services/match/match-history-preview.ts` | Pass pre-match game counts into simulate |
-| `.cursor/rules/openskill-rating.mdc` | Document lobby-relative apply |
+| `src/services/match/match-history-preview.ts`        | Pass pre-match game counts into simulate         |
+| `.cursor/rules/openskill-rating.mdc`                 | Document lobby-relative apply                    |
 
 ---
 
 ### Task 1: Pure lobby scale helpers
 
 **Files:**
+
 - Create: `src/services/rating/lobby-relative-scale.ts`
 - Create: `src/services/rating/lobby-relative-scale.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `LOBBY_OFFSET_KI_FULL_EFFECT = 2000`
   - `LOBBY_SCALE_MIN = 0.5`, `LOBBY_SCALE_MAX = 1.5`
@@ -166,10 +168,12 @@ Expected: PASS
 ### Task 2: Wire scaling into `simulatePostMatchRatings`
 
 **Files:**
+
 - Modify: `src/services/rating/rating-update.ts`
 - Modify: `src/services/rating/rating-update.simulate.test.ts`
 
 **Interfaces:**
+
 - Consumes: all exports from `lobby-relative-scale.ts`, `displayOrdinal` from `rating-math.ts`
 - Modifies `simulatePostMatchRatings` signature — add optional 5th arg:
   - `globalGamesByPlayer?: Map<string, number>` (default empty → games `0` for ki)
@@ -202,14 +206,17 @@ it('high-rated loser loses more ki than low-rated loser in same mixed lobby', ()
     ['lowB', { mu: lowMu, sigma: lowSigma }],
     ['lowC', { mu: lowMu, sigma: lowSigma }],
   ]);
-  const games = new Map([['high', 20], ['lowA', 20], ['lowB', 20], ['lowC', 20]]);
+  const games = new Map([
+    ['high', 20],
+    ['lowA', 20],
+    ['lowB', 20],
+    ['lowC', 20],
+  ]);
 
   // Team 2 wins -> high loses
   const after = simulatePostMatchRatings(entries, 2, startGlobal, new Map(), games);
-  const highDelta =
-    displayOrdinal(after.globalByPlayer.get('high')!.mu, highSigma, 21) - highKi;
-  const lowDelta =
-    displayOrdinal(after.globalByPlayer.get('lowA')!.mu, lowSigma, 21) - lowKi;
+  const highDelta = displayOrdinal(after.globalByPlayer.get('high')!.mu, highSigma, 21) - highKi;
+  const lowDelta = displayOrdinal(after.globalByPlayer.get('lowA')!.mu, lowSigma, 21) - lowKi;
 
   expect(Math.abs(highDelta)).toBeGreaterThan(
     displayOrdinal(lowMu, lowSigma, 20) - displayOrdinal(lowMu, lowSigma, 20),
@@ -312,9 +319,11 @@ Run: `npx vitest run src/services/rating/rating-update.simulate.test.ts`
 ### Task 3: Wire scaling into `applyMatchRatings`
 
 **Files:**
+
 - Modify: `src/services/rating/rating-update.ts`
 
 **Interfaces:**
+
 - Consumes: `loadMatchDisplayStatsByPlayer`, `gamesByPlayerFromStats` from `rank-reset-display.ts`
 - At apply time (match completing), game counts are **pre-match** because this match is not yet COMPLETED in DB
 
@@ -330,6 +339,7 @@ const globalGamesByPlayer = gamesByPlayerFromStats(displayStats);
 - [ ] **Step 2: Reuse same `applyLobbyRelativeScalingToResults` helper**
 
 Before DB updates loop (after `registerTeam`), call helper with:
+
 - `preGlobal` = map built from DB rows before rate (copy mu/sigma before mutate)
 - `updatedByPlayer` from rate
 - `globalGamesByPlayer`
@@ -346,6 +356,7 @@ Expected: PASS
 ### Task 4: Match history replay parity
 
 **Files:**
+
 - Modify: `src/services/match/match-history-preview.ts`
 
 - [ ] **Step 1: Load `globalGames` before simulate**
@@ -373,11 +384,13 @@ Run: `npx vitest run src/services/match/` (if tests exist) or rebuild one match 
 ### Task 5: Docs + rules
 
 **Files:**
+
 - Modify: `.cursor/rules/openskill-rating.mdc`
 
 - [ ] **Step 1: Add section "Lobby-relative μ scaling"**
 
 Document:
+
 - After `rate()`, Δμ scaled by offset from lobby avg global ki
 - Constants: 2000 ki full effect, 0.5–1.5× clamps
 - Quitters excluded; predictWin unchanged
@@ -392,18 +405,18 @@ Expected: PASS
 
 ## Self-review (spec coverage)
 
-| Spec requirement | Task |
-|------------------|------|
-| Post-rate μ scaler | 2, 3 |
-| σ unchanged | 2, 3 (only mu written) |
-| Lobby avg = mean global pre-match ki | 1, 2 |
-| Hero same scale as global | 2 |
-| Quitters unchanged | 2, 3 (only `active` entries) |
-| simulate + apply parity | 2, 3, 4 |
-| predictWin untouched | no changes to preview |
-| Forward-only | no migration task |
-| Unit + regression tests | 1, 2 |
-| openskill-rating.mdc | 5 |
+| Spec requirement                     | Task                         |
+| ------------------------------------ | ---------------------------- |
+| Post-rate μ scaler                   | 2, 3                         |
+| σ unchanged                          | 2, 3 (only mu written)       |
+| Lobby avg = mean global pre-match ki | 1, 2                         |
+| Hero same scale as global            | 2                            |
+| Quitters unchanged                   | 2, 3 (only `active` entries) |
+| simulate + apply parity              | 2, 3, 4                      |
+| predictWin untouched                 | no changes to preview        |
+| Forward-only                         | no migration task            |
+| Unit + regression tests              | 1, 2                         |
+| openskill-rating.mdc                 | 5                            |
 
 ## Success verification
 

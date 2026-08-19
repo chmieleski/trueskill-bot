@@ -28,24 +28,24 @@
 
 ## File structure
 
-| File | Responsibility |
-|------|----------------|
-| `prisma/schema.prisma` + migrations | `Game`, `League`, `LeagueChannelBinding`, `leagueId` on Match/ratings; move wc3stats/leaderboard onto League |
-| `src/domain/games.ts` | `WARCRAFT3_UDBR_GAME_ID` constant |
-| `src/services/league/league.ts` | CRUD league, ensure default, list by guild |
-| `src/services/league/league-resolve.ts` | `resolveLeagueContext` |
-| `src/services/league/league-binding.ts` | Bind/unbind channel/category |
-| `src/services/league/league-wc3stats.ts` | `game:warcraft3_udbr` — preset/clear/resolve filter on League |
-| `src/services/rating/*` | All reads/writes take `leagueId` |
-| `src/services/match/*` | `createPendingMatch` requires `leagueId`; wc3stats active id unique per league |
-| `src/services/leaderboard/*` | Filter by `leagueId`; live board ids on League |
-| `src/services/player/player-profile.ts` | Rank within league |
-| `src/commands/league/*` + `config.ts` | Staff create/bind; wc3stats preset on resolved league |
-| `src/handlers/register-commands.ts` | Global vs guild deploy |
-| `src/config/env.ts` + AWS | Optional `GUILD_ID` |
-| `docs/dev/adding-a-new-game.md` | Already drafted — verify against final APIs |
-| `.cursor/rules/feature-scope-game-vs-general.mdc` | Already drafted — keep |
-| `.cursor/rules/database-domain.mdc` | Document League tenancy |
+| File                                              | Responsibility                                                                                               |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `prisma/schema.prisma` + migrations               | `Game`, `League`, `LeagueChannelBinding`, `leagueId` on Match/ratings; move wc3stats/leaderboard onto League |
+| `src/domain/games.ts`                             | `WARCRAFT3_UDBR_GAME_ID` constant                                                                            |
+| `src/services/league/league.ts`                   | CRUD league, ensure default, list by guild                                                                   |
+| `src/services/league/league-resolve.ts`           | `resolveLeagueContext`                                                                                       |
+| `src/services/league/league-binding.ts`           | Bind/unbind channel/category                                                                                 |
+| `src/services/league/league-wc3stats.ts`          | `game:warcraft3_udbr` — preset/clear/resolve filter on League                                                |
+| `src/services/rating/*`                           | All reads/writes take `leagueId`                                                                             |
+| `src/services/match/*`                            | `createPendingMatch` requires `leagueId`; wc3stats active id unique per league                               |
+| `src/services/leaderboard/*`                      | Filter by `leagueId`; live board ids on League                                                               |
+| `src/services/player/player-profile.ts`           | Rank within league                                                                                           |
+| `src/commands/league/*` + `config.ts`             | Staff create/bind; wc3stats preset on resolved league                                                        |
+| `src/handlers/register-commands.ts`               | Global vs guild deploy                                                                                       |
+| `src/config/env.ts` + AWS                         | Optional `GUILD_ID`                                                                                          |
+| `docs/dev/adding-a-new-game.md`                   | Already drafted — verify against final APIs                                                                  |
+| `.cursor/rules/feature-scope-game-vs-general.mdc` | Already drafted — keep                                                                                       |
+| `.cursor/rules/database-domain.mdc`               | Document League tenancy                                                                                      |
 
 ---
 
@@ -54,11 +54,13 @@
 **Scope:** `general`
 
 **Files:**
+
 - Create: `src/domain/games.ts`
 - Modify: `prisma/schema.prisma`
 - Create: `prisma/migrations/<timestamp>_multi_league_core/migration.sql`
 
 **Interfaces:**
+
 - Produces: `WARCRAFT3_UDBR_GAME_ID = 'warcraft3_udbr'`
 - Produces models: `Game`, `League` (without wc3stats columns yet), `LeagueChannelBinding`, enum `LeagueBindingKind`
 - Produces: `Match.leagueId String?` temporarily nullable for backfill in Task 2
@@ -115,10 +117,12 @@ EOF
 **Scope:** `general`
 
 **Files:**
+
 - Create: `prisma/migrations/<timestamp>_multi_league_ratings_backfill/migration.sql`
 - Modify: `prisma/schema.prisma` (`PlayerRating`, `PlayerHeroRating`, `Match.leagueId`)
 
 **Interfaces:**
+
 - Produces: `PlayerRating` PK `(leagueId, playerId)`; `PlayerHeroRating` PK `(leagueId, playerId, heroId)`
 - Produces: `Match.leagueId` required
 - Migration reads env `MULTI_LEAGUE_LEGACY_GUILD_ID` **or** document that SQL uses a placeholder replaced in ops notes — prefer embedding the known prod snowflake only via a one-shot SQL comment and requiring the deploy host to set it:
@@ -203,6 +207,7 @@ EOF
 **Scope:** mixed — schema/move `general`; preset helpers `game:warcraft3_udbr`
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: migration `multi_league_move_guild_config_ihl_fields`
 - Create: `src/services/league/league-wc3stats.ts`
@@ -212,6 +217,7 @@ EOF
 - Modify tests accordingly
 
 **Interfaces:**
+
 - Produces on `League`:
 
 ```prisma
@@ -227,12 +233,12 @@ EOF
 - Produces:
 
 ```typescript
-export async function applyUdbrWc3statsPreset(leagueId: string): Promise<void>
-export async function clearLeagueWc3statsPackage(leagueId: string): Promise<void>
+export async function applyUdbrWc3statsPreset(leagueId: string): Promise<void>;
+export async function clearLeagueWc3statsPackage(leagueId: string): Promise<void>;
 export function isLeagueWc3statsImportReady(league: {
   wc3statsEnabled: boolean;
   wc3statsMapPattern: string | undefined;
-}): boolean
+}): boolean;
 ```
 
 - [ ] **Step 1: Migration SQL**
@@ -260,6 +266,7 @@ Temporarily, if compile breaks, fix call sites to resolve league via “single l
 **Scope:** `general`
 
 **Files:**
+
 - Create: `src/services/league/league-resolve.ts`
 - Create: `src/services/league/league-resolve.test.ts`
 - Create: `src/services/league/league-binding.ts`
@@ -280,20 +287,19 @@ export type LeagueResolveResult =
   | { ok: true; league: League }
   | { ok: false; reason: 'no_leagues' | 'ambiguous' | 'invalid_option' | 'not_in_guild' };
 
-export async function resolveLeagueContext(
-  input: LeagueResolveInput,
-): Promise<LeagueResolveResult>
+export async function resolveLeagueContext(input: LeagueResolveInput): Promise<LeagueResolveResult>;
 
 export async function bindDiscordToLeague(input: {
   leagueId: string;
   discordId: string;
   kind: 'CHANNEL' | 'CATEGORY';
-}): Promise<void>
+}): Promise<void>;
 
-export async function unbindDiscord(discordId: string): Promise<boolean>
+export async function unbindDiscord(discordId: string): Promise<boolean>;
 ```
 
 **Resolution order (exact):**
+
 1. `leagueIdOption` present → load; must `league.guildId === input.guildId`
 2. Else binding on `channelId` (kind CHANNEL)
 3. Else binding on `categoryId` (kind CATEGORY)
@@ -317,6 +323,7 @@ Run: `npx vitest run src/services/league/league-resolve.test.ts`
 **Scope:** `general`
 
 **Files:**
+
 - Modify: `src/services/rating/rating-preview.ts` — `ensurePlayerRatings(leagueId, …)`, `loadLobbyRatingPreview`, `loadPlayerKiBySlot`
 - Modify: `src/services/rating/rating-update.ts` — `applyMatchRatings(leagueId, …)`, `applyQuitterPenalties(leagueId, …)`
 - Modify: `src/services/match/match-report.ts` — pass `match.leagueId`
@@ -331,7 +338,7 @@ export async function ensurePlayerRatings(
   leagueId: string,
   entries: { playerId: string; heroId: number }[],
   db?: Db,
-): Promise<void>
+): Promise<void>;
 
 // rating-update.ts
 export async function applyMatchRatings(
@@ -339,7 +346,7 @@ export async function applyMatchRatings(
   entries: RatingRosterEntry[],
   winningTeam: 1 | 2,
   db?: Db,
-): Promise<void>
+): Promise<void>;
 
 // match-service.ts
 export interface CreatePendingMatchInput {
@@ -385,6 +392,7 @@ Run: `npx vitest run src/services/rating src/services/match`
 **Scope:** `general`
 
 **Files:**
+
 - Modify: `src/services/leaderboard/leaderboard.ts` — all loaders take `leagueId`
 - Modify: `src/services/leaderboard/leaderboard-channel.ts` — store ids on `League`; `refreshAllLeaderboardChannels` iterates leagues with a channel set
 - Modify: `src/services/player/player-profile.ts` — `loadPlayerProfile(lookup, leagueId)`
@@ -398,12 +406,12 @@ Run: `npx vitest run src/services/rating src/services/match`
 export async function loadOverallLeaderboardPage(
   leagueId: string,
   page: number,
-): Promise<OverallLeaderboardPage>
+): Promise<OverallLeaderboardPage>;
 
 export async function loadPlayerProfile(
   lookup: RankLookup,
   leagueId: string,
-): Promise<PlayerProfile>
+): Promise<PlayerProfile>;
 ```
 
 - [ ] **Step 1: Fail tests / update signatures**
@@ -423,6 +431,7 @@ On ambiguity: ephemeral English message asking for `league:` option (add optiona
 **Scope:** `general` + `game:warcraft3_udbr` for preset handlers
 
 **Files:**
+
 - Modify: `src/commands/lobby/register-lobby.ts`
 - Modify: `src/services/lobby/wc3stats-refresh.ts`
 - Modify: `src/services/lobby/discord-sync.ts`
@@ -430,6 +439,7 @@ On ambiguity: ephemeral English message asking for `league:` option (add optiona
 - Modify: claim helpers if claim flag moved to league
 
 **Behavior:**
+
 - `/register_lobby`: `resolveLeagueContext` from interaction channel; on failure, refuse (“Bind this channel to a league or pass league:”). Pass `leagueId` into `createPendingMatch` and wc3stats import readiness from league row.
 - `/config set wc3stats_map_preset`: resolve league (prefer `league:` option; else channel binding / sole league).
 - View shows league name + wc3stats fields from league.
@@ -451,17 +461,18 @@ On ambiguity: ephemeral English message asking for `league:` option (add optiona
 **Scope:** `general`
 
 **Files:**
+
 - Create: `src/commands/league/league.ts` (or `/config` subcommands — prefer `/league` group: `create`, `list`, `bind`, `unbind`)
 - Auth: same as `assertCanConfigureBot`
 
 **Slash surface:**
 
-| Subcommand | Options | Effect |
-|------------|---------|--------|
-| `create` | `game:` (choices: UDBR only), `name:` | Insert League |
-| `list` | — | Ephemeral list |
-| `bind` | `target:` channel, optional `league:` | CHANNEL binding (derive category bind via separate subcommand or `type` option) |
-| `unbind` | `target:` channel/category | Remove binding |
+| Subcommand | Options                               | Effect                                                                          |
+| ---------- | ------------------------------------- | ------------------------------------------------------------------------------- |
+| `create`   | `game:` (choices: UDBR only), `name:` | Insert League                                                                   |
+| `list`     | —                                     | Ephemeral list                                                                  |
+| `bind`     | `target:` channel, optional `league:` | CHANNEL binding (derive category bind via separate subcommand or `type` option) |
+| `unbind`   | `target:` channel/category            | Remove binding                                                                  |
 
 - [ ] **Step 1: Implement command + wire into command loader**
 
@@ -478,6 +489,7 @@ On ambiguity: ephemeral English message asking for `league:` option (add optiona
 **Scope:** `general`
 
 **Files:**
+
 - Modify: `src/handlers/register-commands.ts`
 - Modify: `src/config/env.ts`
 - Modify: `.env.example`, `.cursor/rules/scripts-and-env.mdc`
@@ -529,6 +541,7 @@ guildId: process.env.GUILD_ID?.trim() || undefined,
 **Scope:** `general`
 
 **Files:**
+
 - Verify: `docs/dev/adding-a-new-game.md` (already present — update API names to match final exports)
 - Verify: `.cursor/rules/feature-scope-game-vs-general.mdc` + `CLAUDE.md`
 - Modify: `.cursor/rules/database-domain.mdc` — document `Game` / `League` / ratings PK
@@ -559,31 +572,31 @@ Run: `npm test && npm run build`
 
 ## Ops checklist (post-deploy)
 
-1. Run migrations with `MULTI_LEAGUE_LEGACY_GUILD_ID` set to former prod guild snowflake.  
-2. Deploy bot; run `deploy-commands` **without** `GUILD_ID` (global).  
-3. Clear old guild command set once.  
-4. In each active guild: `/league list` → bind lobby channels → confirm `/register_lobby` → `/rank`.  
-5. Re-run UDBR preset on league if wc3stats import needed after column move.  
+1. Run migrations with `MULTI_LEAGUE_LEGACY_GUILD_ID` set to former prod guild snowflake.
+2. Deploy bot; run `deploy-commands` **without** `GUILD_ID` (global).
+3. Clear old guild command set once.
+4. In each active guild: `/league list` → bind lobby channels → confirm `/register_lobby` → `/rank`.
+5. Re-run UDBR preset on league if wc3stats import needed after column move.
 6. Verify second guild the bot is in sees slash commands and has isolated Elo.
 
 ## Out of scope (do not implement in this plan)
 
-- Second game end-to-end  
-- Per-league create/mod roles  
-- Fat presets (heroes/team names)  
-- RLS / multi-schema  
+- Second game end-to-end
+- Per-league create/mod roles
+- Fat presets (heroes/team names)
+- RLS / multi-schema
 
 ---
 
 ## Self-review (plan author)
 
-| Spec requirement | Task |
-|------------------|------|
-| Shared schema + leagueId ratings/matches | 1–2, 5 |
-| Channel binding + resolve chain | 4, 7–8 |
-| Migrate wc3stats GuildConfig → League | 3 |
-| Leaderboard per league | 6 |
-| Global commands / optional GUILD_ID | 9 |
-| adding-a-new-game + scope rule | 10 (drafts already on disk) |
-| Finish wc3stats prerequisite first | Done before this plan |
-| No second game / no RLS | Honored in non-goals |
+| Spec requirement                         | Task                        |
+| ---------------------------------------- | --------------------------- |
+| Shared schema + leagueId ratings/matches | 1–2, 5                      |
+| Channel binding + resolve chain          | 4, 7–8                      |
+| Migrate wc3stats GuildConfig → League    | 3                           |
+| Leaderboard per league                   | 6                           |
+| Global commands / optional GUILD_ID      | 9                           |
+| adding-a-new-game + scope rule           | 10 (drafts already on disk) |
+| Finish wc3stats prerequisite first       | Done before this plan       |
+| No second game / no RLS                  | Honored in non-goals        |

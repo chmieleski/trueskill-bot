@@ -38,21 +38,24 @@ describe('parseRankOptions', () => {
   });
 
   it('prefers user when only user set', () => {
-    expect(
-      parseRankOptions({ selfDiscordId: 'me', userDiscordId: 'u1', nick: null }),
-    ).toEqual({ kind: 'user', discordId: 'u1' });
+    expect(parseRankOptions({ selfDiscordId: 'me', userDiscordId: 'u1', nick: null })).toEqual({
+      kind: 'user',
+      discordId: 'u1',
+    });
   });
 
   it('uses nick when only nick set', () => {
-    expect(
-      parseRankOptions({ selfDiscordId: 'me', userDiscordId: null, nick: 'Tinys' }),
-    ).toEqual({ kind: 'nick', nick: 'tinys' });
+    expect(parseRankOptions({ selfDiscordId: 'me', userDiscordId: null, nick: 'Tinys' })).toEqual({
+      kind: 'nick',
+      nick: 'tinys',
+    });
   });
 
   it('trims and lowercases nick lookups', () => {
-    expect(
-      parseRankOptions({ selfDiscordId: 'me', nick: '  GHOST  ' }),
-    ).toEqual({ kind: 'nick', nick: 'ghost' });
+    expect(parseRankOptions({ selfDiscordId: 'me', nick: '  GHOST  ' })).toEqual({
+      kind: 'nick',
+      nick: 'ghost',
+    });
   });
 
   it('defaults to self', () => {

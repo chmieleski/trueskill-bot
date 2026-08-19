@@ -20,17 +20,17 @@ Public **ki** should keep true newcomers near **~1000**, while players with a fe
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Formula | `ki = round(1000 + 200 × (μ − z·σ))` |
-| z at 0 games | **3.0** (cold start ≈ 1000) |
-| z after blend | **2.5** |
-| Blend window | First **5** completed games; linear in game count |
-| After window | Hold **z = 2.5** permanently |
+| Topic             | Choice                                                                |
+| ----------------- | --------------------------------------------------------------------- |
+| Formula           | `ki = round(1000 + 200 × (μ − z·σ))`                                  |
+| z at 0 games      | **3.0** (cold start ≈ 1000)                                           |
+| z after blend     | **2.5**                                                               |
+| Blend window      | First **5** completed games; linear in game count                     |
+| After window      | Hold **z = 2.5** permanently                                          |
 | Global game count | Completed `MatchPlayer` rows with `result` WIN or LOSS in that league |
-| Hero game count | `PlayerHeroRating.matchesPlayed` |
-| OpenSkill updates | Unchanged |
-| DTO names | Keep `*Ordinal`; values remain display ki |
+| Hero game count   | `PlayerHeroRating.matchesPlayed`                                      |
+| OpenSkill updates | Unchanged                                                             |
+| DTO names         | Keep `*Ordinal`; values remain display ki                             |
 
 ## Math
 
@@ -48,21 +48,21 @@ z(g) = 2.5                       if g ≥ 5
 ki = round(1000 + 200 × (μ − z(g)·σ))
 ```
 
-| Games g | z |
-|--------:|--:|
-| 0 | 3.0 |
-| 1 | 2.9 |
-| 2 | 2.8 |
-| 3 | 2.7 |
-| 4 | 2.6 |
-| ≥5 | 2.5 |
+| Games g |   z |
+| ------: | --: |
+|       0 | 3.0 |
+|       1 | 2.9 |
+|       2 | 2.8 |
+|       3 | 2.7 |
+|       4 | 2.6 |
+|      ≥5 | 2.5 |
 
 ### Illustrative display (live μ/σ at ship time; display-only)
 
-| Profile | Approx | Old z=3 | New (blend) |
-|---------|--------|--------:|------------:|
-| New | 0–0, μ25 σ8.33 | 1000 | **1000** (g=0) |
-| Soft 2–3 | ~μ23.6 σ8.1, g=5 | ~844 | **~1658** |
+| Profile     | Approx           |    Old z=3 |         New (blend) |
+| ----------- | ---------------- | ---------: | ------------------: |
+| New         | 0–0, μ25 σ8.33   |       1000 |      **1000** (g=0) |
+| Soft 2–3    | ~μ23.6 σ8.1, g=5 |       ~844 |           **~1658** |
 | Single loss | 0–1, high σ, g=1 | under 1000 | usually still ≤1000 |
 
 ## Architecture
@@ -78,24 +78,24 @@ Call sites pass entity-specific game counts:
 
 ### Call sites (must pass game count)
 
-| Surface | Module | Count source |
-|---------|--------|--------------|
-| Overall leaderboard / live board | `leaderboard.ts` | `matchPlayer.groupBy` completed W/L |
-| Hero leaderboard | `leaderboard.ts` | `matchesPlayed` |
-| `/rank` profile + competition rank | `player-profile.ts` | same groupBy for all league ratings; heroes use `matchesPlayed` |
-| Lobby preview lines | `rating-preview.ts` | groupBy + hero `matchesPlayed` |
-| Match complete before/after ki | `loadPlayerKiBySlot` | same (after complete, global count includes this match; hero +1 for non-quitters) |
+| Surface                            | Module               | Count source                                                                      |
+| ---------------------------------- | -------------------- | --------------------------------------------------------------------------------- |
+| Overall leaderboard / live board   | `leaderboard.ts`     | `matchPlayer.groupBy` completed W/L                                               |
+| Hero leaderboard                   | `leaderboard.ts`     | `matchesPlayed`                                                                   |
+| `/rank` profile + competition rank | `player-profile.ts`  | same groupBy for all league ratings; heroes use `matchesPlayed`                   |
+| Lobby preview lines                | `rating-preview.ts`  | groupBy + hero `matchesPlayed`                                                    |
+| Match complete before/after ki     | `loadPlayerKiBySlot` | same (after complete, global count includes this match; hero +1 for non-quitters) |
 
 ## Edge cases
 
-| Case | Behavior |
-|------|----------|
-| Missing rating row | Cold-start μ/σ with **g=0** → ~1000 |
-| `displayOrdinal(mu, sigma)` omit g | Treated as **g=0** (z=3) — safe default for cold defaults only |
-| Quitter | Global LOSS counts toward g once match is COMPLETED; hero `matchesPlayed` is **not** incremented on quit (existing update rule) → hero z may lag global |
-| Dual entity | Global and hero **z** are independent |
-| Ladder inflation | Veterans (≥5 games) permanently use z=2.5 → slightly higher public ki than pre-change at same μ/σ |
-| After `/rank_reset` | Global g (and displayed W/L/quits) restart from matches with `completedAt` **after** the latest `PlayerRankReset`; default μ/σ → ~1000 until new games. Hero rows are deleted so hero g cold-starts. |
+| Case                               | Behavior                                                                                                                                                                                             |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Missing rating row                 | Cold-start μ/σ with **g=0** → ~1000                                                                                                                                                                  |
+| `displayOrdinal(mu, sigma)` omit g | Treated as **g=0** (z=3) — safe default for cold defaults only                                                                                                                                       |
+| Quitter                            | Global LOSS counts toward g once match is COMPLETED; hero `matchesPlayed` is **not** incremented on quit (existing update rule) → hero z may lag global                                              |
+| Dual entity                        | Global and hero **z** are independent                                                                                                                                                                |
+| Ladder inflation                   | Veterans (≥5 games) permanently use z=2.5 → slightly higher public ki than pre-change at same μ/σ                                                                                                    |
+| After `/rank_reset`                | Global g (and displayed W/L/quits) restart from matches with `completedAt` **after** the latest `PlayerRankReset`; default μ/σ → ~1000 until new games. Hero rows are deleted so hero g cold-starts. |
 
 ## Testing
 

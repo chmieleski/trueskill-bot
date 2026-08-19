@@ -1,7 +1,4 @@
-import {
-  WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
-  WARCRAFT3_UDBR_GAME_ID,
-} from './games.js';
+import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from './games.js';
 
 export type HeroBinding = 'slot_bound' | 'optional_in_game';
 export type GameImportKind = 'none' | 'wc3stats';

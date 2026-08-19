@@ -166,10 +166,7 @@ export const data = new SlashCommandBuilder()
         'Replace the lobby roster from a Warcraft lobby screenshot (host or match moderator)',
       )
       .addAttachmentOption((option) =>
-        option
-          .setName('print')
-          .setDescription('Lobby screenshot')
-          .setRequired(true),
+        option.setName('print').setDescription('Lobby screenshot').setRequired(true),
       )
       .addStringOption((option) =>
         option

@@ -91,11 +91,7 @@ export function assertRolloverCompression(value: number): number {
 }
 
 /** Pull μ toward a league or hero mean using retention = 1 - compression. */
-export function compressMu(
-  oldMu: number,
-  meanMu: number,
-  compression: number,
-): number {
+export function compressMu(oldMu: number, meanMu: number, compression: number): number {
   const retention = 1 - compression;
   return meanMu + (oldMu - meanMu) * retention;
 }
@@ -196,9 +192,7 @@ export function seedContinueHeroRatings(
 }
 
 function rolloverActionCode(action: RolloverButtonAction): string {
-  return action === 'confirm'
-    ? ROLLOVER_CONFIRM_ACTION
-    : ROLLOVER_CANCEL_ACTION;
+  return action === 'confirm' ? ROLLOVER_CONFIRM_ACTION : ROLLOVER_CANCEL_ACTION;
 }
 
 function parseRolloverActionCode(actionCode: string): RolloverButtonAction | null {
@@ -216,36 +210,22 @@ function buildRolloverButtonCustomId(
   draftId: string,
   actorDiscordId: string,
 ): string {
-  return [
-    ROLLOVER_CUSTOM_ID_PREFIX,
-    rolloverActionCode(action),
-    draftId,
-    actorDiscordId,
-  ].join(':');
+  return [ROLLOVER_CUSTOM_ID_PREFIX, rolloverActionCode(action), draftId, actorDiscordId].join(':');
 }
 
 /** Bind a rollover confirmation button to its draft and initiating actor. */
-export function buildRolloverConfirmCustomId(
-  draftId: string,
-  actorDiscordId: string,
-): string {
+export function buildRolloverConfirmCustomId(draftId: string, actorDiscordId: string): string {
   return buildRolloverButtonCustomId('confirm', draftId, actorDiscordId);
 }
 
 /** Bind a rollover cancellation button to its draft and initiating actor. */
-export function buildRolloverCancelCustomId(
-  draftId: string,
-  actorDiscordId: string,
-): string {
+export function buildRolloverCancelCustomId(draftId: string, actorDiscordId: string): string {
   return buildRolloverButtonCustomId('cancel', draftId, actorDiscordId);
 }
 
 /** Parse a rollover button custom id, returning null for unrelated ids. */
-export function parseRolloverButtonCustomId(
-  customId: string,
-): ParsedRolloverButtonCustomId | null {
-  const [prefix, actionCode, draftId, actorDiscordId, extra] =
-    customId.split(':');
+export function parseRolloverButtonCustomId(customId: string): ParsedRolloverButtonCustomId | null {
+  const [prefix, actionCode, draftId, actorDiscordId, extra] = customId.split(':');
   const action = parseRolloverActionCode(actionCode ?? '');
   if (
     prefix !== ROLLOVER_CUSTOM_ID_PREFIX ||
@@ -348,10 +328,7 @@ function parseResetMode(value: string): LeagueResetMode {
   throw new LeagueRolloverError('That rollover confirmation is no longer valid.');
 }
 
-async function loadActiveSourceLeague(
-  leagueId: string,
-  guildId?: string,
-): Promise<League> {
+async function loadActiveSourceLeague(leagueId: string, guildId?: string): Promise<League> {
   const league = await prisma.league.findUnique({ where: { id: leagueId } });
   if (!league) {
     throw new LeagueRolloverError('That league was not found.');
@@ -360,9 +337,7 @@ async function loadActiveSourceLeague(
     throw new LeagueRolloverError('That league is not in this server.');
   }
   if (league.status === 'ARCHIVED') {
-    throw new LeagueRolloverError(
-      'That league is archived and cannot be rolled over.',
-    );
+    throw new LeagueRolloverError('That league is archived and cannot be rolled over.');
   }
   return league;
 }
@@ -376,10 +351,7 @@ export async function previewLeagueRollover(
     throw new LeagueRolloverError('Successor league name cannot be empty.');
   }
 
-  const source = await loadActiveSourceLeague(
-    input.sourceLeagueId,
-    input.guildId,
-  );
+  const source = await loadActiveSourceLeague(input.sourceLeagueId, input.guildId);
 
   if (input.resetMode !== 'soft' && input.compression !== undefined) {
     throw new LeagueRolloverError('Compression is only used with reset:soft.');
@@ -387,9 +359,7 @@ export async function previewLeagueRollover(
 
   const compression =
     input.resetMode === 'soft'
-      ? assertRolloverCompression(
-          input.compression ?? ROLLOVER_COMPRESSION_DEFAULT,
-        )
+      ? assertRolloverCompression(input.compression ?? ROLLOVER_COMPRESSION_DEFAULT)
       : null;
 
   await assertNoActiveMatches(source.id);
@@ -440,9 +410,7 @@ export async function applyLeagueRollover(
   });
 
   if (!draft) {
-    throw new LeagueRolloverError(
-      'That rollover confirmation is no longer valid.',
-    );
+    throw new LeagueRolloverError('That rollover confirmation is no longer valid.');
   }
 
   if (draft.actorDiscordId !== input.actorDiscordId) {
@@ -455,16 +423,12 @@ export async function applyLeagueRollover(
     input.expectedSourceLeagueId !== undefined &&
     input.expectedSourceLeagueId !== draft.sourceLeagueId
   ) {
-    throw new LeagueRolloverError(
-      'That rollover confirmation is no longer valid.',
-    );
+    throw new LeagueRolloverError('That rollover confirmation is no longer valid.');
   }
 
   const source = draft.sourceLeague;
   if (source.status === 'ARCHIVED') {
-    throw new LeagueRolloverError(
-      'That league is archived and cannot be rolled over.',
-    );
+    throw new LeagueRolloverError('That league is archived and cannot be rolled over.');
   }
 
   const sourceLeaderboardChannelId = source.leaderboardChannelId;

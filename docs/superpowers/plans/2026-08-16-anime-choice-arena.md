@@ -27,41 +27,43 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `src/domain/games.ts` | Add `WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID`; extend `KnownGameId` |
-| `src/domain/game-profile.ts` | `GameProfile`, `getGameProfile`, `teamForSlot`, `rosterHeroId`, `isSlotInProfile`, `invalidSlotMessage` |
-| `src/domain/game-profile.test.ts` | Profile + slot/team/heroId unit tests |
-| `src/services/league/league-profile.ts` | `getGameProfileForLeague(leagueId)` |
-| `prisma/schema.prisma` | `MatchPlayer.heroId Int?` |
-| `prisma/migrations/20260816120000_anime_choice_arena/` | Seed Game + drop NOT NULL on `heroId` |
-| `src/services/rating/rating-math.ts` | `splitRosterByTeam` uses `team` |
-| `src/services/rating/rating-update.ts` | Global-only entities when `heroId` is null |
-| `src/services/rating/rating-preview.ts` | Skip hero ensure/preview/balance hero when `heroId` is null |
-| `src/services/match/match-service.ts` | Profile-based slots, team, heroId, catalog assert |
-| `src/services/match/match-correction.ts` | GLOBAL-only snapshots when `heroId` is null |
-| `src/services/lobby/roster.ts` | Slot range from profile |
-| `src/services/lobby/lobby-balance.ts` | Profile slotCount; no hero entity / no `heroId = slot` on ACA |
-| `src/services/lobby/lobby-preview.ts` | `slotCount`, team names, `ratingLabel`, hide hero column, claim labels |
-| `src/services/guild/team-names.ts` | Optional profile → ACA Team A / Team B |
-| `src/services/player/rank-embed.ts` (and similar) | User-facing unit from `profile.ratingLabel` when league/profile is in scope |
-| `src/services/lobby/register-lobby-source.ts` | Refuse screenshot/wc3stats when `import: none` |
-| `src/commands/league/league.ts` | Create choice + allow ACA `gameId` |
-| `src/commands/config/config.ts` | Refuse wc3stats writes on `import: none` |
-| `src/commands/player/leaderboard.ts` | Refuse hero boards on `optional_in_game` |
-| `src/discord/interactions/lobby-interactions.ts` | Buttons/selects use `profile.slotCount` |
-| `docs/dev/adding-a-new-game.md` | Known games row |
+| File                                                   | Role                                                                                                    |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `src/domain/games.ts`                                  | Add `WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID`; extend `KnownGameId`                                        |
+| `src/domain/game-profile.ts`                           | `GameProfile`, `getGameProfile`, `teamForSlot`, `rosterHeroId`, `isSlotInProfile`, `invalidSlotMessage` |
+| `src/domain/game-profile.test.ts`                      | Profile + slot/team/heroId unit tests                                                                   |
+| `src/services/league/league-profile.ts`                | `getGameProfileForLeague(leagueId)`                                                                     |
+| `prisma/schema.prisma`                                 | `MatchPlayer.heroId Int?`                                                                               |
+| `prisma/migrations/20260816120000_anime_choice_arena/` | Seed Game + drop NOT NULL on `heroId`                                                                   |
+| `src/services/rating/rating-math.ts`                   | `splitRosterByTeam` uses `team`                                                                         |
+| `src/services/rating/rating-update.ts`                 | Global-only entities when `heroId` is null                                                              |
+| `src/services/rating/rating-preview.ts`                | Skip hero ensure/preview/balance hero when `heroId` is null                                             |
+| `src/services/match/match-service.ts`                  | Profile-based slots, team, heroId, catalog assert                                                       |
+| `src/services/match/match-correction.ts`               | GLOBAL-only snapshots when `heroId` is null                                                             |
+| `src/services/lobby/roster.ts`                         | Slot range from profile                                                                                 |
+| `src/services/lobby/lobby-balance.ts`                  | Profile slotCount; no hero entity / no `heroId = slot` on ACA                                           |
+| `src/services/lobby/lobby-preview.ts`                  | `slotCount`, team names, `ratingLabel`, hide hero column, claim labels                                  |
+| `src/services/guild/team-names.ts`                     | Optional profile → ACA Team A / Team B                                                                  |
+| `src/services/player/rank-embed.ts` (and similar)      | User-facing unit from `profile.ratingLabel` when league/profile is in scope                             |
+| `src/services/lobby/register-lobby-source.ts`          | Refuse screenshot/wc3stats when `import: none`                                                          |
+| `src/commands/league/league.ts`                        | Create choice + allow ACA `gameId`                                                                      |
+| `src/commands/config/config.ts`                        | Refuse wc3stats writes on `import: none`                                                                |
+| `src/commands/player/leaderboard.ts`                   | Refuse hero boards on `optional_in_game`                                                                |
+| `src/discord/interactions/lobby-interactions.ts`       | Buttons/selects use `profile.slotCount`                                                                 |
+| `docs/dev/adding-a-new-game.md`                        | Known games row                                                                                         |
 
 ---
 
 ### Task 1: Game id + profile module (`general` + `game:warcraft3_anime_choice_arena`)
 
 **Files:**
+
 - Modify: `src/domain/games.ts`
 - Create: `src/domain/game-profile.ts`
 - Create: `src/domain/game-profile.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID = 'warcraft3_anime_choice_arena'`
   - `KnownGameId` union includes both game ids
@@ -73,7 +75,7 @@
   - `export function isSlotInProfile(profile: GameProfile, slot: number): boolean`
   - `export function teamForSlot(profile: GameProfile, slot: number): 1 | 2`
   - `export function rosterHeroId(profile: GameProfile, slot: number): number | null`
-  - `export function invalidSlotMessage(profile: GameProfile): string` → ``Invalid slot. This game uses slots 1–${profile.slotCount}.``
+  - `export function invalidSlotMessage(profile: GameProfile): string` → `Invalid slot. This game uses slots 1–${profile.slotCount}.`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -81,10 +83,7 @@ Create `src/domain/game-profile.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
-import {
-  WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
-  WARCRAFT3_UDBR_GAME_ID,
-} from './games.js';
+import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from './games.js';
 import {
   getGameProfile,
   invalidSlotMessage,
@@ -164,8 +163,7 @@ export const WARCRAFT3_UDBR_GAME_ID = 'warcraft3_udbr' as const;
 export const WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID = 'warcraft3_anime_choice_arena' as const;
 
 export type KnownGameId =
-  | typeof WARCRAFT3_UDBR_GAME_ID
-  | typeof WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID;
+  typeof WARCRAFT3_UDBR_GAME_ID | typeof WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID;
 ```
 
 `src/domain/game-profile.ts` — implement the types and functions from **Interfaces**. Store profiles in a `Record<string, GameProfile>`. `getGameProfile` looks up the map and throws `UnknownGameIdError` (`message`: `Unknown game id: ${gameId}`). `teamForSlot` throws `RangeError` if `!isSlotInProfile`. `rosterHeroId` returns `slot` when `heroBinding === 'slot_bound'`, else `null`. `isSlotInProfile`: integer, `1 <= slot <= profile.slotCount`.
@@ -188,10 +186,12 @@ git commit -m "feat: add game profile catalog for UDBR and Anime Choice Arena"
 ### Task 2: Schema — nullable `heroId` + Game seed (`general` + `game:warcraft3_anime_choice_arena`)
 
 **Files:**
+
 - Modify: `prisma/schema.prisma` (`MatchPlayer.heroId`)
 - Create: `prisma/migrations/20260816120000_anime_choice_arena/migration.sql`
 
 **Interfaces:**
+
 - Consumes: `warcraft3_anime_choice_arena` id from Task 1
 - Produces: `MatchPlayer.heroId Int?`; `Game` row `(warcraft3_anime_choice_arena, Anime Choice Arena)`
 
@@ -243,6 +243,7 @@ git commit -m "feat: allow null MatchPlayer.heroId and seed Anime Choice Arena g
 ### Task 3: Split roster by persisted `team` (`general`)
 
 **Files:**
+
 - Modify: `src/services/rating/rating-math.ts`
 - Modify: `src/services/rating/rating-math.test.ts`
 - Modify: `src/services/rating/rating-update.ts` (`assertBothTeamsHaveActivePlayers`)
@@ -250,6 +251,7 @@ git commit -m "feat: allow null MatchPlayer.heroId and seed Anime Choice Arena g
 - Modify: `src/services/lobby/lobby-balance.ts` (stop using `slot <= 6` for team lists; still pass `team` on entries in Task 4/6)
 
 **Interfaces:**
+
 - Consumes: entries with `team: 1 | 2`
 - Produces: `splitRosterByTeam<T extends { team: 1 | 2; slot: number }>(entries: T[]): { teamA: T[]; teamB: T[] }` — sort by slot, filter `team === 1` / `team === 2`
 
@@ -303,9 +305,7 @@ expect(() =>
   ]),
 ).not.toThrow();
 
-expect(() => assertBothTeamsHaveActivePlayers([{ slot: 1, team: 1 }])).toThrow(
-  MatchServiceError,
-);
+expect(() => assertBothTeamsHaveActivePlayers([{ slot: 1, team: 1 }])).toThrow(MatchServiceError);
 ```
 
 Fix **compile** errors in `rating-preview.ts`, `rating-update.ts`, `lobby-balance.ts` by adding `team` on in-memory entries. For UDBR call sites that still infer from slot, use `team: entry.slot <= 6 ? 1 : 2` **only as a temporary** until Task 5 persists profile `teamForSlot` — prefer adding `team` from `MatchPlayer.team` wherever the row exists (`matchPlayersToRatingEntries`).
@@ -332,6 +332,7 @@ git commit -m "fix: split rating teams by persisted team instead of slot cutoff"
 ### Task 4: OpenSkill + preview skip hero when `heroId` is null (`general`)
 
 **Files:**
+
 - Modify: `src/services/rating/rating-update.ts`
 - Modify: `src/services/rating/rating-preview.ts`
 - Modify: `src/services/match/match-correction.ts` (`writeMatchRatingSnapshots`)
@@ -339,6 +340,7 @@ git commit -m "fix: split rating teams by persisted team instead of slot cutoff"
 - Create: `src/services/rating/rating-entities.test.ts`
 
 **Interfaces:**
+
 - Consumes: `RatingRosterEntry.heroId: number | null` and `team: 1 | 2`
 - Produces:
   - `export function ratingEntitiesForPlayer(global: MuSigma, hero: MuSigma, heroId: number | null): MuSigma[]` — `[global]` if `heroId == null`, else `[global, hero]`
@@ -461,6 +463,7 @@ git commit -m "feat: apply OpenSkill with global-only entities when heroId is nu
 ### Task 5: Match create/replace uses profile (`general`)
 
 **Files:**
+
 - Create: `src/services/league/league-profile.ts`
 - Modify: `src/services/league/index.ts` (re-export)
 - Modify: `src/services/match/match-service.ts`
@@ -468,6 +471,7 @@ git commit -m "feat: apply OpenSkill with global-only entities when heroId is nu
 - Create: `src/services/lobby/roster.test.ts`
 
 **Interfaces:**
+
 - Consumes: `getGameProfile` (Task 1), `MatchPlayer.heroId Int?` (Task 2)
 - Produces:
   - `export async function getGameProfileForLeague(leagueId: string): Promise<GameProfile>` — `findUnique` league `gameId`, then `getGameProfile`. Missing league → `MatchServiceError('This match lobby was not found.')` (or `League not found.`)
@@ -480,7 +484,10 @@ git commit -m "feat: apply OpenSkill with global-only entities when heroId is nu
 ```ts
 import { describe, expect, it } from 'vitest';
 import { getGameProfile } from '../../domain/game-profile.js';
-import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
+import {
+  WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
+  WARCRAFT3_UDBR_GAME_ID,
+} from '../../domain/games.js';
 import { addPlayer } from './roster.js';
 import { MatchServiceError } from '../match/match-service.js';
 
@@ -490,9 +497,7 @@ const udbr = getGameProfile(WARCRAFT3_UDBR_GAME_ID);
 describe('addPlayer slot range', () => {
   it('rejects slot 11 on ACA with locked copy', () => {
     expect(() => addPlayer([], 'n', 11, aca)).toThrow(MatchServiceError);
-    expect(() => addPlayer([], 'n', 11, aca)).toThrow(
-      'Invalid slot. This game uses slots 1–10.',
-    );
+    expect(() => addPlayer([], 'n', 11, aca)).toThrow('Invalid slot. This game uses slots 1–10.');
   });
 
   it('accepts slot 12 on UDBR', () => {
@@ -572,6 +577,7 @@ git commit -m "feat: drive match roster slots and heroId from the league game pr
 ### Task 6: Runtime UX — flavor (team names + ratingLabel), slot controls, hide hero column (`general`)
 
 **Files:**
+
 - Modify: `src/services/guild/team-names.ts`
 - Modify: `src/services/guild/team-names.test.ts`
 - Modify: `src/services/lobby/lobby-preview.ts`
@@ -581,6 +587,7 @@ git commit -m "feat: drive match roster slots and heroId from the league game pr
 - Modify: `src/services/lobby/lobby-ocr.ts` — keep `teamDisplayName(1)` no-profile (UDBR OCR only)
 
 **Interfaces:**
+
 - Consumes: `GameProfile.teamNames`, `ratingLabel`, `slotCount`, `heroBinding`
 - Produces:
   - `teamDisplayName(team: 1 | 2, profile?: GameProfile): string` — omit profile → UDBR names (slash registration + OCR)
@@ -588,7 +595,7 @@ git commit -m "feat: drive match roster slots and heroId from the league game pr
   - Lobby buttons/selects/claim options iterate `1..profile.slotCount`
   - Claim label: if `heroBinding === 'slot_bound'` keep `Slot N · ${heroName}`; else `Slot N · ${teamDisplayNameForSlot(slot, profile)}`
   - User-facing rating unit: prefer `profile.ratingLabel` in lobby/rank/leaderboard copy when profile is available (both presets are `ki` today; do not hardcode `"ki"` in new match-scoped strings)
-  - Embed footer: if any preview line has no hero, use ``Per player: slot  nick  global (${profile.ratingLabel})`` instead of `global / hero`
+  - Embed footer: if any preview line has no hero, use `Per player: slot  nick  global (${profile.ratingLabel})` instead of `global / hero`
   - Format roster lines: omit `/ heroKi` when `heroId` was null (pass a flag on `LobbyRatingPlayerLine`, e.g. `showHero?: boolean` default true; set `showHero: entry.heroId != null` in preview)
   - `suggestBalanceMove(roster, lookup, winChance, profile)`: empty slots `1..profile.slotCount`; `applySwap`/`applyMove` set `heroId: rosterHeroId(profile, destSlot)`; `winChanceForRoster` uses `ratingEntitiesForPlayer`
 
@@ -645,6 +652,7 @@ git commit -m "feat: render lobby slots and team names from the game profile"
 ### Task 7: Refuse screenshot, wc3stats, and wc3stats config on `import: none` (`general` + `game:warcraft3_anime_choice_arena`)
 
 **Files:**
+
 - Modify: `src/services/lobby/register-lobby-source.ts`
 - Modify: `src/services/lobby/register-lobby-source.test.ts`
 - Modify: `src/commands/lobby/register-lobby.ts`
@@ -654,6 +662,7 @@ git commit -m "feat: render lobby slots and team names from the game profile"
 - Modify: `src/services/wc3stats/wc3stats-host-prompt-poller.ts` (`listHostPromptReadyLeagues`)
 
 **Interfaces:**
+
 - Produces:
   - `export const SCREENSHOT_UNSUPPORTED_MESSAGE = 'Lobby screenshots are not supported for this game yet.'`
   - `export const WC3STATS_UNSUPPORTED_MESSAGE = 'Warcraft lobby import is not supported for this game.'`
@@ -667,7 +676,10 @@ Add to `register-lobby-source.test.ts`:
 
 ```ts
 import { getGameProfile } from '../../domain/game-profile.js';
-import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
+import {
+  WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
+  WARCRAFT3_UDBR_GAME_ID,
+} from '../../domain/games.js';
 import {
   assertRegisterLobbyAllowedForProfile,
   SCREENSHOT_UNSUPPORTED_MESSAGE,
@@ -727,11 +739,13 @@ git commit -m "feat: refuse wc3stats and screenshots for games with import none"
 ### Task 8: `/league create` + hero leaderboard refuse (`game:warcraft3_anime_choice_arena` + `general`)
 
 **Files:**
+
 - Modify: `src/commands/league/league.ts`
 - Modify: `src/commands/league/league.test.ts`
 - Modify: `src/commands/player/leaderboard.ts`
 
 **Interfaces:**
+
 - Consumes: `WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID`, `getGameProfile`, `getGameProfileForLeague`
 - Produces: create choice `{ name: 'Anime Choice Arena', value: 'warcraft3_anime_choice_arena' }`; `create` accepts that id via `getGameProfile(gameId)` instead of `!== UDBR`; `/leaderboard heroes` and `/leaderboard hero` reply `Hero rankings are not available for this game.` when `profile.heroBinding === 'optional_in_game'`
 
@@ -809,10 +823,12 @@ git commit -m "feat: offer Anime Choice Arena leagues and hide hero leaderboards
 ### Task 9: Docs (`general` + `game:warcraft3_anime_choice_arena`)
 
 **Files:**
+
 - Modify: `docs/dev/adding-a-new-game.md`
 - Modify: `docs/superpowers/specs/2026-08-16-anime-choice-arena-design.md` (status + plan link)
 
 **Interfaces:**
+
 - Consumes: `src/domain/game-profile.ts`, `warcraft3_anime_choice_arena`
 
 - [ ] **Step 1: Update Known games table**
@@ -820,10 +836,10 @@ git commit -m "feat: offer Anime Choice Arena leagues and hide hero leaderboards
 In `docs/dev/adding-a-new-game.md` **Known games**:
 
 ```md
-| `gameId` | Status | Module (current) |
-|----------|--------|------------------|
-| `warcraft3_udbr` | First game | `src/services/league/league-wc3stats.ts` + `src/services/wc3stats/**` |
-| `warcraft3_anime_choice_arena` | Second game (v1: Discord-only, global rating, no in-game pick) | `src/domain/game-profile.ts` |
+| `gameId`                       | Status                                                         | Module (current)                                                      |
+| ------------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `warcraft3_udbr`               | First game                                                     | `src/services/league/league-wc3stats.ts` + `src/services/wc3stats/**` |
+| `warcraft3_anime_choice_arena` | Second game (v1: Discord-only, global rating, no in-game pick) | `src/domain/game-profile.ts`                                          |
 ```
 
 In **When to invest in “full” generalization**, replace “wait until a second game forces shared patterns” with: the shared pattern is `GameProfile` in `src/domain/game-profile.ts` (`slotCount`, `heroBinding`, `import`, `ratingLabel`, `teamNames`). Full `src/games/<id>/` adapters still wait. `optional_in_game` is the second hero pattern; do not reuse UDBR `Hero` ids 1–12. Flavor (rating unit + team names) is per-game preset, not hardcoded Dragon Ball copy in core.
@@ -856,17 +872,17 @@ git commit -m "docs: register Anime Choice Arena as a known game profile"
 
 ## Spec coverage (self-review)
 
-| Spec requirement | Task |
-|------------------|------|
-| Game profile API + unknown id throws | 1 |
-| Seed `Game` + nullable `heroId` | 2 |
-| Split by `team`, ACA 5v5 / slot 6 is team B | 3 |
-| Global-only OpenSkill; no `PlayerHeroRating` writes; GLOBAL-only snapshots | 4 |
-| Skip hero catalog; `heroId` null; slot 1–10 | 5 |
-| Team A/B + `ratingLabel` runtime; 10 slot controls; hide hero column; balance without slot=hero | 6 |
-| Refuse screenshot / wc3stats / preset / poller | 7 |
-| `/league create` choice; hero leaderboard copy | 8 |
-| adding-a-new-game Known games | 9 |
-| Slash min/max 1–12 and Z Fighters choice **names** unchanged | 6 (explicit non-change) |
-| Isolation same `Player` two leagues | 4+5 (leagueId already on writes; add a unit/integration assert in Task 4 if a test harness exists — otherwise covered by existing league-scoped updates) |
-| Phase 2 GameHero | out of scope (spec) |
+| Spec requirement                                                                                | Task                                                                                                                                                     |
+| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Game profile API + unknown id throws                                                            | 1                                                                                                                                                        |
+| Seed `Game` + nullable `heroId`                                                                 | 2                                                                                                                                                        |
+| Split by `team`, ACA 5v5 / slot 6 is team B                                                     | 3                                                                                                                                                        |
+| Global-only OpenSkill; no `PlayerHeroRating` writes; GLOBAL-only snapshots                      | 4                                                                                                                                                        |
+| Skip hero catalog; `heroId` null; slot 1–10                                                     | 5                                                                                                                                                        |
+| Team A/B + `ratingLabel` runtime; 10 slot controls; hide hero column; balance without slot=hero | 6                                                                                                                                                        |
+| Refuse screenshot / wc3stats / preset / poller                                                  | 7                                                                                                                                                        |
+| `/league create` choice; hero leaderboard copy                                                  | 8                                                                                                                                                        |
+| adding-a-new-game Known games                                                                   | 9                                                                                                                                                        |
+| Slash min/max 1–12 and Z Fighters choice **names** unchanged                                    | 6 (explicit non-change)                                                                                                                                  |
+| Isolation same `Player` two leagues                                                             | 4+5 (leagueId already on writes; add a unit/integration assert in Task 4 if a test harness exists — otherwise covered by existing league-scoped updates) |
+| Phase 2 GameHero                                                                                | out of scope (spec)                                                                                                                                      |

@@ -52,9 +52,7 @@ type StaffInteraction = ButtonInteraction | ModalSubmitInteraction;
  * Handle changelog staff-card buttons and the player-notes modal.
  * Returns false when the interaction is not a changelog custom id.
  */
-export async function handleReleaseInteraction(
-  interaction: Interaction,
-): Promise<boolean> {
+export async function handleReleaseInteraction(interaction: Interaction): Promise<boolean> {
   if (!interaction.isButton() && !interaction.isModalSubmit()) {
     return false;
   }

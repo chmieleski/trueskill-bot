@@ -25,17 +25,17 @@ Make the codebase easier to navigate without changing bot behavior:
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Aggressiveness | **Medium (B)** — domain folders + split giants + light layer clarity |
-| Approach | **Domain folders under `services/`** + surgical split of `lobby-actions` |
-| Commands / events layout | **Unchanged** (already grouped) |
-| Empty `src/domain/` | **Delete** |
-| Public API | **Barrel `index.ts` per domain**; same export names as today |
-| Interaction handlers | Move to `src/discord/interactions/`; `handlers/` = bootstrap only |
-| `hero-catalog` / `team-names` | Live under `services/guild/` (shared guild/catalog helpers) |
-| Phasing | Three phases (move → split lobby-actions → move interactions) |
-| Language | All user-facing strings remain **English** |
+| Topic                         | Choice                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------ |
+| Aggressiveness                | **Medium (B)** — domain folders + split giants + light layer clarity     |
+| Approach                      | **Domain folders under `services/`** + surgical split of `lobby-actions` |
+| Commands / events layout      | **Unchanged** (already grouped)                                          |
+| Empty `src/domain/`           | **Delete**                                                               |
+| Public API                    | **Barrel `index.ts` per domain**; same export names as today             |
+| Interaction handlers          | Move to `src/discord/interactions/`; `handlers/` = bootstrap only        |
+| `hero-catalog` / `team-names` | Live under `services/guild/` (shared guild/catalog helpers)              |
+| Phasing                       | Three phases (move → split lobby-actions → move interactions)            |
+| Language                      | All user-facing strings remain **English**                               |
 
 ## Target tree
 
@@ -66,25 +66,25 @@ src/
 
 ### File → domain mapping
 
-| Domain | Current files |
-|--------|----------------|
-| `lobby/` | `lobby-actions`, `lobby-preview`, `lobby-balance`, `lobby-ocr`, `lobby-claim` (tests), `lobby-identity`, `register-lobby-source`, related `lobby-*-wc3stats` tests |
-| `match/` | `match-service`, `match-report`, `match-auth`, `match-cleanup` |
-| `rating/` | `rating-math`, `rating-preview`, `rating-update` |
-| `player/` | `player-link`, `player-nick`, `player-profile`, `rank-embed` |
-| `leaderboard/` | `leaderboard`, `leaderboard-embed`, `leaderboard-channel` |
-| `wc3stats/` | `wc3stats-client`, `wc3stats-map`, `wc3stats-match`, `wc3stats-resolve`, `wc3stats-roster`, `wc3stats-slot-map` |
-| `guild/` | `guild-config`, `hero-catalog`, `team-names` |
+| Domain         | Current files                                                                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lobby/`       | `lobby-actions`, `lobby-preview`, `lobby-balance`, `lobby-ocr`, `lobby-claim` (tests), `lobby-identity`, `register-lobby-source`, related `lobby-*-wc3stats` tests |
+| `match/`       | `match-service`, `match-report`, `match-auth`, `match-cleanup`                                                                                                     |
+| `rating/`      | `rating-math`, `rating-preview`, `rating-update`                                                                                                                   |
+| `player/`      | `player-link`, `player-nick`, `player-profile`, `rank-embed`                                                                                                       |
+| `leaderboard/` | `leaderboard`, `leaderboard-embed`, `leaderboard-channel`                                                                                                          |
+| `wc3stats/`    | `wc3stats-client`, `wc3stats-map`, `wc3stats-match`, `wc3stats-resolve`, `wc3stats-roster`, `wc3stats-slot-map`                                                    |
+| `guild/`       | `guild-config`, `hero-catalog`, `team-names`                                                                                                                       |
 
 Co-locate `*.test.ts` next to the module they cover (same domain folder).
 
 ## Layer rules (light)
 
-| Layer | Responsibility |
-|-------|----------------|
-| `commands/*`, `discord/interactions/*` | Parse Discord I/O → call use-case → map result to reply/update |
-| `services/<domain>/*` | Use-cases, persistence orchestration, embed builders used by multiple entry points |
-| Pure helpers (e.g. roster transforms) | No Discord.js Client / message edit; prefer no Prisma when possible |
+| Layer                                  | Responsibility                                                                     |
+| -------------------------------------- | ---------------------------------------------------------------------------------- |
+| `commands/*`, `discord/interactions/*` | Parse Discord I/O → call use-case → map result to reply/update                     |
+| `services/<domain>/*`                  | Use-cases, persistence orchestration, embed builders used by multiple entry points |
+| Pure helpers (e.g. roster transforms)  | No Discord.js Client / message edit; prefer no Prisma when possible                |
 
 Does **not** introduce a formal `domain/` package. Existing Cursor rule `shared-domain-logic.mdc` still applies: buttons and slash commands share the same use-cases.
 
@@ -92,15 +92,15 @@ Does **not** introduce a formal `domain/` package. Existing Cursor rule `shared-
 
 Replace the monolith with:
 
-| Module | Contents |
-|--------|----------|
-| `roster.ts` | Pure roster transforms: `addPlayer`, `removePlayer`, `movePlayer`, `swapPlayers`, `editPlayerNick`, `rosterAfterClaim`, `rosterAfterLeave`, slot asserts |
-| `resolve.ts` | `resolveHostPendingMatch*`, `resolve*ByMessageId`, ownership/status asserts used by resolve |
-| `lifecycle.ts` | `startLobbyMatch*`, `cancelLobbyMatch*` |
-| `discord-sync.ts` | `syncLobbyDiscordMessage`, `applyRosterAndSync` |
-| `wc3stats-refresh.ts` | `refreshLobbyFromWc3stats` and import/link helpers currently private in lobby-actions |
-| `actions.ts` | Thin orchestrators: `addLobbyPlayer`, `claimLobbySlot`, `removeLobbyPlayer`, … |
-| `index.ts` | Re-export public API with **identical names** to today’s `lobby-actions.js` |
+| Module                | Contents                                                                                                                                                 |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `roster.ts`           | Pure roster transforms: `addPlayer`, `removePlayer`, `movePlayer`, `swapPlayers`, `editPlayerNick`, `rosterAfterClaim`, `rosterAfterLeave`, slot asserts |
+| `resolve.ts`          | `resolveHostPendingMatch*`, `resolve*ByMessageId`, ownership/status asserts used by resolve                                                              |
+| `lifecycle.ts`        | `startLobbyMatch*`, `cancelLobbyMatch*`                                                                                                                  |
+| `discord-sync.ts`     | `syncLobbyDiscordMessage`, `applyRosterAndSync`                                                                                                          |
+| `wc3stats-refresh.ts` | `refreshLobbyFromWc3stats` and import/link helpers currently private in lobby-actions                                                                    |
+| `actions.ts`          | Thin orchestrators: `addLobbyPlayer`, `claimLobbySlot`, `removeLobbyPlayer`, …                                                                           |
+| `index.ts`            | Re-export public API with **identical names** to today’s `lobby-actions.js`                                                                              |
 
 Target: no new file in this split over ~400 lines. Keep user-facing English message constants next to the module that throws/returns them (or a small `messages.ts` if duplication appears).
 
@@ -142,12 +142,12 @@ Target: no new file in this split over ~400 lines. Keep user-facing English mess
 
 ## Risks & mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| Large import churn / merge conflicts | Phase 1 alone as one PR; Phase 2–3 as follow-ups if needed |
-| Accidental behavior change in split | Keep function bodies intact on first extract; refactor internals only if tests already cover |
-| Circular imports via barrels | Prefer importing concrete modules inside the same domain; barrels for **external** consumers |
-| Missed import after move | `tsc` / `npm test` as gate |
+| Risk                                 | Mitigation                                                                                   |
+| ------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Large import churn / merge conflicts | Phase 1 alone as one PR; Phase 2–3 as follow-ups if needed                                   |
+| Accidental behavior change in split  | Keep function bodies intact on first extract; refactor internals only if tests already cover |
+| Circular imports via barrels         | Prefer importing concrete modules inside the same domain; barrels for **external** consumers |
+| Missed import after move             | `tsc` / `npm test` as gate                                                                   |
 
 ## Follow-ups (explicitly out of this design)
 

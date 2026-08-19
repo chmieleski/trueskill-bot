@@ -1,5 +1,4 @@
-const UUID_HYPHENATED =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_HYPHENATED = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const UUID_COMPACT = /^[0-9a-f]{32}$/i;
 
 /** Strip UUID hyphens so ids + snowflake fit Discord's 100-char customId. */

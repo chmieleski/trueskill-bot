@@ -24,12 +24,12 @@ Use this when a league season ends and you want a **new** league for the next se
 /league rollover name:Fresh Start reset:hard league:YourLeagueName
 ```
 
-| Option | Meaning |
-|--------|---------|
-| `name` | Display name for the **new** league (required) |
-| `reset` | `continue` — copy ki unchanged · `soft` — shrink toward the old average · `hard` — everyone back to ~1000 ki |
+| Option        | Meaning                                                                                                                          |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | Display name for the **new** league (required)                                                                                   |
+| `reset`       | `continue` — copy ki unchanged · `soft` — shrink toward the old average · `hard` — everyone back to ~1000 ki                     |
 | `compression` | Only for `soft`. `0.0`–`1.0`, default `0.5`. **Higher = stronger pull toward average**. Do not pass it with `continue` or `hard` |
-| `league` | Required when the server has more than one **active** league |
+| `league`      | Required when the server has more than one **active** league                                                                     |
 
 You get a **Confirm / Cancel** prompt. Only you can press the buttons.
 
@@ -68,10 +68,10 @@ You get a **Confirm / Cancel** prompt. Only you can press the buttons.
 
 **Compression guide**
 
-| Value | Feel |
-|-------|------|
-| `0.3` | Gentle — keep most of last season’s spread |
-| `0.5` | Default — halfway to the old average |
+| Value | Feel                                            |
+| ----- | ----------------------------------------------- |
+| `0.3` | Gentle — keep most of last season’s spread      |
+| `0.5` | Default — halfway to the old average            |
 | `0.7` | Aggressive — tight cluster near the old average |
 
 Example: a 5000 ki player and a 1200 ki player with `compression:0.5` both move toward the league average (often ~2500–3500 depending on your population).
@@ -85,10 +85,10 @@ Example: a 5000 ki player and a 1200 ki player with `compression:0.5` both move 
 ✅ Rank-reset enable & cooldown  
 ✅ Host-prompt settings  
 ✅ Channel & category bindings  
-✅ Live leaderboard (old Discord message is removed; a new one is posted in the same channel)  
+✅ Live leaderboard (old Discord message is removed; a new one is posted in the same channel)
 
 ❌ Match history (stays on archived league)  
-❌ Per-player rank-reset cooldown history  
+❌ Per-player rank-reset cooldown history
 
 ---
 

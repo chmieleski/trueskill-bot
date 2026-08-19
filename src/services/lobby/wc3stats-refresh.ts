@@ -193,10 +193,7 @@ export async function refreshLobbyFromWc3stats(input: {
   const leagueConfig = await assertWc3statsImportReady(match.leagueId);
 
   if (!explicitId && !storedId) {
-    await nickForDiscordId(
-      match.hostDiscordId,
-      await profileGameIdForLeague(match.leagueId),
-    );
+    await nickForDiscordId(match.hostDiscordId, await profileGameIdForLeague(match.leagueId));
   }
 
   const lastRefreshAt = lastRefreshAtByMatchId.get(match.id);
@@ -205,7 +202,11 @@ export async function refreshLobbyFromWc3stats(input: {
   }
   lastRefreshAtByMatchId.set(match.id, Date.now());
 
-  const { match: linked, imported, boundNow } = await importAndMaybeLinkWc3stats({
+  const {
+    match: linked,
+    imported,
+    boundNow,
+  } = await importAndMaybeLinkWc3stats({
     match,
     wc3statsId: input.wc3statsId,
     leagueConfig,
@@ -241,4 +242,3 @@ export async function refreshLobbyFromWc3stats(input: {
     message: refreshResultMessage({ boundNow, gameId: updated.wc3statsGameId }),
   };
 }
-

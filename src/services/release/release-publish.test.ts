@@ -45,12 +45,12 @@ describe('assertCanPublish', () => {
   });
 
   it('throws ALREADY_PUBLISHED when status is published', () => {
-    expect(() =>
-      assertCanPublish({ status: 'published', playerNotes: 'Notes' }),
-    ).toThrow(ReleaseServiceError);
-    expect(() =>
-      assertCanPublish({ status: 'published', playerNotes: 'Notes' }),
-    ).toThrow(ALREADY_PUBLISHED);
+    expect(() => assertCanPublish({ status: 'published', playerNotes: 'Notes' })).toThrow(
+      ReleaseServiceError,
+    );
+    expect(() => assertCanPublish({ status: 'published', playerNotes: 'Notes' })).toThrow(
+      ALREADY_PUBLISHED,
+    );
   });
 
   it('throws ALREADY_SKIPPED when status is skipped', () => {
@@ -75,12 +75,12 @@ describe('assertCanPublish', () => {
   });
 
   it('throws when trimmed player notes exceed 4000 characters', () => {
-    expect(() =>
-      assertCanPublish({ status: 'draft', playerNotes: 'x'.repeat(4001) }),
-    ).toThrow(ReleaseServiceError);
-    expect(() =>
-      assertCanPublish({ status: 'draft', playerNotes: 'x'.repeat(4001) }),
-    ).toThrow(PLAYER_NOTES_TOO_LONG);
+    expect(() => assertCanPublish({ status: 'draft', playerNotes: 'x'.repeat(4001) })).toThrow(
+      ReleaseServiceError,
+    );
+    expect(() => assertCanPublish({ status: 'draft', playerNotes: 'x'.repeat(4001) })).toThrow(
+      PLAYER_NOTES_TOO_LONG,
+    );
   });
 });
 

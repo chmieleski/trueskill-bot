@@ -16,6 +16,7 @@ The lobby message has buttons. Use them like toys that fix the board.
 • **Leave** — leave your seat
 
 **Same things as slash commands (host)**
+
 ```
 /lobby add slot:3 nick:SomeNick
 /lobby add slot:3 user:@Someone

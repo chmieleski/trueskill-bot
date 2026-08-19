@@ -31,21 +31,19 @@ const promptedKeys = new Set<string>();
 function isSendableTextChannel(channel: unknown): channel is TextChannel {
   return Boolean(
     channel &&
-      typeof channel === 'object' &&
-      'isTextBased' in channel &&
-      typeof (channel as { isTextBased: () => boolean }).isTextBased === 'function' &&
-      (channel as { isTextBased: () => boolean }).isTextBased() &&
-      'send' in channel &&
-      typeof (channel as { send: unknown }).send === 'function',
+    typeof channel === 'object' &&
+    'isTextBased' in channel &&
+    typeof (channel as { isTextBased: () => boolean }).isTextBased === 'function' &&
+    (channel as { isTextBased: () => boolean }).isTextBased() &&
+    'send' in channel &&
+    typeof (channel as { send: unknown }).send === 'function',
   );
 }
 
 /**
  * Load linked Players who accept host-lobby pings for a game, keyed by normalized username.
  */
-export async function loadLinkedPlayersByNick(
-  gameId: string,
-): Promise<Map<string, string>> {
+export async function loadLinkedPlayersByNick(gameId: string): Promise<Map<string, string>> {
   const rows = await prisma.player.findMany({
     where: {
       gameId,
@@ -109,7 +107,10 @@ export async function listHostPromptReadyLeagues(): Promise<PromptReadyLeague[]>
       // Skip unknown gameId: a ticker must not abort the whole poll on one bad League row.
       // Call sites that mutate matches still throw via getGameProfile.
       if (error instanceof UnknownGameIdError) {
-        log.warn({ gameId: row.gameId, leagueId: row.id }, 'Skipping host-prompt league with unknown gameId');
+        log.warn(
+          { gameId: row.gameId, leagueId: row.id },
+          'Skipping host-prompt league with unknown gameId',
+        );
         continue;
       }
       throw error;
@@ -120,7 +121,11 @@ export async function listHostPromptReadyLeagues(): Promise<PromptReadyLeague[]>
       wc3statsHostPromptEnabled: row.wc3statsHostPromptEnabled,
       wc3statsHostPromptChannelId: row.wc3statsHostPromptChannelId?.trim() || undefined,
     };
-    if (!isLeagueWc3statsHostPromptReady(config) || !config.wc3statsMapPattern || !config.wc3statsHostPromptChannelId) {
+    if (
+      !isLeagueWc3statsHostPromptReady(config) ||
+      !config.wc3statsMapPattern ||
+      !config.wc3statsHostPromptChannelId
+    ) {
       continue;
     }
 
@@ -196,7 +201,10 @@ export async function runWc3statsHostPromptTick(client: Client): Promise<number>
     try {
       mapConfig = compileWc3statsMapConfig(league.mapPattern, league.mapSha1);
     } catch (error) {
-      log.warn({ err: error, leagueId: league.id }, 'Invalid wc3stats map pattern; skipping league');
+      log.warn(
+        { err: error, leagueId: league.id },
+        'Invalid wc3stats map pattern; skipping league',
+      );
       continue;
     }
 
@@ -216,10 +224,7 @@ export async function runWc3statsHostPromptTick(client: Client): Promise<number>
         continue;
       }
 
-      const existing = await findActiveMatchByWc3statsGameId(
-        league.id,
-        String(match.wc3statsId),
-      );
+      const existing = await findActiveMatchByWc3statsGameId(league.id, String(match.wc3statsId));
       if (existing) {
         promptedKeys.add(dedupeKey);
         continue;
@@ -304,7 +309,10 @@ export function startWc3statsHostPromptScheduler(client: Client): void {
 
   setTimeout(tick, 10_000);
   intervalHandle = setInterval(tick, INTERVAL_MS);
-  log.info({ intervalMs: INTERVAL_MS, maxPerTick: MAX_PROMPTS_PER_TICK }, 'wc3stats host prompt scheduler started');
+  log.info(
+    { intervalMs: INTERVAL_MS, maxPerTick: MAX_PROMPTS_PER_TICK },
+    'wc3stats host prompt scheduler started',
+  );
 }
 
 export function stopWc3statsHostPromptScheduler(): void {

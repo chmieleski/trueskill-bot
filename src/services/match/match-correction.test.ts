@@ -32,8 +32,7 @@ import {
   writeMatchRatingSnapshots,
 } from './match-correction.js';
 
-const SNAPSHOTS_MISSING =
-  'This match cannot be corrected because rating snapshots are missing.';
+const SNAPSHOTS_MISSING = 'This match cannot be corrected because rating snapshots are missing.';
 
 describe('expectedSnapshotCount', () => {
   // assertSnapshotsComplete and previewMatchCorrection both use this helper.
@@ -198,13 +197,12 @@ describe('writeMatchRatingSnapshots', () => {
 
     expect(heroFindMany).not.toHaveBeenCalled();
     expect(createMany).toHaveBeenCalledOnce();
-    const rows = (createMany.mock.calls[0]![0] as { data: Array<{ entityKind: string; heroId: number }> })
-      .data;
+    const rows = (
+      createMany.mock.calls[0]![0] as { data: Array<{ entityKind: string; heroId: number }> }
+    ).data;
     expect(rows).toHaveLength(10);
     expect(
-      rows.every(
-        (row) => row.entityKind === 'GLOBAL' && row.heroId === GLOBAL_SNAPSHOT_HERO_ID,
-      ),
+      rows.every((row) => row.entityKind === 'GLOBAL' && row.heroId === GLOBAL_SNAPSHOT_HERO_ID),
     ).toBe(true);
   });
 

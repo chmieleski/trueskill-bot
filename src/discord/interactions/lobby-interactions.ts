@@ -17,14 +17,8 @@ import type {
   StringSelectMenuInteraction,
 } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
-import {
-  sendReplacingEphemeral,
-  touchEphemeralSession,
-} from '../../lib/ephemeral-reply.js';
-import {
-  deletePreviousEphemeral,
-  rememberEphemeral,
-} from '../../lib/ephemeral-session.js';
+import { sendReplacingEphemeral, touchEphemeralSession } from '../../lib/ephemeral-reply.js';
+import { deletePreviousEphemeral, rememberEphemeral } from '../../lib/ephemeral-session.js';
 import type { LobbyPlayer } from '../../services/lobby/index.js';
 import {
   addPlayer,
@@ -60,9 +54,7 @@ import {
 
 const log = createLogger('lobby');
 
-type ComponentRow =
-  | ActionRowBuilder<ButtonBuilder>
-  | ActionRowBuilder<StringSelectMenuBuilder>;
+type ComponentRow = ActionRowBuilder<ButtonBuilder> | ActionRowBuilder<StringSelectMenuBuilder>;
 
 const UPDATED_MESSAGE = 'Lobby updated.';
 
@@ -296,10 +288,7 @@ async function handleCancelEntry(interaction: ButtonInteraction): Promise<void> 
   ]);
 }
 
-async function handleCancelConfirm(
-  interaction: ButtonInteraction,
-  matchId: string,
-): Promise<void> {
+async function handleCancelConfirm(interaction: ButtonInteraction, matchId: string): Promise<void> {
   if (!interaction.guildId) {
     await updateEphemeral(interaction, 'This action can only be used in a server.');
     return;
@@ -417,10 +406,7 @@ async function handleStart(interaction: ButtonInteraction): Promise<void> {
     }
 
     log.error({ messageId, userId, err: error }, 'Failed to start match');
-    await replyEphemeral(
-      interaction,
-      'Failed to start the match. Please try again.',
-    );
+    await replyEphemeral(interaction, 'Failed to start the match. Please try again.');
   }
 }
 
@@ -447,11 +433,7 @@ async function handleEditNick(interaction: ButtonInteraction): Promise<void> {
       .addOptions(options),
   );
 
-  await replyEphemeral(
-    interaction,
-    'Select a player to edit their nick:',
-    [row],
-  );
+  await replyEphemeral(interaction, 'Select a player to edit their nick:', [row]);
 }
 
 async function handleMove(interaction: ButtonInteraction): Promise<void> {
@@ -639,9 +621,7 @@ async function handleSelectAddTeam(
   await interaction.showModal(modal);
 }
 
-function requireGuildId(
-  interaction: MessageComponentInteraction,
-): string | null {
+function requireGuildId(interaction: MessageComponentInteraction): string | null {
   return interaction.guildId;
 }
 
@@ -669,10 +649,7 @@ async function handleClaim(interaction: ButtonInteraction): Promise<void> {
     const existing = result.players.find((player) => player.nick === nick);
 
     if (existing) {
-      await replyEphemeral(
-        interaction,
-        `You are already in slot ${existing.slot}. Leave first.`,
-      );
+      await replyEphemeral(interaction, `You are already in slot ${existing.slot}. Leave first.`);
       return;
     }
   } catch (error) {
@@ -736,10 +713,7 @@ async function handleLeave(interaction: ButtonInteraction): Promise<void> {
       { err: error, messageId: interaction.message.id, userId: interaction.user.id },
       'Failed to leave lobby',
     );
-    await replyEphemeral(
-      interaction,
-      'Could not update the lobby. Please try again.',
-    );
+    await replyEphemeral(interaction, 'Could not update the lobby. Please try again.');
   }
 }
 
@@ -775,10 +749,7 @@ async function handleRefresh(interaction: ButtonInteraction): Promise<void> {
       { err: error, messageId: interaction.message.id, userId: interaction.user.id },
       'Failed to refresh lobby from wc3stats',
     );
-    await replyEphemeral(
-      interaction,
-      'Could not update the lobby. Please try again.',
-    );
+    await replyEphemeral(interaction, 'Could not update the lobby. Please try again.');
   }
 }
 
@@ -870,11 +841,7 @@ async function handleSelectMovePlayer(
   }
 
   const profile = await profileForMatch(result.match.leagueId);
-  const destinations = destinationSlotSelectOptions(
-    result.players,
-    fromSlot,
-    profile,
-  );
+  const destinations = destinationSlotSelectOptions(result.players, fromSlot, profile);
 
   if (destinations.length === 0) {
     await replyEphemeral(
@@ -973,11 +940,7 @@ async function handleModalEditNick(
   slot: number,
 ): Promise<void> {
   if (interaction.channelId) {
-    await deletePreviousEphemeral(
-      interaction.client,
-      interaction.user.id,
-      interaction.channelId,
-    );
+    await deletePreviousEphemeral(interaction.client, interaction.user.id, interaction.channelId);
   }
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -1023,11 +986,7 @@ async function handleModalAdd(
   teamFromSelect: TeamId | null,
 ): Promise<void> {
   if (interaction.channelId) {
-    await deletePreviousEphemeral(
-      interaction.client,
-      interaction.user.id,
-      interaction.channelId,
-    );
+    await deletePreviousEphemeral(interaction.client, interaction.user.id, interaction.channelId);
   }
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });

@@ -1,14 +1,6 @@
 import 'dotenv/config';
 
-const LOG_LEVELS = new Set([
-  'fatal',
-  'error',
-  'warn',
-  'info',
-  'verbose',
-  'debug',
-  'trace',
-]);
+const LOG_LEVELS = new Set(['fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace']);
 
 interface EnvConfig {
   discordToken: string;
@@ -36,9 +28,7 @@ function parseLogLevel(value: string | undefined): string | undefined {
   const normalized = value.trim().toLowerCase();
 
   if (!LOG_LEVELS.has(normalized)) {
-    throw new Error(
-      `Invalid LOG_LEVEL "${value}". Expected one of: ${[...LOG_LEVELS].join(', ')}`,
-    );
+    throw new Error(`Invalid LOG_LEVEL "${value}". Expected one of: ${[...LOG_LEVELS].join(', ')}`);
   }
 
   return normalized;
@@ -67,7 +57,10 @@ export const env: EnvConfig = {
   clientId: requireEnv('CLIENT_ID'),
   guildId: process.env.GUILD_ID?.trim() || undefined,
   isDev: process.env.NODE_ENV !== 'production',
-  autoDeployCommands: parseBoolean(process.env.AUTO_DEPLOY_COMMANDS, process.env.NODE_ENV !== 'production'),
+  autoDeployCommands: parseBoolean(
+    process.env.AUTO_DEPLOY_COMMANDS,
+    process.env.NODE_ENV !== 'production',
+  ),
   databaseUrl: requireEnv('DATABASE_URL'),
   geminiApiKey: requireEnv('GEMINI_API_KEY'),
   logLevel: parseLogLevel(process.env.LOG_LEVEL),

@@ -3,39 +3,49 @@
 Need **Manage Server** (or Administrator) for `/config` and `/league`.
 
 **0) Leagues**
+
 ```
 /league create game:UDBR name:UDBR
 /league list
 /league bind target:#lobby-channel league:UDBR
 ```
+
 One league → bind optional. Multiple → bind or pass `league:`.
 
 **1) Create role**
+
 ```
 /config set create_role role:@YourCreatorRole
 ```
+
 Required for `/register_lobby`.
 
 **2) Mod role**
+
 ```
 /config set mod_role role:@YourModRole
 ```
+
 Report / cancel matches; help with links.
 
 **3) Player claim**
+
 ```
 /config set player_claim enabled:True
 /config set player_claim enabled:False
 ```
+
 Default on. Off = hosts only seat players.
 
 **4) Dedicated lobby channel (optional, per league)**
 Default **off**. When on, `/register_lobby` and wc3stats **Open lobby** only in that channel. `/lobby` works anywhere.
+
 ```
 /config set lobby_channel enabled:True channel:#lobbies
 /config set lobby_channel enabled:False
 /config clear lobby_channel
 ```
+
 When the lobby channel is on, only `/register_lobby`, `/lobby`, and `/match complete|cancel|quitters` work in that channel; other slash commands are refused there.
 Host prompts (if on) **must** use this channel. `/league bind` separately for auto league pick.
 

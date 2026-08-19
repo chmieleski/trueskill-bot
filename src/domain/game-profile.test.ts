@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
-  WARCRAFT3_UDBR_GAME_ID,
-} from './games.js';
+import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from './games.js';
 import {
   assertTeam,
   getGameProfile,

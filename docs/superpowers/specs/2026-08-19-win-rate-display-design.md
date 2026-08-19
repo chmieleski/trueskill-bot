@@ -21,20 +21,20 @@ Players can see **character win rate** on `/rank` hero rows, and a **WR column**
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| `/rank` overall line | Unchanged (`12W · 5L · 2Q · 70.6% WR`) |
-| `/rank` hero row | `Goku  4200 · 5W 3L · 62.5%` — no raw game count |
-| Overall + live overall | Keep `G`, add `WR` — `# Player Ki G WR` |
-| Single-hero board | Same table as overall (`G` stays `matchesPlayed`) |
-| All-heroes compact | Ki only — no WR |
-| Sort | Still ki desc (not WR) |
-| Formula | `wins / (wins + losses)`; one decimal; omit `%` when 0 games |
-| What counts | Completed WIN/LOSS after that player’s latest rank reset — same as overall W/L |
-| Quitters | Not in W/L; overall `Q` stays on the profile record only |
-| No hero on the match | Skip that row for character WR (`heroId` null, ACA / `optional_in_game`) |
-| Computation | **On-read aggregate** from `MatchPlayer` |
-| Language | English user-facing strings |
+| Topic                  | Choice                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------ |
+| `/rank` overall line   | Unchanged (`12W · 5L · 2Q · 70.6% WR`)                                         |
+| `/rank` hero row       | `Goku  4200 · 5W 3L · 62.5%` — no raw game count                               |
+| Overall + live overall | Keep `G`, add `WR` — `# Player Ki G WR`                                        |
+| Single-hero board      | Same table as overall (`G` stays `matchesPlayed`)                              |
+| All-heroes compact     | Ki only — no WR                                                                |
+| Sort                   | Still ki desc (not WR)                                                         |
+| Formula                | `wins / (wins + losses)`; one decimal; omit `%` when 0 games                   |
+| What counts            | Completed WIN/LOSS after that player’s latest rank reset — same as overall W/L |
+| Quitters               | Not in W/L; overall `Q` stays on the profile record only                       |
+| No hero on the match   | Skip that row for character WR (`heroId` null, ACA / `optional_in_game`)       |
+| Computation            | **On-read aggregate** from `MatchPlayer`                                       |
+| Language               | English user-facing strings                                                    |
 
 ## Approach
 
@@ -73,13 +73,13 @@ PlayerHeroRating.matchesPlayed → still G / hero-ki games on hero boards
 
 ### Who consumes what
 
-| Surface | Data | Change |
-|---------|------|--------|
-| `/rank` overall | existing `PlayerProfile.winRatePercent` | use shared `winRatePercent()` |
-| `/rank` Heroes | `PlayerProfileHero` += `wins`, `losses`, `winRatePercent` | join this player’s hero buckets onto `PlayerHeroRating` rows (`matchesPlayed > 0`) |
-| Overall + live | `OverallLeaderboardEntry` += `winRatePercent` | from existing per-player stats |
-| Single-hero | `HeroLeaderboardEntry` += `winRatePercent` | from `(playerId, heroId)` buckets |
-| All-heroes compact | `HeroLeaderboardEntry.winRatePercent` always set | **`formatHeroCompactTable` does not render it** |
+| Surface            | Data                                                      | Change                                                                             |
+| ------------------ | --------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `/rank` overall    | existing `PlayerProfile.winRatePercent`                   | use shared `winRatePercent()`                                                      |
+| `/rank` Heroes     | `PlayerProfileHero` += `wins`, `losses`, `winRatePercent` | join this player’s hero buckets onto `PlayerHeroRating` rows (`matchesPlayed > 0`) |
+| Overall + live     | `OverallLeaderboardEntry` += `winRatePercent`             | from existing per-player stats                                                     |
+| Single-hero        | `HeroLeaderboardEntry` += `winRatePercent`                | from `(playerId, heroId)` buckets                                                  |
+| All-heroes compact | `HeroLeaderboardEntry.winRatePercent` always set          | **`formatHeroCompactTable` does not render it**                                    |
 
 ### Known mismatch (leave it)
 
@@ -88,12 +88,12 @@ After a **continue-rollover**, hero `G` can be copied `matchesPlayed` while WR i
 ## DTOs
 
 ```typescript
-function winRatePercent(wins: number, losses: number): number | null
+function winRatePercent(wins: number, losses: number): number | null;
 
 type PlayerHeroMatchDisplayStats = {
   wins: number;
   losses: number;
-}
+};
 
 type PlayerProfileHero = {
   heroId: number;
@@ -103,17 +103,17 @@ type PlayerProfileHero = {
   wins: number;
   losses: number;
   winRatePercent: number | null;
-}
+};
 
 type OverallLeaderboardEntry = {
   // …existing fields…
   winRatePercent: number | null;
-}
+};
 
 type HeroLeaderboardEntry = {
   // …existing fields…
   winRatePercent: number | null;
-}
+};
 ```
 
 Overall eligible rows already require `games >= 1`, so overall/live WR is never `null` in practice. Single-hero WR may be `null` when `matchesPlayed > 0` but counted W+L is 0 (continue-rollover).
@@ -164,30 +164,30 @@ Unchanged: `# name ki` via `formatHeroCompactTable`. No `G`, no `WR`.
 
 Slash adapters stay thin. No command option or customId changes. Live refresh keeps calling the same embed builder.
 
-| Path | Responsibility |
-|------|----------------|
-| `src/services/rating/rank-reset-display.ts` | `winRatePercent()`, select `heroId`, `aggregateHeroMatchDisplayStats`, bundle loader |
-| `src/services/rating/rank-reset-display.test.ts` | Formula + hero aggregation |
-| `src/services/player/player-profile.ts` | Join hero W/L onto `PlayerProfileHero` |
-| `src/services/player/rank-embed.ts` | Hero table `NW NL · WR%` |
-| `src/services/player/rank-embed.test.ts` | Hero table snapshots |
-| `src/services/leaderboard/leaderboard.ts` | Plumb `winRatePercent` on overall + single-hero entries |
-| `src/services/leaderboard/leaderboard-embed.ts` | `WR` column on `formatOverallTable` |
-| `src/services/leaderboard/leaderboard-embed.test.ts` | Overall/single-hero WR; compact unchanged |
-| `src/services/leaderboard/leaderboard.test.ts` | Mapping / pagination still works with the extra field |
+| Path                                                 | Responsibility                                                                       |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `src/services/rating/rank-reset-display.ts`          | `winRatePercent()`, select `heroId`, `aggregateHeroMatchDisplayStats`, bundle loader |
+| `src/services/rating/rank-reset-display.test.ts`     | Formula + hero aggregation                                                           |
+| `src/services/player/player-profile.ts`              | Join hero W/L onto `PlayerProfileHero`                                               |
+| `src/services/player/rank-embed.ts`                  | Hero table `NW NL · WR%`                                                             |
+| `src/services/player/rank-embed.test.ts`             | Hero table snapshots                                                                 |
+| `src/services/leaderboard/leaderboard.ts`            | Plumb `winRatePercent` on overall + single-hero entries                              |
+| `src/services/leaderboard/leaderboard-embed.ts`      | `WR` column on `formatOverallTable`                                                  |
+| `src/services/leaderboard/leaderboard-embed.test.ts` | Overall/single-hero WR; compact unchanged                                            |
+| `src/services/leaderboard/leaderboard.test.ts`       | Mapping / pagination still works with the extra field                                |
 
 ## Edge cases
 
-| Case | Result |
-|------|--------|
-| 0 completed WIN/LOSS | Omit `%` on profile; leaderboard `WR` is `—` |
-| Rank reset | Same cutoff as overall W/L — pre-reset games do not count |
-| Quitter | Not a W or L; overall `Q` unchanged; no per-hero Q |
-| `heroId` null / ACA | No character WR; Heroes field stays hidden when `showHeroes` is false / no hero rows |
-| Hero `matchesPlayed > 0` but 0 counted W/L | Profile: `0W 0L` omit `%`; single-hero: `G` = matchesPlayed, `WR` = `—` |
-| Calibrating (`< 5` league games) | WR still shown; ki still `Calibrating` |
-| Compact all-heroes | No WR, no new errors |
-| Unknown hero / empty boards | Existing copy only |
+| Case                                       | Result                                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------------------ |
+| 0 completed WIN/LOSS                       | Omit `%` on profile; leaderboard `WR` is `—`                                         |
+| Rank reset                                 | Same cutoff as overall W/L — pre-reset games do not count                            |
+| Quitter                                    | Not a W or L; overall `Q` unchanged; no per-hero Q                                   |
+| `heroId` null / ACA                        | No character WR; Heroes field stays hidden when `showHeroes` is false / no hero rows |
+| Hero `matchesPlayed > 0` but 0 counted W/L | Profile: `0W 0L` omit `%`; single-hero: `G` = matchesPlayed, `WR` = `—`              |
+| Calibrating (`< 5` league games)           | WR still shown; ki still `Calibrating`                                               |
+| Compact all-heroes                         | No WR, no new errors                                                                 |
+| Unknown hero / empty boards                | Existing copy only                                                                   |
 
 No new user-facing error strings. Pagination, live refresh, and `/leaderboard` adapters stay as they are.
 

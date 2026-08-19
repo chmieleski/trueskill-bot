@@ -21,45 +21,45 @@ Hosts can reseat **only the players they name** in one `/lobby swap` by passing 
 
 ## Locked decisions
 
-| Topic | Choice |
-| ----- | ------ |
-| Entry | Slash only: extend `/lobby swap` |
-| Classic form | `slot_a` + `slot_b` (both occupied; existing `swapPlayers`) |
-| Batch form | Optional string option `pairs` |
-| Mutual exclusion | Exactly one form: pairs **XOR** (`slot_a` **and** `slot_b`) |
-| Discord required flags | `slot_a` and `slot_b` become **optional** on the builder (otherwise Discord always demands them). Execute validates XOR. |
-| Pair grammar | Either side is a slot **or** a nick: `1-7`, `1-Gohan`, `Gohan-7`, `Gohan-Vegeta` |
-| Apply model | Sequential left-to-right `movePlayer` on a working roster (empty dest = move, occupied = swap) |
-| Nick binding | Resolve each side against the roster **after** previous pairs |
-| Persist | One `applyRosterAndSync` after every pair succeeds; failures do not write |
-| Separator | Comma-separated pairs only; whitespace around commas and hyphens ignored |
-| Hyphen in nicks | Split each pair on the **last** ASCII `-` |
-| Slot vs nick | If the token matches `^[1-9]\d*$`, it is a **slot attempt**: in range → that slot; out of range → `invalidSlotMessage` (not a nick lookup). Otherwise nick (`normalizeNick`) |
-| Digit-only nicks | Token `7` is always slot 7, even if a player’s nick is `"7"` |
-| Auth | Host only; optional `match_id` unchanged |
+| Topic                  | Choice                                                                                                                                                                       |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entry                  | Slash only: extend `/lobby swap`                                                                                                                                             |
+| Classic form           | `slot_a` + `slot_b` (both occupied; existing `swapPlayers`)                                                                                                                  |
+| Batch form             | Optional string option `pairs`                                                                                                                                               |
+| Mutual exclusion       | Exactly one form: pairs **XOR** (`slot_a` **and** `slot_b`)                                                                                                                  |
+| Discord required flags | `slot_a` and `slot_b` become **optional** on the builder (otherwise Discord always demands them). Execute validates XOR.                                                     |
+| Pair grammar           | Either side is a slot **or** a nick: `1-7`, `1-Gohan`, `Gohan-7`, `Gohan-Vegeta`                                                                                             |
+| Apply model            | Sequential left-to-right `movePlayer` on a working roster (empty dest = move, occupied = swap)                                                                               |
+| Nick binding           | Resolve each side against the roster **after** previous pairs                                                                                                                |
+| Persist                | One `applyRosterAndSync` after every pair succeeds; failures do not write                                                                                                    |
+| Separator              | Comma-separated pairs only; whitespace around commas and hyphens ignored                                                                                                     |
+| Hyphen in nicks        | Split each pair on the **last** ASCII `-`                                                                                                                                    |
+| Slot vs nick           | If the token matches `^[1-9]\d*$`, it is a **slot attempt**: in range → that slot; out of range → `invalidSlotMessage` (not a nick lookup). Otherwise nick (`normalizeNick`) |
+| Digit-only nicks       | Token `7` is always slot 7, even if a player’s nick is `"7"`                                                                                                                 |
+| Auth                   | Host only; optional `match_id` unchanged                                                                                                                                     |
 
 ## Command contract
 
 `/lobby swap`
 
-| Option | Type | Builder required | Role |
-| ------ | ---- | ---------------- | ---- |
-| `slot_a` | integer, min/max = game-agnostic 1–12 as today | **false** (was true) | Classic form |
-| `slot_b` | integer, same | **false** (was true) | Classic form |
-| `pairs` | string, max length **200** | false | Batch form |
-| `match_id` | string | false | Unchanged |
+| Option     | Type                                           | Builder required     | Role         |
+| ---------- | ---------------------------------------------- | -------------------- | ------------ |
+| `slot_a`   | integer, min/max = game-agnostic 1–12 as today | **false** (was true) | Classic form |
+| `slot_b`   | integer, same                                  | **false** (was true) | Classic form |
+| `pairs`    | string, max length **200**                     | false                | Batch form   |
+| `match_id` | string                                         | false                | Unchanged    |
 
 Subcommand description should mention both forms (two slots, or `pairs` like `1-7,5-Gohan`).
 
 ### XOR rules (execute)
 
-| Input | Result |
-| ----- | ------ |
-| `pairs` set (non-blank) and neither slot | Batch remap |
-| Both slots set and `pairs` absent/blank | Classic `swapLobbyPlayers` |
-| Neither form | Error — no roster change |
-| Both forms | Error — no roster change |
-| Only one of `slot_a` / `slot_b` | Error — no roster change |
+| Input                                    | Result                     |
+| ---------------------------------------- | -------------------------- |
+| `pairs` set (non-blank) and neither slot | Batch remap                |
+| Both slots set and `pairs` absent/blank  | Classic `swapLobbyPlayers` |
+| Neither form                             | Error — no roster change   |
+| Both forms                               | Error — no roster change   |
+| Only one of `slot_a` / `slot_b`          | Error — no roster change   |
 
 Blank `pairs` (whitespace only) counts as **absent**.
 
@@ -96,15 +96,15 @@ Classic two-slot swap does **not** switch to `movePlayer` (empty destination sti
 
 ## Modules
 
-| File | Change |
-| ---- | ------ |
-| `src/services/lobby/remap.ts` | `parseRemapPairs`, `resolveRemapSide`, `applyRemapPairs` |
-| `src/services/lobby/remap.test.ts` | Parser, resolve, sequential overlap, move vs swap, no persist (pure) |
-| `src/services/lobby/actions.ts` | `remapLobbyPlayers({ client, hostDiscordId, matchId, pairs })` |
-| `src/services/lobby/index.ts` | Export the use-case |
-| `src/commands/lobby/lobby.ts` | Optional `pairs`; optional `slot_a`/`slot_b`; XOR; call remap or classic swap |
-| `src/commands/lobby/lobby.test.ts` | Command data: `pairs` optional string; slots no longer required |
-| `docs/discord/public/04-fix-the-lobby.md` | Document `pairs` examples |
+| File                                      | Change                                                                        |
+| ----------------------------------------- | ----------------------------------------------------------------------------- |
+| `src/services/lobby/remap.ts`             | `parseRemapPairs`, `resolveRemapSide`, `applyRemapPairs`                      |
+| `src/services/lobby/remap.test.ts`        | Parser, resolve, sequential overlap, move vs swap, no persist (pure)          |
+| `src/services/lobby/actions.ts`           | `remapLobbyPlayers({ client, hostDiscordId, matchId, pairs })`                |
+| `src/services/lobby/index.ts`             | Export the use-case                                                           |
+| `src/commands/lobby/lobby.ts`             | Optional `pairs`; optional `slot_a`/`slot_b`; XOR; call remap or classic swap |
+| `src/commands/lobby/lobby.test.ts`        | Command data: `pairs` optional string; slots no longer required               |
+| `docs/discord/public/04-fix-the-lobby.md` | Document `pairs` examples                                                     |
 
 Keep `roster.ts` as slot math. Remap calls `movePlayer`; it does not duplicate swap/move.
 
@@ -114,16 +114,8 @@ Keep `roster.ts` as slot math. Remap calls `movePlayer`; it does not duplicate s
 type RemapPair = { raw: string; left: string; right: string };
 
 function parseRemapPairs(raw: string): RemapPair[];
-function resolveRemapSide(
-  token: string,
-  players: LobbyPlayer[],
-  profile: GameProfile,
-): number;
-function applyRemapPairs(
-  players: LobbyPlayer[],
-  raw: string,
-  profile: GameProfile,
-): LobbyPlayer[];
+function resolveRemapSide(token: string, players: LobbyPlayer[], profile: GameProfile): number;
+function applyRemapPairs(players: LobbyPlayer[], raw: string, profile: GameProfile): LobbyPlayer[];
 ```
 
 `resolveRemapSide`: trim → if the token matches `^[1-9]\d*$`, parse `n` and return it when `isSlotInProfile(profile, n)`, else throw `invalidSlotMessage(profile)` (e.g. `99` on UDBR is not nick `"99"`). Otherwise `normalizeNick` and find the unique occupant (nicks are already unique per lobby). Unknown nick uses existing copy: `No player with nick "…" in the lobby.`
@@ -138,16 +130,16 @@ Prefix **apply** failures (resolve or `movePlayer`) with the pair’s original t
 
 Parse failures are not prefixed that way; they use the rows below.
 
-| Case | Message |
-| ---- | ------- |
-| Neither form | Provide slot_a and slot_b, or pairs. |
-| Both forms | Use either slot_a and slot_b, or pairs, not both. |
-| Only one slot option | Provide both slot_a and slot_b, or use pairs instead. |
-| Parser given empty/whitespace | pairs cannot be empty. |
-| Empty comma segment (`, ,` or trailing comma) | Invalid pair "". Use like 1-7 or Gohan-4. |
-| No `-` / empty side after last `-` | Invalid pair "{segment}". Use like 1-7 or Gohan-4. |
-| Unknown nick | No player with nick "{nick}" in the lobby. |
-| Empty source, same slot, occupied-classic | Existing `movePlayer` / `swapPlayers` / slot-range copy |
+| Case                                          | Message                                                 |
+| --------------------------------------------- | ------------------------------------------------------- |
+| Neither form                                  | Provide slot_a and slot_b, or pairs.                    |
+| Both forms                                    | Use either slot_a and slot_b, or pairs, not both.       |
+| Only one slot option                          | Provide both slot_a and slot_b, or use pairs instead.   |
+| Parser given empty/whitespace                 | pairs cannot be empty.                                  |
+| Empty comma segment (`, ,` or trailing comma) | Invalid pair "". Use like 1-7 or Gohan-4.               |
+| No `-` / empty side after last `-`            | Invalid pair "{segment}". Use like 1-7 or Gohan-4.      |
+| Unknown nick                                  | No player with nick "{nick}" in the lobby.              |
+| Empty source, same slot, occupied-classic     | Existing `movePlayer` / `swapPlayers` / slot-range copy |
 
 Success:
 

@@ -15,7 +15,9 @@ const mapConfig = {
   sha1Allowlist: new Set<string>(),
 };
 
-function game(partial: Partial<Wc3statsListGame> & Pick<Wc3statsListGame, 'id' | 'map'>): Wc3statsListGame {
+function game(
+  partial: Partial<Wc3statsListGame> & Pick<Wc3statsListGame, 'id' | 'map'>,
+): Wc3statsListGame {
   return {
     name: 'lobby',
     host: 'Host#1',

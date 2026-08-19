@@ -3,10 +3,11 @@ import { applyWc3statsRefresh } from '../wc3stats/wc3stats-roster.js';
 
 describe('applyWc3statsRefresh', () => {
   it('replaces when incoming is usable', () => {
-    const result = applyWc3statsRefresh(
-      [{ slot: 1, nick: 'old' }],
-      { usable: true, occupiedCount: 1, players: [{ slot: 2, nick: 'new' }] },
-    );
+    const result = applyWc3statsRefresh([{ slot: 1, nick: 'old' }], {
+      usable: true,
+      occupiedCount: 1,
+      players: [{ slot: 2, nick: 'new' }],
+    });
     expect(result).toEqual({
       players: [{ slot: 2, nick: 'new' }],
       keptExisting: false,

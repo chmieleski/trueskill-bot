@@ -1,11 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { createLogger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
-import {
-  getMatchById,
-  MatchServiceError,
-  type MatchWithPlayers,
-} from './match-service.js';
+import { getMatchById, MatchServiceError, type MatchWithPlayers } from './match-service.js';
 import {
   buildCompletedRatingPreview,
   ensurePlayerRatings,
@@ -88,10 +84,7 @@ export function resolveQuitterSlots(
   );
 }
 
-function toRatingEntries(
-  match: MatchWithPlayers,
-  quitterSlots: Set<number>,
-): RatingRosterEntry[] {
+function toRatingEntries(match: MatchWithPlayers, quitterSlots: Set<number>): RatingRosterEntry[] {
   return match.players.map((player) => ({
     playerId: player.playerId,
     slot: player.slot,
@@ -221,12 +214,7 @@ export async function completeMatch(
       afterBySlot,
       gamesByPlayerFromStats(displayStats),
     );
-    await persistMatchRatingPreviewToPlayers(
-      matchId,
-      ratingPreview,
-      match.players,
-      tx,
-    );
+    await persistMatchRatingPreviewToPlayers(matchId, ratingPreview, match.players, tx);
   });
 
   const updated = await getMatchById(matchId);
@@ -234,9 +222,7 @@ export async function completeMatch(
   return { match: updated!, ratingPreview };
 }
 
-export async function cancelInProgressMatch(
-  matchId: string,
-): Promise<MatchWithPlayers> {
+export async function cancelInProgressMatch(matchId: string): Promise<MatchWithPlayers> {
   let quitterSlots: number[] = [];
 
   await prisma.$transaction(async (tx) => {

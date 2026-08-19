@@ -35,25 +35,25 @@ UDBR behavior stays as it is today (12 slots, `heroId = slot`, dual-entity ratin
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Approach | **Game profile in code** keyed by `gameId` (not `if (ACA)` scattered, not a full game-module framework) |
-| `gameId` | `warcraft3_anime_choice_arena` (stable; never rename without a migration plan) |
-| Display name | `Anime Choice Arena` |
-| War3 / import | 1.26 custom map; `import: none` |
-| Roster | 10 slots, 5 per team (1–5 team 1, 6–10 team 2) |
-| Unbalanced fills | Allowed if both teams have ≥1 human (same rule as UDBR) |
-| Lobby fill v1 | Discord only (`/register_lobby` empty, `/lobby add`, claim/swap) |
-| Screenshot / wc3stats on this league | **Refuse** with English copy (not ignore) |
-| Rating v1 | League-global `PlayerRating` only |
-| Hero v1 | `MatchPlayer.heroId = null`; do not create/update `PlayerHeroRating` |
-| Hero phase 2 | `GameHero` catalog per `gameId` + persist pick; do **not** reuse UDBR `Hero` ids 1–12 |
-| Profile storage v1 | TypeScript module; **no** new `Game` / `League` columns for slot count, hero mode, or flavor |
-| Team split | Persist `MatchPlayer.team`; rating/lobby split uses **`team`**, not hardcoded `slot <= 6` |
-| Display flavor (runtime) | On `GameProfile`: `ratingLabel` + `teamNames`. UDBR = `ki` / Z Fighters / Evil; ACA v1 = `ki` / Team A / Team B. Mutable later by editing the game’s profile entry only |
-| Slash command metadata | **Global** — slot `min`/`max` stay 1–12; winner choice **labels** stay Z Fighters / Evil. Validate slot against the resolved league’s profile at execute time |
-| Create / mod roles | Stay guild-wide (`GuildConfig`) |
-| Isolation | Unchanged: ratings and matches keyed by `leagueId` |
+| Topic                                | Choice                                                                                                                                                                  |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Approach                             | **Game profile in code** keyed by `gameId` (not `if (ACA)` scattered, not a full game-module framework)                                                                 |
+| `gameId`                             | `warcraft3_anime_choice_arena` (stable; never rename without a migration plan)                                                                                          |
+| Display name                         | `Anime Choice Arena`                                                                                                                                                    |
+| War3 / import                        | 1.26 custom map; `import: none`                                                                                                                                         |
+| Roster                               | 10 slots, 5 per team (1–5 team 1, 6–10 team 2)                                                                                                                          |
+| Unbalanced fills                     | Allowed if both teams have ≥1 human (same rule as UDBR)                                                                                                                 |
+| Lobby fill v1                        | Discord only (`/register_lobby` empty, `/lobby add`, claim/swap)                                                                                                        |
+| Screenshot / wc3stats on this league | **Refuse** with English copy (not ignore)                                                                                                                               |
+| Rating v1                            | League-global `PlayerRating` only                                                                                                                                       |
+| Hero v1                              | `MatchPlayer.heroId = null`; do not create/update `PlayerHeroRating`                                                                                                    |
+| Hero phase 2                         | `GameHero` catalog per `gameId` + persist pick; do **not** reuse UDBR `Hero` ids 1–12                                                                                   |
+| Profile storage v1                   | TypeScript module; **no** new `Game` / `League` columns for slot count, hero mode, or flavor                                                                            |
+| Team split                           | Persist `MatchPlayer.team`; rating/lobby split uses **`team`**, not hardcoded `slot <= 6`                                                                               |
+| Display flavor (runtime)             | On `GameProfile`: `ratingLabel` + `teamNames`. UDBR = `ki` / Z Fighters / Evil; ACA v1 = `ki` / Team A / Team B. Mutable later by editing the game’s profile entry only |
+| Slash command metadata               | **Global** — slot `min`/`max` stay 1–12; winner choice **labels** stay Z Fighters / Evil. Validate slot against the resolved league’s profile at execute time           |
+| Create / mod roles                   | Stay guild-wide (`GuildConfig`)                                                                                                                                         |
+| Isolation                            | Unchanged: ratings and matches keyed by `leagueId`                                                                                                                      |
 
 ### Rejected alternatives
 
@@ -84,14 +84,14 @@ League.gameId → profile
   PlayerHeroRating      // UDBR only in v1
 ```
 
-| | UDBR | ACA v1 |
-|---|---|---|
-| Slots | 12 (6+6) | 10 (5+5) |
-| `heroBinding` | `slot_bound` (`heroId = slot`) | `optional_in_game` (`heroId` null) |
-| `import` | `wc3stats` | `none` |
-| `ratingLabel` | `ki` | `ki` |
-| Runtime team names | Z Fighters / Evil | Team A / Team B |
-| Fill | screenshot / wc3stats / Discord | Discord only |
+|                    | UDBR                            | ACA v1                             |
+| ------------------ | ------------------------------- | ---------------------------------- |
+| Slots              | 12 (6+6)                        | 10 (5+5)                           |
+| `heroBinding`      | `slot_bound` (`heroId = slot`)  | `optional_in_game` (`heroId` null) |
+| `import`           | `wc3stats`                      | `none`                             |
+| `ratingLabel`      | `ki`                            | `ki`                               |
+| Runtime team names | Z Fighters / Evil               | Team A / Team B                    |
+| Fill               | screenshot / wc3stats / Discord | Discord only                       |
 
 Flavor (`ratingLabel`, `teamNames`) is **per game/map preset**, not hardcoded Dragon Ball copy in core. Both games ship with `ki` today; ACA uses neutral Team A / Team B. Changing either later is an edit to that profile row in code — no Prisma migration.
 
@@ -167,16 +167,16 @@ The OpenSkill **shell** stays `applyMatchRatings(leagueId, entries, winningTeam)
 
 `RatingRosterEntry.heroId` becomes `number | null`.
 
-| `heroId` | Team array for `rate()` | `PlayerHeroRating` | Quitter synthetic loss |
-|----------|-------------------------|--------------------|------------------------|
-| number (UDBR) | `[global, hero, …]` per human | ensure + update; increment `matchesPlayed` for active non-quitters | both entities |
-| `null` (ACA v1) | `[global, …]` per human | **no** ensure, **no** update | global only |
+| `heroId`        | Team array for `rate()`       | `PlayerHeroRating`                                                 | Quitter synthetic loss |
+| --------------- | ----------------------------- | ------------------------------------------------------------------ | ---------------------- |
+| number (UDBR)   | `[global, hero, …]` per human | ensure + update; increment `matchesPlayed` for active non-quitters | both entities          |
+| `null` (ACA v1) | `[global, …]` per human       | **no** ensure, **no** update                                       | global only            |
 
 - `ensurePlayerRatings` creates `PlayerRating` always; creates `PlayerHeroRating` only when `heroId` is non-null.
 - `splitRosterByTeam` takes `team: 1 | 2` on each entry (not `slot <= 6`). Callers pass persisted `MatchPlayer.team`.
 - Preview, win %, and balance hint for ACA use **global rating only** (label from `profile.ratingLabel`, default preset `ki`). No hero line, no “move to destination hero”.
 - `/rank` omits the hero block when `heroBinding === 'optional_in_game'` (ACA), and also when the player has no `PlayerHeroRating` rows with games. Do not invent placeholder heroes. Titles/lines that show the number use `profile.ratingLabel`.
-- `/leaderboard` hero subcommand (or hero option) on an `optional_in_game` league with no catalog: refuse — *Hero rankings are not available for this game.*
+- `/leaderboard` hero subcommand (or hero option) on an `optional_in_game` league with no catalog: refuse — _Hero rankings are not available for this game._
 
 Correction (`/match flip` / `void`) stays `general`. Restore GLOBAL snapshots; skip HERO restore when none were written.
 
@@ -201,6 +201,7 @@ All user-facing strings stay **English**.
 **Runtime (match-scoped):** embeds, lobby buttons/selects, start/report copy use `profile.slotCount`, `profile.teamNames`, and `profile.ratingLabel`. ACA lobby shows 10 slot controls, Team A / Team B, global `ki` only (same label as UDBR until a future preset change).
 
 **ACA add / move (buttons):** Host does not pick a raw slot.
+
 - **Add:** ephemeral **team dropdown** (only teams with an empty seat), then a nick-only modal. Bot seats the player in the **lowest empty slot** on that team.
 - **Move:** after picking a player, destinations are **Move → Team A/B** (lowest empty seat on that team; omit the player’s current team and full teams) and **Swap → &lt;nick&gt;** for each other occupied seat.
 - UDBR keeps slot-number add and per-slot move/swap destinations.
@@ -208,21 +209,21 @@ All user-facing strings stay **English**.
 
 **Global slash metadata (Discord limitation):** one command tree for all guilds. Do **not** change registered slot `minValue`/`maxValue` (stay 1–12) or winner choice **names** (stay Z Fighters / Evil, values `A` / `B`). Execute/autocomplete validate against the **resolved league** profile:
 
-- ACA slot 11 or 12 → *Invalid slot. This game uses slots 1–10.*
+- ACA slot 11 or 12 → _Invalid slot. This game uses slots 1–10._
 - UDBR slot 12 remains valid.
 
 **Claim, start, report, correction, rank reset:** same commands; no hero UI for ACA.
 
 ## Error copy (English, locked)
 
-| Situation | Message |
-|-----------|---------|
-| Screenshot on ACA / `import: none` | `Lobby screenshots are not supported for this game yet.` |
-| wc3stats id on this league | `Warcraft lobby import is not supported for this game.` |
-| `/config` wc3stats preset on this league | `This league's game does not use wc3stats import.` |
-| Slot outside profile range | `Invalid slot. This game uses slots 1–10.` (range text from `profile.slotCount`) |
-| Hero leaderboard on this league | `Hero rankings are not available for this game.` |
-| Both teams empty on start/complete | Keep existing UDBR wording, but team **names** come from the profile (Team A / Team B on ACA). |
+| Situation                                | Message                                                                                        |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Screenshot on ACA / `import: none`       | `Lobby screenshots are not supported for this game yet.`                                       |
+| wc3stats id on this league               | `Warcraft lobby import is not supported for this game.`                                        |
+| `/config` wc3stats preset on this league | `This league's game does not use wc3stats import.`                                             |
+| Slot outside profile range               | `Invalid slot. This game uses slots 1–10.` (range text from `profile.slotCount`)               |
+| Hero leaderboard on this league          | `Hero rankings are not available for this game.`                                               |
+| Both teams empty on start/complete       | Keep existing UDBR wording, but team **names** come from the profile (Team A / Team B on ACA). |
 
 Host-lobby poller: skip leagues whose profile `import !== 'wc3stats'` (in addition to existing “not ready” checks).
 
@@ -255,13 +256,13 @@ Do not put ACA map SHA-1 or 1.26 details in `.env`.
 
 ## Edge cases
 
-| Case | Rule |
-|------|------|
-| Guild runs UDBR + ACA | Separate leagues, separate `leagueId`; same global `Player` |
-| ACA `/register_lobby` with screenshot | Refuse; no PENDING created from that invocation |
-| ACA host uses `/lobby add slot:12` | Refuse; roster unchanged |
-| Complete ACA 5v5 | 10 global entities in `rate()` (5+5), not 20 |
-| Complete ACA 3v5 | Allowed; entities = occupied humans only |
-| Flip/void ACA | Restore GLOBAL snapshots only |
-| Missing `Hero` rows in DB | Must not block ACA create; still required for UDBR `slot_bound` |
-| Unknown `gameId` on a league row | Throw in `getGameProfile`; do not treat as UDBR |
+| Case                                  | Rule                                                            |
+| ------------------------------------- | --------------------------------------------------------------- |
+| Guild runs UDBR + ACA                 | Separate leagues, separate `leagueId`; same global `Player`     |
+| ACA `/register_lobby` with screenshot | Refuse; no PENDING created from that invocation                 |
+| ACA host uses `/lobby add slot:12`    | Refuse; roster unchanged                                        |
+| Complete ACA 5v5                      | 10 global entities in `rate()` (5+5), not 20                    |
+| Complete ACA 3v5                      | Allowed; entities = occupied humans only                        |
+| Flip/void ACA                         | Restore GLOBAL snapshots only                                   |
+| Missing `Hero` rows in DB             | Must not block ACA create; still required for UDBR `slot_bound` |
+| Unknown `gameId` on a league row      | Throw in `getGameProfile`; do not treat as UDBR                 |

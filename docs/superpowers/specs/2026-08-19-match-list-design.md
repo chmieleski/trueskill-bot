@@ -21,18 +21,18 @@ Anyone in a guild can browse **all completed matches for the resolved league** (
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Command | **`/match list`** (new subcommand) |
-| Who can run it | Anyone in the server; **public** reply; **no `/link` required** |
-| Status filter | **`COMPLETED` only** |
-| Row content | Date, winner (`teamDisplayName`), format `4v6` (team-1 vs team-2 human counts), copyable match id |
-| Detail | Existing **`/match show`** (unchanged) |
-| Pagination | **10 per page**, slash `page` option + Prev/Next, **invoker-only** |
-| League | Existing `withSubcommandLeagueOption` / resolve helpers |
-| Lobby channel | **Denied** (default-deny; `list` is not on the in-progress allowlist) |
-| Button `customId` | Discord max **100**; compact UUID league ids; no player id on the button |
-| Language | English user-facing strings |
+| Topic             | Choice                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------- |
+| Command           | **`/match list`** (new subcommand)                                                                |
+| Who can run it    | Anyone in the server; **public** reply; **no `/link` required**                                   |
+| Status filter     | **`COMPLETED` only**                                                                              |
+| Row content       | Date, winner (`teamDisplayName`), format `4v6` (team-1 vs team-2 human counts), copyable match id |
+| Detail            | Existing **`/match show`** (unchanged)                                                            |
+| Pagination        | **10 per page**, slash `page` option + Prev/Next, **invoker-only**                                |
+| League            | Existing `withSubcommandLeagueOption` / resolve helpers                                           |
+| Lobby channel     | **Denied** (default-deny; `list` is not on the in-progress allowlist)                             |
+| Button `customId` | Discord max **100**; compact UUID league ids; no player id on the button                          |
+| Language          | English user-facing strings                                                                       |
 
 ## Approach
 
@@ -52,16 +52,16 @@ Dedicated list module. Thin `/match list` adapter in `match.ts`. Query, compact 
 
 ### Modules
 
-| Path | Responsibility |
-|------|----------------|
-| `src/commands/match/match.ts` | `list` subcommand + public execute branch |
-| `src/services/match/match-list.ts` | Load page, format rows, embed, customId build/parse (compact UUID) |
-| `src/services/match/match-list.test.ts` | Format, clamp, customId parse/length |
-| `src/services/match/index.ts` | Re-exports |
-| `src/discord/interactions/match-list-interactions.ts` | History-style button handler (`ml:p:` prefix) |
-| `src/events/interaction-create.ts` | Route list page buttons |
-| `src/services/league/league-lobby-channel.test.ts` | Assert `list` is denied in lobby channels |
-| `docs/discord/public/07-cheat-sheet.md` | One English cheat line |
+| Path                                                  | Responsibility                                                     |
+| ----------------------------------------------------- | ------------------------------------------------------------------ |
+| `src/commands/match/match.ts`                         | `list` subcommand + public execute branch                          |
+| `src/services/match/match-list.ts`                    | Load page, format rows, embed, customId build/parse (compact UUID) |
+| `src/services/match/match-list.test.ts`               | Format, clamp, customId parse/length                               |
+| `src/services/match/index.ts`                         | Re-exports                                                         |
+| `src/discord/interactions/match-list-interactions.ts` | History-style button handler (`ml:p:` prefix)                      |
+| `src/events/interaction-create.ts`                    | Route list page buttons                                            |
+| `src/services/league/league-lobby-channel.test.ts`    | Assert `list` is denied in lobby channels                          |
+| `docs/discord/public/07-cheat-sheet.md`               | One English cheat line                                             |
 
 Do **not** import player-history query, ki preview, or rank-reset into the list module. Extract UUID compact/expand into `src/services/match/compact-custom-id.ts` and import it from both `match-history.ts` and `match-list.ts`.
 
@@ -69,10 +69,10 @@ Do **not** import player-history query, ki preview, or rank-reset into the list 
 
 ### `/match list`
 
-| Option | Required | Notes |
-|--------|----------|-------|
-| `page` | no | Integer ≥ 1; default 1; clamp to last page if too high |
-| `league` | no | Existing `withSubcommandLeagueOption` |
+| Option   | Required | Notes                                                  |
+| -------- | -------- | ------------------------------------------------------ |
+| `page`   | no       | Integer ≥ 1; default 1; clamp to last page if too high |
+| `league` | no       | Existing `withSubcommandLeagueOption`                  |
 
 **Behavior**
 
@@ -102,12 +102,12 @@ Existing `Match(leagueId, completedAt)` index is enough; no migration.
 
 ### Row fields
 
-| Field | Source |
-|-------|--------|
-| Winner | `winningTeamFromPlayers` → `teamDisplayName(team, profile)` |
+| Field  | Source                                                                                                                                                                                        |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Winner | `winningTeamFromPlayers` → `teamDisplayName(team, profile)`                                                                                                                                   |
 | Format | Count `MatchPlayer` rows with `team === 1` vs `team === 2` → `` `${a}v${b}` `` (e.g. `4v6`). **Team 1 vs team 2**, not winner-first. Empty slots are not rows. Ignore any other `team` value. |
-| Date | `completedAt ?? createdAt`, Discord `<t:unix:D>` |
-| Id | `match.id` in backticks |
+| Date   | `completedAt ?? createdAt`, Discord `<t:unix:D>`                                                                                                                                              |
+| Id     | `match.id` in backticks                                                                                                                                                                       |
 
 Completed matches are expected to have WIN/LOSS rows. Winner uses existing `winningTeamFromPlayers` (team 2 if no team-1 WIN). Do not add a new winner algorithm.
 
@@ -128,14 +128,14 @@ Discord **`customId` max 100 characters**.
 ml:p:{invokerId}:{compactLeagueId}:{p|n}:{page}
 ```
 
-| Piece | Budget |
-|-------|--------|
-| `ml:p:` | 5 |
-| invoker snowflake | ~17–19 |
+| Piece               | Budget                       |
+| ------------------- | ---------------------------- |
+| `ml:p:`             | 5                            |
+| invoker snowflake   | ~17–19                       |
 | compact league UUID | 32 (strip hyphens; cuid ~25) |
-| `p`/`n` + page | ~3–8 |
-| colons | 3 |
-| **typical total** | **~60–70 / 100** |
+| `p`/`n` + page      | ~3–8                         |
+| colons              | 3                            |
+| **typical total**   | **~60–70 / 100**             |
 
 - Compact UUID via shared `compactUuidForCustomId` / `expandUuidFromCustomId` (`36` → `32`; restore hyphens on parse). History uses the same helpers.
 - Prefix `ml:p:` must not collide with history `mh:p:`.
@@ -147,15 +147,15 @@ ml:p:{invokerId}:{compactLeagueId}:{p|n}:{page}
 
 ## Errors
 
-| Case | Response |
-|------|----------|
-| Not in a guild | Ephemeral: command is server-only |
-| League resolve failure | Existing league helper message |
-| No completed matches | Empty list embed (not an error) |
-| Page too high | Clamp to last page |
-| Lobby channel | Existing deny (`list` is not on the in-progress allowlist) |
-| Button: wrong user | Ephemeral: only the person who ran the command can change pages |
-| Button: stale/unparseable id | Ignore (same as history) |
+| Case                         | Response                                                        |
+| ---------------------------- | --------------------------------------------------------------- |
+| Not in a guild               | Ephemeral: command is server-only                               |
+| League resolve failure       | Existing league helper message                                  |
+| No completed matches         | Empty list embed (not an error)                                 |
+| Page too high                | Clamp to last page                                              |
+| Lobby channel                | Existing deny (`list` is not on the in-progress allowlist)      |
+| Button: wrong user           | Ephemeral: only the person who ran the command can change pages |
+| Button: stale/unparseable id | Ignore (same as history)                                        |
 
 Wrong-tenant matches never appear: the query uses the resolved `leagueId`, which is already guild-scoped. `/match show` keeps today’s not-found / not-completed messages.
 

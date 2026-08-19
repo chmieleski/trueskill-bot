@@ -21,23 +21,25 @@
 
 ## File structure
 
-| File | Responsibility |
-|------|----------------|
-| `src/commands/lobby/register-lobby.ts` | Optional `print`; empty players when omitted |
-| `src/services/lobby-ocr.ts` | Unchanged |
-| `src/services/match-service.ts` | Unchanged (`createPendingMatch` already allows `[]`) |
-| `src/services/register-lobby-source.ts` | Pure helper: decide OCR vs empty (testable) |
-| `src/services/register-lobby-source.test.ts` | Unit tests for the helper |
+| File                                         | Responsibility                                       |
+| -------------------------------------------- | ---------------------------------------------------- |
+| `src/commands/lobby/register-lobby.ts`       | Optional `print`; empty players when omitted         |
+| `src/services/lobby-ocr.ts`                  | Unchanged                                            |
+| `src/services/match-service.ts`              | Unchanged (`createPendingMatch` already allows `[]`) |
+| `src/services/register-lobby-source.ts`      | Pure helper: decide OCR vs empty (testable)          |
+| `src/services/register-lobby-source.test.ts` | Unit tests for the helper                            |
 
 ---
 
 ### Task 1: Source helper (OCR vs empty)
 
 **Files:**
+
 - Create: `src/services/register-lobby-source.ts`
 - Create: `src/services/register-lobby-source.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `export type RegisterLobbySource = { kind: 'empty' } | { kind: 'screenshot'; url: string; mimeType: string }`
   - `export function resolveRegisterLobbySource(input: { attachmentUrl?: string | null; mimeType?: string | null }): RegisterLobbySource`
@@ -80,8 +82,7 @@ Expected: FAIL — module not found
 
 ```ts
 export type RegisterLobbySource =
-  | { kind: 'empty' }
-  | { kind: 'screenshot'; url: string; mimeType: string };
+  { kind: 'empty' } | { kind: 'screenshot'; url: string; mimeType: string };
 
 /**
  * Decide whether /register_lobby should OCR a screenshot or start empty.
@@ -115,9 +116,11 @@ Expected: PASS
 ### Task 2: Make `print` optional and skip OCR when omitted
 
 **Files:**
+
 - Modify: `src/commands/lobby/register-lobby.ts`
 
 **Interfaces:**
+
 - Consumes: `resolveRegisterLobbySource`
 - Produces: `/register_lobby` works with zero options besides the implicit create-role check
 
@@ -141,31 +144,31 @@ Replace the required `getAttachment('print', true)` block with:
 ```ts
 import { resolveRegisterLobbySource } from '../../services/register-lobby-source.js';
 
-  const attachment = interaction.options.getAttachment('print');
+const attachment = interaction.options.getAttachment('print');
 
-  if (attachment && !isImageAttachment(attachment)) {
-    log.warn(
-      { userId: interaction.user.id, contentType: attachment.contentType, name: attachment.name },
-      'Rejected non-image attachment',
-    );
-    await interaction.editReply('Please attach a valid lobby screenshot image (PNG, JPG, WEBP, or GIF).');
-    return;
-  }
+if (attachment && !isImageAttachment(attachment)) {
+  log.warn(
+    { userId: interaction.user.id, contentType: attachment.contentType, name: attachment.name },
+    'Rejected non-image attachment',
+  );
+  await interaction.editReply(
+    'Please attach a valid lobby screenshot image (PNG, JPG, WEBP, or GIF).',
+  );
+  return;
+}
 
-  if (!interaction.channelId) {
-    await interaction.editReply('Could not determine the channel for this lobby.');
-    return;
-  }
+if (!interaction.channelId) {
+  await interaction.editReply('Could not determine the channel for this lobby.');
+  return;
+}
 
-  const source = resolveRegisterLobbySource({
-    attachmentUrl: attachment?.url,
-    mimeType: attachment ? resolveMimeType(attachment) : null,
-  });
+const source = resolveRegisterLobbySource({
+  attachmentUrl: attachment?.url,
+  mimeType: attachment ? resolveMimeType(attachment) : null,
+});
 
-  const players =
-    source.kind === 'screenshot'
-      ? await tryExtractLobbyPlayers(source.url, source.mimeType)
-      : [];
+const players =
+  source.kind === 'screenshot' ? await tryExtractLobbyPlayers(source.url, source.mimeType) : [];
 ```
 
 Keep `createPendingMatch` / embed / `attachDiscordMessage` as they are.
@@ -187,6 +190,7 @@ Expected: PASS (no command execute tests exist; helper tests cover the branch)
 ### Task 3: Operator-facing copy
 
 **Files:**
+
 - Modify: `.cursor/rules/slash-commands.mdc` example description if it still says screenshot-required
 - Modify: `.cursor/rules/scripts-and-env.mdc` only if it claims screenshot is required (do not change env vars)
 

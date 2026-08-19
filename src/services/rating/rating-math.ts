@@ -54,19 +54,13 @@ export function displayConservatismZ(matchesPlayed: number): number {
  * `matchesPlayed` softens z over the first {@link KI_Z_BLEND_GAMES} games.
  * DTO fields may still be named *Ordinal; values are display ki.
  */
-export function displayOrdinal(
-  mu: number,
-  sigma: number,
-  matchesPlayed = 0,
-): number {
+export function displayOrdinal(mu: number, sigma: number, matchesPlayed = 0): number {
   const z = displayConservatismZ(matchesPlayed);
   return Math.round(KI_OFFSET + KI_SCALE * (mu - z * sigma));
 }
 
 /** Convert μ/σ entities into OpenSkill Rating objects (order preserved). */
-export function toOpenSkillRatings(
-  entities: { mu: number; sigma: number }[],
-): Rating[] {
+export function toOpenSkillRatings(entities: { mu: number; sigma: number }[]): Rating[] {
   return entities.map((entity) => rating({ mu: entity.mu, sigma: entity.sigma }));
 }
 

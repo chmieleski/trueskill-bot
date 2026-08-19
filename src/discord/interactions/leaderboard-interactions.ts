@@ -13,12 +13,9 @@ import {
 } from '../../services/leaderboard/index.js';
 import { getGameProfileForLeague } from '../../services/league/index.js';
 
-const NOT_YOUR_PAGE =
-  'Only the person who ran the leaderboard command can change pages.';
+const NOT_YOUR_PAGE = 'Only the person who ran the leaderboard command can change pages.';
 
-export async function handleLeaderboardInteraction(
-  interaction: Interaction,
-): Promise<boolean> {
+export async function handleLeaderboardInteraction(interaction: Interaction): Promise<boolean> {
   if (!interaction.isButton()) {
     return false;
   }

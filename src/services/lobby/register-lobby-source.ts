@@ -6,8 +6,7 @@ import { MatchServiceError } from '../match/match-service.js';
 
 export const SCREENSHOT_UNSUPPORTED_MESSAGE =
   'Lobby screenshots are not supported for this game yet.';
-export const WC3STATS_UNSUPPORTED_MESSAGE =
-  'Warcraft lobby import is not supported for this game.';
+export const WC3STATS_UNSUPPORTED_MESSAGE = 'Warcraft lobby import is not supported for this game.';
 export const WC3STATS_CONFIG_UNSUPPORTED_MESSAGE =
   "This league's game does not use wc3stats import.";
 
@@ -83,11 +82,7 @@ export function parseWc3statsId(raw?: string | null): number | null {
   return id;
 }
 
-export type Wc3statsImportFailureCode =
-  | 'not_found'
-  | 'ambiguous'
-  | 'not_udbr'
-  | 'unavailable';
+export type Wc3statsImportFailureCode = 'not_found' | 'ambiguous' | 'not_udbr' | 'unavailable';
 
 /**
  * Discord match creation does not require a live wc3stats lobby.

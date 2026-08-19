@@ -128,9 +128,7 @@ export async function loadPlayerProfile(
   lookup: RankLookup,
 ): Promise<PlayerProfile> {
   if (lookup.kind === 'both') {
-    throw new PlayerServiceError(
-      'Provide either a Discord user or a nick, not both.',
-    );
+    throw new PlayerServiceError('Provide either a Discord user or a nick, not both.');
   }
 
   const gameProfile = await getGameProfileForLeague(leagueId);
@@ -178,22 +176,16 @@ export async function loadPlayerProfile(
   };
   const { games, wins, losses, quits } = mine;
 
-  const globalKi = rating
-    ? displayOrdinal(rating.mu, rating.sigma, games)
-    : coldStartKi();
+  const globalKi = rating ? displayOrdinal(rating.mu, rating.sigma, games) : coldStartKi();
 
   const calibratedKis = allRatings
     .filter((row) => !isCalibrating(gamesByPlayer.get(row.playerId) ?? 0))
-    .map((row) =>
-      displayOrdinal(row.mu, row.sigma, gamesByPlayer.get(row.playerId) ?? 0),
-    );
+    .map((row) => displayOrdinal(row.mu, row.sigma, gamesByPlayer.get(row.playerId) ?? 0));
   if (!rating && !isCalibrating(games)) {
     calibratedKis.push(globalKi);
   }
 
-  const rankPosition = isCalibrating(games)
-    ? null
-    : competitionRank(globalKi, calibratedKis);
+  const rankPosition = isCalibrating(games) ? null : competitionRank(globalKi, calibratedKis);
   const winRatePercentValue = winRatePercent(wins, losses);
   const heroes: PlayerProfileHero[] = heroRatings
     .map((row) => {

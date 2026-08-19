@@ -269,11 +269,7 @@ export async function loadMatchDisplayStats(
   playerIds?: string[],
   db: Db = defaultPrisma,
 ): Promise<MatchDisplayStatsBundle> {
-  const { resetAtByPlayer, rows } = await loadMatchDisplayRows(
-    leagueId,
-    playerIds,
-    db,
-  );
+  const { resetAtByPlayer, rows } = await loadMatchDisplayRows(leagueId, playerIds, db);
   return {
     byPlayer: aggregateMatchDisplayStats(rows, resetAtByPlayer),
     byHero: aggregateHeroMatchDisplayStats(rows, resetAtByPlayer),
@@ -285,10 +281,6 @@ export async function loadMatchDisplayStatsByPlayer(
   playerIds?: string[],
   db: Db = defaultPrisma,
 ): Promise<Map<string, PlayerMatchDisplayStats>> {
-  const { resetAtByPlayer, rows } = await loadMatchDisplayRows(
-    leagueId,
-    playerIds,
-    db,
-  );
+  const { resetAtByPlayer, rows } = await loadMatchDisplayRows(leagueId, playerIds, db);
   return aggregateMatchDisplayStats(rows, resetAtByPlayer);
 }

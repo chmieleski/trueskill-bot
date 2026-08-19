@@ -48,10 +48,7 @@ export async function ensureDraftForVersion(input: {
 /**
  * Open a draft for the on-disk version (if needed) and post missing staff cards.
  */
-export async function syncCurrentReleaseDraft(
-  client: Client,
-  rootDir?: string,
-): Promise<void> {
+export async function syncCurrentReleaseDraft(client: Client, rootDir?: string): Promise<void> {
   let version: string;
   let changelogMarkdown: string;
   try {
@@ -83,12 +80,18 @@ export async function postPendingStaffCards(client: Client): Promise<void> {
   try {
     channel = await client.channels.fetch(draftChannel.channelId);
   } catch (error) {
-    log.warn({ err: error, channelId: draftChannel.channelId }, 'Failed to fetch changelog draft channel');
+    log.warn(
+      { err: error, channelId: draftChannel.channelId },
+      'Failed to fetch changelog draft channel',
+    );
     return;
   }
 
   if (!channel || !channel.isTextBased()) {
-    log.warn({ channelId: draftChannel.channelId }, 'Changelog draft channel is not a guild text channel');
+    log.warn(
+      { channelId: draftChannel.channelId },
+      'Changelog draft channel is not a guild text channel',
+    );
     return;
   }
 

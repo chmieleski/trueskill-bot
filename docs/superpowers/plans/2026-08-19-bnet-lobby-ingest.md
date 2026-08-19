@@ -33,36 +33,38 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `prisma/schema.prisma` | `bnetWatcherEnabled`, `Match.bnetLobbyId`, `BnetWatcherState`, `BnetLiveLobby`, `BnetJoinJob` |
-| `src/config/env.ts` | Ingest token/host/port/stale ms |
-| `.env.example`, `.cursor/rules/scripts-and-env.mdc` | Document keys |
-| `infra/aws/variables.tf`, `ssm.tf`, `main.tf`, `terraform.tfvars.example` | Token + optional ingest ingress |
-| `deploy/aws/refresh-env.sh` | Echo new keys |
-| `src/services/bnet-lobby/bnet-roster.ts` | Slot → hero mapping |
-| `src/services/bnet-lobby/bnet-jobs.ts` | Enqueue / claim / complete / stale fail |
-| `src/services/bnet-lobby/bnet-ingest.ts` | HTTP server |
-| `src/services/lobby/create-from-bnet.ts` | Open / `/register_lobby lobby_id` |
-| `src/services/lobby/bnet-refresh.ts` | Refresh + optional bind |
-| `src/services/match/match-service.ts` | `bnetLobbyId` on create/link/duplicate |
-| `src/services/league/league-wc3stats.ts` | Resolve `bnetWatcherEnabled` + ready helper |
-| `src/commands/config/config.ts` | set/clear/view |
-| `src/commands/lobby/register-lobby.ts` | `lobby_id` + autocomplete |
-| `src/services/lobby/lobby-preview.ts` | Footer + Refresh when bound |
-| `src/discord/interactions/` | Open lobby + Refresh wiring |
-| `src/index.ts` | Start/stop ingest + card poller |
-| `docs/discord/public/03-start-a-lobby.md`, `staff/a4` or new `staff/a6-bnet-watcher.md` | User/staff copy |
+| File                                                                                    | Role                                                                                          |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `prisma/schema.prisma`                                                                  | `bnetWatcherEnabled`, `Match.bnetLobbyId`, `BnetWatcherState`, `BnetLiveLobby`, `BnetJoinJob` |
+| `src/config/env.ts`                                                                     | Ingest token/host/port/stale ms                                                               |
+| `.env.example`, `.cursor/rules/scripts-and-env.mdc`                                     | Document keys                                                                                 |
+| `infra/aws/variables.tf`, `ssm.tf`, `main.tf`, `terraform.tfvars.example`               | Token + optional ingest ingress                                                               |
+| `deploy/aws/refresh-env.sh`                                                             | Echo new keys                                                                                 |
+| `src/services/bnet-lobby/bnet-roster.ts`                                                | Slot → hero mapping                                                                           |
+| `src/services/bnet-lobby/bnet-jobs.ts`                                                  | Enqueue / claim / complete / stale fail                                                       |
+| `src/services/bnet-lobby/bnet-ingest.ts`                                                | HTTP server                                                                                   |
+| `src/services/lobby/create-from-bnet.ts`                                                | Open / `/register_lobby lobby_id`                                                             |
+| `src/services/lobby/bnet-refresh.ts`                                                    | Refresh + optional bind                                                                       |
+| `src/services/match/match-service.ts`                                                   | `bnetLobbyId` on create/link/duplicate                                                        |
+| `src/services/league/league-wc3stats.ts`                                                | Resolve `bnetWatcherEnabled` + ready helper                                                   |
+| `src/commands/config/config.ts`                                                         | set/clear/view                                                                                |
+| `src/commands/lobby/register-lobby.ts`                                                  | `lobby_id` + autocomplete                                                                     |
+| `src/services/lobby/lobby-preview.ts`                                                   | Footer + Refresh when bound                                                                   |
+| `src/discord/interactions/`                                                             | Open lobby + Refresh wiring                                                                   |
+| `src/index.ts`                                                                          | Start/stop ingest + card poller                                                               |
+| `docs/discord/public/03-start-a-lobby.md`, `staff/a4` or new `staff/a6-bnet-watcher.md` | User/staff copy                                                                               |
 
 ---
 
 ### Task 1: Schema
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: `prisma/migrations/<timestamp>_bnet_lobby_ingest/migration.sql` via `npm run db:migrate`
 
 **Interfaces:**
+
 - Produces: Prisma models as in the spec (`League.bnetWatcherEnabled`, `Match.bnetLobbyId`, singleton `BnetWatcherState`, `BnetLiveLobby`, `BnetJoinJob` + enums). `Match` needs `bnetJoinJobs BnetJoinJob[]`.
 
 - [ ] **Step 1: Add models to `schema.prisma`**
@@ -95,10 +97,12 @@ Expected: migration applied; `BnetJoinJob` exists.
 ### Task 2: Roster mapping (TDD)
 
 **Files:**
+
 - Create: `src/services/bnet-lobby/bnet-roster.ts`
 - Create: `src/services/bnet-lobby/bnet-roster.test.ts`
 
 **Interfaces:**
+
 - Consumes: `LobbyPlayer` from `src/services/lobby/lobby-ocr.ts`; `nickFromWc3statsPlayer`; `Wc3statsHeroSlotMap`; `UDBR_WC3STATS_SLOT_MAP` via `load` or pass map in
 - Produces:
   - `BnetSnapshotSlot` type (spec)
@@ -166,10 +170,12 @@ Same occupancy rules as `extractWc3statsRoster` (`status === 'occupied'`, not co
 ### Task 3: Jobs (TDD)
 
 **Files:**
+
 - Create: `src/services/bnet-lobby/bnet-jobs.ts`
 - Create: `src/services/bnet-lobby/bnet-jobs.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `enqueueBnetJoinJob(input: { bnetLobbyId: string; matchId: string; purpose: 'create' | 'refresh' }): Promise<BnetJoinJob>`
   - `claimNextBnetJoinJob(): Promise<BnetJoinJob | null>` — null if another `running` exists or queue empty
@@ -194,12 +200,14 @@ Cover: claim returns null when a `running` row exists; `failStaleRunningJobs` se
 ### Task 4: Ingest HTTP
 
 **Files:**
+
 - Create: `src/services/bnet-lobby/bnet-ingest.ts`
 - Create: `src/services/bnet-lobby/bnet-ingest.test.ts`
 - Create: `src/services/bnet-lobby/bnet-copy.ts` — freeze spec strings
 - Modify: `src/index.ts` — `startBnetIngestIfConfigured()` / stop on shutdown
 
 **Interfaces:**
+
 - Consumes: `env.bnetIngestToken`, jobs helpers, `extractBnetRoster`, `replaceMatchRoster`, `syncLobbyDiscordMessage`
 - Produces: `startBnetIngestServer(): Promise<{ close: () => Promise<void> } | null>`
 
@@ -223,6 +231,7 @@ Parse `Authorization` as `Bearer ` + token (timing-safe compare). Unknown path �
 ### Task 5: Env + AWS
 
 **Files:**
+
 - Modify: `src/config/env.ts`
 - Modify: `.env.example`
 - Modify: `.cursor/rules/scripts-and-env.mdc`
@@ -230,6 +239,7 @@ Parse `Authorization` as `Bearer ` + token (timing-safe compare). Unknown path �
 - Modify: `deploy/aws/refresh-env.sh`
 
 **Interfaces:**
+
 - Produces: `env.bnetIngestToken?: string`, `bnetIngestHost: string`, `bnetIngestPort: number`, `bnetWatcherStaleMs: number`
 
 - [ ] **Step 1: Parse env**
@@ -247,12 +257,14 @@ Empty token → `undefined`. Port default `8787`. Host default `0.0.0.0`. Stale 
 ### Task 6: Match bind + create-from-bnet
 
 **Files:**
+
 - Modify: `src/services/match/match-service.ts`
 - Create: `src/services/lobby/create-from-bnet.ts`
 - Create: `src/services/lobby/create-from-bnet.test.ts`
 - Modify: `src/services/league/league-wc3stats.ts` — `bnetWatcherEnabled` + `isLeagueBnetWatcherReady`
 
 **Interfaces:**
+
 - Produces:
   - `isLeagueBnetWatcherReady(config, input: { gameId: string; ingestConfigured: boolean; watcherFresh: boolean }): boolean` — `gameId === warcraft3_udbr` + enabled + map pattern + ingest + fresh
   - `findActiveMatchByBnetLobbyId(leagueId, bnetLobbyId)`
@@ -275,6 +287,7 @@ Empty token → `undefined`. Port default `8787`. Host default `0.0.0.0`. Stale 
 ### Task 7: `/register_lobby lobby_id` + autocomplete
 
 **Files:**
+
 - Modify: `src/commands/lobby/register-lobby.ts`
 - Modify: `src/services/lobby/register-lobby-source.ts` if needed
 
@@ -291,12 +304,14 @@ Empty token → `undefined`. Port default `8787`. Host default `0.0.0.0`. Stale 
 ### Task 8: Refresh + embed
 
 **Files:**
+
 - Create: `src/services/lobby/bnet-refresh.ts`
 - Modify: `src/services/lobby/lobby-preview.ts`
 - Modify: `src/discord/interactions/lobby-interactions.ts`
 - Modify: `src/commands/lobby/lobby.ts` if Refresh is also a subcommand
 
 **Interfaces:**
+
 - Produces: `refreshLobbyFromBnet(input)` — PENDING only; enqueue `refresh`; wait or return busy copy if a `running` job already exists for **another** match (this match’s job is queued). 15s debounce per match.
 
 - [ ] **Step 1: Show Refresh when `bnetLobbyId` or watcher-ready** (in addition to wc3stats). Footer `Source: Warcraft lobby {id}`.
@@ -312,12 +327,14 @@ Empty token → `undefined`. Port default `8787`. Host default `0.0.0.0`. Stale 
 ### Task 9: Discovery cards
 
 **Files:**
+
 - Create: `src/services/bnet-lobby/bnet-host-prompt.ts`
 - Create: `src/services/bnet-lobby/bnet-host-prompt-poller.ts`
 - Create: `src/discord/interactions/bnet-host-prompt-interactions.ts`
 - Modify: `src/index.ts` start/stop poller
 
 **Interfaces:**
+
 - Custom id: `bnet_prompt:open:{leagueId}:{bnetLobbyId}` and `bnet_prompt:dismiss:...` (keep under 100 chars; `bnetLobbyId` is numeric)
 
 - [ ] **Step 1: Poll ~45s.** For each league with watcher ready **and** lobby channel ready, list `BnetLiveLobby` passing `isUdbrMap`. Skip ids with an active match. Dedupe in-memory `leagueId:id`.
@@ -333,6 +350,7 @@ Empty token → `undefined`. Port default `8787`. Host default `0.0.0.0`. Stale 
 ### Task 10: `/config` + docs
 
 **Files:**
+
 - Modify: `src/commands/config/config.ts`
 - Create: `docs/discord/staff/a6-bnet-watcher.md`
 - Modify: `docs/discord/public/03-start-a-lobby.md`

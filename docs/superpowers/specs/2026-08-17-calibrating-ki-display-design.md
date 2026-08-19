@@ -22,20 +22,20 @@ Players with fewer than **5** completed league games should not be treated as ha
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Threshold | Same count as soft-z: completed WIN/LOSS in that league, **since the latest `PlayerRankReset`** (lifetime if never reset) |
-| Calibrating | `games < 5` (`KI_Z_BLEND_GAMES`) |
-| Public string | **`Calibrating`** (no progress fraction) |
-| What is hidden | **All** public ki for that player (global and every hero) |
-| Rank # | Omitted while calibrating |
+| Topic             | Choice                                                                                                                                             |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Threshold         | Same count as soft-z: completed WIN/LOSS in that league, **since the latest `PlayerRankReset`** (lifetime if never reset)                          |
+| Calibrating       | `games < 5` (`KI_Z_BLEND_GAMES`)                                                                                                                   |
+| Public string     | **`Calibrating`** (no progress fraction)                                                                                                           |
+| What is hidden    | **All** public ki for that player (global and every hero)                                                                                          |
+| Rank #            | Omitted while calibrating                                                                                                                          |
 | Leaderboard order | Calibrated first (ki desc, competition ranks). Calibrating appended with **no rank**, sorted by **games desc, then username** — never by hidden ki |
-| Rank glyph | `—` for unranked rows |
-| Surfaces | Every place that prints display ki today: `/rank`, overall/live/hero boards, lobby roster lines, post-match roster + deltas |
-| Reveal | Use **after-match** game count. The match that reaches 5 shows real ki and deltas |
-| Eligibility | Unchanged: overall board still requires ≥1 completed game; hero boards still require `matchesPlayed > 0` |
-| OpenSkill | Unchanged |
-| Language | English user-facing strings |
+| Rank glyph        | `—` for unranked rows                                                                                                                              |
+| Surfaces          | Every place that prints display ki today: `/rank`, overall/live/hero boards, lobby roster lines, post-match roster + deltas                        |
+| Reveal            | Use **after-match** game count. The match that reaches 5 shows real ki and deltas                                                                  |
+| Eligibility       | Unchanged: overall board still requires ≥1 completed game; hero boards still require `matchesPlayed > 0`                                           |
+| OpenSkill         | Unchanged                                                                                                                                          |
+| Language          | English user-facing strings                                                                                                                        |
 
 ## Display contract
 
@@ -86,10 +86,10 @@ Hero top 3 / top 10 is the same slice. Calibrating names fill remaining slots on
 
 ### `/rank`
 
-| State | Title | Heroes |
-|-------|--------|--------|
-| Calibrating | `Calibrating` (no `#`, no number) | Each row `Name  Calibrating · matchesPlayed` |
-| Calibrated | `Rank #N · {ki} {ratingLabel}` (unchanged) | Real hero ki |
+| State       | Title                                      | Heroes                                       |
+| ----------- | ------------------------------------------ | -------------------------------------------- |
+| Calibrating | `Calibrating` (no `#`, no number)          | Each row `Name  Calibrating · matchesPlayed` |
+| Calibrated  | `Rank #N · {ki} {ratingLabel}` (unchanged) | Real hero ki                                 |
 
 W/L/Q and linked Discord stay. `rankPosition` is `null` while calibrating. Calibrated rank counts **only** other calibrated players (calibrating names do not occupy places).
 
@@ -113,18 +113,18 @@ Win% and balance hints stay numeric.
 
 ## Edge cases
 
-| Case | Behavior |
-|------|----------|
-| 0 completed games | `/rank` shows `Calibrating`, no `#`. Not on leaderboards |
-| 1–4 games | On boards at the bottom: `—` + `Calibrating` |
-| 5th game completes | That complete embed shows ki + deltas; player enters the ranked block |
-| Rank reset | Count restarts → calibrating again |
-| Quit LOSS | Counts toward the gate once the match is COMPLETED (same as soft-z) |
-| New hero after 5 league games | Real hero ki |
-| ACA / `showHeroes: false` | Same word on the global rating only |
-| Column width | `Calibrating` may widen monospace tables |
-| Ties among calibrated | Unchanged competition rank |
-| Username sort | Existing `localeCompare` on stored username |
+| Case                          | Behavior                                                              |
+| ----------------------------- | --------------------------------------------------------------------- |
+| 0 completed games             | `/rank` shows `Calibrating`, no `#`. Not on leaderboards              |
+| 1–4 games                     | On boards at the bottom: `—` + `Calibrating`                          |
+| 5th game completes            | That complete embed shows ki + deltas; player enters the ranked block |
+| Rank reset                    | Count restarts → calibrating again                                    |
+| Quit LOSS                     | Counts toward the gate once the match is COMPLETED (same as soft-z)   |
+| New hero after 5 league games | Real hero ki                                                          |
+| ACA / `showHeroes: false`     | Same word on the global rating only                                   |
+| Column width                  | `Calibrating` may widen monospace tables                              |
+| Ties among calibrated         | Unchanged competition rank                                            |
+| Username sort                 | Existing `localeCompare` on stored username                           |
 
 ## Testing
 

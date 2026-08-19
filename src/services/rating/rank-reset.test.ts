@@ -101,38 +101,24 @@ describe('rank-reset cooldown helpers', () => {
   it('adds calendar-length days to the last reset time', () => {
     const lastResetAt = new Date('2026-01-10T06:30:00.000Z');
 
-    expect(nextRankResetAt(lastResetAt, 30)).toEqual(
-      new Date('2026-02-09T06:30:00.000Z'),
-    );
+    expect(nextRankResetAt(lastResetAt, 30)).toEqual(new Date('2026-02-09T06:30:00.000Z'));
   });
 
   it('treats the exact next-reset instant as elapsed', () => {
     const lastResetAt = new Date('2026-01-10T06:30:00.000Z');
 
-    expect(
-      isRankResetCooldownElapsed(
-        lastResetAt,
-        30,
-        new Date('2026-02-09T06:29:59.999Z'),
-      ),
-    ).toBe(false);
-    expect(
-      isRankResetCooldownElapsed(
-        lastResetAt,
-        30,
-        new Date('2026-02-09T06:30:00.000Z'),
-      ),
-    ).toBe(true);
+    expect(isRankResetCooldownElapsed(lastResetAt, 30, new Date('2026-02-09T06:29:59.999Z'))).toBe(
+      false,
+    );
+    expect(isRankResetCooldownElapsed(lastResetAt, 30, new Date('2026-02-09T06:30:00.000Z'))).toBe(
+      true,
+    );
   });
 });
 
 describe('rank-reset button custom IDs', () => {
   it('round-trips a confirm custom ID', () => {
-    const customId = buildRankResetConfirmCustomId(
-      'league-1',
-      'player-1',
-      'discord-actor',
-    );
+    const customId = buildRankResetConfirmCustomId('league-1', 'player-1', 'discord-actor');
 
     expect(customId).toBe('rr:c:league-1:player-1:discord-actor');
     expect(parseRankResetButtonCustomId(customId)).toEqual({
@@ -144,11 +130,7 @@ describe('rank-reset button custom IDs', () => {
   });
 
   it('round-trips a cancel custom ID', () => {
-    const customId = buildRankResetCancelCustomId(
-      'league-1',
-      'player-1',
-      'discord-actor',
-    );
+    const customId = buildRankResetCancelCustomId('league-1', 'player-1', 'discord-actor');
 
     expect(customId).toBe('rr:x:league-1:player-1:discord-actor');
     expect(parseRankResetButtonCustomId(customId)).toEqual({
@@ -241,9 +223,7 @@ describe('previewRankReset', () => {
         memberRoleIds: ['role-mod'],
         matchModRoleId: 'role-mod',
       }),
-    ).rejects.toThrow(
-      'That Discord user is not linked to a player. They must /link first.',
-    );
+    ).rejects.toThrow('That Discord user is not linked to a player. They must /link first.');
   });
 
   it('rejects a target on an active league roster', async () => {

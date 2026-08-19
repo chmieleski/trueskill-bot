@@ -12,10 +12,7 @@ import {
   splitRosterByTeam,
   toOpenSkillRatings,
 } from './rating-math.js';
-import {
-  gamesByPlayerFromStats,
-  loadMatchDisplayStatsByPlayer,
-} from './rank-reset-display.js';
+import { gamesByPlayerFromStats, loadMatchDisplayStatsByPlayer } from './rank-reset-display.js';
 import {
   suggestBalanceMoves,
   type BalanceRatingLookup,
@@ -151,9 +148,7 @@ export async function loadPlayerKiBySlot(
   const globalByPlayer = new Map(globals.map((row) => [row.playerId, row]));
   const gamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
   const heroKey = (playerId: string, heroId: number) => `${playerId}:${heroId}`;
-  const heroByKey = new Map(
-    heroes.map((row) => [heroKey(row.playerId, row.heroId), row]),
-  );
+  const heroByKey = new Map(heroes.map((row) => [heroKey(row.playerId, row.heroId), row]));
 
   for (const entry of sorted) {
     const global = globalByPlayer.get(entry.playerId) ?? defaultMuSigma();
@@ -261,9 +256,7 @@ export async function loadLobbyRatingPreview(
     const globalByPlayer = new Map(globals.map((row) => [row.playerId, row]));
     const gamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
     const heroKey = (playerId: string, heroId: number) => `${playerId}:${heroId}`;
-    const heroByKey = new Map(
-      heroes.map((row) => [heroKey(row.playerId, row.heroId), row]),
-    );
+    const heroByKey = new Map(heroes.map((row) => [heroKey(row.playerId, row.heroId), row]));
 
     const players: LobbyRatingPlayerLine[] = sorted.map((entry) => {
       const global = globalByPlayer.get(entry.playerId) ?? defaultMuSigma();
@@ -308,7 +301,7 @@ export async function loadLobbyRatingPreview(
           const hero =
             entry.heroId == null
               ? defaultMuSigma()
-              : heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultMuSigma();
+              : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultMuSigma());
           return ratingEntitiesForPlayer(global, hero, entry.heroId);
         }),
       );
@@ -337,12 +330,7 @@ export async function loadLobbyRatingPreview(
 
     let balanceSuggestions: BalanceSuggestion[] | undefined;
     try {
-      const suggestions = suggestBalanceMoves(
-        balanceRoster,
-        lookup,
-        winChance,
-        profile,
-      );
+      const suggestions = suggestBalanceMoves(balanceRoster, lookup, winChance, profile);
       if (suggestions.length > 0) {
         balanceSuggestions = suggestions;
       }

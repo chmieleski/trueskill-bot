@@ -11,8 +11,7 @@ import { movePlayer } from './roster.js';
 export type RemapPair = { raw: string; left: string; right: string };
 
 export type SwapForm =
-  | { kind: 'classic'; slotA: number; slotB: number }
-  | { kind: 'pairs'; pairs: string };
+  { kind: 'classic'; slotA: number; slotB: number } | { kind: 'pairs'; pairs: string };
 
 const SLOT_TOKEN = /^[1-9]\d*$/;
 
@@ -131,15 +130,11 @@ export function resolveSwapForm(input: {
   }
 
   if (hasPairs && (hasA || hasB)) {
-    throw new MatchServiceError(
-      'Use either slot_a and slot_b, or pairs, not both.',
-    );
+    throw new MatchServiceError('Use either slot_a and slot_b, or pairs, not both.');
   }
 
   if (hasA !== hasB) {
-    throw new MatchServiceError(
-      'Provide both slot_a and slot_b, or use pairs instead.',
-    );
+    throw new MatchServiceError('Provide both slot_a and slot_b, or use pairs instead.');
   }
 
   throw new MatchServiceError('Provide slot_a and slot_b, or pairs.');

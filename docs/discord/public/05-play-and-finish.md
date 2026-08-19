@@ -11,6 +11,7 @@ Now the game is **in progress**. Play in Warcraft!
 • **Cancel** — abort the match (no normal win/loss)
 
 **Or use commands**
+
 ```
 /match complete winner:Z Fighters
 /match complete winner:Evil quitters:2,8

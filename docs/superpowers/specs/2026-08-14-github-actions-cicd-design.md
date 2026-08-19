@@ -19,21 +19,21 @@ Every **push or merge to `main`** runs unit tests, then updates the existing AWS
 
 ## Decisions (locked)
 
-| Topic | Choice |
-|-------|--------|
-| Trigger | `pull_request` → tests only; `push` to `main` → tests then deploy |
-| CI runner | GitHub-hosted `ubuntu-latest`, Node **22** (matches EC2) |
-| Test command | `npm ci` then `npm test` (Vitest). No `DATABASE_URL` — Prisma is mocked in tests |
-| Deploy mechanism | AWS SSM `SendCommand` (`AWS-RunShellScript`) to the tagged EC2 instance |
-| AWS auth | GitHub Actions **OIDC** → IAM role. No long-lived access keys |
-| IAM trust | Only `repo:chmieleski/trueskill-bot:ref:refs/heads/main` |
-| Instance lookup | SSM target `tag:Name` = `${project_name}-${environment}` (default `dbz-bot-prod`) |
-| Update script source of truth | `deploy/aws/host-update.sh` in git (not the cloud-init-baked copy) |
-| Slash commands | `npm run deploy-commands` runs on every successful host update |
-| Restart | Only after pull, env refresh, `npm ci`, migrate, build, and command deploy all succeed |
-| Concurrency | Deploy group `deploy-prod`; in-progress deploys are **not** cancelled |
-| SSM timeout | 600 seconds |
-| Infra apply | Operator runs `tofu apply` locally once to create the OIDC role |
+| Topic                         | Choice                                                                                 |
+| ----------------------------- | -------------------------------------------------------------------------------------- |
+| Trigger                       | `pull_request` → tests only; `push` to `main` → tests then deploy                      |
+| CI runner                     | GitHub-hosted `ubuntu-latest`, Node **22** (matches EC2)                               |
+| Test command                  | `npm ci` then `npm test` (Vitest). No `DATABASE_URL` — Prisma is mocked in tests       |
+| Deploy mechanism              | AWS SSM `SendCommand` (`AWS-RunShellScript`) to the tagged EC2 instance                |
+| AWS auth                      | GitHub Actions **OIDC** → IAM role. No long-lived access keys                          |
+| IAM trust                     | Only `repo:chmieleski/trueskill-bot:ref:refs/heads/main`                               |
+| Instance lookup               | SSM target `tag:Name` = `${project_name}-${environment}` (default `dbz-bot-prod`)      |
+| Update script source of truth | `deploy/aws/host-update.sh` in git (not the cloud-init-baked copy)                     |
+| Slash commands                | `npm run deploy-commands` runs on every successful host update                         |
+| Restart                       | Only after pull, env refresh, `npm ci`, migrate, build, and command deploy all succeed |
+| Concurrency                   | Deploy group `deploy-prod`; in-progress deploys are **not** cancelled                  |
+| SSM timeout                   | 600 seconds                                                                            |
+| Infra apply                   | Operator runs `tofu apply` locally once to create the OIDC role                        |
 
 ## Architecture
 
@@ -142,15 +142,15 @@ Until the secret exists, `test` on PRs still works; `deploy` on `main` fails at 
 
 ## Error handling
 
-| Failure | Result |
-|---------|--------|
-| Vitest fails | `deploy` does not run; EC2 unchanged |
-| OIDC / missing `AWS_ROLE_ARN` | Deploy job fails; EC2 unchanged |
-| No instance with the Name tag | `send-command` fails; EC2 unchanged |
-| `git pull --ff-only` rejects (diverged history) | Job fails; no restart |
-| `npm ci` / build / migrate / `deploy-commands` fail | Job fails; no `systemctl restart` |
-| SSM timeout (600s) | Job fails; inspect instance logs (`journalctl -u dbz-bot`, command output) |
-| Overlapping pushes | Second deploy waits; it pulls whatever `main` is at its start (may include later commits) |
+| Failure                                             | Result                                                                                    |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Vitest fails                                        | `deploy` does not run; EC2 unchanged                                                      |
+| OIDC / missing `AWS_ROLE_ARN`                       | Deploy job fails; EC2 unchanged                                                           |
+| No instance with the Name tag                       | `send-command` fails; EC2 unchanged                                                       |
+| `git pull --ff-only` rejects (diverged history)     | Job fails; no restart                                                                     |
+| `npm ci` / build / migrate / `deploy-commands` fail | Job fails; no `systemctl restart`                                                         |
+| SSM timeout (600s)                                  | Job fails; inspect instance logs (`journalctl -u dbz-bot`, command output)                |
+| Overlapping pushes                                  | Second deploy waits; it pulls whatever `main` is at its start (may include later commits) |
 
 ## Docs to update
 

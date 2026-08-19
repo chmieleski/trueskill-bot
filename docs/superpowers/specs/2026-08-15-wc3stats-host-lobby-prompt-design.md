@@ -20,19 +20,19 @@ Buttons: **Open lobby** / **Dismiss**. Ephemeral replies only for button interac
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Map filter | Reuse each league’s wc3stats map pattern/sha1 (same as import) |
-| Host match | `nickFromWc3statsPlayer` / `normalizeNick` vs linked `Player.username` |
-| Channel | Per-league `wc3statsHostPromptChannelId` |
-| League gate | `wc3statsHostPromptEnabled` default **false** |
-| Runtime readiness | Import ready (enabled + map pattern) **and** prompt enabled **and** channel set |
-| Poll interval | ~45s; one gamelist fetch per tick |
-| Dedupe | In-memory `leagueId:wc3statsId`; also skip if active match exists for that id |
-| Open path | Shared create-role + `importWc3statsLobby` + `createPendingMatch`; replace prompt message with lobby embed + `attachDiscordMessage` |
-| Button auth | Only mentioned host; others get ephemeral denial |
-| User opt-out | On **Player** (global): `wc3statsHostPromptPingsEnabled` default **true** |
-| User UX | `/settings` — view + set host prompt pings |
+| Topic             | Choice                                                                                                                              |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Map filter        | Reuse each league’s wc3stats map pattern/sha1 (same as import)                                                                      |
+| Host match        | `nickFromWc3statsPlayer` / `normalizeNick` vs linked `Player.username`                                                              |
+| Channel           | Per-league `wc3statsHostPromptChannelId`                                                                                            |
+| League gate       | `wc3statsHostPromptEnabled` default **false**                                                                                       |
+| Runtime readiness | Import ready (enabled + map pattern) **and** prompt enabled **and** channel set                                                     |
+| Poll interval     | ~45s; one gamelist fetch per tick                                                                                                   |
+| Dedupe            | In-memory `leagueId:wc3statsId`; also skip if active match exists for that id                                                       |
+| Open path         | Shared create-role + `importWc3statsLobby` + `createPendingMatch`; replace prompt message with lobby embed + `attachDiscordMessage` |
+| Button auth       | Only mentioned host; others get ephemeral denial                                                                                    |
+| User opt-out      | On **Player** (global): `wc3statsHostPromptPingsEnabled` default **true**                                                           |
+| User UX           | `/settings` — view + set host prompt pings                                                                                          |
 
 ## Data model
 
@@ -69,8 +69,8 @@ Ephemeral. Shows linked nick (if any) and host-prompt ping preference (`on`/`off
 
 #### `/settings set host_prompt_pings`
 
-| Option | Type | Notes |
-|--------|------|-------|
+| Option    | Type    | Notes                                                        |
+| --------- | ------- | ------------------------------------------------------------ |
 | `enabled` | boolean | Required. `false` = do not ping me for wc3stats host prompts |
 
 Auth: any guild member acting on **themselves** (no mod override needed for this preference).

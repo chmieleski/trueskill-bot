@@ -57,7 +57,14 @@ describe('formatTeamLinesFromPreview', () => {
 
   it('appends the quitter marker outside the code span', () => {
     const value = formatTeamLinesFromPreview([
-      { slot: 1, nick: 'goku', globalOrdinal: 1100, heroOrdinal: 2200, isQuitter: true, leagueGames: 8 },
+      {
+        slot: 1,
+        nick: 'goku',
+        globalOrdinal: 1100,
+        heroOrdinal: 2200,
+        isQuitter: true,
+        leagueGames: 8,
+      },
       { slot: 2, nick: 'vegeta', globalOrdinal: 3300, heroOrdinal: 4400, leagueGames: 8 },
     ]);
     const [firstLine, secondLine] = value.split('\n');
@@ -70,29 +77,27 @@ describe('formatTeamLinesFromPreview', () => {
   });
 
   it('shows signed ki deltas inline on completed roster lines', () => {
-    const value = formatTeamLinesFromPreview(
-      [
-        {
-          slot: 1,
-          nick: 'goku',
-          globalOrdinal: 1186,
-          heroOrdinal: 1200,
-          globalDelta: 186,
-          heroDelta: 200,
-          leagueGames: 8,
-        },
-        {
-          slot: 7,
-          nick: 'vegeta',
-          globalOrdinal: 900,
-          heroOrdinal: 850,
-          globalDelta: -100,
-          heroDelta: -150,
-          isQuitter: true,
-          leagueGames: 8,
-        },
-      ],
-    );
+    const value = formatTeamLinesFromPreview([
+      {
+        slot: 1,
+        nick: 'goku',
+        globalOrdinal: 1186,
+        heroOrdinal: 1200,
+        globalDelta: 186,
+        heroDelta: 200,
+        leagueGames: 8,
+      },
+      {
+        slot: 7,
+        nick: 'vegeta',
+        globalOrdinal: 900,
+        heroOrdinal: 850,
+        globalDelta: -100,
+        heroDelta: -150,
+        isQuitter: true,
+        leagueGames: 8,
+      },
+    ]);
     const [firstLine, secondLine] = value.split('\n');
 
     expect(firstLine).toContain('1186 (+186) / 1200 (+200)');
@@ -104,8 +109,22 @@ describe('formatTeamLinesFromPreview', () => {
 
   it('omits the hero ki column when showHero is false', () => {
     const value = formatTeamLinesFromPreview([
-      { slot: 1, nick: 'alice', globalOrdinal: 1100, heroOrdinal: 1100, showHero: false, leagueGames: 8 },
-      { slot: 6, nick: 'bob', globalOrdinal: 900, heroOrdinal: 900, showHero: false, leagueGames: 8 },
+      {
+        slot: 1,
+        nick: 'alice',
+        globalOrdinal: 1100,
+        heroOrdinal: 1100,
+        showHero: false,
+        leagueGames: 8,
+      },
+      {
+        slot: 6,
+        nick: 'bob',
+        globalOrdinal: 900,
+        heroOrdinal: 900,
+        showHero: false,
+        leagueGames: 8,
+      },
     ]);
     const lines = value.split('\n');
 
@@ -423,65 +442,71 @@ describe('claimSlotSelectOptions', () => {
 
 describe('balance hint on embeds', () => {
   it('shows Balance hint on Match Lobby when suggestion present', () => {
-    const embed = buildMatchLobbyEmbed('m1', [
-      { nick: 'Alice', slot: 1 },
-      { nick: 'Bob', slot: 7 },
-    ], {
-      ratingPreview: {
-        players: [
-          { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
-          { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
-        ],
-        winChance: { teamAPercent: 70, teamBPercent: 30 },
-        balanceSuggestions: [
-          {
-            kind: 'swap',
-            fromSlot: 1,
-            toSlot: 7,
-            fromNick: 'Alice',
-            toNick: 'Bob',
-            resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
-          },
-        ],
+    const embed = buildMatchLobbyEmbed(
+      'm1',
+      [
+        { nick: 'Alice', slot: 1 },
+        { nick: 'Bob', slot: 7 },
+      ],
+      {
+        ratingPreview: {
+          players: [
+            { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
+            { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
+          ],
+          winChance: { teamAPercent: 70, teamBPercent: 30 },
+          balanceSuggestions: [
+            {
+              kind: 'swap',
+              fromSlot: 1,
+              toSlot: 7,
+              fromNick: 'Alice',
+              toNick: 'Bob',
+              resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
+            },
+          ],
+        },
       },
-    });
+    );
     const fields = embed.data.fields ?? [];
     const hint = fields.find((f) => f.name === 'Balance hint');
-    expect(hint?.value).toBe(
-      `Swap Alice (1) ↔ Bob (7) → ~52% / 48%\n${BALANCE_HINT_DISCLAIMER}`,
-    );
+    expect(hint?.value).toBe(`Swap Alice (1) ↔ Bob (7) → ~52% / 48%\n${BALANCE_HINT_DISCLAIMER}`);
   });
 
   it('lists up to three numbered balance hints', () => {
-    const embed = buildMatchLobbyEmbed('m1', [
-      { nick: 'Alice', slot: 1 },
-      { nick: 'Bob', slot: 7 },
-    ], {
-      ratingPreview: {
-        players: [
-          { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
-          { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
-        ],
-        winChance: { teamAPercent: 70, teamBPercent: 30 },
-        balanceSuggestions: [
-          {
-            kind: 'swap',
-            fromSlot: 1,
-            toSlot: 7,
-            fromNick: 'Alice',
-            toNick: 'Bob',
-            resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
-          },
-          {
-            kind: 'move',
-            fromSlot: 7,
-            toSlot: 2,
-            fromNick: 'Bob',
-            resultingWinChance: { teamAPercent: 51, teamBPercent: 49 },
-          },
-        ],
+    const embed = buildMatchLobbyEmbed(
+      'm1',
+      [
+        { nick: 'Alice', slot: 1 },
+        { nick: 'Bob', slot: 7 },
+      ],
+      {
+        ratingPreview: {
+          players: [
+            { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
+            { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
+          ],
+          winChance: { teamAPercent: 70, teamBPercent: 30 },
+          balanceSuggestions: [
+            {
+              kind: 'swap',
+              fromSlot: 1,
+              toSlot: 7,
+              fromNick: 'Alice',
+              toNick: 'Bob',
+              resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
+            },
+            {
+              kind: 'move',
+              fromSlot: 7,
+              toSlot: 2,
+              fromNick: 'Bob',
+              resultingWinChance: { teamAPercent: 51, teamBPercent: 49 },
+            },
+          ],
+        },
       },
-    });
+    );
     const fields = embed.data.fields ?? [];
     const hint = fields.find((f) => f.name === 'Balance hint');
     expect(hint?.value).toBe(
@@ -490,27 +515,31 @@ describe('balance hint on embeds', () => {
   });
 
   it('omits Balance hint on Match In Progress even if DTO has suggestion', () => {
-    const embed = buildMatchInProgressEmbed('m1', [
-      { nick: 'Alice', slot: 1 },
-      { nick: 'Bob', slot: 7 },
-    ], {
-      ratingPreview: {
-        players: [
-          { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
-          { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
-        ],
-        winChance: { teamAPercent: 70, teamBPercent: 30 },
-        balanceSuggestions: [
-          {
-            kind: 'move',
-            fromSlot: 7,
-            toSlot: 2,
-            fromNick: 'Bob',
-            resultingWinChance: { teamAPercent: 51, teamBPercent: 49 },
-          },
-        ],
+    const embed = buildMatchInProgressEmbed(
+      'm1',
+      [
+        { nick: 'Alice', slot: 1 },
+        { nick: 'Bob', slot: 7 },
+      ],
+      {
+        ratingPreview: {
+          players: [
+            { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
+            { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
+          ],
+          winChance: { teamAPercent: 70, teamBPercent: 30 },
+          balanceSuggestions: [
+            {
+              kind: 'move',
+              fromSlot: 7,
+              toSlot: 2,
+              fromNick: 'Bob',
+              resultingWinChance: { teamAPercent: 51, teamBPercent: 49 },
+            },
+          ],
+        },
       },
-    });
+    );
     const fields = embed.data.fields ?? [];
     expect(fields.some((f) => f.name === 'Balance hint')).toBe(false);
   });
@@ -620,8 +649,22 @@ describe('buildMatchCompletedEmbed', () => {
         profile: aca,
         ratingPreview: {
           players: [
-            { slot: 1, nick: 'alice', globalOrdinal: 1100, heroOrdinal: 1100, showHero: false, leagueGames: 8 },
-            { slot: 6, nick: 'bob', globalOrdinal: 900, heroOrdinal: 900, showHero: false, leagueGames: 8 },
+            {
+              slot: 1,
+              nick: 'alice',
+              globalOrdinal: 1100,
+              heroOrdinal: 1100,
+              showHero: false,
+              leagueGames: 8,
+            },
+            {
+              slot: 6,
+              nick: 'bob',
+              globalOrdinal: 900,
+              heroOrdinal: 900,
+              showHero: false,
+              leagueGames: 8,
+            },
           ],
         },
       },
@@ -647,13 +690,39 @@ describe('buildMatchCompletedEmbed', () => {
 
 describe('canStartLobby', () => {
   it('allows UDBR 1+7 and rejects 1+6', () => {
-    expect(canStartLobby([{ slot: 1, nick: 'a' }, { slot: 7, nick: 'b' }])).toBe(true);
-    expect(canStartLobby([{ slot: 1, nick: 'a' }, { slot: 6, nick: 'b' }])).toBe(false);
+    expect(
+      canStartLobby([
+        { slot: 1, nick: 'a' },
+        { slot: 7, nick: 'b' },
+      ]),
+    ).toBe(true);
+    expect(
+      canStartLobby([
+        { slot: 1, nick: 'a' },
+        { slot: 6, nick: 'b' },
+      ]),
+    ).toBe(false);
   });
 
   it('allows ACA 1+6 because slot 6 is Team B', () => {
     const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
-    expect(canStartLobby([{ slot: 1, nick: 'a' }, { slot: 6, nick: 'b' }], aca)).toBe(true);
-    expect(canStartLobby([{ slot: 1, nick: 'a' }, { slot: 5, nick: 'b' }], aca)).toBe(false);
+    expect(
+      canStartLobby(
+        [
+          { slot: 1, nick: 'a' },
+          { slot: 6, nick: 'b' },
+        ],
+        aca,
+      ),
+    ).toBe(true);
+    expect(
+      canStartLobby(
+        [
+          { slot: 1, nick: 'a' },
+          { slot: 5, nick: 'b' },
+        ],
+        aca,
+      ),
+    ).toBe(false);
   });
 });

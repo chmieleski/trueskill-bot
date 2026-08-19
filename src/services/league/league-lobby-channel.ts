@@ -169,11 +169,7 @@ export function formatLobbyChannelConfigLine(
   return `**Lobby channel:** \`on\` · <#${channelId}>`;
 }
 
-const LOBBY_CHANNEL_ALLOWED_MATCH_SUBCOMMANDS = new Set([
-  'complete',
-  'cancel',
-  'quitters',
-]);
+const LOBBY_CHANNEL_ALLOWED_MATCH_SUBCOMMANDS = new Set(['complete', 'cancel', 'quitters']);
 
 /** User-facing copy when a non-allowlisted slash command is used in a ready lobby channel. */
 export function lobbyChannelCommandsLimitedMessage(channelId: string): string {
@@ -193,8 +189,7 @@ export function isLobbyChannelAllowedCommand(
   }
   if (commandName === 'match') {
     return (
-      typeof subcommand === 'string' &&
-      LOBBY_CHANNEL_ALLOWED_MATCH_SUBCOMMANDS.has(subcommand)
+      typeof subcommand === 'string' && LOBBY_CHANNEL_ALLOWED_MATCH_SUBCOMMANDS.has(subcommand)
     );
   }
   return false;
@@ -204,10 +199,7 @@ export function isLobbyChannelAllowedCommand(
  * True when any league in the guild has the lobby channel gate ready on this channel id.
  * Stored ids are trimmed on write; query uses the interaction channel id as-is.
  */
-export async function isGuildLobbyChannel(
-  guildId: string,
-  channelId: string,
-): Promise<boolean> {
+export async function isGuildLobbyChannel(guildId: string, channelId: string): Promise<boolean> {
   const row = await prisma.league.findFirst({
     where: {
       guildId,

@@ -7,10 +7,7 @@ import {
   buildMatchLobbyEmbed,
   canStartLobby,
 } from '../../services/lobby/index.js';
-import {
-  resolveGuildConfig,
-  type ResolvedGuildConfig,
-} from '../../services/guild/index.js';
+import { resolveGuildConfig, type ResolvedGuildConfig } from '../../services/guild/index.js';
 import { nickForDiscordId } from '../../services/lobby/index.js';
 import { assertCanCreateMatch, hasMatchModRole } from '../../services/match/index.js';
 import {
@@ -191,7 +188,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       { userId: interaction.user.id, contentType: attachment.contentType, name: attachment.name },
       'Rejected non-image attachment',
     );
-    await interaction.editReply('Please attach a valid lobby screenshot image (PNG, JPG, WEBP, or GIF).');
+    await interaction.editReply(
+      'Please attach a valid lobby screenshot image (PNG, JPG, WEBP, or GIF).',
+    );
     return;
   }
 

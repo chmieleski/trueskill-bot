@@ -18,14 +18,14 @@ When a user opens a **new** private (ephemeral) UI from a **public** lobby or ma
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Approach | Track previous ephemeral → delete → reply new |
-| Key | `userId:channelId` — one active private UI per user per channel |
-| Storage | In-memory map (lost on restart; acceptable) |
-| Wizard steps | Keep `interaction.update` / `editReply` — do **not** delete or create a second message |
-| Delete failure | Ignore (expired token, unknown message, post-restart); still send the new ephemeral |
-| Surfaces | Lobby Fix Reading entry + match Report / Quitters / Cancel entry |
+| Topic          | Choice                                                                                 |
+| -------------- | -------------------------------------------------------------------------------------- |
+| Approach       | Track previous ephemeral → delete → reply new                                          |
+| Key            | `userId:channelId` — one active private UI per user per channel                        |
+| Storage        | In-memory map (lost on restart; acceptable)                                            |
+| Wizard steps   | Keep `interaction.update` / `editReply` — do **not** delete or create a second message |
+| Delete failure | Ignore (expired token, unknown message, post-restart); still send the new ephemeral    |
+| Surfaces       | Lobby Fix Reading entry + match Report / Quitters / Cancel entry                       |
 
 ## Architecture
 
@@ -48,12 +48,12 @@ Delete uses Discord’s webhook message delete for the stored interaction (`appl
 
 ## Call sites
 
-| Surface | File | Behavior after |
-|---------|------|----------------|
-| Edit nick / Move / Remove / Add (and other public → new ephemeral entry) | `lobby-interactions.ts` | `replyEphemeral` (and equivalent direct `reply` entry points) delete-previous then remember |
-| Report Winner / Quitters / Cancel entry | `match-interactions.ts` | Same via shared `replyEphemeral` |
-| Select/button steps on the ephemeral | both | `updateEphemeral` only — no session delete |
-| Errors that `replyEphemeral` after `deferUpdate` on the **public** message | both | Also replace previous private UI so error toasts don’t stack forever |
+| Surface                                                                    | File                    | Behavior after                                                                              |
+| -------------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------- |
+| Edit nick / Move / Remove / Add (and other public → new ephemeral entry)   | `lobby-interactions.ts` | `replyEphemeral` (and equivalent direct `reply` entry points) delete-previous then remember |
+| Report Winner / Quitters / Cancel entry                                    | `match-interactions.ts` | Same via shared `replyEphemeral`                                                            |
+| Select/button steps on the ephemeral                                       | both                    | `updateEphemeral` only — no session delete                                                  |
+| Errors that `replyEphemeral` after `deferUpdate` on the **public** message | both                    | Also replace previous private UI so error toasts don’t stack forever                        |
 
 ## Edge cases
 
@@ -70,7 +70,7 @@ Delete uses Discord’s webhook message delete for the stored interaction (`appl
 
 ## Rejected alternatives
 
-| Option | Why not |
-|--------|---------|
-| B — Only update when already on ephemeral | Does not fix reopen-from-public stacking |
+| Option                                          | Why not                                            |
+| ----------------------------------------------- | -------------------------------------------------- |
+| B — Only update when already on ephemeral       | Does not fix reopen-from-public stacking           |
 | C — Collapse to “Done” without delete-on-reopen | Still clutters; full A already clears on next open |

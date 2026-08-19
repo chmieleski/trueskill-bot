@@ -24,37 +24,39 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `prisma/schema.prisma` | Add `leaderboardChannelId`, `leaderboardMessageId` to `GuildConfig` |
-| `prisma/migrations/...` | Migration SQL |
-| `src/services/guild-config.ts` | Extend resolve + set/clear leaderboard fields |
-| `src/services/guild-config.test.ts` | Tests for new fields |
-| `src/services/leaderboard.ts` | Queries, DTOs, pagination, hero resolution |
-| `src/services/leaderboard.test.ts` | Unit tests |
-| `src/services/leaderboard-embed.ts` | Embed + button row builders |
-| `src/services/leaderboard-embed.test.ts` | Embed shape tests |
-| `src/services/leaderboard-channel.ts` | Setup, clear, refresh one/all, scheduler |
-| `src/services/leaderboard-channel.test.ts` | Light unit tests (custom ID parse, skip logic) |
-| `src/commands/player/leaderboard.ts` | `/leaderboard show` + `/leaderboard setup` |
-| `src/commands/config/config.ts` | `set/clear leaderboard_channel`, extend `view` |
-| `src/handlers/leaderboard-interactions.ts` | Page button handler |
-| `src/events/interaction-create.ts` | Route `leaderboard:*` before slash commands |
-| `src/handlers/match-interactions.ts` | Fire refresh after `completeMatch` |
-| `src/commands/match/match.ts` | Fire refresh after slash `completeMatch` |
-| `src/events/ready.ts` | Initial refresh + start scheduler |
+| File                                       | Role                                                                |
+| ------------------------------------------ | ------------------------------------------------------------------- |
+| `prisma/schema.prisma`                     | Add `leaderboardChannelId`, `leaderboardMessageId` to `GuildConfig` |
+| `prisma/migrations/...`                    | Migration SQL                                                       |
+| `src/services/guild-config.ts`             | Extend resolve + set/clear leaderboard fields                       |
+| `src/services/guild-config.test.ts`        | Tests for new fields                                                |
+| `src/services/leaderboard.ts`              | Queries, DTOs, pagination, hero resolution                          |
+| `src/services/leaderboard.test.ts`         | Unit tests                                                          |
+| `src/services/leaderboard-embed.ts`        | Embed + button row builders                                         |
+| `src/services/leaderboard-embed.test.ts`   | Embed shape tests                                                   |
+| `src/services/leaderboard-channel.ts`      | Setup, clear, refresh one/all, scheduler                            |
+| `src/services/leaderboard-channel.test.ts` | Light unit tests (custom ID parse, skip logic)                      |
+| `src/commands/player/leaderboard.ts`       | `/leaderboard show` + `/leaderboard setup`                          |
+| `src/commands/config/config.ts`            | `set/clear leaderboard_channel`, extend `view`                      |
+| `src/handlers/leaderboard-interactions.ts` | Page button handler                                                 |
+| `src/events/interaction-create.ts`         | Route `leaderboard:*` before slash commands                         |
+| `src/handlers/match-interactions.ts`       | Fire refresh after `completeMatch`                                  |
+| `src/commands/match/match.ts`              | Fire refresh after slash `completeMatch`                            |
+| `src/events/ready.ts`                      | Initial refresh + start scheduler                                   |
 
 ---
 
 ### Task 1: Prisma schema + guild-config extensions
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: migration via `npm run db:migrate`
 - Modify: `src/services/guild-config.ts`
 - Modify: `src/services/guild-config.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `ResolvedGuildConfig` adds `leaderboardChannelId?: string`, `leaderboardMessageId?: string`
   - `setLeaderboardChannel(guildId, channelId, messageId): Promise<void>`
@@ -207,10 +209,12 @@ git commit -m "feat: add guild leaderboard channel config fields"
 ### Task 2: Leaderboard service (queries + pagination)
 
 **Files:**
+
 - Create: `src/services/leaderboard.ts`
 - Create: `src/services/leaderboard.test.ts`
 
 **Interfaces:**
+
 - Consumes: `displayOrdinal` from `rating-math.ts`, `competitionRank` from `player-profile.ts`, `ensureHeroesExist` from `rating-preview.ts`, Prisma
 - Produces:
 
@@ -261,9 +265,14 @@ export function paginateOverall(
 
 export async function loadOverallLeaderboardPage(page: number): Promise<OverallLeaderboardPage>;
 export async function loadOverallLeaderboardTop(limit: number): Promise<OverallLeaderboardEntry[]>;
-export async function loadHeroLeaderboard(heroId: number, limit: number): Promise<{ heroName: string; entries: HeroLeaderboardEntry[] }>;
+export async function loadHeroLeaderboard(
+  heroId: number,
+  limit: number,
+): Promise<{ heroName: string; entries: HeroLeaderboardEntry[] }>;
 export async function loadAllHeroLeaderboards(): Promise<HeroBoardSlice[]>;
-export async function resolveHeroByName(name: string): Promise<{ heroId: number; heroName: string } | null>;
+export async function resolveHeroByName(
+  name: string,
+): Promise<{ heroId: number; heroName: string } | null>;
 export async function listHeroNames(): Promise<{ id: number; name: string }[]>;
 ```
 
@@ -341,9 +350,7 @@ export function clampPage(page: number, totalPages: number): number {
   return Math.min(Math.max(1, page), totalPages);
 }
 
-export function assignSortedRanks<T extends { ki: number }>(
-  rows: T[],
-): (T & { rank: number })[] {
+export function assignSortedRanks<T extends { ki: number }>(rows: T[]): (T & { rank: number })[] {
   const result: (T & { rank: number })[] = [];
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
@@ -404,9 +411,7 @@ async function loadEligibleOverallRows(): Promise<OverallLeaderboardEntry[]> {
     }),
   ]);
 
-  const gamesByPlayer = new Map(
-    gameCounts.map((row) => [row.playerId, row._count._all]),
-  );
+  const gamesByPlayer = new Map(gameCounts.map((row) => [row.playerId, row._count._all]));
 
   const sorted = ratings
     .map((row) => ({
@@ -434,9 +439,7 @@ export async function loadOverallLeaderboardPage(page: number): Promise<OverallL
   return paginateOverall(rows, page);
 }
 
-export async function loadOverallLeaderboardTop(
-  limit: number,
-): Promise<OverallLeaderboardEntry[]> {
+export async function loadOverallLeaderboardTop(limit: number): Promise<OverallLeaderboardEntry[]> {
   const rows = await loadEligibleOverallRows();
   return rows.slice(0, limit);
 }
@@ -550,10 +553,12 @@ git commit -m "feat: add leaderboard query service with pagination"
 ### Task 3: Leaderboard embed builders
 
 **Files:**
+
 - Create: `src/services/leaderboard-embed.ts`
 - Create: `src/services/leaderboard-embed.test.ts`
 
 **Interfaces:**
+
 - Consumes: DTO types from `leaderboard.ts`
 - Produces:
 
@@ -659,12 +664,7 @@ Expected: FAIL
 Key implementation notes:
 
 ```typescript
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder,
-} from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import type {
   HeroBoardSlice,
   HeroLeaderboardEntry,
@@ -791,10 +791,12 @@ git commit -m "feat: add leaderboard embed and pagination button builders"
 ### Task 4: Live channel service (setup, refresh, scheduler)
 
 **Files:**
+
 - Create: `src/services/leaderboard-channel.ts`
 - Create: `src/services/leaderboard-channel.test.ts`
 
 **Interfaces:**
+
 - Consumes: `loadOverallLeaderboardTop`, `LIVE_LEADERBOARD_SIZE`, guild-config setters, embed builder
 - Produces:
 
@@ -857,10 +859,7 @@ Expected: FAIL
 import type { Client, TextChannel } from 'discord.js';
 import { createLogger } from '../lib/logger.js';
 import { prisma } from '../lib/prisma.js';
-import {
-  clearLeaderboardChannel,
-  setLeaderboardChannel,
-} from './guild-config.js';
+import { clearLeaderboardChannel, setLeaderboardChannel } from './guild-config.js';
 import { LIVE_LEADERBOARD_SIZE, loadOverallLeaderboardTop } from './leaderboard.js';
 import { buildOverallLeaderboardEmbed } from './leaderboard-embed.js';
 
@@ -903,19 +902,12 @@ export async function setupLiveLeaderboard(
 export async function clearLiveLeaderboard(client: Client, guildId: string): Promise<void> {
   const row = await prisma.guildConfig.findUnique({ where: { guildId } });
   if (row?.leaderboardChannelId && row.leaderboardMessageId) {
-    await deleteMessageBestEffort(
-      client,
-      row.leaderboardChannelId,
-      row.leaderboardMessageId,
-    );
+    await deleteMessageBestEffort(client, row.leaderboardChannelId, row.leaderboardMessageId);
   }
   await clearLeaderboardChannel(guildId);
 }
 
-export async function refreshGuildLeaderboard(
-  client: Client,
-  guildId: string,
-): Promise<void> {
+export async function refreshGuildLeaderboard(client: Client, guildId: string): Promise<void> {
   const row = await prisma.guildConfig.findUnique({ where: { guildId } });
   if (!row?.leaderboardChannelId || !row.leaderboardMessageId) {
     return;
@@ -1002,10 +994,12 @@ git commit -m "feat: add live leaderboard channel setup and refresh"
 ### Task 5: Slash commands (`/leaderboard` + `/config` extensions)
 
 **Files:**
+
 - Create: `src/commands/player/leaderboard.ts`
 - Modify: `src/commands/config/config.ts`
 
 **Interfaces:**
+
 - Consumes: all leaderboard + guild-config + channel services
 
 - [ ] **Step 1: Create `/leaderboard` command**
@@ -1047,10 +1041,7 @@ export const data = new SlashCommandBuilder()
           .setName('type')
           .setDescription('Leaderboard type')
           .setRequired(false)
-          .addChoices(
-            { name: 'Overall', value: 'overall' },
-            { name: 'Hero', value: 'hero' },
-          ),
+          .addChoices({ name: 'Overall', value: 'overall' }, { name: 'Hero', value: 'hero' }),
       )
       .addStringOption((opt) =>
         opt
@@ -1068,9 +1059,7 @@ export const data = new SlashCommandBuilder()
       ),
   )
   .addSubcommand((sub) =>
-    sub
-      .setName('setup')
-      .setDescription('Post a live overall top-10 message in this channel'),
+    sub.setName('setup').setDescription('Post a live overall top-10 message in this channel'),
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
@@ -1127,7 +1116,7 @@ Add to `config.ts`:
 - Extend `view` output:
 
 ```typescript
-formatLeaderboardLine(resolved.leaderboardChannelId, resolved.leaderboardMessageId)
+formatLeaderboardLine(resolved.leaderboardChannelId, resolved.leaderboardMessageId);
 // **Live leaderboard:** <#channelId> · message `msgId` — or `unset`
 ```
 
@@ -1153,6 +1142,7 @@ git commit -m "feat: add leaderboard slash commands and config channel managemen
 ### Task 6: Pagination button handler
 
 **Files:**
+
 - Create: `src/handlers/leaderboard-interactions.ts`
 - Modify: `src/events/interaction-create.ts`
 
@@ -1169,9 +1159,7 @@ import {
 
 const NOT_YOUR_PAGE = 'Only the person who ran /leaderboard can change pages.';
 
-export async function handleLeaderboardInteraction(
-  interaction: Interaction,
-): Promise<boolean> {
+export async function handleLeaderboardInteraction(interaction: Interaction): Promise<boolean> {
   if (!interaction.isButton()) {
     return false;
   }
@@ -1227,6 +1215,7 @@ git commit -m "feat: add invoker-only leaderboard pagination buttons"
 ### Task 7: Refresh hooks (match complete + bot ready)
 
 **Files:**
+
 - Modify: `src/events/ready.ts`
 - Modify: `src/handlers/match-interactions.ts`
 - Modify: `src/commands/match/match.ts`
@@ -1282,21 +1271,21 @@ git commit -m "feat: refresh live leaderboards on match complete and on schedule
 
 ## Spec coverage checklist
 
-| Spec requirement | Task |
-|------------------|------|
-| `/leaderboard show` overall paginated | Task 2, 3, 5, 6 |
-| `/leaderboard show` hero all + single | Task 2, 3, 5 |
-| `/leaderboard setup` | Task 4, 5 |
-| `/config set/clear leaderboard_channel` | Task 1, 4, 5 |
-| Live overall top 10 only | Task 4 |
-| Refresh: complete + start + 15 min | Task 4, 7 |
-| Invoker-only pagination | Task 6 |
-| ≥1 game overall eligibility | Task 2 |
-| Hero matchesPlayed > 0 | Task 2 |
-| Gold embeds + medals | Task 3 |
-| English error copy | Tasks 2, 5, 6 |
-| Tech debt: live hero channel | Documented in spec only |
-| Prisma GuildConfig fields | Task 1 |
+| Spec requirement                        | Task                    |
+| --------------------------------------- | ----------------------- |
+| `/leaderboard show` overall paginated   | Task 2, 3, 5, 6         |
+| `/leaderboard show` hero all + single   | Task 2, 3, 5            |
+| `/leaderboard setup`                    | Task 4, 5               |
+| `/config set/clear leaderboard_channel` | Task 1, 4, 5            |
+| Live overall top 10 only                | Task 4                  |
+| Refresh: complete + start + 15 min      | Task 4, 7               |
+| Invoker-only pagination                 | Task 6                  |
+| ≥1 game overall eligibility             | Task 2                  |
+| Hero matchesPlayed > 0                  | Task 2                  |
+| Gold embeds + medals                    | Task 3                  |
+| English error copy                      | Tasks 2, 5, 6           |
+| Tech debt: live hero channel            | Documented in spec only |
+| Prisma GuildConfig fields               | Task 1                  |
 
 ## Manual test plan
 

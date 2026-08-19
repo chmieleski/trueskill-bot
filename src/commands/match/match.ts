@@ -8,12 +8,11 @@ import { createLogger } from '../../lib/logger.js';
 import { syncLobbyDiscordMessage } from '../../services/lobby/index.js';
 import { resolveGuildConfig, teamDisplayName, winnerLabel } from '../../services/guild/index.js';
 import { assertCanManageMatch } from '../../services/match/index.js';
-import { refreshAllLeaderboardChannels, refreshLeagueLeaderboard } from '../../services/leaderboard/index.js';
 import {
-  cancelInProgressMatch,
-  completeMatch,
-  setQuitters,
-} from '../../services/match/index.js';
+  refreshAllLeaderboardChannels,
+  refreshLeagueLeaderboard,
+} from '../../services/leaderboard/index.js';
+import { cancelInProgressMatch, completeMatch, setQuitters } from '../../services/match/index.js';
 import {
   assertHasMatchModRole,
   buildMatchHistoryEmbed,
@@ -171,7 +170,9 @@ async function resolveMatchForCommand(
   }
 
   if (matches.length > 1) {
-    throw new MatchServiceError('You have more than one in-progress match. Pass match_id to choose one.');
+    throw new MatchServiceError(
+      'You have more than one in-progress match. Pass match_id to choose one.',
+    );
   }
 
   if (hasMatchModeratorRole(interaction, config.matchModRoleId)) {
@@ -382,8 +383,7 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const subcommand = interaction.options.getSubcommand(true);
-  const isPublicRead =
-    subcommand === 'history' || subcommand === 'show' || subcommand === 'list';
+  const isPublicRead = subcommand === 'history' || subcommand === 'show' || subcommand === 'list';
 
   const historyLookup =
     subcommand === 'history'
@@ -480,9 +480,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         leagueId: resolved.leagueId,
         page: pageNum,
       });
-      const embed = buildMatchListEmbed(pageData, (team) =>
-        teamDisplayName(team, gameProfile),
-      );
+      const embed = buildMatchListEmbed(pageData, (team) => teamDisplayName(team, gameProfile));
       const components = buildMatchListPageButtons({
         invokerId: interaction.user.id,
         leagueId: resolved.leagueId,

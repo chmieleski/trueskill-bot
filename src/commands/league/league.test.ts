@@ -1,6 +1,9 @@
 import { ApplicationCommandOptionType, ChannelType } from 'discord.js';
 import { describe, expect, it } from 'vitest';
-import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
+import {
+  WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
+  WARCRAFT3_UDBR_GAME_ID,
+} from '../../domain/games.js';
 import type { LeagueRolloverPreview } from '../../services/league/index.js';
 import { buildRolloverPreviewMessage, data } from './league.js';
 
@@ -15,7 +18,7 @@ describe('league command data', () => {
   it('create requires UDBR game choice and name', () => {
     const json = data.toJSON();
     const create = json.options?.find((option) => option.name === 'create');
-    const options = create && 'options' in create ? create.options ?? [] : [];
+    const options = create && 'options' in create ? (create.options ?? []) : [];
 
     const game = options.find((option) => option.name === 'game');
     const name = options.find((option) => option.name === 'name');
@@ -32,7 +35,7 @@ describe('league command data', () => {
   it('bind accepts channel/category target and optional league autocomplete', () => {
     const json = data.toJSON();
     const bind = json.options?.find((option) => option.name === 'bind');
-    const options = bind && 'options' in bind ? bind.options ?? [] : [];
+    const options = bind && 'options' in bind ? (bind.options ?? []) : [];
 
     const target = options.find((option) => option.name === 'target');
     const league = options.find((option) => option.name === 'league');
@@ -40,10 +43,7 @@ describe('league command data', () => {
     expect(target?.required).toBe(true);
     expect(target?.type).toBe(ApplicationCommandOptionType.Channel);
     expect(target?.channel_types).toEqual(
-      expect.arrayContaining([
-        ChannelType.GuildText,
-        ChannelType.GuildCategory,
-      ]),
+      expect.arrayContaining([ChannelType.GuildText, ChannelType.GuildCategory]),
     );
     expect(league?.required).toBeFalsy();
     expect(league?.autocomplete).toBe(true);
@@ -52,21 +52,19 @@ describe('league command data', () => {
   it('unbind requires a channel or category target', () => {
     const json = data.toJSON();
     const unbind = json.options?.find((option) => option.name === 'unbind');
-    const options = unbind && 'options' in unbind ? unbind.options ?? [] : [];
+    const options = unbind && 'options' in unbind ? (unbind.options ?? []) : [];
 
     const target = options.find((option) => option.name === 'target');
 
     expect(target?.required).toBe(true);
     expect(target?.type).toBe(ApplicationCommandOptionType.Channel);
-    expect(target?.channel_types).toEqual(
-      expect.arrayContaining([ChannelType.GuildCategory]),
-    );
+    expect(target?.channel_types).toEqual(expect.arrayContaining([ChannelType.GuildCategory]));
   });
 
   it('rollover requires name and reset with optional compression and league autocomplete', () => {
     const json = data.toJSON();
     const rollover = json.options?.find((option) => option.name === 'rollover');
-    const options = rollover && 'options' in rollover ? rollover.options ?? [] : [];
+    const options = rollover && 'options' in rollover ? (rollover.options ?? []) : [];
 
     const name = options.find((option) => option.name === 'name');
     const reset = options.find((option) => option.name === 'reset');
@@ -89,9 +87,7 @@ describe('league command data', () => {
   });
 });
 
-function previewFixture(
-  overrides: Partial<LeagueRolloverPreview> = {},
-): LeagueRolloverPreview {
+function previewFixture(overrides: Partial<LeagueRolloverPreview> = {}): LeagueRolloverPreview {
   return {
     draftId: 'draft-1',
     sourceLeagueId: 'src-1',

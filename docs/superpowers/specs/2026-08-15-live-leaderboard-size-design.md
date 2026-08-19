@@ -17,17 +17,17 @@ Operators can configure how many overall ranks appear on the **permanent/live** 
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Configurable where | Per **league** via `/config` |
-| Min size | **10** |
-| Max size | **100** |
-| Default | **10** (current behavior; existing leagues unchanged until set) |
-| Embed chunk size | **25** rows per embed |
-| Max embeds used | `ceil(size / 25)` → at most **4** at size 100 (Discord allows 10) |
-| Why max 100 | Discord hard ceiling is `10 × 25 = 250`; 100 is enough for a channel pin without stuffing the message |
-| Slash overall pages | Unchanged at **10** |
-| On size change | Refresh live message if channel + message are bound |
+| Topic               | Choice                                                                                                |
+| ------------------- | ----------------------------------------------------------------------------------------------------- |
+| Configurable where  | Per **league** via `/config`                                                                          |
+| Min size            | **10**                                                                                                |
+| Max size            | **100**                                                                                               |
+| Default             | **10** (current behavior; existing leagues unchanged until set)                                       |
+| Embed chunk size    | **25** rows per embed                                                                                 |
+| Max embeds used     | `ceil(size / 25)` → at most **4** at size 100 (Discord allows 10)                                     |
+| Why max 100         | Discord hard ceiling is `10 × 25 = 250`; 100 is enough for a channel pin without stuffing the message |
+| Slash overall pages | Unchanged at **10**                                                                                   |
+| On size change      | Refresh live message if channel + message are bound                                                   |
 
 ## Discord packing
 
@@ -53,9 +53,9 @@ Clamp on write: reject or coerce outside `[10, 100]` — **reject** with a clear
 
 ### `/config set leaderboard_size`
 
-| Option | Type | Notes |
-|--------|------|-------|
-| `size` | integer | Required; must be **10–100** inclusive |
+| Option   | Type                   | Notes                                         |
+| -------- | ---------------------- | --------------------------------------------- |
+| `size`   | integer                | Required; must be **10–100** inclusive        |
 | `league` | existing league option | Same resolution as other league-scoped config |
 
 Auth: `assertCanConfigureBot` (same as other `/config set`).
@@ -102,11 +102,11 @@ Deprecate/remove the fixed `LIVE_LEADERBOARD_SIZE = 10` as the only live limit; 
 
 ## Error copy (English)
 
-| Case | Message |
-|------|---------|
-| Size out of range | `Live leaderboard size must be between 10 and 100.` |
-| Config forbidden | Existing configure-bot message |
-| League resolve failure | Existing league resolve messages |
+| Case                   | Message                                             |
+| ---------------------- | --------------------------------------------------- |
+| Size out of range      | `Live leaderboard size must be between 10 and 100.` |
+| Config forbidden       | Existing configure-bot message                      |
+| League resolve failure | Existing league resolve messages                    |
 
 ## Testing
 

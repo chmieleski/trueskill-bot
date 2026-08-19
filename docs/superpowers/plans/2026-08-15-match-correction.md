@@ -25,33 +25,35 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `prisma/schema.prisma` | `completedAt`, `MatchRatingSnapshot`, `MatchRatingEntityKind` |
-| `prisma/migrations/…_match_correction_snapshots/` | Migration SQL |
-| `src/services/match/match-report.ts` | Write snapshots + `completedAt` on complete |
-| `src/services/match/match-correction.ts` | Eligibility, snapshot I/O, flip/void, customId helpers |
-| `src/services/match/match-correction.test.ts` | Unit tests |
-| `src/services/match/index.ts` | Re-exports |
-| `src/services/lobby/discord-sync.ts` | Optional cancel reason for void |
-| `src/commands/match/match.ts` | `flip` / `void` subcommands → confirm UI |
-| `src/commands/match/match.test.ts` | Subcommand registration |
-| `src/discord/interactions/match-correction-interactions.ts` | Confirm/Cancel buttons |
-| `src/discord/interactions/match-correction-interactions.test.ts` | Button routing tests |
-| `src/events/interaction-create.ts` | Route correction buttons |
-| `docs/discord/staff/a2-mod-powers.md` | Staff docs |
-| `docs/discord/staff/a5-admin-cheat-sheet.md` | Cheat sheet |
-| `docs/discord/public/05-play-and-finish.md` | Flag wrong reports to mods |
+| File                                                             | Role                                                          |
+| ---------------------------------------------------------------- | ------------------------------------------------------------- |
+| `prisma/schema.prisma`                                           | `completedAt`, `MatchRatingSnapshot`, `MatchRatingEntityKind` |
+| `prisma/migrations/…_match_correction_snapshots/`                | Migration SQL                                                 |
+| `src/services/match/match-report.ts`                             | Write snapshots + `completedAt` on complete                   |
+| `src/services/match/match-correction.ts`                         | Eligibility, snapshot I/O, flip/void, customId helpers        |
+| `src/services/match/match-correction.test.ts`                    | Unit tests                                                    |
+| `src/services/match/index.ts`                                    | Re-exports                                                    |
+| `src/services/lobby/discord-sync.ts`                             | Optional cancel reason for void                               |
+| `src/commands/match/match.ts`                                    | `flip` / `void` subcommands → confirm UI                      |
+| `src/commands/match/match.test.ts`                               | Subcommand registration                                       |
+| `src/discord/interactions/match-correction-interactions.ts`      | Confirm/Cancel buttons                                        |
+| `src/discord/interactions/match-correction-interactions.test.ts` | Button routing tests                                          |
+| `src/events/interaction-create.ts`                               | Route correction buttons                                      |
+| `docs/discord/staff/a2-mod-powers.md`                            | Staff docs                                                    |
+| `docs/discord/staff/a5-admin-cheat-sheet.md`                     | Cheat sheet                                                   |
+| `docs/discord/public/05-play-and-finish.md`                      | Flag wrong reports to mods                                    |
 
 ---
 
 ### Task 1: Schema + migration
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: `prisma/migrations/20260815220000_match_correction_snapshots/migration.sql` (or `npx prisma migrate dev --name match_correction_snapshots`)
 
 **Interfaces:**
+
 - Produces:
   - `Match.completedAt DateTime?`
   - `enum MatchRatingEntityKind { GLOBAL HERO }`
@@ -162,12 +164,14 @@ EOF
 ### Task 2: Write snapshots on complete
 
 **Files:**
+
 - Modify: `src/services/match/match-report.ts`
 - Create: helpers may live in `match-correction.ts` and be imported (prefer writing `writeMatchRatingSnapshots` there first, then call from complete — if Task 3 not done yet, put a minimal private helper in match-report and move in Task 3; **preferred:** implement `writeMatchRatingSnapshots` in Task 3 first, or do Tasks 2–3 as one agent pass with Task 3 module created before completeMatch wiring)
 
 **Recommended order within this task:** create `match-correction.ts` with snapshot write/restore + constants only; wire complete; leave flip/void for Task 3.
 
 **Interfaces:**
+
 - Produces: `writeMatchRatingSnapshots(leagueId, matchId, players, tx): Promise<void>`
 - Consumes: existing `completeMatch` transaction client
 - Constant: `GLOBAL_SNAPSHOT_HERO_ID = 0`
@@ -224,9 +228,7 @@ export async function writeMatchRatingSnapshots(
     const global = globalByPlayer.get(player.playerId);
     const hero = heroByKey.get(`${player.playerId}:${player.heroId}`);
     if (!global || !hero) {
-      throw new MatchServiceError(
-        'Cannot snapshot ratings: missing player or hero rating rows.',
-      );
+      throw new MatchServiceError('Cannot snapshot ratings: missing player or hero rating rows.');
     }
     return [
       {
@@ -259,18 +261,18 @@ Ensure `ensurePlayerRatings` still runs **before** snapshot write inside complet
 In `completeMatch`, after building `entries` / asserting teams, before applying ratings:
 
 ```typescript
-    await ensurePlayerRatings(
-      match.leagueId,
-      match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
-      tx,
-    );
-    // Or rely on apply* ensure — but snapshot needs rows present first.
-    await writeMatchRatingSnapshots(
-      match.leagueId,
-      matchId,
-      match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
-      tx,
-    );
+await ensurePlayerRatings(
+  match.leagueId,
+  match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
+  tx,
+);
+// Or rely on apply* ensure — but snapshot needs rows present first.
+await writeMatchRatingSnapshots(
+  match.leagueId,
+  matchId,
+  match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
+  tx,
+);
 ```
 
 Import `ensurePlayerRatings` from rating-preview if not already used in match-report.
@@ -278,10 +280,10 @@ Import `ensurePlayerRatings` from rating-preview if not already used in match-re
 Update match status write:
 
 ```typescript
-    await tx.match.update({
-      where: { id: matchId },
-      data: { status: 'COMPLETED', completedAt: new Date() },
-    });
+await tx.match.update({
+  where: { id: matchId },
+  data: { status: 'COMPLETED', completedAt: new Date() },
+});
 ```
 
 - [ ] **Step 2: Unit test snapshot shape helpers**
@@ -324,12 +326,14 @@ Export `writeMatchRatingSnapshots` from `index.ts` only if other packages need i
 ### Task 3: Correction use-cases (assert, restore, flip, void, later-match warn)
 
 **Files:**
+
 - Modify: `src/services/match/match-correction.ts`
 - Modify: `src/services/match/match-correction.test.ts`
 - Modify: `src/services/match/index.ts`
 - Modify: `src/services/lobby/discord-sync.ts` (cancel reason)
 
 **Interfaces:**
+
 - Produces:
   - `assertMatchCorrectable(match): void` (throws `MatchServiceError`)
   - `hasNewerCompletedMatches(leagueId, matchId, completedAt, playerIds): Promise<boolean>`
@@ -414,17 +418,12 @@ export function isWithinCorrectionWindow(
   return nowMs - completedAt.getTime() <= CORRECTION_WINDOW_MS;
 }
 
-export function assertMatchCorrectable(match: {
-  status: string;
-  completedAt: Date | null;
-}): void {
+export function assertMatchCorrectable(match: { status: string; completedAt: Date | null }): void {
   if (match.status !== 'COMPLETED') {
     throw new MatchServiceError('This match is not completed.');
   }
   if (!isWithinCorrectionWindow(match.completedAt)) {
-    throw new MatchServiceError(
-      'This match can only be corrected within 24 hours of completion.',
-    );
+    throw new MatchServiceError('This match can only be corrected within 24 hours of completion.');
   }
 }
 
@@ -472,26 +471,26 @@ export async function hasNewerCompletedMatches(
 
 `flipCompletedMatch`:
 
-1. Transaction + `SELECT … FOR UPDATE` on Match where status COMPLETED  
-2. assert correctable + snapshots  
-3. restore  
-4. Resolve quitters via existing `resolveQuitterSlots`  
-5. Update MatchPlayer flags/results (same as complete)  
-6. `applyQuitterPenalties` + `applyMatchRatings`  
-7. Do **not** touch snapshots or `completedAt`  
+1. Transaction + `SELECT … FOR UPDATE` on Match where status COMPLETED
+2. assert correctable + snapshots
+3. restore
+4. Resolve quitters via existing `resolveQuitterSlots`
+5. Update MatchPlayer flags/results (same as complete)
+6. `applyQuitterPenalties` + `applyMatchRatings`
+7. Do **not** touch snapshots or `completedAt`
 8. Build rating preview like complete (optional but good for embed)
 
 `voidCompletedMatch`:
 
-1. Same lock/assert/restore  
-2. Clear each player `result: null`, `isQuitter: false`  
-3. `status: CANCELLED` (leave `completedAt` as-is)  
-4. Return match  
+1. Same lock/assert/restore
+2. Clear each player `result: null`, `isQuitter: false`
+3. `status: CANCELLED` (leave `completedAt` as-is)
+4. Return match
 
 CustomId format (≤100 chars), prefix `matchcorr`:
 
-- Confirm flip: `matchcorr:ok:f:{matchId}:{actorId}:{team}:{slots}` where slots use `encodeSlots` (`1-7` or `-`)  
-- Confirm void: `matchcorr:ok:v:{matchId}:{actorId}`  
+- Confirm flip: `matchcorr:ok:f:{matchId}:{actorId}:{team}:{slots}` where slots use `encodeSlots` (`1-7` or `-`)
+- Confirm void: `matchcorr:ok:v:{matchId}:{actorId}`
 - Cancel: `matchcorr:no:f:…` / `matchcorr:no:v:…` (payload still bound so Cancel is actor-scoped)
 
 Reuse encode/decode slot helpers (copy small private functions into match-correction to avoid coupling to match-interactions).
@@ -544,6 +543,7 @@ EOF
 ### Task 4: Slash commands + confirm buttons
 
 **Files:**
+
 - Modify: `src/commands/match/match.ts`
 - Modify: `src/commands/match/match.test.ts`
 - Create: `src/discord/interactions/match-correction-interactions.ts`
@@ -551,6 +551,7 @@ EOF
 - Modify: `src/events/interaction-create.ts`
 
 **Interfaces:**
+
 - Consumes: `previewMatchCorrection`, `flipCompletedMatch`, `voidCompletedMatch`, customId helpers, `assertHasMatchModRole`
 - Produces: `/match flip`, `/match void`; button handler returning `boolean`
 
@@ -609,11 +610,11 @@ expect(json.options?.map((option) => option.name)).toEqual([
 
 For `flip` / `void`:
 
-1. Require guild  
-2. `resolveGuildConfig` → `assertHasMatchModRole`  
-3. Require `match_id`; `getMatchById`  
-4. `previewMatchCorrection(match.id)` — throws if not correctable  
-5. For flip: parse winner; parse quitters only if option present (`undefined` = keep)  
+1. Require guild
+2. `resolveGuildConfig` → `assertHasMatchModRole`
+3. Require `match_id`; `getMatchById`
+4. `previewMatchCorrection(match.id)` — throws if not correctable
+5. For flip: parse winner; parse quitters only if option present (`undefined` = keep)
 6. Build warning text:
 
 ```typescript
@@ -630,7 +631,7 @@ if (preview.hasNewerMatches) {
 lines.push('This can only be done within 24 hours of completion.');
 ```
 
-7. `editReply` with Confirm/Cancel components from interaction helper  
+7. `editReply` with Confirm/Cancel components from interaction helper
 
 Do **not** call flip/void until Confirm.
 
@@ -640,10 +641,10 @@ Refactor: extract a `resolveCompletedMatchForModCorrection` that does not use ho
 
 Mirror `rank-reset-interactions.ts`:
 
-- `buildMatchCorrectionConfirmComponents(input)`  
-- `handleMatchCorrectionInteraction(interaction): Promise<boolean>` — true if `customId.startsWith('matchcorr:')`  
-- Confirm: deferUpdate → re-assert mod role → `flipCompletedMatch` / `voidCompletedMatch` → `syncLobbyDiscordMessage` (`completed` or `cancelled` with `cancelReason: 'by a moderator'`) → `refreshLeagueLeaderboard(client, match.leagueId)` → editReply success  
-- Cancel: editReply `Cancelled.` and clear components  
+- `buildMatchCorrectionConfirmComponents(input)`
+- `handleMatchCorrectionInteraction(interaction): Promise<boolean>` — true if `customId.startsWith('matchcorr:')`
+- Confirm: deferUpdate → re-assert mod role → `flipCompletedMatch` / `voidCompletedMatch` → `syncLobbyDiscordMessage` (`completed` or `cancelled` with `cancelReason: 'by a moderator'`) → `refreshLeagueLeaderboard(client, match.leagueId)` → editReply success
+- Cancel: editReply `Cancelled.` and clear components
 - Wrong actor: `Only the moderator who ran this command can use these buttons.`
 
 - [ ] **Step 5: Route in `interaction-create.ts`**
@@ -660,8 +661,8 @@ if (await handleMatchCorrectionInteraction(interaction)) {
 
 - [ ] **Step 6: Tests**
 
-- Command data includes flip/void  
-- `handleMatchCorrectionInteraction` returns false for unrelated ids; true for `matchcorr:`  
+- Command data includes flip/void
+- `handleMatchCorrectionInteraction` returns false for unrelated ids; true for `matchcorr:`
 - Wrong actor message (mock interaction)
 
 Run: `npm test -- src/commands/match/match.test.ts src/discord/interactions/match-correction-interactions.test.ts`
@@ -682,6 +683,7 @@ EOF
 ### Task 5: Docs + manual check
 
 **Files:**
+
 - Modify: `docs/discord/staff/a2-mod-powers.md`
 - Modify: `docs/discord/staff/a5-admin-cheat-sheet.md`
 - Modify: `docs/discord/public/05-play-and-finish.md`
@@ -710,12 +712,12 @@ If a result was reported wrong, tell a match mod quickly — they can fix or voi
 
 - [ ] **Step 3: Manual smoke (dev bot)**
 
-1. Complete a match → confirm `completedAt` + snapshot rows in DB  
-2. `/match flip` as mod → confirm → embed winner flips; ki moves  
-3. Complete another; `/match void` → cancelled embed; ratings back  
-4. Non-mod → rejected  
-5. Host without mod role → rejected  
-6. After hacking `completedAt` older than 24h → rejected  
+1. Complete a match → confirm `completedAt` + snapshot rows in DB
+2. `/match flip` as mod → confirm → embed winner flips; ki moves
+3. Complete another; `/match void` → cancelled embed; ratings back
+4. Non-mod → rejected
+5. Host without mod role → rejected
+6. After hacking `completedAt` older than 24h → rejected
 
 - [ ] **Step 4: Commit**
 
@@ -732,19 +734,19 @@ EOF
 
 ## Self-review vs spec
 
-| Spec requirement | Task |
-|------------------|------|
-| `/match flip` + `/match void`, required `match_id` | 4 |
-| Mod only | 4 |
-| Flip winner + optional quitters | 3–4 |
-| Void → restore + CANCELLED | 3 |
-| 24h via `completedAt` | 1–3 |
-| Later-match warning | 3–4 |
-| Snapshots on complete, immutable on flip | 2–3 |
-| Missing snapshots reject | 3 |
-| Confirm buttons | 4 |
-| Leaderboard refresh | 4 |
-| Staff/public docs | 5 |
+| Spec requirement                                    | Task                 |
+| --------------------------------------------------- | -------------------- |
+| `/match flip` + `/match void`, required `match_id`  | 4                    |
+| Mod only                                            | 4                    |
+| Flip winner + optional quitters                     | 3–4                  |
+| Void → restore + CANCELLED                          | 3                    |
+| 24h via `completedAt`                               | 1–3                  |
+| Later-match warning                                 | 3–4                  |
+| Snapshots on complete, immutable on flip            | 2–3                  |
+| Missing snapshots reject                            | 3                    |
+| Confirm buttons                                     | 4                    |
+| Leaderboard refresh                                 | 4                    |
+| Staff/public docs                                   | 5                    |
 | No host access / no embed buttons / no chain replay | honored in non-goals |
 
 No TBD placeholders. CustomId prefix `matchcorr:` avoids colliding with in-progress `match:` wizard. `GLOBAL` rows use `heroId = 0` sentinel for unique constraint.

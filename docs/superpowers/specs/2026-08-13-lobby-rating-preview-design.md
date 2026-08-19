@@ -54,14 +54,14 @@ Team aggregate strength `(Σμ) − 3√(Σσ²)` is the domain definition of te
 
 ## Decisions (locked)
 
-| Topic | Choice |
-|-------|--------|
-| Win chance math | `openskill` + `predictWin` |
-| Cold start | Upsert missing `PlayerRating` / `PlayerHeroRating` on preview load |
-| Embed layout | Dedicated **Rating preview** field (win % only) |
-| Per-player display | Both ordinals: `global / hero` |
-| Legend | Footnote under Rating preview: `Per player: global / hero (ordinal)` |
-| Architecture | Dedicated `rating-preview` service; thin Discord adapters |
+| Topic              | Choice                                                               |
+| ------------------ | -------------------------------------------------------------------- |
+| Win chance math    | `openskill` + `predictWin`                                           |
+| Cold start         | Upsert missing `PlayerRating` / `PlayerHeroRating` on preview load   |
+| Embed layout       | Dedicated **Rating preview** field (win % only)                      |
+| Per-player display | Both ordinals: `global / hero`                                       |
+| Legend             | Footnote under Rating preview: `Per player: global / hero (ordinal)` |
+| Architecture       | Dedicated `rating-preview` service; thin Discord adapters            |
 
 ## Architecture
 
@@ -149,13 +149,13 @@ Same structure on Match Lobby and Match In Progress.
 
 ## Edge cases
 
-| Case | Behavior |
-|------|----------|
-| One or both teams empty | Ordinals when ratings load; **omit** Rating preview field |
-| Missing ratings | Upsert defaults (μ 25 / σ 8.333) |
-| Unbalanced fill | Dual-entity arrays as-is |
+| Case                      | Behavior                                                                            |
+| ------------------------- | ----------------------------------------------------------------------------------- |
+| One or both teams empty   | Ordinals when ratings load; **omit** Rating preview field                           |
+| Missing ratings           | Upsert defaults (μ 25 / σ 8.333)                                                    |
+| Unbalanced fill           | Dual-entity arrays as-is                                                            |
 | DB / `predictWin` failure | Log; fall back to nick-only lines, no preview field; do not fail lobby message sync |
-| Percent rounding | Integers with `teamAPercent + teamBPercent === 100` |
+| Percent rounding          | Integers with `teamAPercent + teamBPercent === 100`                                 |
 
 ## Testing
 

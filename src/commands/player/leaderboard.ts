@@ -1,12 +1,5 @@
-import {
-  GuildMember,
-  MessageFlags,
-  SlashCommandBuilder,
-} from 'discord.js';
-import type {
-  AutocompleteInteraction,
-  ChatInputCommandInteraction,
-} from 'discord.js';
+import { GuildMember, MessageFlags, SlashCommandBuilder } from 'discord.js';
+import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import { assertCanConfigureBot } from '../../services/guild/index.js';
 import {
@@ -68,19 +61,13 @@ export const data = new SlashCommandBuilder()
         .setName('show')
         .setDescription('Global overall leaderboard (top 10 per page)')
         .addIntegerOption((option) =>
-          option
-            .setName('page')
-            .setDescription('Page number')
-            .setRequired(false)
-            .setMinValue(1),
+          option.setName('page').setDescription('Page number').setRequired(false).setMinValue(1),
         ),
     ),
   )
   .addSubcommand((subcommand) =>
     withSubcommandLeagueOption(
-      subcommand
-        .setName('heroes')
-        .setDescription('Top 3 players for each configured hero'),
+      subcommand.setName('heroes').setDescription('Top 3 players for each configured hero'),
     ),
   )
   .addSubcommand((subcommand) =>
@@ -249,11 +236,7 @@ async function handleSetup(interaction: ChatInputCommandInteraction): Promise<vo
   }
 
   try {
-    await setupLiveLeaderboard(
-      interaction.client,
-      resolved.leagueId,
-      interaction.channelId,
-    );
+    await setupLiveLeaderboard(interaction.client, resolved.leagueId, interaction.channelId);
     await interaction.reply({
       content: 'Live overall leaderboard set in this channel. Keep only this message here.',
       flags: MessageFlags.Ephemeral,
@@ -373,7 +356,8 @@ async function handleShowAllHeroes(interaction: ChatInputCommandInteraction): Pr
     const slices = await loadAllHeroLeaderboards(leagueId);
     if (slices.length === 0) {
       await interaction.editReply({
-        content: 'No heroes are configured for this server. Add a hero roster in the database first.',
+        content:
+          'No heroes are configured for this server. Add a hero roster in the database first.',
       });
       return;
     }

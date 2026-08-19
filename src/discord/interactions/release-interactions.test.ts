@@ -53,10 +53,7 @@ vi.mock('../../services/release/release-config.js', () => ({
 
 import { MatchServiceError } from '../../services/match/index.js';
 import { ReleaseServiceError } from '../../services/release/errors.js';
-import {
-  ALREADY_PUBLISHED,
-  EMPTY_PLAYER_NOTES,
-} from '../../services/release/release-publish.js';
+import { ALREADY_PUBLISHED, EMPTY_PLAYER_NOTES } from '../../services/release/release-publish.js';
 import { handleReleaseInteraction } from './release-interactions.js';
 
 const DRAFT = {
@@ -246,8 +243,9 @@ describe('handleReleaseInteraction', () => {
       { guildId: 'g-ok', channelId: 'ch-ok' },
       { guildId: 'g-fail', channelId: 'ch-fail' },
     ]);
-    findUniquePost.mockImplementation(({ where }: { where: { version_guildId: { guildId: string } } }) =>
-      Promise.resolve(where.version_guildId.guildId === 'g-exists' ? { version: '1.4.0' } : null),
+    findUniquePost.mockImplementation(
+      ({ where }: { where: { version_guildId: { guildId: string } } }) =>
+        Promise.resolve(where.version_guildId.guildId === 'g-exists' ? { version: '1.4.0' } : null),
     );
     const sendOk = vi.fn().mockResolvedValue({ id: 'posted-1' });
     const fetch = vi.fn().mockImplementation(async (channelId: string) => {
@@ -285,7 +283,11 @@ describe('handleReleaseInteraction', () => {
     expect(interaction.deferUpdate).toHaveBeenCalledOnce();
     const payload = (interaction.editReply as ReturnType<typeof vi.fn>).mock.calls[0]![0] as {
       embeds: Array<{
-        data: { title?: string; description?: string; fields?: Array<{ name: string; value: string }> };
+        data: {
+          title?: string;
+          description?: string;
+          fields?: Array<{ name: string; value: string }>;
+        };
       }>;
       components: unknown[];
     };

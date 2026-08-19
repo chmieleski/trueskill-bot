@@ -80,11 +80,7 @@ export function formatTeamLines(players: LobbyPlayer[]): string {
  * Public ki cell for a roster line. Calibrating players hide both the number
  * and any signed delta (player-level gate for global and hero).
  */
-function formatKiCell(
-  ki: number,
-  leagueGames: number,
-  delta: number | undefined,
-): string {
+function formatKiCell(ki: number, leagueGames: number, delta: number | undefined): string {
   if (isCalibrating(leagueGames)) {
     return formatPublicKi(ki, leagueGames);
   }
@@ -141,10 +137,7 @@ export function formatSignedDelta(delta: number | undefined): string {
   return ` (${sign}${delta})`;
 }
 
-export function splitLobbyPlayers(
-  players: LobbyPlayer[],
-  profile?: GameProfile,
-): ValidatedLobby {
+export function splitLobbyPlayers(players: LobbyPlayer[], profile?: GameProfile): ValidatedLobby {
   const resolved = resolvedProfile(profile);
   const inProfile = (player: LobbyPlayer) => isSlotInProfile(resolved, player.slot);
   const teamA = players
@@ -326,9 +319,7 @@ export function buildMatchLobbyEmbed(
   ];
 
   if (options.wc3statsUnavailable) {
-    descriptionLines.push(
-      'Could not read the Warcraft lobby. Add players or attach a screenshot.',
-    );
+    descriptionLines.push('Could not read the Warcraft lobby. Add players or attach a screenshot.');
   } else if (options.wc3statsGameId) {
     descriptionLines.push(
       players.length === 0

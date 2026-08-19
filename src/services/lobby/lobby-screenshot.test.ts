@@ -8,11 +8,9 @@ function attachment(partial: Partial<Attachment>): Attachment {
 
 describe('isImageAttachment', () => {
   it('accepts image content types', () => {
-    expect(
-      isImageAttachment(
-        attachment({ contentType: 'image/png', name: 'lobby.bin' }),
-      ),
-    ).toBe(true);
+    expect(isImageAttachment(attachment({ contentType: 'image/png', name: 'lobby.bin' }))).toBe(
+      true,
+    );
   });
 
   it('accepts common image extensions when content type is missing', () => {
@@ -28,9 +26,7 @@ describe('isImageAttachment', () => {
 describe('resolveMimeType', () => {
   it('uses the attachment content type when present', () => {
     expect(
-      resolveMimeType(
-        attachment({ contentType: 'image/jpeg; charset=binary', name: 'x.bin' }),
-      ),
+      resolveMimeType(attachment({ contentType: 'image/jpeg; charset=binary', name: 'x.bin' })),
     ).toBe('image/jpeg');
   });
 

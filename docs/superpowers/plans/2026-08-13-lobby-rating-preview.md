@@ -22,27 +22,29 @@
 
 ## File structure
 
-| File | Responsibility |
-|------|----------------|
-| `src/services/rating-math.ts` | Pure helpers: ordinal display, dual-entity team build, win % rounding (unit-tested) |
-| `src/services/rating-preview.ts` | DB ensure + load + `predictWin` → `LobbyRatingPreview` DTO |
-| `src/services/rating-math.test.ts` | Unit tests for pure math |
-| `src/services/lobby-preview.ts` | Embed formatting using DTO |
-| `src/services/lobby-actions.ts` | Load preview in `syncLobbyDiscordMessage` |
-| `src/commands/lobby/register-lobby.ts` | Load match + preview after create |
-| `package.json` / `vitest.config.ts` / `tsconfig.json` | `openskill` + Vitest; exclude tests from `tsc` |
+| File                                                  | Responsibility                                                                      |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `src/services/rating-math.ts`                         | Pure helpers: ordinal display, dual-entity team build, win % rounding (unit-tested) |
+| `src/services/rating-preview.ts`                      | DB ensure + load + `predictWin` → `LobbyRatingPreview` DTO                          |
+| `src/services/rating-math.test.ts`                    | Unit tests for pure math                                                            |
+| `src/services/lobby-preview.ts`                       | Embed formatting using DTO                                                          |
+| `src/services/lobby-actions.ts`                       | Load preview in `syncLobbyDiscordMessage`                                           |
+| `src/commands/lobby/register-lobby.ts`                | Load match + preview after create                                                   |
+| `package.json` / `vitest.config.ts` / `tsconfig.json` | `openskill` + Vitest; exclude tests from `tsc`                                      |
 
 ---
 
 ### Task 1: Add `openskill` + Vitest
 
 **Files:**
+
 - Modify: `package.json`
 - Create: `vitest.config.ts`
 - Modify: `tsconfig.json`
 - Modify: `.gitignore` (add `.superpowers/`)
 
 **Interfaces:**
+
 - Produces: `npm test` runs Vitest; `openskill` importable
 
 - [ ] **Step 1: Install dependencies**
@@ -100,10 +102,12 @@ Expected: Vitest runs with 0 tests (or pass with no files). `npx tsc --noEmit` s
 ### Task 2: Pure rating math helpers (TDD)
 
 **Files:**
+
 - Create: `src/services/rating-math.ts`
 - Create: `src/services/rating-math.test.ts`
 
 **Interfaces:**
+
 - Consumes: `openskill` (`rating`, `ordinal`, types)
 - Produces:
   - `displayOrdinal(mu: number, sigma: number): number`
@@ -144,11 +148,7 @@ describe('roundWinPercents', () => {
 
 describe('splitRosterByTeam', () => {
   it('puts slots 1-6 in A and 7-12 in B', () => {
-    const { teamA, teamB } = splitRosterByTeam([
-      { slot: 7 },
-      { slot: 1 },
-      { slot: 12 },
-    ]);
+    const { teamA, teamB } = splitRosterByTeam([{ slot: 7 }, { slot: 1 }, { slot: 12 }]);
     expect(teamA.map((e) => e.slot)).toEqual([1]);
     expect(teamB.map((e) => e.slot)).toEqual([7, 12]);
   });
@@ -187,9 +187,7 @@ export function displayOrdinal(mu: number, sigma: number): number {
   return Math.round(ordinal({ mu, sigma }));
 }
 
-export function toOpenSkillRatings(
-  entities: { mu: number; sigma: number }[],
-): Rating[] {
+export function toOpenSkillRatings(entities: { mu: number; sigma: number }[]): Rating[] {
   return entities.map((entity) => rating({ mu: entity.mu, sigma: entity.sigma }));
 }
 
@@ -229,10 +227,12 @@ Expected: all tests PASS
 ### Task 3: `loadLobbyRatingPreview` service
 
 **Files:**
+
 - Create: `src/services/rating-preview.ts`
 - Modify: `src/services/rating-math.test.ts` (optional extra cases for empty-team winChance omission — covered via pure checks in preview tests if you add a pure `computeWinChance` export)
 
 **Interfaces:**
+
 - Consumes: `prisma`, `predictWin`/`rating` from openskill, helpers from `rating-math.ts`
 - Produces:
 
@@ -308,9 +308,7 @@ export async function ensureHeroesExist(): Promise<void> {
   });
 }
 
-async function ensurePlayerRatings(
-  entries: RatingPreviewRosterEntry[],
-): Promise<void> {
+async function ensurePlayerRatings(entries: RatingPreviewRosterEntry[]): Promise<void> {
   for (const entry of entries) {
     await prisma.playerRating.upsert({
       where: { playerId: entry.playerId },
@@ -360,17 +358,14 @@ export async function loadLobbyRatingPreview(
 
     const globalByPlayer = new Map(globals.map((row) => [row.playerId, row]));
     const heroKey = (playerId: string, heroId: number) => `${playerId}:${heroId}`;
-    const heroByKey = new Map(
-      heroes.map((row) => [heroKey(row.playerId, row.heroId), row]),
-    );
+    const heroByKey = new Map(heroes.map((row) => [heroKey(row.playerId, row.heroId), row]));
 
     const players: LobbyRatingPlayerLine[] = sorted.map((entry) => {
       const global = globalByPlayer.get(entry.playerId) ?? { mu: 25, sigma: 8.333 };
-      const hero =
-        heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? {
-          mu: 25,
-          sigma: 8.333,
-        };
+      const hero = heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? {
+        mu: 25,
+        sigma: 8.333,
+      };
       return {
         slot: entry.slot,
         nick: entry.nick,
@@ -388,15 +383,11 @@ export async function loadLobbyRatingPreview(
       const entities: { mu: number; sigma: number }[] = [];
       for (const entry of team) {
         const global = globalByPlayer.get(entry.playerId) ?? { mu: 25, sigma: 8.333 };
-        const hero =
-          heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? {
-            mu: 25,
-            sigma: 8.333,
-          };
-        entities.push(
-          { mu: global.mu, sigma: global.sigma },
-          { mu: hero.mu, sigma: hero.sigma },
-        );
+        const hero = heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? {
+          mu: 25,
+          sigma: 8.333,
+        };
+        entities.push({ mu: global.mu, sigma: global.sigma }, { mu: hero.mu, sigma: hero.sigma });
       }
       return toOpenSkillRatings(entities);
     };
@@ -450,9 +441,11 @@ Expected: no errors (or fix import types for `openskill` if needed; `skipLibChec
 ### Task 4: Wire embeds in `lobby-preview.ts`
 
 **Files:**
+
 - Modify: `src/services/lobby-preview.ts`
 
 **Interfaces:**
+
 - Consumes: `LobbyRatingPreview` from `rating-preview.ts`
 - Produces: updated `buildMatchLobbyEmbed` / `buildMatchInProgressEmbed` signatures accepting optional `ratingPreview?: LobbyRatingPreview`
 
@@ -508,7 +501,7 @@ export function buildMatchLobbyEmbed(
     createdAt?: Date;
     ratingPreview?: LobbyRatingPreview;
   } = {},
-): EmbedBuilder
+): EmbedBuilder;
 ```
 
 Same pattern for `buildMatchInProgressEmbed(matchId, players, options?: { ratingPreview?: LobbyRatingPreview })`.
@@ -522,10 +515,12 @@ Expected: PASS (call sites still compile with optional preview).
 ### Task 5: Wire `syncLobbyDiscordMessage` + register
 
 **Files:**
+
 - Modify: `src/services/lobby-actions.ts`
 - Modify: `src/commands/lobby/register-lobby.ts`
 
 **Interfaces:**
+
 - Consumes: `loadLobbyRatingPreview`, `matchPlayersToRatingEntries`, `getMatchById`
 - Produces: embeds always built with preview when match has players
 
@@ -534,15 +529,10 @@ Expected: PASS (call sites still compile with optional preview).
 In `lobby-actions.ts`, before building embeds for `pending` / `started`:
 
 ```ts
-import {
-  loadLobbyRatingPreview,
-  matchPlayersToRatingEntries,
-} from './rating-preview.js';
+import { loadLobbyRatingPreview, matchPlayersToRatingEntries } from './rating-preview.js';
 
 // inside syncLobbyDiscordMessage, after matchToLobbyPlayers:
-const ratingPreview = await loadLobbyRatingPreview(
-  matchPlayersToRatingEntries(match.players),
-);
+const ratingPreview = await loadLobbyRatingPreview(matchPlayersToRatingEntries(match.players));
 
 // pass ratingPreview into buildMatchLobbyEmbed / buildMatchInProgressEmbed
 ```
@@ -588,17 +578,18 @@ Expected: PASS
 
 - [ ] **Step 4: Manual smoke (dev bot)**
 
-1. `/register_lobby` with a screenshot that yields players on both teams  
-2. Confirm roster lines show `· N / M` and Rating preview field with % + footnote  
-3. Fix Reading / `/lobby` add-remove → preview refreshes  
-4. Start Match → In Progress embed keeps ordinals + win %  
-5. One-sided lobby → ordinals present, no Rating preview field  
+1. `/register_lobby` with a screenshot that yields players on both teams
+2. Confirm roster lines show `· N / M` and Rating preview field with % + footnote
+3. Fix Reading / `/lobby` add-remove → preview refreshes
+4. Start Match → In Progress embed keeps ordinals + win %
+5. One-sided lobby → ordinals present, no Rating preview field
 
 ---
 
 ### Task 6: Spec / rule touch-up (optional, small)
 
 **Files:**
+
 - Modify: `.cursor/rules/openskill-rating.mdc` — note lobby preview uses `predictWin` + per-player ordinals; team aggregate ordinal not shown on embeds
 
 Only if you want rules to match shipped UI; skip if preferring docs-only.
@@ -607,15 +598,15 @@ Only if you want rules to match shipped UI; skip if preferring docs-only.
 
 ## Self-review vs spec
 
-| Spec requirement | Task |
-|------------------|------|
-| `openskill` + `predictWin` | 1, 3 |
-| Dual-entity arrays | 3 |
-| Cold-start upserts + Hero ensure | 3 |
-| Per-player global / hero ordinals | 3, 4 |
-| Dedicated win-% field + footnote | 4 |
-| Omit preview if empty team | 3 |
-| Fail soft on errors | 3 |
-| Wire sync + register | 5 |
-| Vitest for pure math | 1, 2 |
-| No `rate()` | 3 (explicit) |
+| Spec requirement                  | Task         |
+| --------------------------------- | ------------ |
+| `openskill` + `predictWin`        | 1, 3         |
+| Dual-entity arrays                | 3            |
+| Cold-start upserts + Hero ensure  | 3            |
+| Per-player global / hero ordinals | 3, 4         |
+| Dedicated win-% field + footnote  | 4            |
+| Omit preview if empty team        | 3            |
+| Fail soft on errors               | 3            |
+| Wire sync + register              | 5            |
+| Vitest for pure math              | 1, 2         |
+| No `rate()`                       | 3 (explicit) |

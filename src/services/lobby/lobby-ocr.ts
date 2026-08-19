@@ -25,7 +25,7 @@ export class LobbyOcrError extends Error {
 }
 
 const LOBBY_OCR_SYSTEM_INSTRUCTION =
-  "Você é um extrator de dados OCR focado na tela de lobby do jogo Warcraft III. A tela apresenta uma lista vertical que sempre contém exatamente 12 posições (slots), lidas de cima para baixo. Regras: 1. Slots de 1 a 6 são da Equipe A. Slots de 7 a 12 são da Equipe B. 2. Ignore slots escritos 'Open', 'Closed' ou 'Computer'. 3. Extraia apenas nicks de jogadores humanos, associando-os ao número do slot absoluto (linha da tela de 1 a 12). Retorne APENAS JSON no formato: { \"players\": [ { \"slot\": 1, \"nick\": \"Nome\" } ] }";
+  'Você é um extrator de dados OCR focado na tela de lobby do jogo Warcraft III. A tela apresenta uma lista vertical que sempre contém exatamente 12 posições (slots), lidas de cima para baixo. Regras: 1. Slots de 1 a 6 são da Equipe A. Slots de 7 a 12 são da Equipe B. 2. Ignore slots escritos \'Open\', \'Closed\' ou \'Computer\'. 3. Extraia apenas nicks de jogadores humanos, associando-os ao número do slot absoluto (linha da tela de 1 a 12). Retorne APENAS JSON no formato: { "players": [ { "slot": 1, "nick": "Nome" } ] }';
 
 const MIN_SLOT = 1;
 const MAX_SLOT = 12;
@@ -43,12 +43,16 @@ function parsePlayersPayload(raw: string): LobbyPlayer[] {
     parsed = JSON.parse(raw);
   } catch (error) {
     log.warn({ err: error, rawPreview: raw.slice(0, 200) }, 'OCR JSON parse failed');
-    throw new LobbyOcrError('Could not parse the lobby screenshot. Please try again with a clearer image.');
+    throw new LobbyOcrError(
+      'Could not parse the lobby screenshot. Please try again with a clearer image.',
+    );
   }
 
   if (!isRecord(parsed) || !Array.isArray(parsed.players)) {
     log.warn({ parsedType: typeof parsed }, 'OCR payload missing players array');
-    throw new LobbyOcrError('Could not parse the lobby screenshot. Please try again with a clearer image.');
+    throw new LobbyOcrError(
+      'Could not parse the lobby screenshot. Please try again with a clearer image.',
+    );
   }
 
   const players: LobbyPlayer[] = [];
@@ -56,7 +60,9 @@ function parsePlayersPayload(raw: string): LobbyPlayer[] {
   for (const entry of parsed.players) {
     if (!isRecord(entry)) {
       log.warn({ entry }, 'OCR player entry is not an object');
-      throw new LobbyOcrError('Could not parse the lobby screenshot. Please try again with a clearer image.');
+      throw new LobbyOcrError(
+        'Could not parse the lobby screenshot. Please try again with a clearer image.',
+      );
     }
 
     const slot = typeof entry.slot === 'number' ? entry.slot : Number(entry.slot);
@@ -66,7 +72,9 @@ function parsePlayersPayload(raw: string): LobbyPlayer[] {
 
     if (!Number.isInteger(slot) || cleanedNick === '') {
       log.warn({ slot, nick }, 'OCR player entry invalid');
-      throw new LobbyOcrError('Could not parse the lobby screenshot. Please try again with a clearer image.');
+      throw new LobbyOcrError(
+        'Could not parse the lobby screenshot. Please try again with a clearer image.',
+      );
     }
 
     players.push({
@@ -144,7 +152,9 @@ export async function extractLobbyPlayers(
 
   if (!text) {
     log.warn('Gemini OCR returned empty text');
-    throw new LobbyOcrError('Could not read the lobby screenshot. Please try again with a clearer image.');
+    throw new LobbyOcrError(
+      'Could not read the lobby screenshot. Please try again with a clearer image.',
+    );
   }
 
   log.verbose({ rawPreview: text.slice(0, 300) }, 'Gemini OCR raw text');

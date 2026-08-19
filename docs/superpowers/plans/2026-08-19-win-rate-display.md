@@ -25,27 +25,29 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `src/services/rating/rank-reset-display.ts` | `winRatePercent()`, `heroId` on rows, hero aggregate, `heroStatsFor`, bundle loader |
-| `src/services/rating/rank-reset-display.test.ts` | Formula + hero aggregation + lookup |
-| `src/services/player/player-profile.ts` | Join hero W/L onto `PlayerProfileHero`; use shared `winRatePercent()` |
-| `src/services/player/rank-embed.ts` | Hero table `NW NL · WR%` |
-| `src/services/player/rank-embed.test.ts` | Hero table + fixture fields |
-| `src/services/leaderboard/leaderboard.ts` | `winRatePercent` on overall + hero entries; overall from W/L; hero from buckets |
-| `src/services/leaderboard/leaderboard.test.ts` | Extra field on pagination fixtures |
-| `src/services/leaderboard/leaderboard-embed.ts` | `WR` column on `formatOverallTable`; compact unchanged |
-| `src/services/leaderboard/leaderboard-embed.test.ts` | WR column + compact has no WR |
+| File                                                 | Role                                                                                |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `src/services/rating/rank-reset-display.ts`          | `winRatePercent()`, `heroId` on rows, hero aggregate, `heroStatsFor`, bundle loader |
+| `src/services/rating/rank-reset-display.test.ts`     | Formula + hero aggregation + lookup                                                 |
+| `src/services/player/player-profile.ts`              | Join hero W/L onto `PlayerProfileHero`; use shared `winRatePercent()`               |
+| `src/services/player/rank-embed.ts`                  | Hero table `NW NL · WR%`                                                            |
+| `src/services/player/rank-embed.test.ts`             | Hero table + fixture fields                                                         |
+| `src/services/leaderboard/leaderboard.ts`            | `winRatePercent` on overall + hero entries; overall from W/L; hero from buckets     |
+| `src/services/leaderboard/leaderboard.test.ts`       | Extra field on pagination fixtures                                                  |
+| `src/services/leaderboard/leaderboard-embed.ts`      | `WR` column on `formatOverallTable`; compact unchanged                              |
+| `src/services/leaderboard/leaderboard-embed.test.ts` | WR column + compact has no WR                                                       |
 
 ---
 
 ### Task 1: [general] Display-stat helpers (formula + hero aggregate)
 
 **Files:**
+
 - Modify: `src/services/rating/rank-reset-display.ts`
 - Modify: `src/services/rating/rank-reset-display.test.ts`
 
 **Interfaces:**
+
 - Consumes: existing `aggregateMatchDisplayStats`, `loadMatchDisplayStatsByPlayer`, rank-reset cutoff
 - Produces:
   - `winRatePercent(wins: number, losses: number): number | null`
@@ -317,11 +319,7 @@ export async function loadMatchDisplayStats(
   playerIds?: string[],
   db: Db = defaultPrisma,
 ): Promise<MatchDisplayStatsBundle> {
-  const { resetAtByPlayer, rows } = await loadMatchDisplayRows(
-    leagueId,
-    playerIds,
-    db,
-  );
+  const { resetAtByPlayer, rows } = await loadMatchDisplayRows(leagueId, playerIds, db);
   return {
     byPlayer: aggregateMatchDisplayStats(rows, resetAtByPlayer),
     byHero: aggregateHeroMatchDisplayStats(rows, resetAtByPlayer),
@@ -333,11 +331,7 @@ export async function loadMatchDisplayStatsByPlayer(
   playerIds?: string[],
   db: Db = defaultPrisma,
 ): Promise<Map<string, PlayerMatchDisplayStats>> {
-  const { resetAtByPlayer, rows } = await loadMatchDisplayRows(
-    leagueId,
-    playerIds,
-    db,
-  );
+  const { resetAtByPlayer, rows } = await loadMatchDisplayRows(leagueId, playerIds, db);
   return aggregateMatchDisplayStats(rows, resetAtByPlayer);
 }
 ```
@@ -366,11 +360,13 @@ EOF
 ### Task 2: [general] `/rank` character W/L + WR
 
 **Files:**
+
 - Modify: `src/services/player/player-profile.ts`
 - Modify: `src/services/player/rank-embed.ts`
 - Modify: `src/services/player/rank-embed.test.ts`
 
 **Interfaces:**
+
 - Consumes: `loadMatchDisplayStats`, `heroStatsFor`, `winRatePercent` from Task 1
 - Produces: `PlayerProfileHero` with `wins`, `losses`, `winRatePercent`; hero table `Name  ki · 5W 3L · 62.5%`
 
@@ -509,21 +505,21 @@ Keep using `displayStatsByPlayer` for overall W/L / games / quits / calibrating.
 Replace overall WR and hero mapping:
 
 ```typescript
-  const winRatePercentValue = winRatePercent(wins, losses);
-  const heroes: PlayerProfileHero[] = heroRatings
-    .map((row) => {
-      const heroWl = heroStatsFor(displayStats.byHero, player.id, row.heroId);
-      return {
-        heroId: row.heroId,
-        name: row.hero.name,
-        ki: displayOrdinal(row.mu, row.sigma, row.matchesPlayed),
-        matchesPlayed: row.matchesPlayed,
-        wins: heroWl.wins,
-        losses: heroWl.losses,
-        winRatePercent: winRatePercent(heroWl.wins, heroWl.losses),
-      };
-    })
-    .sort((a, b) => b.ki - a.ki || a.name.localeCompare(b.name));
+const winRatePercentValue = winRatePercent(wins, losses);
+const heroes: PlayerProfileHero[] = heroRatings
+  .map((row) => {
+    const heroWl = heroStatsFor(displayStats.byHero, player.id, row.heroId);
+    return {
+      heroId: row.heroId,
+      name: row.hero.name,
+      ki: displayOrdinal(row.mu, row.sigma, row.matchesPlayed),
+      matchesPlayed: row.matchesPlayed,
+      wins: heroWl.wins,
+      losses: heroWl.losses,
+      winRatePercent: winRatePercent(heroWl.wins, heroWl.losses),
+    };
+  })
+  .sort((a, b) => b.ki - a.ki || a.name.localeCompare(b.name));
 ```
 
 Return `winRatePercent: winRatePercentValue` (do not shadow the imported function with a local `const winRatePercent`).
@@ -531,26 +527,24 @@ Return `winRatePercent: winRatePercentValue` (do not shadow the imported functio
 `src/services/player/rank-embed.ts` — replace `formatHeroTable` cell mapping:
 
 ```typescript
-  const cells = heroes.map((hero) => {
-    const record = `${hero.wins}W ${hero.losses}L`;
-    const recordWithWr =
-      hero.winRatePercent === null
-        ? record
-        : `${record} · ${hero.winRatePercent}%`;
-    return {
-      name: hero.name,
-      ki: formatPublicKi(hero.ki, leagueGames),
-      record: recordWithWr,
-    };
-  });
-  const nameWidth = Math.max(...cells.map((cell) => cell.name.length));
-  const kiWidth = Math.max(...cells.map((cell) => cell.ki.length));
+const cells = heroes.map((hero) => {
+  const record = `${hero.wins}W ${hero.losses}L`;
+  const recordWithWr =
+    hero.winRatePercent === null ? record : `${record} · ${hero.winRatePercent}%`;
+  return {
+    name: hero.name,
+    ki: formatPublicKi(hero.ki, leagueGames),
+    record: recordWithWr,
+  };
+});
+const nameWidth = Math.max(...cells.map((cell) => cell.name.length));
+const kiWidth = Math.max(...cells.map((cell) => cell.ki.length));
 
-  const lines = cells.map((cell) => {
-    const name = cell.name.padEnd(nameWidth, ' ');
-    const ki = cell.ki.padStart(kiWidth, ' ');
-    return `${name}  ${ki} · ${cell.record}`;
-  });
+const lines = cells.map((cell) => {
+  const name = cell.name.padEnd(nameWidth, ' ');
+  const ki = cell.ki.padStart(kiWidth, ' ');
+  return `${name}  ${ki} · ${cell.record}`;
+});
 ```
 
 Leave the overall record line (`12W · 5L · 2Q · 70.6% WR`) unchanged.
@@ -577,12 +571,14 @@ EOF
 ### Task 3: [general] WR column on overall, live, and single-hero boards
 
 **Files:**
+
 - Modify: `src/services/leaderboard/leaderboard.ts`
 - Modify: `src/services/leaderboard/leaderboard.test.ts`
 - Modify: `src/services/leaderboard/leaderboard-embed.ts`
 - Modify: `src/services/leaderboard/leaderboard-embed.test.ts`
 
 **Interfaces:**
+
 - Consumes: `winRatePercent`, `heroStatsFor`, `loadMatchDisplayStats` from Task 1
 - Produces: `OverallLeaderboardEntry.winRatePercent`, `HeroLeaderboardEntry.winRatePercent`; `formatOverallTable` header `WR`; compact table still `# name ki`
 
@@ -608,39 +604,39 @@ function fakeEntry(rank: number): OverallLeaderboardEntry {
 Add to `formatOverallTable`:
 
 ```typescript
-  it('adds a WR column', () => {
-    const table = formatOverallTable([
-      {
-        rank: 1,
-        playerId: 'p1',
-        username: 'Tinys',
-        ki: 4200,
-        games: 17,
-        leagueGames: 17,
-        discordId: null,
-        winRatePercent: 70.6,
-      },
-    ]);
-    expect(table).toContain('WR');
-    expect(table).toContain('70.6%');
-  });
+it('adds a WR column', () => {
+  const table = formatOverallTable([
+    {
+      rank: 1,
+      playerId: 'p1',
+      username: 'Tinys',
+      ki: 4200,
+      games: 17,
+      leagueGames: 17,
+      discordId: null,
+      winRatePercent: 70.6,
+    },
+  ]);
+  expect(table).toContain('WR');
+  expect(table).toContain('70.6%');
+});
 
-  it('prints an em dash when winRatePercent is null', () => {
-    const table = formatOverallTable([
-      {
-        rank: 1,
-        playerId: 'p1',
-        username: 'Tinys',
-        ki: 4200,
-        games: 8,
-        leagueGames: 8,
-        discordId: null,
-        winRatePercent: null,
-      },
-    ]);
-    expect(table).toMatch(/WR/);
-    expect(table).toContain('—');
-  });
+it('prints an em dash when winRatePercent is null', () => {
+  const table = formatOverallTable([
+    {
+      rank: 1,
+      playerId: 'p1',
+      username: 'Tinys',
+      ki: 4200,
+      games: 8,
+      leagueGames: 8,
+      discordId: null,
+      winRatePercent: null,
+    },
+  ]);
+  expect(table).toMatch(/WR/);
+  expect(table).toContain('—');
+});
 ```
 
 Add to `buildAllHeroLeaderboardsEmbed` (compact must **not** show WR even if the DTO has it):
@@ -715,16 +711,16 @@ export type HeroLeaderboardEntry = {
 Overall mapping: keep `loadMatchDisplayStatsByPlayer`. After `const games = ...`:
 
 ```typescript
-      const stats = displayStatsByPlayer.get(row.playerId);
-      return {
-        playerId: row.playerId,
-        username: row.player.username,
-        discordId: row.player.discordId,
-        ki: displayOrdinal(row.mu, row.sigma, games),
-        games,
-        leagueGames: games,
-        winRatePercent: winRatePercent(stats?.wins ?? 0, stats?.losses ?? 0),
-      };
+const stats = displayStatsByPlayer.get(row.playerId);
+return {
+  playerId: row.playerId,
+  username: row.player.username,
+  discordId: row.player.discordId,
+  ki: displayOrdinal(row.mu, row.sigma, games),
+  games,
+  leagueGames: games,
+  winRatePercent: winRatePercent(stats?.wins ?? 0, stats?.losses ?? 0),
+};
 ```
 
 Include `winRatePercent: row.winRatePercent` in the `rankLeaderboardRows(...).map` return.
@@ -776,18 +772,18 @@ function mapHeroRatings(
 `loadHeroLeaderboard`:
 
 ```typescript
-  const [rows, displayStats] = await Promise.all([
-    prisma.playerHeroRating.findMany({
-      where: { leagueId, heroId, matchesPlayed: { gt: 0 } },
-      include: { player: { select: { username: true } } },
-    }),
-    loadMatchDisplayStats(leagueId),
-  ]);
-  const leagueGamesByPlayer = gamesByPlayerFromStats(displayStats.byPlayer);
-  return {
-    heroName: hero.name,
-    entries: mapHeroRatings(rows, leagueGamesByPlayer, displayStats.byHero, heroId, limit),
-  };
+const [rows, displayStats] = await Promise.all([
+  prisma.playerHeroRating.findMany({
+    where: { leagueId, heroId, matchesPlayed: { gt: 0 } },
+    include: { player: { select: { username: true } } },
+  }),
+  loadMatchDisplayStats(leagueId),
+]);
+const leagueGamesByPlayer = gamesByPlayerFromStats(displayStats.byPlayer);
+return {
+  heroName: hero.name,
+  entries: mapHeroRatings(rows, leagueGamesByPlayer, displayStats.byHero, heroId, limit),
+};
 ```
 
 `loadAllHeroLeaderboards`: load the bundle **once**, then pass `displayStats.byHero` and `hero.id` into `mapHeroRatings`.
@@ -799,18 +795,13 @@ function formatWinRateCell(percent: number | null): string {
   return percent === null ? '—' : `${percent}%`;
 }
 
-export function formatOverallTable(
-  entries: OverallLeaderboardEntry[],
-  ratingLabel = 'ki',
-): string {
+export function formatOverallTable(entries: OverallLeaderboardEntry[], ratingLabel = 'ki'): string {
   if (entries.length === 0) {
     return '_No ranked players yet._';
   }
 
   const labelHeader =
-    ratingLabel.length === 0
-      ? 'Ki'
-      : ratingLabel.charAt(0).toUpperCase() + ratingLabel.slice(1);
+    ratingLabel.length === 0 ? 'Ki' : ratingLabel.charAt(0).toUpperCase() + ratingLabel.slice(1);
   const nameWidth = Math.max(...entries.map((entry) => entry.username.length), 'Player'.length);
   const kiWidth = Math.max(
     ...entries.map((entry) => formatPublicKi(entry.ki, entry.leagueGames).length),
@@ -846,7 +837,7 @@ Expected: PASS
 
 Then: `npm test`
 
-Expected:  all files PASS (fix any other `OverallLeaderboardEntry` / `HeroLeaderboardEntry` / `PlayerProfileHero` literals the compiler reports — search the repo for `matchesPlayed:` object literals in tests if Vitest/tsc fails).
+Expected: all files PASS (fix any other `OverallLeaderboardEntry` / `HeroLeaderboardEntry` / `PlayerProfileHero` literals the compiler reports — search the repo for `matchesPlayed:` object literals in tests if Vitest/tsc fails).
 
 - [ ] **Step 5: Commit**
 
@@ -865,18 +856,18 @@ EOF
 
 **Spec coverage**
 
-| Spec requirement | Task |
-|------------------|------|
-| Shared `winRatePercent()` formula | 1 |
-| Hero aggregate + skip null `heroId` + rank reset + no per-hero Q | 1 |
-| Bundle loader; by-player loader unchanged for overall | 1 |
-| `/rank` overall line unchanged | 2 (do not touch record string) |
-| `/rank` hero `5W 3L · 62.5%`; omit `%` on 0 games | 2 |
-| Overall + live `G` + `WR` | 3 (`formatOverallTable` shared with live) |
-| Single-hero same table; `G` = `matchesPlayed` | 3 |
-| Compact ki-only; DTO still has `winRatePercent` | 3 |
-| Sort still ki | unchanged |
-| No schema / commands / customIds | none added |
+| Spec requirement                                                 | Task                                      |
+| ---------------------------------------------------------------- | ----------------------------------------- |
+| Shared `winRatePercent()` formula                                | 1                                         |
+| Hero aggregate + skip null `heroId` + rank reset + no per-hero Q | 1                                         |
+| Bundle loader; by-player loader unchanged for overall            | 1                                         |
+| `/rank` overall line unchanged                                   | 2 (do not touch record string)            |
+| `/rank` hero `5W 3L · 62.5%`; omit `%` on 0 games                | 2                                         |
+| Overall + live `G` + `WR`                                        | 3 (`formatOverallTable` shared with live) |
+| Single-hero same table; `G` = `matchesPlayed`                    | 3                                         |
+| Compact ki-only; DTO still has `winRatePercent`                  | 3                                         |
+| Sort still ki                                                    | unchanged                                 |
+| No schema / commands / customIds                                 | none added                                |
 
 **Placeholder scan:** none.
 

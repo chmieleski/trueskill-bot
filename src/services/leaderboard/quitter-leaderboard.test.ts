@@ -33,8 +33,22 @@ describe('assertQuitterLeaderboardSize', () => {
 
 describe('sort + ranks', () => {
   const base = [
-    { playerId: 'a', username: 'Ann', discordId: null, quitCount: 5, completedCount: 10, rate: 0.5 },
-    { playerId: 'b', username: 'Bob', discordId: null, quitCount: 5, completedCount: 20, rate: 0.25 },
+    {
+      playerId: 'a',
+      username: 'Ann',
+      discordId: null,
+      quitCount: 5,
+      completedCount: 10,
+      rate: 0.5,
+    },
+    {
+      playerId: 'b',
+      username: 'Bob',
+      discordId: null,
+      quitCount: 5,
+      completedCount: 20,
+      rate: 0.25,
+    },
     { playerId: 'c', username: 'Cat', discordId: null, quitCount: 2, completedCount: 2, rate: 1 },
   ];
 
@@ -49,8 +63,9 @@ describe('sort + ranks', () => {
   });
 
   it('assigns competition ranks on tied primary metric', () => {
-    const ranked = assignCompetitionRanks(sortQuitterRows(base, 'count'), (x, y) =>
-      x.quitCount === y.quitCount,
+    const ranked = assignCompetitionRanks(
+      sortQuitterRows(base, 'count'),
+      (x, y) => x.quitCount === y.quitCount,
     );
     expect(ranked.map((r) => r.rank)).toEqual([1, 1, 3]);
   });

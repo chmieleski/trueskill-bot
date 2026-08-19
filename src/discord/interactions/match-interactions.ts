@@ -11,21 +11,14 @@ import type {
   MessageComponentInteraction,
   StringSelectMenuInteraction,
 } from 'discord.js';
-import {
-  sendReplacingEphemeral,
-  touchEphemeralSession,
-} from '../../lib/ephemeral-reply.js';
+import { sendReplacingEphemeral, touchEphemeralSession } from '../../lib/ephemeral-reply.js';
 import { createLogger } from '../../lib/logger.js';
 import {
   resolveInProgressMatchByMessageId,
   syncLobbyDiscordMessage,
 } from '../../services/lobby/index.js';
 import { refreshAllLeaderboardChannels } from '../../services/leaderboard/index.js';
-import {
-  cancelInProgressMatch,
-  completeMatch,
-  setQuitters,
-} from '../../services/match/index.js';
+import { cancelInProgressMatch, completeMatch, setQuitters } from '../../services/match/index.js';
 import {
   getMatchById,
   MatchServiceError,
@@ -39,9 +32,7 @@ import { resolveGuildConfig, winnerLabel } from '../../services/guild/index.js';
 const log = createLogger('match-interactions');
 
 type MatchPlayer = MatchWithPlayers['players'][number];
-type ComponentRow =
-  | ActionRowBuilder<ButtonBuilder>
-  | ActionRowBuilder<StringSelectMenuBuilder>;
+type ComponentRow = ActionRowBuilder<ButtonBuilder> | ActionRowBuilder<StringSelectMenuBuilder>;
 
 function parseCustomId(customId: string): string[] {
   return customId.split(':');
@@ -157,9 +148,7 @@ function buildQuitterContinueRow(
 
   const slotsCsv = encodeSlots(quitterSlots);
   const customId =
-    kind === 'report'
-      ? `match:rw:qok:${matchId}:${slotsCsv}`
-      : `match:qok:${matchId}:${slotsCsv}`;
+    kind === 'report' ? `match:rw:qok:${matchId}:${slotsCsv}` : `match:qok:${matchId}:${slotsCsv}`;
 
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -343,9 +332,7 @@ async function handleReportEntry(interaction: ButtonInteraction): Promise<void> 
   }
 
   const preselected = preselectedQuitterSlots(match);
-  const components: ComponentRow[] = [
-    buildQuitterSelectRow(match, `match:rw:q:${match.id}`),
-  ];
+  const components: ComponentRow[] = [buildQuitterSelectRow(match, `match:rw:q:${match.id}`)];
   const continueRow = buildQuitterContinueRow(match.id, 'report', preselected);
   if (continueRow) {
     components.push(continueRow);
@@ -368,9 +355,7 @@ async function handleQuittersEntry(interaction: ButtonInteraction): Promise<void
   }
 
   const preselected = preselectedQuitterSlots(match);
-  const components: ComponentRow[] = [
-    buildQuitterSelectRow(match, `match:qset:${match.id}`),
-  ];
+  const components: ComponentRow[] = [buildQuitterSelectRow(match, `match:qset:${match.id}`)];
   const continueRow = buildQuitterContinueRow(match.id, 'save', preselected);
   if (continueRow) {
     components.push(continueRow);
@@ -510,10 +495,7 @@ async function handleQuittersKeep(
   });
 }
 
-async function handleCancelConfirm(
-  interaction: ButtonInteraction,
-  matchId: string,
-): Promise<void> {
+async function handleCancelConfirm(interaction: ButtonInteraction, matchId: string): Promise<void> {
   await resolveById(interaction, matchId);
   await showWorking(
     interaction,

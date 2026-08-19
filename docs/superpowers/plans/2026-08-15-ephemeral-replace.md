@@ -22,23 +22,25 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `src/lib/ephemeral-session.ts` | **Create** — map + remember / take / deletePrevious |
-| `src/lib/ephemeral-session.test.ts` | **Create** — unit tests for map + empty delete |
-| `src/lib/ephemeral-reply.ts` | **Create** — shared `sendReplacingEphemeral` + optional `touchEphemeralSession` |
-| `src/handlers/match-interactions.ts` | Route `replyEphemeral` / `updateEphemeral` through helpers |
-| `src/handlers/lobby-interactions.ts` | Same; replace direct `reply`/`followUp` entry points |
+| File                                 | Role                                                                            |
+| ------------------------------------ | ------------------------------------------------------------------------------- |
+| `src/lib/ephemeral-session.ts`       | **Create** — map + remember / take / deletePrevious                             |
+| `src/lib/ephemeral-session.test.ts`  | **Create** — unit tests for map + empty delete                                  |
+| `src/lib/ephemeral-reply.ts`         | **Create** — shared `sendReplacingEphemeral` + optional `touchEphemeralSession` |
+| `src/handlers/match-interactions.ts` | Route `replyEphemeral` / `updateEphemeral` through helpers                      |
+| `src/handlers/lobby-interactions.ts` | Same; replace direct `reply`/`followUp` entry points                            |
 
 ---
 
 ### Task 1: Ephemeral session store + tests
 
 **Files:**
+
 - Create: `src/lib/ephemeral-session.ts`
 - Create: `src/lib/ephemeral-session.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `export type EphemeralRef = { applicationId: string; token: string; messageId: string }`
   - `export function ephemeralSessionKey(userId: string, channelId: string): string`
@@ -108,9 +110,7 @@ describe('ephemeral-session', () => {
   });
 
   it('deletePreviousEphemeral no-ops when empty', async () => {
-    await expect(
-      deletePreviousEphemeral({} as never, 'u1', 'c1'),
-    ).resolves.toBeUndefined();
+    await expect(deletePreviousEphemeral({} as never, 'u1', 'c1')).resolves.toBeUndefined();
   });
 });
 ```
@@ -142,19 +142,12 @@ export function ephemeralSessionKey(userId: string, channelId: string): string {
 }
 
 /** Store the latest ephemeral reply for this user in this channel. */
-export function rememberEphemeral(
-  userId: string,
-  channelId: string,
-  ref: EphemeralRef,
-): void {
+export function rememberEphemeral(userId: string, channelId: string, ref: EphemeralRef): void {
   sessions.set(ephemeralSessionKey(userId, channelId), ref);
 }
 
 /** Take and remove the previous ephemeral ref, if any. */
-export function takePreviousEphemeral(
-  userId: string,
-  channelId: string,
-): EphemeralRef | null {
+export function takePreviousEphemeral(userId: string, channelId: string): EphemeralRef | null {
   const key = ephemeralSessionKey(userId, channelId);
   const prev = sessions.get(key) ?? null;
   if (prev) {
@@ -213,9 +206,11 @@ EOF
 ### Task 2: Shared `sendReplacingEphemeral` helper
 
 **Files:**
+
 - Create: `src/lib/ephemeral-reply.ts`
 
 **Interfaces:**
+
 - Consumes: `deletePreviousEphemeral`, `rememberEphemeral` from `./ephemeral-session.js`
 - Produces:
   - `sendReplacingEphemeral(interaction, { content, components? }): Promise<void>`
@@ -236,9 +231,7 @@ import {
 } from 'discord.js';
 import { deletePreviousEphemeral, rememberEphemeral } from './ephemeral-session.js';
 
-type ComponentRow =
-  | ActionRowBuilder<ButtonBuilder>
-  | ActionRowBuilder<StringSelectMenuBuilder>;
+type ComponentRow = ActionRowBuilder<ButtonBuilder> | ActionRowBuilder<StringSelectMenuBuilder>;
 
 type EphemeralPayload = {
   content: string;
@@ -273,11 +266,7 @@ export async function sendReplacingEphemeral(
     }
 
     if (channelId) {
-      await deletePreviousEphemeral(
-        interaction.client,
-        interaction.user.id,
-        channelId,
-      );
+      await deletePreviousEphemeral(interaction.client, interaction.user.id, channelId);
     }
 
     const message = await interaction.followUp({
@@ -297,11 +286,7 @@ export async function sendReplacingEphemeral(
   }
 
   if (channelId) {
-    await deletePreviousEphemeral(
-      interaction.client,
-      interaction.user.id,
-      channelId,
-    );
+    await deletePreviousEphemeral(interaction.client, interaction.user.id, channelId);
   }
 
   await interaction.reply({
@@ -323,9 +308,7 @@ export async function sendReplacingEphemeral(
  * After interaction.update / editReply on an existing ephemeral wizard step,
  * refresh the stored token so a later replace can still delete this message.
  */
-export function touchEphemeralSession(
-  interaction: MessageComponentInteraction,
-): void {
+export function touchEphemeralSession(interaction: MessageComponentInteraction): void {
   const channelId = interaction.channelId;
   if (!channelId) {
     return;
@@ -361,9 +344,11 @@ EOF
 ### Task 3: Wire match interactions
 
 **Files:**
+
 - Modify: `src/handlers/match-interactions.ts` (`replyEphemeral`, `updateEphemeral`)
 
 **Interfaces:**
+
 - Consumes: `sendReplacingEphemeral`, `touchEphemeralSession` from `../lib/ephemeral-reply.js`
 
 - [ ] **Step 1: Replace local helpers**
@@ -373,10 +358,7 @@ In `src/handlers/match-interactions.ts`:
 1. Add import:
 
 ```typescript
-import {
-  sendReplacingEphemeral,
-  touchEphemeralSession,
-} from '../lib/ephemeral-reply.js';
+import { sendReplacingEphemeral, touchEphemeralSession } from '../lib/ephemeral-reply.js';
 ```
 
 2. Replace `replyEphemeral` body with:
@@ -434,9 +416,11 @@ EOF
 ### Task 4: Wire lobby interactions
 
 **Files:**
+
 - Modify: `src/handlers/lobby-interactions.ts` (`replyEphemeral`, `updateEphemeral`, direct `reply`/`followUp` entry points)
 
 **Interfaces:**
+
 - Consumes: `sendReplacingEphemeral`, `touchEphemeralSession` from `../lib/ephemeral-reply.js`
 
 - [ ] **Step 1: Point helpers at shared send/touch**
@@ -449,10 +433,7 @@ Replace `replyEphemeral` so it accepts optional components and delegates:
 async function replyEphemeral(
   interaction: MessageComponentInteraction | ModalSubmitInteraction,
   content: string,
-  components: (
-    | ActionRowBuilder<ButtonBuilder>
-    | ActionRowBuilder<StringSelectMenuBuilder>
-  )[] = [],
+  components: (ActionRowBuilder<ButtonBuilder> | ActionRowBuilder<StringSelectMenuBuilder>)[] = [],
 ): Promise<void> {
   await sendReplacingEphemeral(interaction, { content, components });
 }
@@ -483,11 +464,7 @@ await interaction.reply({
 });
 
 // after
-await replyEphemeral(
-  interaction,
-  'Select a player to edit their nick:',
-  [row],
-);
+await replyEphemeral(interaction, 'Select a player to edit their nick:', [row]);
 ```
 
 - [ ] **Step 3: Route public `deferUpdate` + `followUp` feedback through `replyEphemeral`**
@@ -500,11 +477,7 @@ For handlers that `deferReply({ flags: Ephemeral })` then `editReply` (slow acti
 
 ```typescript
 if (interaction.channelId) {
-  await deletePreviousEphemeral(
-    interaction.client,
-    interaction.user.id,
-    interaction.channelId,
-  );
+  await deletePreviousEphemeral(interaction.client, interaction.user.id, interaction.channelId);
 }
 ```
 
@@ -574,17 +547,17 @@ EOF
 
 ## Spec coverage (self-review)
 
-| Spec requirement | Task |
-|------------------|------|
-| Track + delete previous ephemeral | Task 1–2 |
-| Key `userId:channelId` | Task 1 |
-| In-memory only | Task 1 |
-| Wizard keeps update/editReply | Task 3–4 (`updateEphemeral` + `touchEphemeralSession`) |
-| Delete failure ignored | Task 1 `deletePreviousEphemeral` catch |
-| Lobby Fix Reading entry | Task 4 |
-| Match Report / Quitters / Cancel entry | Task 3 |
-| followUp after public deferUpdate | Task 4 Step 3 |
-| Unit tests for session map | Task 1 |
-| No env/SSM/Prisma | Global constraints |
+| Spec requirement                       | Task                                                   |
+| -------------------------------------- | ------------------------------------------------------ |
+| Track + delete previous ephemeral      | Task 1–2                                               |
+| Key `userId:channelId`                 | Task 1                                                 |
+| In-memory only                         | Task 1                                                 |
+| Wizard keeps update/editReply          | Task 3–4 (`updateEphemeral` + `touchEphemeralSession`) |
+| Delete failure ignored                 | Task 1 `deletePreviousEphemeral` catch                 |
+| Lobby Fix Reading entry                | Task 4                                                 |
+| Match Report / Quitters / Cancel entry | Task 3                                                 |
+| followUp after public deferUpdate      | Task 4 Step 3                                          |
+| Unit tests for session map             | Task 1                                                 |
+| No env/SSM/Prisma                      | Global constraints                                     |
 
 No placeholders left in steps. Types (`EphemeralRef`, helper names) are consistent across tasks.

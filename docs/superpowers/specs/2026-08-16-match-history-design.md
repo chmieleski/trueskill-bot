@@ -19,18 +19,18 @@ Players can browse **their completed match history** (newest first, paginated) a
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Whose history | Invoker by default; optional `@user` |
-| Status filter | **`COMPLETED` only** |
-| List row content | Summary: match id, date, W/L, team, hero (`—` if none); **`Q`** marker when `isQuitter` |
-| Command shape | **`/match history`** + **`/match show`** |
-| Pagination | **10 per page**, slash `page` option + Prev/Next buttons, **invoker-only** |
-| League | Resolved via existing league helpers (same as `/rank` / `/leaderboard`) |
-| Detail embed | Reuse **`buildMatchCompletedEmbed`** |
-| Ki on show | **Omit** `ratingPreview` — `MatchRatingSnapshot` stores **pre-match** μ/σ for corrections, not post-match display |
-| Wrong guild/league on show | Treat as **not found** (do not leak other tenants) |
-| Language | English user-facing strings |
+| Topic                      | Choice                                                                                                            |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Whose history              | Invoker by default; optional `@user`                                                                              |
+| Status filter              | **`COMPLETED` only**                                                                                              |
+| List row content           | Summary: match id, date, W/L, team, hero (`—` if none); **`Q`** marker when `isQuitter`                           |
+| Command shape              | **`/match history`** + **`/match show`**                                                                          |
+| Pagination                 | **10 per page**, slash `page` option + Prev/Next buttons, **invoker-only**                                        |
+| League                     | Resolved via existing league helpers (same as `/rank` / `/leaderboard`)                                           |
+| Detail embed               | Reuse **`buildMatchCompletedEmbed`**                                                                              |
+| Ki on show                 | **Omit** `ratingPreview` — `MatchRatingSnapshot` stores **pre-match** μ/σ for corrections, not post-match display |
+| Wrong guild/league on show | Treat as **not found** (do not leak other tenants)                                                                |
+| Language                   | English user-facing strings                                                                                       |
 
 ## Approach
 
@@ -48,22 +48,22 @@ Players can browse **their completed match history** (newest first, paginated) a
 
 ### Modules
 
-| Path | Responsibility |
-|------|----------------|
-| `src/commands/match/match.ts` | Subcommand defs + execute branches for `history` / `show` |
+| Path                                  | Responsibility                                                                                                                        |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/commands/match/match.ts`         | Subcommand defs + execute branches for `history` / `show`                                                                             |
 | `src/services/match/match-history.ts` | Load page, format rows, build embed + button customIds/parse; show loader (tenancy, snapshot→preview without deltas, completed embed) |
-| `src/services/match/index.ts` | Re-exports |
-| `src/discord/interactions/` | History page button handler (invoker check + edit reply) |
+| `src/services/match/index.ts`         | Re-exports                                                                                                                            |
+| `src/discord/interactions/`           | History page button handler (invoker check + edit reply)                                                                              |
 
 ## Commands
 
 ### `/match history`
 
-| Option | Required | Notes |
-|--------|----------|-------|
-| `user` | no | Discord user; default invoker |
-| `page` | no | Integer ≥ 1; default 1; clamp to last page if too high |
-| `league` | no | Existing `withSubcommandLeagueOption` |
+| Option   | Required | Notes                                                  |
+| -------- | -------- | ------------------------------------------------------ |
+| `user`   | no       | Discord user; default invoker                          |
+| `page`   | no       | Integer ≥ 1; default 1; clamp to last page if too high |
+| `league` | no       | Existing `withSubcommandLeagueOption`                  |
 
 **Behavior**
 
@@ -76,10 +76,10 @@ Players can browse **their completed match history** (newest first, paginated) a
 
 ### `/match show`
 
-| Option | Required | Notes |
-|--------|----------|-------|
-| `match_id` | yes | Cuid string |
-| `league` | no | If provided, match must equal that league; otherwise match must belong to a league in this guild |
+| Option     | Required | Notes                                                                                            |
+| ---------- | -------- | ------------------------------------------------------------------------------------------------ |
+| `match_id` | yes      | Cuid string                                                                                      |
+| `league`   | no       | If provided, match must equal that league; otherwise match must belong to a league in this guild |
 
 **Behavior**
 
@@ -124,16 +124,16 @@ Mirror leaderboard:
 
 ## Errors
 
-| Case | Response |
-|------|----------|
-| Not in a guild | Ephemeral: command is server-only |
-| League resolve failure | Existing league helper message |
+| Case                          | Response                               |
+| ----------------------------- | -------------------------------------- |
+| Not in a guild                | Ephemeral: command is server-only      |
+| League resolve failure        | Existing league helper message         |
 | Target not linked / no player | Clear English: not linked / no profile |
-| No matches | Empty history embed (not an error) |
-| Page too high | Clamp to last page |
-| Show: unknown / wrong tenant | Match not found |
-| Show: not completed | This match is not completed |
-| Button: wrong user | Ephemeral deny |
+| No matches                    | Empty history embed (not an error)     |
+| Page too high                 | Clamp to last page                     |
+| Show: unknown / wrong tenant  | Match not found                        |
+| Show: not completed           | This match is not completed            |
+| Button: wrong user            | Ephemeral deny                         |
 
 ## Testing
 

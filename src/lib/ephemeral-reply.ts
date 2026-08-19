@@ -8,9 +8,7 @@ import {
 } from 'discord.js';
 import { deletePreviousEphemeral, rememberEphemeral } from './ephemeral-session.js';
 
-type ComponentRow =
-  | ActionRowBuilder<ButtonBuilder>
-  | ActionRowBuilder<StringSelectMenuBuilder>;
+type ComponentRow = ActionRowBuilder<ButtonBuilder> | ActionRowBuilder<StringSelectMenuBuilder>;
 
 type EphemeralPayload = {
   content: string;
@@ -45,11 +43,7 @@ export async function sendReplacingEphemeral(
     }
 
     if (channelId) {
-      await deletePreviousEphemeral(
-        interaction.client,
-        interaction.user.id,
-        channelId,
-      );
+      await deletePreviousEphemeral(interaction.client, interaction.user.id, channelId);
     }
 
     const message = await interaction.followUp({
@@ -69,11 +63,7 @@ export async function sendReplacingEphemeral(
   }
 
   if (channelId) {
-    await deletePreviousEphemeral(
-      interaction.client,
-      interaction.user.id,
-      channelId,
-    );
+    await deletePreviousEphemeral(interaction.client, interaction.user.id, channelId);
   }
 
   await interaction.reply({
@@ -95,9 +85,7 @@ export async function sendReplacingEphemeral(
  * After interaction.update / editReply on an existing ephemeral wizard step,
  * refresh the stored token so a later replace can still delete this message.
  */
-export function touchEphemeralSession(
-  interaction: MessageComponentInteraction,
-): void {
+export function touchEphemeralSession(interaction: MessageComponentInteraction): void {
   const channelId = interaction.channelId;
   if (!channelId) {
     return;

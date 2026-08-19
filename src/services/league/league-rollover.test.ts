@@ -331,9 +331,7 @@ describe('applyLeagueRollover', () => {
     playerHeroRatingFindMany.mockResolvedValue([
       { playerId: 'p2', heroId: 1, mu: 28, sigma: 2.5, matchesPlayed: 5 },
     ]);
-    leagueWc3statsSlotMapFindMany.mockResolvedValue([
-      { wc3statsSlot: 0, heroId: 1 },
-    ]);
+    leagueWc3statsSlotMapFindMany.mockResolvedValue([{ wc3statsSlot: 0, heroId: 1 }]);
     leagueCreate.mockResolvedValue({
       id: 'league-2',
       name: 'Season 2',
@@ -453,9 +451,7 @@ describe('applyLeagueRollover', () => {
       actorDiscordId: ACTOR,
       sourceLeague: ACTIVE_SOURCE,
     });
-    playerRatingFindMany.mockResolvedValue([
-      { playerId: 'p1', mu: 30, sigma: 3 },
-    ]);
+    playerRatingFindMany.mockResolvedValue([{ playerId: 'p1', mu: 30, sigma: 3 }]);
     playerHeroRatingFindMany.mockResolvedValue([
       { playerId: 'p1', heroId: 1, mu: 28, sigma: 4, matchesPlayed: 12 },
     ]);
@@ -511,9 +507,7 @@ describe('applyLeagueRollover', () => {
     await applyLeagueRollover({ draftId: 'draft-1', actorDiscordId: ACTOR });
 
     const globals = playerRatingCreateMany.mock.calls[0]?.[0]?.data ?? [];
-    expect(globals.some((row: { playerId: string }) => row.playerId === 'p2')).toBe(
-      false,
-    );
+    expect(globals.some((row: { playerId: string }) => row.playerId === 'p2')).toBe(false);
   });
 
   it('empty league continue seeds 0 players and still archives', async () => {

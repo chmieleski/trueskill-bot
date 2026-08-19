@@ -1,17 +1,10 @@
 import { EmbedBuilder } from 'discord.js';
 import type { PlayerProfile, PlayerProfileHero } from './player-profile.js';
-import {
-  CALIBRATING_LABEL,
-  formatPublicKi,
-  isCalibrating,
-} from '../rating/rating-math.js';
+import { CALIBRATING_LABEL, formatPublicKi, isCalibrating } from '../rating/rating-math.js';
 
 const RANK_GOLD = 0xf0b232;
 
-export function formatHeroTable(
-  heroes: PlayerProfileHero[],
-  leagueGames: number,
-): string {
+export function formatHeroTable(heroes: PlayerProfileHero[], leagueGames: number): string {
   if (heroes.length === 0) {
     return '_No hero games yet_';
   }
@@ -19,9 +12,7 @@ export function formatHeroTable(
   const cells = heroes.map((hero) => {
     const record = `${hero.wins}W ${hero.losses}L`;
     const recordWithWr =
-      hero.winRatePercent === null
-        ? record
-        : `${record} · ${hero.winRatePercent}%`;
+      hero.winRatePercent === null ? record : `${record} · ${hero.winRatePercent}%`;
     return {
       name: hero.name,
       ki: formatPublicKi(hero.ki, leagueGames),
@@ -61,9 +52,7 @@ export function buildRankEmbed(
       : `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q · ${profile.winRatePercent}% WR`;
 
   // Mentions only resolve in description/fields — Discord footers are plain text.
-  const description = profile.discordId
-    ? `${record}\n\nLinked · <@${profile.discordId}>`
-    : record;
+  const description = profile.discordId ? `${record}\n\nLinked · <@${profile.discordId}>` : record;
 
   const embed = new EmbedBuilder()
     .setColor(RANK_GOLD)

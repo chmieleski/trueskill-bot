@@ -31,9 +31,7 @@ export function assertLiveLeaderboardSize(size: number): number {
     size < LIVE_LEADERBOARD_MIN_SIZE ||
     size > LIVE_LEADERBOARD_MAX_SIZE
   ) {
-    throw new LeaderboardServiceError(
-      'Live leaderboard size must be between 10 and 100.',
-    );
+    throw new LeaderboardServiceError('Live leaderboard size must be between 10 and 100.');
   }
   return size;
 }
@@ -47,9 +45,7 @@ export function chunkLeaderboardEntries<T>(
     return [];
   }
   if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
-    throw new LeaderboardServiceError(
-      'Leaderboard chunk size must be a positive integer.',
-    );
+    throw new LeaderboardServiceError('Leaderboard chunk size must be a positive integer.');
   }
   const chunks: T[][] = [];
   for (let i = 0; i < entries.length; i += chunkSize) {
@@ -101,9 +97,7 @@ export function clampPage(page: number, totalPages: number): number {
 }
 
 /** Assign competition ranks on a list already sorted by ki desc. */
-export function assignSortedRanks<T extends { ki: number }>(
-  rows: T[],
-): (T & { rank: number })[] {
+export function assignSortedRanks<T extends { ki: number }>(rows: T[]): (T & { rank: number })[] {
   const result: (T & { rank: number })[] = [];
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
@@ -129,15 +123,9 @@ export function rankLeaderboardRows<T extends { ki: number; username: string }>(
     .sort((a, b) => b.ki - a.ki || a.username.localeCompare(b.username));
   const calibrating = rows
     .filter((row) => isCalibrating(getLeagueGames(row)))
-    .sort(
-      (a, b) =>
-        getLeagueGames(b) - getLeagueGames(a) || a.username.localeCompare(b.username),
-    );
+    .sort((a, b) => getLeagueGames(b) - getLeagueGames(a) || a.username.localeCompare(b.username));
 
-  return [
-    ...assignSortedRanks(calibrated),
-    ...calibrating.map((row) => ({ ...row, rank: null })),
-  ];
+  return [...assignSortedRanks(calibrated), ...calibrating.map((row) => ({ ...row, rank: null }))];
 }
 
 export function paginateOverall(

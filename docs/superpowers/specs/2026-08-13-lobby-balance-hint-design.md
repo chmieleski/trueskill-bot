@@ -33,15 +33,15 @@ Unbalanced human fills (e.g. 4v6) are valid. Suggestions **may** change team siz
 
 ## Decisions (locked)
 
-| Topic | Choice |
-|-------|--------|
-| Algorithm | Greedy best **single** move (exhaustive candidates; up to 3 shown) |
-| AI | None for now |
+| Topic           | Choice                                                                  |
+| --------------- | ----------------------------------------------------------------------- |
+| Algorithm       | Greedy best **single** move (exhaustive candidates; up to 3 shown)      |
+| AI              | None for now                                                            |
 | Unbalanced gate | **None** — always search. Show if a strictly improving swap/move exists |
-| UX | Always on Match Lobby embed when a suggestion exists |
-| Apply | Advisory only — host uses Move/Swap |
-| Team size | Allow moves into empty slots (size may change) |
-| Surfaces | Match Lobby only |
+| UX              | Always on Match Lobby embed when a suggestion exists                    |
+| Apply           | Advisory only — host uses Move/Swap                                     |
+| Team size       | Allow moves into empty slots (size may change)                          |
+| Surfaces        | Match Lobby only                                                        |
 
 ## Algorithm
 
@@ -56,7 +56,7 @@ There is **no** 45–55% band. A 52/48 lobby still gets hints if a swap/move get
 
 ### Candidates
 
-1. **Swap** — every pair of occupied slots on opposite teams  
+1. **Swap** — every pair of occupied slots on opposite teams
 2. **Move** — every occupied slot → every empty slot (1–12)
 
 Skip any candidate that would leave Team A or Team B with zero humans.
@@ -66,7 +66,7 @@ Skip any candidate that would leave Team A or Team B with zero humans.
 For each candidate, build the post-move roster (update slots / hero ids), rebuild dual-entity teams with in-memory μ/σ (including destination hero ratings), call `predictWin`, round percents to sum 100 (same helper as preview).
 
 **Current imbalance:** `|50 − teamAPercent|`  
-**Candidate imbalance:** same on resulting percents  
+**Candidate imbalance:** same on resulting percents
 
 Keep candidates that **strictly improve** (candidate imbalance < current imbalance).
 
@@ -96,12 +96,12 @@ loadLobbyRatingPreview(roster)
 
 ### Modules
 
-| Module | Role |
-|--------|------|
-| `src/services/lobby-balance.ts` | Enumerate, score, pick; pure suggestion logic |
+| Module                           | Role                                                                                                |
+| -------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `src/services/lobby-balance.ts`  | Enumerate, score, pick; pure suggestion logic                                                       |
 | `src/services/rating-preview.ts` | Call suggest after win chance; attach DTO field; batch any extra hero ratings needed for candidates |
-| `src/services/lobby-preview.ts` | Format Balance hint field on Match Lobby only |
-| `src/services/rating-math.ts` | Reuse `predictWin` wiring helpers / percent rounding |
+| `src/services/lobby-preview.ts`  | Format Balance hint field on Match Lobby only                                                       |
+| `src/services/rating-math.ts`    | Reuse `predictWin` wiring helpers / percent rounding                                                |
 
 Rating math stays out of commands and button handlers.
 
@@ -162,14 +162,14 @@ Do not show the Balance hint field (even if DTO carries it — prefer not comput
 
 ## Edge cases
 
-| Case | Behavior |
-|------|----------|
-| Win % 50/50 (or no improving move) | No hint |
-| Unbalanced but no improving move | No hint |
-| Move would empty a team | Skip candidate |
-| Missing destination hero rating | Cold-start defaults in lookup |
-| Search / `predictWin` failure | Log; omit hint; do not fail lobby sync |
-| Percent rounding | Integers summing to 100 (shared helper) |
+| Case                               | Behavior                                |
+| ---------------------------------- | --------------------------------------- |
+| Win % 50/50 (or no improving move) | No hint                                 |
+| Unbalanced but no improving move   | No hint                                 |
+| Move would empty a team            | Skip candidate                          |
+| Missing destination hero rating    | Cold-start defaults in lookup           |
+| Search / `predictWin` failure      | Log; omit hint; do not fail lobby sync  |
+| Percent rounding                   | Integers summing to 100 (shared helper) |
 
 ## Testing
 
@@ -201,5 +201,5 @@ No Discord integration tests.
 
 ## References
 
-- ClickUp: [869ek4w9b](https://app.clickup.com/t/869ek4w9b) — *Always show lobby balance hint (no 45–55% gate)*
-- Original feature: [869ek4pwr](https://app.clickup.com/t/869ek4pwr) — *Lobby Balance Hint (OpenSkill)*
+- ClickUp: [869ek4w9b](https://app.clickup.com/t/869ek4w9b) — _Always show lobby balance hint (no 45–55% gate)_
+- Original feature: [869ek4pwr](https://app.clickup.com/t/869ek4pwr) — _Lobby Balance Hint (OpenSkill)_

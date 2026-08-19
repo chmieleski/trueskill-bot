@@ -20,18 +20,18 @@ Operators can **view** and **set** match create/mod Discord roles with `/config`
 
 ## Decisions (locked)
 
-| Topic | Choice |
-|-------|--------|
-| Scope | Only `matchCreateRoleId` and `matchModRoleId` |
-| Storage | Postgres `GuildConfig` keyed by `guildId` |
-| Precedence | Non-null DB field wins; otherwise env fallback |
-| Set behavior | Command **sets** only (never writes `null`) |
-| Clear / disable | Out of scope; future feature toggles instead of empty-field as UX |
-| Command | `/config` with `view` + `set create_role` / `set mod_role` |
-| Who may run `/config` | Discord **Manage Guild**, **or** user ID `723326675647070218` |
-| Owner ID storage | Constant in code (not required env) |
-| Resolve key | Always `interaction.guildId` (not deploy `GUILD_ID`) |
-| Auth for matches | Same create/mod rules; callers pass resolved IDs into `match-auth` |
+| Topic                 | Choice                                                             |
+| --------------------- | ------------------------------------------------------------------ |
+| Scope                 | Only `matchCreateRoleId` and `matchModRoleId`                      |
+| Storage               | Postgres `GuildConfig` keyed by `guildId`                          |
+| Precedence            | Non-null DB field wins; otherwise env fallback                     |
+| Set behavior          | Command **sets** only (never writes `null`)                        |
+| Clear / disable       | Out of scope; future feature toggles instead of empty-field as UX  |
+| Command               | `/config` with `view` + `set create_role` / `set mod_role`         |
+| Who may run `/config` | Discord **Manage Guild**, **or** user ID `723326675647070218`      |
+| Owner ID storage      | Constant in code (not required env)                                |
+| Resolve key           | Always `interaction.guildId` (not deploy `GUILD_ID`)               |
+| Auth for matches      | Same create/mod rules; callers pass resolved IDs into `match-auth` |
 
 ## Architecture
 
@@ -58,10 +58,10 @@ model GuildConfig {
 }
 ```
 
-| Field state | Meaning |
-|-------------|---------|
-| Row missing | Both fields treated as unset → env only |
-| Field `null` | That field not yet set via `/config` → env fallback |
+| Field state    | Meaning                                                    |
+| -------------- | ---------------------------------------------------------- |
+| Row missing    | Both fields treated as unset → env only                    |
+| Field `null`   | That field not yet set via `/config` → env fallback        |
 | Field non-null | Canonical value for that guild; env ignored for that field |
 
 ### Resolution
@@ -84,24 +84,24 @@ interface ResolvedGuildConfig {
 
 ### Modules
 
-| File | Change |
-|------|--------|
-| `prisma/schema.prisma` | Add `GuildConfig` |
-| Migration | Create table |
-| `src/services/guild-config.ts` | `resolveGuildConfig`, `setMatchCreateRole`, `setMatchModRole` |
-| `src/commands/config/config.ts` | `/config view` / `/config set` |
-| `src/services/match-auth.ts` | Accept role IDs as arguments (no direct `env` read for these two) |
-| Call sites | Resolve once per interaction, pass into auth helpers |
-| `.env.example` / `scripts-and-env.mdc` | Document env as fallback until first `/config set` |
-| Tests | Resolve precedence, config auth, match-auth with injected IDs |
+| File                                   | Change                                                            |
+| -------------------------------------- | ----------------------------------------------------------------- |
+| `prisma/schema.prisma`                 | Add `GuildConfig`                                                 |
+| Migration                              | Create table                                                      |
+| `src/services/guild-config.ts`         | `resolveGuildConfig`, `setMatchCreateRole`, `setMatchModRole`     |
+| `src/commands/config/config.ts`        | `/config view` / `/config set`                                    |
+| `src/services/match-auth.ts`           | Accept role IDs as arguments (no direct `env` read for these two) |
+| Call sites                             | Resolve once per interaction, pass into auth helpers              |
+| `.env.example` / `scripts-and-env.mdc` | Document env as fallback until first `/config set`                |
+| Tests                                  | Resolve precedence, config auth, match-auth with injected IDs     |
 
 ### Command UX
 
-| Subcommand | Behavior |
-|------------|----------|
-| `view` | Ephemeral summary: create + mod (role mention or `unset`) and source |
-| `set create_role` | Required Role option → upsert `matchCreateRoleId` |
-| `set mod_role` | Required Role option → upsert `matchModRoleId` |
+| Subcommand        | Behavior                                                             |
+| ----------------- | -------------------------------------------------------------------- |
+| `view`            | Ephemeral summary: create + mod (role mention or `unset`) and source |
+| `set create_role` | Required Role option → upsert `matchCreateRoleId`                    |
+| `set mod_role`    | Required Role option → upsert `matchModRoleId`                       |
 
 - Guild-only (reject DMs)
 - All user-facing strings in English
@@ -118,15 +118,15 @@ Otherwise: short English deny message. No dependency on create/mod roles (avoids
 
 ### Match auth (unchanged rules, new source)
 
-| Resolved create role | Behavior |
-|----------------------|----------|
-| `undefined` | Nobody can create |
-| Set | Member must have that role ID |
+| Resolved create role | Behavior                      |
+| -------------------- | ----------------------------- |
+| `undefined`          | Nobody can create             |
+| Set                  | Member must have that role ID |
 
-| Resolved mod role | Behavior |
-|-------------------|----------|
-| `undefined` | Host-only manage |
-| Set | Host or member with that role ID |
+| Resolved mod role | Behavior                         |
+| ----------------- | -------------------------------- |
+| `undefined`       | Host-only manage                 |
+| Set               | Host or member with that role ID |
 
 Update disabled-create copy to not name the env var:
 
@@ -136,21 +136,21 @@ Update disabled-create copy to not name the env var:
 
 ### Env fallback
 
-| Var | Role after this change |
-|-----|------------------------|
+| Var                    | Role after this change                          |
+| ---------------------- | ----------------------------------------------- |
 | `MATCH_CREATE_ROLE_ID` | Fallback until guild has DB `matchCreateRoleId` |
-| `MATCH_MOD_ROLE_ID` | Fallback until guild has DB `matchModRoleId` |
+| `MATCH_MOD_ROLE_ID`    | Fallback until guild has DB `matchModRoleId`    |
 
 Keep parsing in `src/config/env.ts`. Do not remove vars in this slice.
 
 ## Edge cases
 
-| Case | Behavior |
-|------|----------|
-| DM / no guild | Reject configure and any resolve that needs guild |
-| Role deleted in Discord, ID still in DB | ID still used for membership checks |
-| Partial DB (only create set) | Create from DB, mod from env (or unset) |
-| Bot restart | No change — DB is source of truth once set |
+| Case                                    | Behavior                                          |
+| --------------------------------------- | ------------------------------------------------- |
+| DM / no guild                           | Reject configure and any resolve that needs guild |
+| Role deleted in Discord, ID still in DB | ID still used for membership checks               |
+| Partial DB (only create set)            | Create from DB, mod from env (or unset)           |
+| Bot restart                             | No change — DB is source of truth once set        |
 
 ## Testing
 

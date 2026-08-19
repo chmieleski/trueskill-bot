@@ -17,24 +17,24 @@ Operators can expose a **per-league winstreak leaderboard**: **current** and/or 
 
 ## Locked decisions
 
-| Topic | Choice |
-|-------|--------|
-| Ladder scope | **Per-league** — filter matches by `leagueId` |
-| Metrics | **Current** and **best** win streak |
-| Display modes | `current` \| `best` \| `both` (moderator-configured) |
-| Sort | `current` \| `best` (moderator-configured; may sort by a metric not shown) |
-| Defaults | display **`both`**, sort **`current`** |
-| Config home | **`League`** (same as overall live board) |
-| Live size | **10–100**, default **10**, chunk **25** rows/embed (mirror overall live packing) |
-| Slash pages | **10 per page**, Prev/Next buttons, **invoker-only** |
-| Streak input | `MatchPlayer.result` on **`COMPLETED`** matches only; order by `Match.completedAt` |
-| Break rule | Any **non-win** ends the streak (LOSS, including quit-as-loss). **`CANCELLED` ignored** |
-| Current | Trailing consecutive WINs from the newest completed match backward |
-| Best | Max consecutive WINs anywhere in that player's league history (includes current) |
-| Rank ties | Competition rank; secondary: other metric desc, then username asc |
-| Refresh | Match complete / correction that affects results; bot start; **15 min** fallback; immediate on config change |
-| Language | English user-facing strings |
-| Computation | **On-read aggregate** (approach 1) |
+| Topic         | Choice                                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------------------------ |
+| Ladder scope  | **Per-league** — filter matches by `leagueId`                                                                |
+| Metrics       | **Current** and **best** win streak                                                                          |
+| Display modes | `current` \| `best` \| `both` (moderator-configured)                                                         |
+| Sort          | `current` \| `best` (moderator-configured; may sort by a metric not shown)                                   |
+| Defaults      | display **`both`**, sort **`current`**                                                                       |
+| Config home   | **`League`** (same as overall live board)                                                                    |
+| Live size     | **10–100**, default **10**, chunk **25** rows/embed (mirror overall live packing)                            |
+| Slash pages   | **10 per page**, Prev/Next buttons, **invoker-only**                                                         |
+| Streak input  | `MatchPlayer.result` on **`COMPLETED`** matches only; order by `Match.completedAt`                           |
+| Break rule    | Any **non-win** ends the streak (LOSS, including quit-as-loss). **`CANCELLED` ignored**                      |
+| Current       | Trailing consecutive WINs from the newest completed match backward                                           |
+| Best          | Max consecutive WINs anywhere in that player's league history (includes current)                             |
+| Rank ties     | Competition rank; secondary: other metric desc, then username asc                                            |
+| Refresh       | Match complete / correction that affects results; bot start; **15 min** fallback; immediate on config change |
+| Language      | English user-facing strings                                                                                  |
+| Computation   | **On-read aggregate** (approach 1)                                                                           |
 
 ## Approach
 
@@ -70,10 +70,10 @@ Reject sizes outside `[10, 100]` with a clear English error (do not silently cla
 
 ### Eligibility
 
-| Sort | Who appears |
-|------|-------------|
+| Sort      | Who appears                                 |
+| --------- | ------------------------------------------- |
 | `current` | Players with **current ≥ 1** in that league |
-| `best` | Players with **best ≥ 1** in that league |
+| `best`    | Players with **best ≥ 1** in that league    |
 
 ## Metrics (precise)
 
@@ -94,17 +94,17 @@ Source of truth remains `MatchPlayer.result` after match report / correction (qu
 
 ### `/config` (league-scoped — **requires** `league` option, like overall leaderboard keys)
 
-| Subcommand | Effect |
-|------------|--------|
-| `set winstreak_leaderboard_channel` | Bind/repost live message in chosen guild text channel for that league |
-| `set winstreak_leaderboard_size` | Persist size; refresh if bound |
-| `set winstreak_leaderboard_display` | `current` \| `best` \| `both` |
-| `set winstreak_leaderboard_sort` | `current` \| `best` |
-| `clear winstreak_leaderboard_channel` | Unbind + best-effort delete message |
-| `clear winstreak_leaderboard_size` | Reset to **10** + refresh if bound |
-| `clear winstreak_leaderboard_display` | Reset to **both** |
-| `clear winstreak_leaderboard_sort` | Reset to **current** |
-| `view` | Include channel · message · size · display · sort for the league |
+| Subcommand                            | Effect                                                                |
+| ------------------------------------- | --------------------------------------------------------------------- |
+| `set winstreak_leaderboard_channel`   | Bind/repost live message in chosen guild text channel for that league |
+| `set winstreak_leaderboard_size`      | Persist size; refresh if bound                                        |
+| `set winstreak_leaderboard_display`   | `current` \| `best` \| `both`                                         |
+| `set winstreak_leaderboard_sort`      | `current` \| `best`                                                   |
+| `clear winstreak_leaderboard_channel` | Unbind + best-effort delete message                                   |
+| `clear winstreak_leaderboard_size`    | Reset to **10** + refresh if bound                                    |
+| `clear winstreak_leaderboard_display` | Reset to **both**                                                     |
+| `clear winstreak_leaderboard_sort`    | Reset to **current**                                                  |
+| `view`                                | Include channel · message · size · display · sort for the league      |
 
 Auth: `assertCanConfigureBot` (same as other `/config`).
 
@@ -112,10 +112,10 @@ Mismatched sort vs display (e.g. sort `best` while display `current` only) is **
 
 ### `/leaderboard winstreaks`
 
-| Option | Type | Notes |
-|--------|------|-------|
+| Option   | Type                  | Notes                                     |
+| -------- | --------------------- | ----------------------------------------- |
 | `league` | string (autocomplete) | Same resolve rules as `/leaderboard show` |
-| `page` | integer ≥1 | Default `1` |
+| `page`   | integer ≥1            | Default `1`                               |
 
 - Load page of 10 using that league's display/sort settings.
 - Public reply; pagination buttons with distinct custom ids (e.g. `lb:winstreaks:<userId>:<leagueId>:<page>`).
@@ -123,8 +123,8 @@ Mismatched sort vs display (e.g. sort `best` while display `current` only) is **
 
 ### `/leaderboard setup_winstreaks`
 
-| Option | Type | Notes |
-|--------|------|-------|
+| Option   | Type                  | Notes                                    |
+| -------- | --------------------- | ---------------------------------------- |
 | `league` | string (autocomplete) | Required when ambiguous; same as `setup` |
 
 - Run in the target channel.
@@ -168,13 +168,13 @@ Hook league winstreak refresh wherever overall league leaderboards already refre
 
 ## Error copy (English)
 
-| Case | Message |
-|------|---------|
-| Size out of range | `Winstreak leaderboard size must be between 10 and 100.` |
-| Not a guild text channel | Same tone as overall live board channel errors |
-| Config forbidden | Existing configure-bot message |
-| DM / no guild | Reject with existing guild-only messaging |
-| League resolve failure | Existing league resolve messaging |
+| Case                     | Message                                                  |
+| ------------------------ | -------------------------------------------------------- |
+| Size out of range        | `Winstreak leaderboard size must be between 10 and 100.` |
+| Not a guild text channel | Same tone as overall live board channel errors           |
+| Config forbidden         | Existing configure-bot message                           |
+| DM / no guild            | Reject with existing guild-only messaging                |
+| League resolve failure   | Existing league resolve messaging                        |
 
 ## Testing
 

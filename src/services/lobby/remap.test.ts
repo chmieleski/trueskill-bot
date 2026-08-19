@@ -7,12 +7,7 @@ import {
 import { MatchServiceError } from '../match/match-service.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
 import { movePlayer } from './roster.js';
-import {
-  applyRemapPairs,
-  parseRemapPairs,
-  resolveRemapSide,
-  resolveSwapForm,
-} from './remap.js';
+import { applyRemapPairs, parseRemapPairs, resolveRemapSide, resolveSwapForm } from './remap.js';
 
 const udbr = getGameProfile(WARCRAFT3_UDBR_GAME_ID);
 const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
@@ -51,9 +46,7 @@ describe('resolveRemapSide', () => {
 
   it('treats 0 and leading zeros as nicks, not slots', () => {
     expect(resolveRemapSide('07', roster([4, '07']), udbr)).toBe(4);
-    expect(() => resolveRemapSide('0', [], udbr)).toThrow(
-      'No player with nick "0" in the lobby.',
-    );
+    expect(() => resolveRemapSide('0', [], udbr)).toThrow('No player with nick "0" in the lobby.');
   });
 });
 
@@ -72,9 +65,7 @@ describe('parseRemapPairs', () => {
   });
 
   it('trims around the hyphen', () => {
-    expect(parseRemapPairs('1 - 7')).toEqual([
-      { raw: '1 - 7', left: '1', right: '7' },
-    ]);
+    expect(parseRemapPairs('1 - 7')).toEqual([{ raw: '1 - 7', left: '1', right: '7' }]);
   });
 
   it('rejects empty or whitespace input', () => {
@@ -88,31 +79,21 @@ describe('parseRemapPairs', () => {
   });
 
   it('rejects a missing hyphen or empty side', () => {
-    expect(() => parseRemapPairs('17')).toThrow(
-      'Invalid pair "17". Use like 1-7 or Gohan-4.',
-    );
-    expect(() => parseRemapPairs('-7')).toThrow(
-      'Invalid pair "-7". Use like 1-7 or Gohan-4.',
-    );
-    expect(() => parseRemapPairs('1-')).toThrow(
-      'Invalid pair "1-". Use like 1-7 or Gohan-4.',
-    );
+    expect(() => parseRemapPairs('17')).toThrow('Invalid pair "17". Use like 1-7 or Gohan-4.');
+    expect(() => parseRemapPairs('-7')).toThrow('Invalid pair "-7". Use like 1-7 or Gohan-4.');
+    expect(() => parseRemapPairs('1-')).toThrow('Invalid pair "1-". Use like 1-7 or Gohan-4.');
   });
 });
 
 describe('applyRemapPairs', () => {
   it('swaps when the destination is occupied', () => {
     const players = roster([1, 'a'], [7, 'b']);
-    expect(applyRemapPairs(players, '1-7', udbr)).toEqual(
-      movePlayer(players, 1, 7, udbr),
-    );
+    expect(applyRemapPairs(players, '1-7', udbr)).toEqual(movePlayer(players, 1, 7, udbr));
   });
 
   it('moves when the destination is empty', () => {
     const players = roster([1, 'a']);
-    expect(applyRemapPairs(players, '1-7', udbr)).toEqual(
-      movePlayer(players, 1, 7, udbr),
-    );
+    expect(applyRemapPairs(players, '1-7', udbr)).toEqual(movePlayer(players, 1, 7, udbr));
   });
 
   it('applies overlapping pairs left to right', () => {
@@ -131,9 +112,7 @@ describe('applyRemapPairs', () => {
 
   it('moves a hyphenated nick via last-dash parse', () => {
     const players = roster([1, 'cool-guy']);
-    expect(applyRemapPairs(players, 'cool-guy-7', udbr)).toEqual(
-      movePlayer(players, 1, 7, udbr),
-    );
+    expect(applyRemapPairs(players, 'cool-guy-7', udbr)).toEqual(movePlayer(players, 1, 7, udbr));
   });
 
   it('does not wrap parse errors with Could not apply', () => {
@@ -141,9 +120,7 @@ describe('applyRemapPairs', () => {
     try {
       applyRemapPairs([], '17', udbr);
     } catch (error) {
-      expect((error as Error).message).toBe(
-        'Invalid pair "17". Use like 1-7 or Gohan-4.',
-      );
+      expect((error as Error).message).toBe('Invalid pair "17". Use like 1-7 or Gohan-4.');
     }
   });
 

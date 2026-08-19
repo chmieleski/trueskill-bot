@@ -14,19 +14,12 @@ export function ephemeralSessionKey(userId: string, channelId: string): string {
 }
 
 /** Store the latest ephemeral reply for this user in this channel. */
-export function rememberEphemeral(
-  userId: string,
-  channelId: string,
-  ref: EphemeralRef,
-): void {
+export function rememberEphemeral(userId: string, channelId: string, ref: EphemeralRef): void {
   sessions.set(ephemeralSessionKey(userId, channelId), ref);
 }
 
 /** Take and remove the previous ephemeral ref, if any. */
-export function takePreviousEphemeral(
-  userId: string,
-  channelId: string,
-): EphemeralRef | null {
+export function takePreviousEphemeral(userId: string, channelId: string): EphemeralRef | null {
   const key = ephemeralSessionKey(userId, channelId);
   const prev = sessions.get(key) ?? null;
   if (prev) {

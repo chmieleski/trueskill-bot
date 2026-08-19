@@ -18,10 +18,8 @@ import {
   RankResetServiceError,
 } from '../../services/rating/index.js';
 
-const NOT_YOUR_RESET =
-  'Only the person who ran /rank_reset can use these buttons.';
-const INVALID_CONFIRMATION =
-  'That rank reset confirmation is no longer valid.';
+const NOT_YOUR_RESET = 'Only the person who ran /rank_reset can use these buttons.';
+const INVALID_CONFIRMATION = 'That rank reset confirmation is no longer valid.';
 
 export type BuildRankResetConfirmComponentsInput = {
   leagueId: string;
@@ -57,21 +55,13 @@ export function buildRankResetConfirmComponents(
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId(
-          buildRankResetConfirmCustomId(
-            input.leagueId,
-            input.playerId,
-            input.actorDiscordId,
-          ),
+          buildRankResetConfirmCustomId(input.leagueId, input.playerId, input.actorDiscordId),
         )
         .setLabel('Confirm reset')
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId(
-          buildRankResetCancelCustomId(
-            input.leagueId,
-            input.playerId,
-            input.actorDiscordId,
-          ),
+          buildRankResetCancelCustomId(input.leagueId, input.playerId, input.actorDiscordId),
         )
         .setLabel('Cancel')
         .setStyle(ButtonStyle.Secondary),
@@ -121,10 +111,7 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
       components: [],
     });
   } catch (error) {
-    if (
-      error instanceof RankResetServiceError ||
-      error instanceof MatchServiceError
-    ) {
+    if (error instanceof RankResetServiceError || error instanceof MatchServiceError) {
       await interaction.editReply({ content: error.message, components: [] });
       return;
     }
@@ -133,9 +120,7 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
 }
 
 /** Consume and handle rank-reset Confirm/Cancel button interactions. */
-export async function handleRankResetInteraction(
-  interaction: Interaction,
-): Promise<boolean> {
+export async function handleRankResetInteraction(interaction: Interaction): Promise<boolean> {
   if (!interaction.isButton() || !interaction.customId.startsWith('rr:')) {
     return false;
   }

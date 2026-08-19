@@ -1,11 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { createLogger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
-import {
-  getMatchById,
-  MatchServiceError,
-  type MatchWithPlayers,
-} from './match-service.js';
+import { getMatchById, MatchServiceError, type MatchWithPlayers } from './match-service.js';
 import {
   buildCompletedRatingPreview,
   ensurePlayerRatings,
@@ -182,17 +178,12 @@ export function isWithinCorrectionWindow(
 /**
  * Throws MatchServiceError if the match is not correctable.
  */
-export function assertMatchCorrectable(match: {
-  status: string;
-  completedAt: Date | null;
-}): void {
+export function assertMatchCorrectable(match: { status: string; completedAt: Date | null }): void {
   if (match.status !== 'COMPLETED') {
     throw new MatchServiceError('This match is not completed.');
   }
   if (!isWithinCorrectionWindow(match.completedAt)) {
-    throw new MatchServiceError(
-      'This match can only be corrected within 24 hours of completion.',
-    );
+    throw new MatchServiceError('This match can only be corrected within 24 hours of completion.');
   }
 }
 
@@ -291,9 +282,7 @@ export async function writeMatchRatingSnapshots(
   const rows = players.flatMap((player) => {
     const global = globalByPlayer.get(player.playerId);
     if (!global) {
-      throw new MatchServiceError(
-        'Cannot snapshot ratings: missing player or hero rating rows.',
-      );
+      throw new MatchServiceError('Cannot snapshot ratings: missing player or hero rating rows.');
     }
 
     const globalRow = {
@@ -312,9 +301,7 @@ export async function writeMatchRatingSnapshots(
 
     const hero = heroByKey.get(`${player.playerId}:${player.heroId}`);
     if (!hero) {
-      throw new MatchServiceError(
-        'Cannot snapshot ratings: missing player or hero rating rows.',
-      );
+      throw new MatchServiceError('Cannot snapshot ratings: missing player or hero rating rows.');
     }
 
     return [
@@ -456,10 +443,7 @@ function isWinningTeam(team: number, winningTeam: 1 | 2): boolean {
   return team === winningTeam;
 }
 
-function toRatingEntries(
-  match: MatchWithPlayers,
-  quitterSet: Set<number>,
-): RatingRosterEntry[] {
+function toRatingEntries(match: MatchWithPlayers, quitterSet: Set<number>): RatingRosterEntry[] {
   return match.players.map((player) => ({
     playerId: player.playerId,
     slot: player.slot,

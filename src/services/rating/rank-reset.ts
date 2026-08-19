@@ -62,9 +62,7 @@ export function assertRankResetCooldownDays(days: number): number {
     days < RANK_RESET_COOLDOWN_MIN_DAYS ||
     days > RANK_RESET_COOLDOWN_MAX_DAYS
   ) {
-    throw new RankResetServiceError(
-      'Rank reset cooldown must be between 1 and 365 days.',
-    );
+    throw new RankResetServiceError('Rank reset cooldown must be between 1 and 365 days.');
   }
   return days;
 }
@@ -85,14 +83,10 @@ export function isRankResetCooldownElapsed(
 }
 
 function rankResetActionCode(action: RankResetButtonAction): string {
-  return action === 'confirm'
-    ? RANK_RESET_CONFIRM_ACTION
-    : RANK_RESET_CANCEL_ACTION;
+  return action === 'confirm' ? RANK_RESET_CONFIRM_ACTION : RANK_RESET_CANCEL_ACTION;
 }
 
-function parseRankResetActionCode(
-  actionCode: string,
-): RankResetButtonAction | null {
+function parseRankResetActionCode(actionCode: string): RankResetButtonAction | null {
   if (actionCode === RANK_RESET_CONFIRM_ACTION) {
     return 'confirm';
   }
@@ -123,12 +117,7 @@ export function buildRankResetConfirmCustomId(
   playerId: string,
   actorDiscordId: string,
 ): string {
-  return buildRankResetButtonCustomId(
-    'confirm',
-    leagueId,
-    playerId,
-    actorDiscordId,
-  );
+  return buildRankResetButtonCustomId('confirm', leagueId, playerId, actorDiscordId);
 }
 
 /** Bind a cancellation button to its league, player, and initiating actor. */
@@ -144,8 +133,7 @@ export function buildRankResetCancelCustomId(
 export function parseRankResetButtonCustomId(
   customId: string,
 ): ParsedRankResetButtonCustomId | null {
-  const [prefix, actionCode, leagueId, playerId, actorDiscordId, extra] =
-    customId.split(':');
+  const [prefix, actionCode, leagueId, playerId, actorDiscordId, extra] = customId.split(':');
   const action = parseRankResetActionCode(actionCode ?? '');
   if (
     prefix !== RANK_RESET_CUSTOM_ID_PREFIX ||
@@ -162,9 +150,7 @@ export function parseRankResetButtonCustomId(
 }
 
 /** Re-check every rank-reset eligibility rule and return confirmation data. */
-export async function previewRankReset(
-  input: PreviewRankResetInput,
-): Promise<RankResetPreview> {
+export async function previewRankReset(input: PreviewRankResetInput): Promise<RankResetPreview> {
   const staffOverride = input.targetDiscordId !== input.actorDiscordId;
   if (staffOverride) {
     assertHasMatchModRole({
@@ -222,16 +208,11 @@ export async function previewRankReset(
       orderBy: { createdAt: 'desc' },
     });
     const now = input.now ?? new Date();
-    if (
-      latestReset &&
-      !isRankResetCooldownElapsed(latestReset.createdAt, cooldownDays, now)
-    ) {
+    if (latestReset && !isRankResetCooldownElapsed(latestReset.createdAt, cooldownDays, now)) {
       const nextResetUnix = Math.floor(
         nextRankResetAt(latestReset.createdAt, cooldownDays).getTime() / 1000,
       );
-      throw new RankResetServiceError(
-        `You can reset again <t:${nextResetUnix}:R>.`,
-      );
+      throw new RankResetServiceError(`You can reset again <t:${nextResetUnix}:R>.`);
     }
   }
 
@@ -246,17 +227,10 @@ export async function previewRankReset(
 }
 
 /** Wipe a player's league-scoped ratings and record the reset atomically. */
-export async function applyRankReset(
-  input: ApplyRankResetInput,
-): Promise<RankResetResult> {
+export async function applyRankReset(input: ApplyRankResetInput): Promise<RankResetResult> {
   const preview = await previewRankReset(input);
-  if (
-    input.expectedPlayerId !== undefined &&
-    input.expectedPlayerId !== preview.playerId
-  ) {
-    throw new RankResetServiceError(
-      'That rank reset confirmation is no longer valid.',
-    );
+  if (input.expectedPlayerId !== undefined && input.expectedPlayerId !== preview.playerId) {
+    throw new RankResetServiceError('That rank reset confirmation is no longer valid.');
   }
 
   await prisma.$transaction(async (tx) => {

@@ -28,24 +28,26 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `src/services/lobby/lobby-preview.ts` | `LOBBY_CUSTOM_IDS.cancel`; last-row Cancel on unlocked pending cards |
-| `src/services/lobby/lobby-preview.test.ts` | Button placement tests; stop using `rows.at(-1)` as the roster row |
-| `src/discord/interactions/lobby-interactions.ts` | Entry auth + ephemeral confirm; Confirm calls `cancelLobbyMatch`; Keep is a no-op |
-| `src/discord/interactions/lobby-interactions.test.ts` | Host/mod confirm; outsider refused; Confirm/Keep behavior |
-| `docs/discord/public/04-fix-the-lobby.md` | List Cancel with host tools |
-| `docs/superpowers/specs/2026-08-19-lobby-cancel-button-design.md` | Point at this plan |
+| File                                                              | Role                                                                              |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `src/services/lobby/lobby-preview.ts`                             | `LOBBY_CUSTOM_IDS.cancel`; last-row Cancel on unlocked pending cards              |
+| `src/services/lobby/lobby-preview.test.ts`                        | Button placement tests; stop using `rows.at(-1)` as the roster row                |
+| `src/discord/interactions/lobby-interactions.ts`                  | Entry auth + ephemeral confirm; Confirm calls `cancelLobbyMatch`; Keep is a no-op |
+| `src/discord/interactions/lobby-interactions.test.ts`             | Host/mod confirm; outsider refused; Confirm/Keep behavior                         |
+| `docs/discord/public/04-fix-the-lobby.md`                         | List Cancel with host tools                                                       |
+| `docs/superpowers/specs/2026-08-19-lobby-cancel-button-design.md` | Point at this plan                                                                |
 
 ---
 
 ### Task 1: Public Cancel button (TDD)
 
 **Files:**
+
 - Modify: `src/services/lobby/lobby-preview.ts`
 - Modify: `src/services/lobby/lobby-preview.test.ts`
 
 **Interfaces:**
+
 - Consumes: existing `buildLobbyButtons` options (`canStart`, `locked`, `playerCount`, `playerClaimEnabled`, `wc3statsGameId`, `wc3statsEnabled`, `profile`)
 - Produces: `LOBBY_CUSTOM_IDS.cancel` is `'lobby:cancel'`. Unlocked pending cards end with a one-button Cancel row. Locked cards stay `[]`.
 
@@ -117,50 +119,50 @@ Keep the Claim / Refresh tests that already use `flatMap` or `rows[0]`. Change t
 Add these tests at the end of `describe('buildLobbyButtons')`, before the closing `});`:
 
 ```typescript
-  it('puts Cancel on its own last row', () => {
-    const rows = buildLobbyButtons({
-      canStart: true,
-      playerCount: 2,
-      playerClaimEnabled: false,
-    });
-
-    expect(rowCustomIds(rows.at(-1))).toEqual([LOBBY_CUSTOM_IDS.cancel]);
-    expect(rows.at(-1)?.toJSON().components[0]).toMatchObject({
-      custom_id: LOBBY_CUSTOM_IDS.cancel,
-      label: 'Cancel',
-      style: 2,
-    });
+it('puts Cancel on its own last row', () => {
+  const rows = buildLobbyButtons({
+    canStart: true,
+    playerCount: 2,
+    playerClaimEnabled: false,
   });
 
-  it('shows Cancel when Start is hidden', () => {
-    const rows = buildLobbyButtons({
-      playerCount: 0,
-      playerClaimEnabled: false,
-    });
-    const ids = rows.flatMap((row) => rowCustomIds(row));
+  expect(rowCustomIds(rows.at(-1))).toEqual([LOBBY_CUSTOM_IDS.cancel]);
+  expect(rows.at(-1)?.toJSON().components[0]).toMatchObject({
+    custom_id: LOBBY_CUSTOM_IDS.cancel,
+    label: 'Cancel',
+    style: 2,
+  });
+});
 
-    expect(ids).toContain(LOBBY_CUSTOM_IDS.cancel);
-    expect(ids).not.toContain(LOBBY_CUSTOM_IDS.start);
-    expect(rowCustomIds(rows.at(-1))).toEqual([LOBBY_CUSTOM_IDS.cancel]);
+it('shows Cancel when Start is hidden', () => {
+  const rows = buildLobbyButtons({
+    playerCount: 0,
+    playerClaimEnabled: false,
+  });
+  const ids = rows.flatMap((row) => rowCustomIds(row));
+
+  expect(ids).toContain(LOBBY_CUSTOM_IDS.cancel);
+  expect(ids).not.toContain(LOBBY_CUSTOM_IDS.start);
+  expect(rowCustomIds(rows.at(-1))).toEqual([LOBBY_CUSTOM_IDS.cancel]);
+});
+
+it('does not put Cancel on the Start / Refresh row', () => {
+  const rows = buildLobbyButtons({
+    canStart: true,
+    playerCount: 2,
+    playerClaimEnabled: false,
+    wc3statsGameId: '42',
   });
 
-  it('does not put Cancel on the Start / Refresh row', () => {
-    const rows = buildLobbyButtons({
-      canStart: true,
-      playerCount: 2,
-      playerClaimEnabled: false,
-      wc3statsGameId: '42',
-    });
+  expect(rowCustomIds(rows[0])).toEqual([LOBBY_CUSTOM_IDS.start, LOBBY_CUSTOM_IDS.refresh]);
+  expect(rowCustomIds(rows.at(-1))).toEqual([LOBBY_CUSTOM_IDS.cancel]);
+});
 
-    expect(rowCustomIds(rows[0])).toEqual([LOBBY_CUSTOM_IDS.start, LOBBY_CUSTOM_IDS.refresh]);
-    expect(rowCustomIds(rows.at(-1))).toEqual([LOBBY_CUSTOM_IDS.cancel]);
-  });
+it('omits Cancel when the card is locked', () => {
+  const rows = buildLobbyButtons({ locked: true, canStart: true, playerCount: 2 });
 
-  it('omits Cancel when the card is locked', () => {
-    const rows = buildLobbyButtons({ locked: true, canStart: true, playerCount: 2 });
-
-    expect(rows).toEqual([]);
-  });
+  expect(rows).toEqual([]);
+});
 ```
 
 - [ ] **Step 2: Run tests to verify the new ones fail**
@@ -193,16 +195,16 @@ export const LOBBY_CUSTOM_IDS = {
 At the end of `buildLobbyButtons`, before `return rows`, append the Cancel row (still skipped when `locked` because that path returns `[]` first):
 
 ```typescript
-  rows.push(
-    new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(LOBBY_CUSTOM_IDS.cancel)
-        .setLabel('Cancel')
-        .setStyle(ButtonStyle.Secondary),
-    ),
-  );
+rows.push(
+  new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(LOBBY_CUSTOM_IDS.cancel)
+      .setLabel('Cancel')
+      .setStyle(ButtonStyle.Secondary),
+  ),
+);
 
-  return rows;
+return rows;
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -227,10 +229,12 @@ EOF
 ### Task 2: Confirm flow in lobby-interactions (TDD)
 
 **Files:**
+
 - Create: `src/discord/interactions/lobby-interactions.test.ts`
 - Modify: `src/discord/interactions/lobby-interactions.ts`
 
 **Interfaces:**
+
 - Consumes: `resolvePendingMatchByMessageId`, `assertCanManageMatch`, `cancelLobbyMatch`, `replyEphemeral` / `updateEphemeral`, `memberRoleIds`, `resolveGuildConfig`
 - Produces: public `lobby:cancel` → ephemeral confirm; `lobby:cancel:ok:{matchId}` → `cancelLobbyMatch`; `lobby:cancel:no:{matchId}` → “was not cancelled” without calling cancel
 
@@ -290,10 +294,7 @@ const PENDING = {
   players: [],
 };
 
-function buttonInteraction(
-  customId: string,
-  overrides: Record<string, unknown> = {},
-): Interaction {
+function buttonInteraction(customId: string, overrides: Record<string, unknown> = {}): Interaction {
   return {
     isButton: () => true,
     isStringSelectMenu: () => false,
@@ -486,10 +487,7 @@ async function handleCancelEntry(interaction: ButtonInteraction): Promise<void> 
   ]);
 }
 
-async function handleCancelConfirm(
-  interaction: ButtonInteraction,
-  matchId: string,
-): Promise<void> {
+async function handleCancelConfirm(interaction: ButtonInteraction, matchId: string): Promise<void> {
   if (!interaction.guildId) {
     await updateEphemeral(interaction, 'This action can only be used in a server.');
     return;
@@ -522,21 +520,21 @@ async function handleCancelKeep(interaction: ButtonInteraction, matchId: string)
 4. In `handleButton`, after the `refresh` branch and before the unhandled warn:
 
 ```typescript
-  if (customId === LOBBY_CUSTOM_IDS.cancel) {
-    await handleCancelEntry(interaction);
-    return;
-  }
+if (customId === LOBBY_CUSTOM_IDS.cancel) {
+  await handleCancelEntry(interaction);
+  return;
+}
 
-  const parts = parseCustomId(customId);
-  if (parts[1] === 'cancel' && parts[2] === 'ok' && parts[3]) {
-    await handleCancelConfirm(interaction, parts[3]);
-    return;
-  }
+const parts = parseCustomId(customId);
+if (parts[1] === 'cancel' && parts[2] === 'ok' && parts[3]) {
+  await handleCancelConfirm(interaction, parts[3]);
+  return;
+}
 
-  if (parts[1] === 'cancel' && parts[2] === 'no' && parts[3]) {
-    await handleCancelKeep(interaction, parts[3]);
-    return;
-  }
+if (parts[1] === 'cancel' && parts[2] === 'no' && parts[3]) {
+  await handleCancelKeep(interaction, parts[3]);
+  return;
+}
 ```
 
 Do not resolve Confirm/Keep by `interaction.message.id`. Do not call `cancelLobbyMatch` on Keep.
@@ -563,10 +561,12 @@ EOF
 ### Task 3: Player docs
 
 **Files:**
+
 - Modify: `docs/discord/public/04-fix-the-lobby.md`
 - Modify: `docs/superpowers/specs/2026-08-19-lobby-cancel-button-design.md`
 
 **Interfaces:**
+
 - Consumes: host-tools list in `04-fix-the-lobby.md`
 - Produces: Cancel listed as a host button; spec points at this plan
 

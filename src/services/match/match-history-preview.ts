@@ -10,10 +10,7 @@ import {
   type LobbyRatingPreview,
   type PlayerKiPair,
 } from '../rating/rating-preview.js';
-import {
-  simulatePostMatchRatings,
-  type RatingRosterEntry,
-} from '../rating/rating-update.js';
+import { simulatePostMatchRatings, type RatingRosterEntry } from '../rating/rating-update.js';
 import type { MatchWithPlayers } from './match-service.js';
 
 type SnapshotRow = {
@@ -25,9 +22,7 @@ type SnapshotRow = {
   matchesPlayed: number | null;
 };
 
-function winningTeamFromPlayers(
-  players: Array<{ team: number; result: string | null }>,
-): 1 | 2 {
+function winningTeamFromPlayers(players: Array<{ team: number; result: string | null }>): 1 | 2 {
   return players.some((player) => player.result === 'WIN' && player.team === 1) ? 1 : 2;
 }
 
@@ -150,10 +145,7 @@ export async function rebuildCompletedRatingPreview(
       winningTeam,
       globalByPlayer,
       new Map(
-        [...heroByKey.entries()].map(([key, value]) => [
-          key,
-          { mu: value.mu, sigma: value.sigma },
-        ]),
+        [...heroByKey.entries()].map(([key, value]) => [key, { mu: value.mu, sigma: value.sigma }]),
       ),
       globalGames,
     );
@@ -168,9 +160,7 @@ export async function rebuildCompletedRatingPreview(
 
   for (const entry of previewEntries) {
     const heroSnap =
-      entry.heroId != null
-        ? heroByKey.get(`${entry.playerId}:${entry.heroId}`)
-        : undefined;
+      entry.heroId != null ? heroByKey.get(`${entry.playerId}:${entry.heroId}`) : undefined;
     const heroGamesBefore = heroSnap?.matchesPlayed ?? 0;
     const heroGamesAfter =
       entry.heroId != null && !entry.isQuitter ? heroGamesBefore + 1 : heroGamesBefore;
@@ -241,9 +231,7 @@ export async function persistMatchRatingPreviewToPlayers(
  * at the match's completion time, respecting the latest {@link PlayerRankReset}
  * cutoff per player.
  */
-async function loadLeagueGamesAfterMatch(
-  match: MatchWithPlayers,
-): Promise<Map<string, number>> {
+async function loadLeagueGamesAfterMatch(match: MatchWithPlayers): Promise<Map<string, number>> {
   const playerIds = match.players.map((player) => player.playerId);
   if (playerIds.length === 0) {
     return new Map();

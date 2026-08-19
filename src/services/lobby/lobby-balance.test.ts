@@ -64,9 +64,7 @@ describe('suggestBalanceMove', () => {
     });
     expect(suggestion).toBeDefined();
     expect(suggestion!.kind).toBe('swap');
-    expect(
-      Math.abs(50 - suggestion!.resultingWinChance.teamAPercent),
-    ).toBeLessThan(3);
+    expect(Math.abs(50 - suggestion!.resultingWinChance.teamAPercent)).toBeLessThan(3);
   });
 
   it('returns undefined when all players are on one team even if win chance is unbalanced', () => {
@@ -159,7 +157,9 @@ describe('suggestBalanceMove', () => {
     expect(suggestion).toBeDefined();
     expect(suggestion!.kind).toBe('swap');
     expect(suggestion!.fromNick).toBe('Strong');
-    expect(suggestion!.resultingWinChance.teamAPercent + suggestion!.resultingWinChance.teamBPercent).toBe(100);
+    expect(
+      suggestion!.resultingWinChance.teamAPercent + suggestion!.resultingWinChance.teamBPercent,
+    ).toBe(100);
     const imbalance = Math.abs(50 - suggestion!.resultingWinChance.teamAPercent);
     expect(imbalance).toBeLessThan(Math.abs(50 - 85));
   });
@@ -186,9 +186,9 @@ describe('suggestBalanceMove', () => {
       teamBPercent: 80,
     });
     expect(suggestion).toBeDefined();
-    expect(
-      Math.abs(50 - suggestion!.resultingWinChance.teamAPercent),
-    ).toBeLessThan(Math.abs(50 - 20));
+    expect(Math.abs(50 - suggestion!.resultingWinChance.teamAPercent)).toBeLessThan(
+      Math.abs(50 - 20),
+    );
   });
 
   it('never suggests ACA slots above 10', () => {
@@ -376,8 +376,6 @@ describe('formatBalanceHint', () => {
           resultingWinChance: { teamAPercent: 51, teamBPercent: 49 },
         },
       ]),
-    ).toBe(
-      '1. Swap Alice (1) ↔ Bob (7) → ~52% / 48%\n2. Move Eve (8) → empty slot 2 → ~51% / 49%',
-    );
+    ).toBe('1. Swap Alice (1) ↔ Bob (7) → ~52% / 48%\n2. Move Eve (8) → empty slot 2 → ~51% / 49%');
   });
 });

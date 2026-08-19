@@ -6,6 +6,7 @@ Only people with the **create role** can open a ranked lobby.
 A host who is not a match moderator can have only one open lobby or in-progress match in that league at a time. Cancel or report it before opening another. Moderators can open more than one.
 
 **Command**
+
 ```
 /register_lobby
 ```

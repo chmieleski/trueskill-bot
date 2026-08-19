@@ -7,11 +7,7 @@ import {
 } from '../../domain/game-profile.js';
 import { WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
 import { ratingEntitiesForPlayer } from '../rating/rating-entities.js';
-import {
-  roundWinPercents,
-  splitRosterByTeam,
-  toOpenSkillRatings,
-} from '../rating/rating-math.js';
+import { roundWinPercents, splitRosterByTeam, toOpenSkillRatings } from '../rating/rating-math.js';
 
 export type MuSigma = { mu: number; sigma: number };
 
@@ -73,8 +69,7 @@ function winChanceForRoster(
     const list: MuSigma[] = [];
     for (const entry of team) {
       const global = lookup.global(entry.playerId);
-      const hero =
-        entry.heroId == null ? global : lookup.hero(entry.playerId, entry.heroId);
+      const hero = entry.heroId == null ? global : lookup.hero(entry.playerId, entry.heroId);
       list.push(...ratingEntitiesForPlayer(global, hero, entry.heroId));
     }
     return toOpenSkillRatings(list);
@@ -139,8 +134,7 @@ export const MAX_BALANCE_SUGGESTIONS = 3;
 /** Exposed for tie-break unit tests. */
 export function compareSuggestions(a: BalanceSuggestion, b: BalanceSuggestion): number {
   const imbDiff =
-    imbalance(a.resultingWinChance.teamAPercent) -
-    imbalance(b.resultingWinChance.teamAPercent);
+    imbalance(a.resultingWinChance.teamAPercent) - imbalance(b.resultingWinChance.teamAPercent);
   if (imbDiff !== 0) {
     return imbDiff;
   }

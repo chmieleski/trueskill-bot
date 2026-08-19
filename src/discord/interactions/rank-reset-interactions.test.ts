@@ -2,17 +2,13 @@ import type { Interaction } from 'discord.js';
 import { ButtonStyle, MessageFlags } from 'discord.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  applyRankReset,
-  playerFindUnique,
-  refreshLeagueLeaderboard,
-  resolveGuildConfig,
-} = vi.hoisted(() => ({
-  applyRankReset: vi.fn(),
-  playerFindUnique: vi.fn(),
-  refreshLeagueLeaderboard: vi.fn(),
-  resolveGuildConfig: vi.fn(),
-}));
+const { applyRankReset, playerFindUnique, refreshLeagueLeaderboard, resolveGuildConfig } =
+  vi.hoisted(() => ({
+    applyRankReset: vi.fn(),
+    playerFindUnique: vi.fn(),
+    refreshLeagueLeaderboard: vi.fn(),
+    resolveGuildConfig: vi.fn(),
+  }));
 
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
@@ -44,19 +40,12 @@ vi.mock('../../services/rating/index.js', () => {
 
   return {
     applyRankReset,
-    buildRankResetCancelCustomId: (
-      leagueId: string,
-      playerId: string,
-      actorDiscordId: string,
-    ) => buildCustomId('x', leagueId, playerId, actorDiscordId),
-    buildRankResetConfirmCustomId: (
-      leagueId: string,
-      playerId: string,
-      actorDiscordId: string,
-    ) => buildCustomId('c', leagueId, playerId, actorDiscordId),
+    buildRankResetCancelCustomId: (leagueId: string, playerId: string, actorDiscordId: string) =>
+      buildCustomId('x', leagueId, playerId, actorDiscordId),
+    buildRankResetConfirmCustomId: (leagueId: string, playerId: string, actorDiscordId: string) =>
+      buildCustomId('c', leagueId, playerId, actorDiscordId),
     parseRankResetButtonCustomId: (customId: string) => {
-      const [prefix, action, leagueId, playerId, actorDiscordId, extra] =
-        customId.split(':');
+      const [prefix, action, leagueId, playerId, actorDiscordId, extra] = customId.split(':');
       if (
         prefix !== 'rr' ||
         (action !== 'c' && action !== 'x') ||
@@ -85,10 +74,7 @@ import {
 import { MatchServiceError } from '../../services/match/index.js';
 import { RankResetServiceError } from '../../services/rating/index.js';
 
-function buttonInteraction(
-  customId: string,
-  overrides: Record<string, unknown> = {},
-): Interaction {
+function buttonInteraction(customId: string, overrides: Record<string, unknown> = {}): Interaction {
   return {
     isButton: () => true,
     customId,
@@ -196,10 +182,7 @@ describe('handleRankResetInteraction', () => {
       matchModRoleId: 'mod-role',
       expectedPlayerId: 'player-1',
     });
-    expect(refreshLeagueLeaderboard).toHaveBeenCalledWith(
-      interaction.client,
-      'league-1',
-    );
+    expect(refreshLeagueLeaderboard).toHaveBeenCalledWith(interaction.client, 'league-1');
     expect(interaction.editReply).toHaveBeenCalledWith({
       content: "Reset **Goku**'s rank. Their overall and hero ki have been reset.",
       components: [],

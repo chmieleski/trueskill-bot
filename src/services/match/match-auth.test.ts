@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  BOT_OWNER_DISCORD_ID,
-  UNIVERSAL_MATCH_MOD_DISCORD_IDS,
-} from '../guild/guild-config.js';
+import { BOT_OWNER_DISCORD_ID, UNIVERSAL_MATCH_MOD_DISCORD_IDS } from '../guild/guild-config.js';
 import {
   assertCanCreateMatch,
   assertCanManageMatch,
@@ -77,9 +74,9 @@ describe('canCreateMatch', () => {
   });
 
   it('returns false when member lacks the create role', () => {
-    expect(
-      canCreateMatch({ memberRoleIds: ['other'], matchCreateRoleId: 'role-create' }),
-    ).toBe(false);
+    expect(canCreateMatch({ memberRoleIds: ['other'], matchCreateRoleId: 'role-create' })).toBe(
+      false,
+    );
   });
 
   it('returns true when member has the create role', () => {
@@ -130,9 +127,7 @@ describe('assertCanManageMatch', () => {
 
 describe('hasMatchModRole', () => {
   it('returns false when mod role is unset', () => {
-    expect(
-      hasMatchModRole({ actorDiscordId: 'user', memberRoleIds: ['role-mod'] }),
-    ).toBe(false);
+    expect(hasMatchModRole({ actorDiscordId: 'user', memberRoleIds: ['role-mod'] })).toBe(false);
   });
 
   it('returns false when member lacks the role', () => {
@@ -178,9 +173,9 @@ describe('hasMatchModRole', () => {
 
 describe('assertHasMatchModRole', () => {
   it('throws not-configured when role unset', () => {
-    expect(() =>
-      assertHasMatchModRole({ actorDiscordId: 'user', memberRoleIds: [] }),
-    ).toThrow('Match moderator role is not configured.');
+    expect(() => assertHasMatchModRole({ actorDiscordId: 'user', memberRoleIds: [] })).toThrow(
+      'Match moderator role is not configured.',
+    );
   });
 
   it('throws forbidden when member lacks role', () => {

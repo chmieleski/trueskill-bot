@@ -25,34 +25,36 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `prisma/schema.prisma` | League columns + `PlayerRankReset` model + relations |
-| `prisma/migrations/…_add_rank_reset/` | Migration SQL |
-| `src/services/rating/rank-reset.ts` | Error class, cooldown helpers, eligibility, wipe transaction, button customId parse/build |
-| `src/services/rating/rank-reset.test.ts` | Unit tests for use-case |
-| `src/services/rating/index.ts` | Re-export public API |
-| `src/services/league/league-wc3stats.ts` | Extend `ResolvedLeagueConfig` + set helpers |
-| `src/services/league/index.ts` | Re-export setters |
-| `src/commands/player/rank-reset.ts` | `/rank_reset` slash command |
-| `src/discord/interactions/rank-reset-interactions.ts` | Confirm/Cancel buttons |
-| `src/events/interaction-create.ts` | Route rank-reset buttons |
-| `src/commands/config/config.ts` | set/view wiring |
-| `docs/discord/staff/a1-roles-and-setup.md` | Staff setup |
-| `docs/discord/staff/a5-admin-cheat-sheet.md` | Cheat sheet lines |
-| `docs/discord/public/06-rank-and-boards.md` | Public note |
+| File                                                  | Role                                                                                      |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `prisma/schema.prisma`                                | League columns + `PlayerRankReset` model + relations                                      |
+| `prisma/migrations/…_add_rank_reset/`                 | Migration SQL                                                                             |
+| `src/services/rating/rank-reset.ts`                   | Error class, cooldown helpers, eligibility, wipe transaction, button customId parse/build |
+| `src/services/rating/rank-reset.test.ts`              | Unit tests for use-case                                                                   |
+| `src/services/rating/index.ts`                        | Re-export public API                                                                      |
+| `src/services/league/league-wc3stats.ts`              | Extend `ResolvedLeagueConfig` + set helpers                                               |
+| `src/services/league/index.ts`                        | Re-export setters                                                                         |
+| `src/commands/player/rank-reset.ts`                   | `/rank_reset` slash command                                                               |
+| `src/discord/interactions/rank-reset-interactions.ts` | Confirm/Cancel buttons                                                                    |
+| `src/events/interaction-create.ts`                    | Route rank-reset buttons                                                                  |
+| `src/commands/config/config.ts`                       | set/view wiring                                                                           |
+| `docs/discord/staff/a1-roles-and-setup.md`            | Staff setup                                                                               |
+| `docs/discord/staff/a5-admin-cheat-sheet.md`          | Cheat sheet lines                                                                         |
+| `docs/discord/public/06-rank-and-boards.md`           | Public note                                                                               |
 
 ---
 
 ### Task 1: Schema + league config fields
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: migration via `npx prisma migrate dev --name add_rank_reset` (or hand-write SQL under `prisma/migrations/` if migrate can't reach DB)
 - Modify: `src/services/league/league-wc3stats.ts`
 - Modify: `src/services/league/index.ts`
 
 **Interfaces:**
+
 - Produces (schema):
   - `League.rankResetEnabled Boolean @default(false)`
   - `League.rankResetCooldownDays Int @default(30)`
@@ -143,8 +145,8 @@ Then run `npx prisma generate`.
 In `src/services/league/league-wc3stats.ts`, add to `ResolvedLeagueConfig`:
 
 ```typescript
-  rankResetEnabled: boolean;
-  rankResetCooldownDays: number;
+rankResetEnabled: boolean;
+rankResetCooldownDays: number;
 ```
 
 In `resolveLeagueConfig` return:
@@ -198,12 +200,14 @@ git commit -m "feat: add league rank-reset schema and config setters"
 ### Task 2: Rank-reset use-case (eligibility + wipe)
 
 **Files:**
+
 - Create: `src/services/rating/rank-reset.ts`
 - Create: `src/services/rating/rank-reset.test.ts`
 - Modify: `src/services/rating/index.ts`
 - Modify: `src/services/league/league-wc3stats.ts` (import `assertRankResetCooldownDays` if Task 1 used a local copy)
 
 **Interfaces:**
+
 - Produces:
   - `RANK_RESET_COOLDOWN_MIN_DAYS = 1`
   - `RANK_RESET_COOLDOWN_MAX_DAYS = 365`
@@ -314,10 +318,12 @@ git commit -m "feat: add rank-reset eligibility and wipe use-case"
 ### Task 3: Confirm/Cancel Discord interactions
 
 **Files:**
+
 - Create: `src/discord/interactions/rank-reset-interactions.ts`
 - Modify: `src/events/interaction-create.ts`
 
 **Interfaces:**
+
 - Consumes: `applyRankReset`, `parseRankResetButtonCustomId`, `buildRankReset*CustomId`, `RankResetServiceError`, `refreshLeagueLeaderboard`, `resolveGuildConfig`, `MatchServiceError`, `prisma`
 - Produces:
   - `buildRankResetConfirmComponents(input): ActionRowBuilder<ButtonBuilder>[]`
@@ -360,9 +366,11 @@ git commit -m "feat: handle rank-reset confirm and cancel buttons"
 ### Task 4: `/rank_reset` slash command
 
 **Files:**
+
 - Create: `src/commands/player/rank-reset.ts`
 
 **Interfaces:**
+
 - Consumes: `previewRankReset`, league resolve helpers, `buildRankResetConfirmComponents`, `resolveGuildConfig`, `RankResetServiceError`, `MatchServiceError`
 - Produces: slash command `rank_reset` (auto-loaded)
 
@@ -400,9 +408,11 @@ git commit -m "feat: add /rank_reset slash command with confirm prompt"
 ### Task 5: `/config` set + view
 
 **Files:**
+
 - Modify: `src/commands/config/config.ts`
 
 **Interfaces:**
+
 - Consumes: `setLeagueRankResetEnabled`, `setLeagueRankResetCooldownDays`, `resolveLeagueConfig`, `RankResetServiceError`
 
 - [ ] **Step 1: Format + view**
@@ -437,6 +447,7 @@ git commit -m "feat: config set/view for league rank reset"
 ### Task 6: Discord user docs
 
 **Files:**
+
 - Modify: `docs/discord/staff/a1-roles-and-setup.md`
 - Modify: `docs/discord/staff/a5-admin-cheat-sheet.md`
 - Modify: `docs/discord/public/06-rank-and-boards.md`
@@ -483,19 +494,19 @@ git commit -m "docs: document league rank reset for staff and players"
 
 ## Spec coverage checklist
 
-| Spec requirement | Task |
-|------------------|------|
-| League columns + defaults | 1 |
-| `PlayerRankReset` audit table | 1 |
-| Cooldown from latest audit row | 2 |
-| Full wipe + transaction | 2 |
-| Soft-hide / feature off | 2, 4 |
-| Self + mod force + staffOverride | 2, 4 |
-| Active PENDING/IN_PROGRESS block | 2 |
-| Confirm/Cancel | 3, 4 |
-| Live leaderboard refresh | 3 |
-| `/config set rank_reset` + cooldown + view | 5 |
-| Staff/public docs | 6 |
+| Spec requirement                           | Task |
+| ------------------------------------------ | ---- |
+| League columns + defaults                  | 1    |
+| `PlayerRankReset` audit table              | 1    |
+| Cooldown from latest audit row             | 2    |
+| Full wipe + transaction                    | 2    |
+| Soft-hide / feature off                    | 2, 4 |
+| Self + mod force + staffOverride           | 2, 4 |
+| Active PENDING/IN_PROGRESS block           | 2    |
+| Confirm/Cancel                             | 3, 4 |
+| Live leaderboard refresh                   | 3    |
+| `/config set rank_reset` + cooldown + view | 5    |
+| Staff/public docs                          | 6    |
 
 ## Plan self-review notes
 

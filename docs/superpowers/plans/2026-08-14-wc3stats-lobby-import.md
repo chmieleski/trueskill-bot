@@ -25,32 +25,34 @@
 
 ## File structure
 
-| File | Responsibility |
-|------|----------------|
-| `src/config/env.ts` | Parse wc3stats flags |
-| `src/services/wc3stats-map.ts` | Map allow / deny |
-| `src/services/wc3stats-roster.ts` | Detail → players + usability |
-| `src/services/wc3stats-client.ts` | HTTP |
-| `src/services/wc3stats-resolve.ts` | Pick lobby or fail closed |
-| `src/services/lobby-actions.ts` | `refreshLobbyFromWc3stats` |
-| `src/services/match-service.ts` | Persist `wc3statsGameId`; duplicate check |
-| `src/commands/lobby/register-lobby.ts` | Optional `wc3stats_id`; import path |
-| `src/services/lobby-preview.ts` | Refresh button + source footer |
-| `src/handlers/lobby-interactions.ts` | Route refresh |
-| `prisma/schema.prisma` | `Match.wc3statsGameId` |
-| Tests colocated `*.test.ts` | |
+| File                                   | Responsibility                            |
+| -------------------------------------- | ----------------------------------------- |
+| `src/config/env.ts`                    | Parse wc3stats flags                      |
+| `src/services/wc3stats-map.ts`         | Map allow / deny                          |
+| `src/services/wc3stats-roster.ts`      | Detail → players + usability              |
+| `src/services/wc3stats-client.ts`      | HTTP                                      |
+| `src/services/wc3stats-resolve.ts`     | Pick lobby or fail closed                 |
+| `src/services/lobby-actions.ts`        | `refreshLobbyFromWc3stats`                |
+| `src/services/match-service.ts`        | Persist `wc3statsGameId`; duplicate check |
+| `src/commands/lobby/register-lobby.ts` | Optional `wc3stats_id`; import path       |
+| `src/services/lobby-preview.ts`        | Refresh button + source footer            |
+| `src/handlers/lobby-interactions.ts`   | Route refresh                             |
+| `prisma/schema.prisma`                 | `Match.wc3statsGameId`                    |
+| Tests colocated `*.test.ts`            |                                           |
 
 ---
 
 ### Task 1: Map filter + nick strip (pure)
 
 **Files:**
+
 - Create: `src/services/wc3stats-map.ts`
 - Create: `src/services/wc3stats-map.test.ts`
 - Create: `src/services/wc3stats-roster.ts` (nick helper only first — or put nick in roster file from the start)
 - Create: `src/services/wc3stats-roster.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `isUdbrMap(input: { map?: string; path?: string; normalizedName?: string; sha1?: string }, config: { pattern: RegExp; sha1Allowlist: Set<string> }): boolean`
   - `nickFromWc3statsPlayer(player: { name?: string | null; battleTag?: string | null }): string` (empty string if unusable)
@@ -159,10 +161,12 @@ export function nickFromWc3statsPlayer(player: {
 ### Task 2: Roster extraction + empty-full
 
 **Files:**
+
 - Modify: `src/services/wc3stats-roster.ts`
 - Modify: `src/services/wc3stats-roster.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `export type Wc3statsSlot = { status?: string; isComputer?: boolean; isObserver?: boolean; player?: { name?: string | null; battleTag?: string | null } | null }`
   - `export type Wc3statsRosterResult = { usable: boolean; players: LobbyPlayer[]; occupiedCount: number }`
@@ -233,6 +237,7 @@ Rules:
 ### Task 3: Env + HTTP client
 
 **Files:**
+
 - Modify: `src/config/env.ts`
 - Modify: `.env.example`
 - Modify: `.cursor/rules/scripts-and-env.mdc`
@@ -240,6 +245,7 @@ Rules:
 - Create: `src/services/wc3stats-client.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `env.wc3statsEnabled: boolean` (default false)
   - `env.wc3statsMapPattern: string` (default `ultimate.?dragon.?ball.?reborn|udbr`)
@@ -296,10 +302,12 @@ Invalid regex at runtime: compile in `getWc3statsMapConfig()` and throw a clear 
 ### Task 4: Resolver (fail closed)
 
 **Files:**
+
 - Create: `src/services/wc3stats-resolve.ts`
 - Create: `src/services/wc3stats-resolve.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `export type ResolveWc3statsLobbyInput = { wc3statsId?: number | null; hostNick?: string | null; games: Wc3statsListGame[]; mapConfig: Wc3statsMapConfig }`
   - `export type ResolveWc3statsLobbyResult = { ok: true; game: Wc3statsListGame } | { ok: false; code: 'not_found' | 'ambiguous' | 'not_udbr'; message: string; candidates: Wc3statsListGame[] }`
@@ -307,17 +315,17 @@ Invalid regex at runtime: compile in `getWc3statsMapConfig()` and throw a clear 
 
 - [ ] **Step 1: Tests**
 
-- Explicit id found + UDBR → ok  
-- Explicit id found + Tribute → `not_udbr`  
+- Explicit id found + UDBR → ok
+- Explicit id found + Tribute → `not_udbr`
 - Explicit id missing from list → `not_found` (detail fetch later can still work; resolver on list may return not_found — **decision:** if `wc3statsId` is set, skip list filter and let detail fetch decide map. Document this in the function: explicit id bypasses list.)
 
 Lock: **explicit `wc3stats_id` skips the list** and goes straight to `fetchGameDetail`. Resolver on list is only for auto-pick.
 
 Auto-pick tests:
 
-- Zero UDBR games → `not_found`  
-- One UDBR → ok  
-- Two UDBR → `ambiguous` unless `hostNick` matches exactly one host (compare `normalizeNick` of host name / battleTag stripped)  
+- Zero UDBR games → `not_found`
+- One UDBR → ok
+- Two UDBR → `ambiguous` unless `hostNick` matches exactly one host (compare `normalizeNick` of host name / battleTag stripped)
 - Two UDBR same host → still `ambiguous`
 
 - [ ] **Step 2: Implement**
@@ -331,10 +339,12 @@ Messages from the spec failure-copy table.
 ### Task 5: Prisma field
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: Prisma migration via `npm run db:migrate`
 
 **Interfaces:**
+
 - Produces: `Match.wc3statsGameId String?` with `@@index([wc3statsGameId])`
 
 - [ ] **Step 1: Add field to schema** (no `@unique`)
@@ -352,6 +362,7 @@ Expected: migration SQL adds nullable column + index.
 ### Task 6: Persist game id + duplicate PENDING
 
 **Files:**
+
 - Modify: `src/services/match-service.ts`
 - Create or modify: `src/services/match-service` tests if a focused test file exists; otherwise add `src/services/wc3stats-match.test.ts` that tests a small exported helper to avoid heavy Prisma mocking.
 
@@ -360,15 +371,15 @@ Prefer a helper:
 ```ts
 export async function findActiveMatchByWc3statsGameId(
   wc3statsGameId: string,
-): Promise<MatchWithPlayers | null>
+): Promise<MatchWithPlayers | null>;
 ```
 
 `createPendingMatch` input gains optional `wc3statsGameId?: string | null`.
 
 If set:
 
-1. `findActiveMatchByWc3statsGameId` where status in `PENDING | IN_PROGRESS`  
-2. If found, throw `MatchServiceError` with `That Warcraft lobby is already registered as match ${id}.`  
+1. `findActiveMatchByWc3statsGameId` where status in `PENDING | IN_PROGRESS`
+2. If found, throw `MatchServiceError` with `That Warcraft lobby is already registered as match ${id}.`
 3. Else store the id on create
 
 - [ ] **Step 1: Extend `CreatePendingMatchInput`**
@@ -388,15 +399,17 @@ const existing = await tx.match.findFirst({
 ### Task 7: Wire `/register_lobby`
 
 **Files:**
+
 - Modify: `src/commands/lobby/register-lobby.ts`
 - Modify: `src/services/register-lobby-source.ts` (add wc3stats kind)
 - Modify: `src/services/register-lobby-source.test.ts`
 
 **Interfaces:**
+
 - Slash: optional string `wc3stats_id`
 - Resolution order:
   1. If `print` image → OCR (ignore wc3stats for player extract; still may store id if also passed)
-  2. Else if `WC3STATS_ENABLED` and (`wc3stats_id` or auto-resolve) → import  
+  2. Else if `WC3STATS_ENABLED` and (`wc3stats_id` or auto-resolve) → import
   3. Else empty
 
 **Lock:** Screenshot wins over wc3stats for the roster. If both `print` and `wc3stats_id` are passed: OCR players, still attach `wc3statsGameId` for Refresh.
@@ -429,12 +442,14 @@ A live wc3stats lobby is **not** required to create a Discord match. Ambiguous/n
 ### Task 8: Refresh use-case + button
 
 **Files:**
+
 - Modify: `src/services/lobby-actions.ts`
 - Modify: `src/services/lobby-preview.ts`
 - Modify: `src/handlers/lobby-interactions.ts`
 - Create: `src/services/lobby-actions-wc3stats.test.ts` for the empty-full keep-roster rule (pure function)
 
 **Interfaces:**
+
 - Produces:
   - `export function applyWc3statsRefresh(current: LobbyPlayer[], incoming: Wc3statsRosterResult): { players: LobbyPlayer[]; keptExisting: boolean }`
   - `export async function refreshLobbyFromWc3stats(input: { client; hostDiscordId; matchId?: string | null; memberRoleIds: string[]; matchModRoleId?: string }): Promise<LobbyActionResult>`
@@ -473,12 +488,13 @@ Parse `lobby:refresh` like other lobby buttons; call `refreshLobbyFromWc3stats`;
 ### Task 9: Embed source line
 
 **Files:**
+
 - Modify: `src/services/lobby-preview.ts`
 - Modify: `src/services/lobby-preview.test.ts` if embed description is asserted
 
 When `wc3statsGameId` is set, append to description:
 
-- usable/filled: `Source: wc3stats`  
+- usable/filled: `Source: wc3stats`
 - empty players: `wc3stats has not published the player list yet. Use Refresh, a screenshot, or add players.`
 
 Do not mention raw API JSON.
@@ -488,6 +504,7 @@ Do not mention raw API JSON.
 ### Task 10: Feature-flag default and operator docs
 
 **Files:**
+
 - `.env.example`
 - `.cursor/rules/scripts-and-env.mdc`
 - `infra/aws` only if you already inject env via SSM — **do not** add Terraform vars in this task unless `user-data` must list every key. Prefer documenting the vars; operators add them to `.env` / SSM manually.

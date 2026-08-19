@@ -1,8 +1,4 @@
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-} from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { nickFromWc3statsPlayer } from './wc3stats-roster.js';
 import { isUdbrMap, type Wc3statsMapConfig } from './wc3stats-map.js';
 
@@ -145,10 +141,7 @@ export function buildHostPromptButtons(input: {
 
   return [
     new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(openId)
-        .setLabel('Open lobby')
-        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(openId).setLabel('Open lobby').setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId(dismissId)
         .setLabel('Dismiss')

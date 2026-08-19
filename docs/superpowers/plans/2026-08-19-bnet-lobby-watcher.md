@@ -27,27 +27,29 @@
 
 ## File map
 
-| File | Role |
-|------|------|
-| `watcher/package.json` | Private package, `"type": "module"` |
-| `watcher/src/config.ts` | `BNET_INGEST_URL`, `BNET_INGEST_TOKEN`, `WATCHER_NICK`, poll ms |
-| `watcher/src/ingest-client.ts` | Heartbeat, gamelist PUT, jobs next/result |
-| `watcher/src/lobby-ids.ts` | Mint/reuse/retire ids |
-| `watcher/src/wc3-adapter.ts` | Interface + errors |
-| `watcher/src/wc3-stub.ts` | Fixture adapter for tests |
-| `watcher/src/loop.ts` | Main loop |
-| `watcher/src/index.ts` | Entry |
-| `watcher/README.md` | Windows ops: Reforged logged in, referee, firewall to EC2 |
+| File                           | Role                                                            |
+| ------------------------------ | --------------------------------------------------------------- |
+| `watcher/package.json`         | Private package, `"type": "module"`                             |
+| `watcher/src/config.ts`        | `BNET_INGEST_URL`, `BNET_INGEST_TOKEN`, `WATCHER_NICK`, poll ms |
+| `watcher/src/ingest-client.ts` | Heartbeat, gamelist PUT, jobs next/result                       |
+| `watcher/src/lobby-ids.ts`     | Mint/reuse/retire ids                                           |
+| `watcher/src/wc3-adapter.ts`   | Interface + errors                                              |
+| `watcher/src/wc3-stub.ts`      | Fixture adapter for tests                                       |
+| `watcher/src/loop.ts`          | Main loop                                                       |
+| `watcher/src/index.ts`         | Entry                                                           |
+| `watcher/README.md`            | Windows ops: Reforged logged in, referee, firewall to EC2       |
 
 ---
 
 ### Task 1: Ingest client (TDD)
 
 **Files:**
+
 - Create: `watcher/src/ingest-client.ts`
 - Create: `watcher/src/ingest-client.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `createIngestClient(input: { baseUrl: string; token: string }): IngestClient`
   - `IngestClient.heartbeat(watcherNick: string): Promise<void>`
@@ -68,10 +70,12 @@
 ### Task 2: Stable lobby ids (TDD)
 
 **Files:**
+
 - Create: `watcher/src/lobby-ids.ts`
 - Create: `watcher/src/lobby-ids.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `type ObservedGame = { key: string; name: string; host: string; map: string; slotsTaken: number; slotsTotal: number; server?: string }`
   - `createLobbyIdMint(): { sync(games: ObservedGame[]): LiveLobby[] }`
@@ -109,11 +113,13 @@ v1: monotonic `nextId++`; never reuse integers in-process (avoids Discord cards 
 ### Task 3: WC3 adapter interface + stub
 
 **Files:**
+
 - Create: `watcher/src/wc3-adapter.ts`
 - Create: `watcher/src/wc3-stub.ts`
 - Create: `watcher/src/wc3-adapter.test.ts`
 
 **Interfaces:**
+
 - Produces:
 
 ```typescript
@@ -130,7 +136,10 @@ export class Wc3AdapterError extends Error {
 export type Wc3Adapter = {
   listGames(): Promise<ObservedGame[]>;
   /** Join referee only. Must not occupy hero slots 1–12. */
-  joinAndSnapshot(bnetLobbyId: number, resolveGame: (id: number) => ObservedGame | undefined): Promise<BnetSnapshotSlot[]>;
+  joinAndSnapshot(
+    bnetLobbyId: number,
+    resolveGame: (id: number) => ObservedGame | undefined,
+  ): Promise<BnetSnapshotSlot[]>;
   leave(): Promise<void>;
 };
 ```
@@ -148,12 +157,14 @@ Copy `no_referee` message from spec.
 ### Task 4: Main loop
 
 **Files:**
+
 - Create: `watcher/src/loop.ts`
 - Create: `watcher/src/loop.test.ts`
 - Create: `watcher/src/index.ts`
 - Create: `watcher/src/config.ts`
 
 **Interfaces:**
+
 - Loop tick (~5s): heartbeat → `listGames` → mint → `putGamelist` → if not joining, `nextJob` → joinAndSnapshot → `postResult` → `leave` in `finally`.
 
 - [ ] **Step 1: Tests with stub adapter + mocked ingest:** job `no_referee` posts `{ ok: false, code: 'no_referee', message }` and still calls `leave`.
@@ -169,6 +180,7 @@ Copy `no_referee` message from spec.
 ### Task 5: Reforged join adapter (Windows, manual)
 
 **Files:**
+
 - Create: `watcher/src/wc3-reforged.ts`
 - Create: `watcher/README.md` (ops + spike notes)
 
@@ -191,6 +203,7 @@ This task is a **spike with a locked fail-closed contract**. Do not ship a hero-
 ### Task 6: Ops README
 
 **Files:**
+
 - Modify: `watcher/README.md`
 - Modify: `docs/discord/staff/a6-bnet-watcher.md` (link from ingest plan) — Windows box, Reforged always in custom-game browser, ingest SG `/32`, token, referee slots 13–16 left open on UDBR hosts
 

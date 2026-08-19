@@ -3,16 +3,10 @@ import { rating, rate, type Rating } from 'openskill';
 import { prisma } from '../../lib/prisma.js';
 import { MatchServiceError } from '../match/match-service.js';
 import { ratingEntitiesForPlayer } from './rating-entities.js';
-import {
-  computeLobbyAvgKi,
-  scaleAppliedMu,
-} from './lobby-relative-scale.js';
+import { computeLobbyAvgKi, scaleAppliedMu } from './lobby-relative-scale.js';
 import { displayOrdinal, splitRosterByTeam, toOpenSkillRatings } from './rating-math.js';
 import { ensurePlayerRatings } from './rating-preview.js';
-import {
-  gamesByPlayerFromStats,
-  loadMatchDisplayStatsByPlayer,
-} from './rank-reset-display.js';
+import { gamesByPlayerFromStats, loadMatchDisplayStatsByPlayer } from './rank-reset-display.js';
 
 const DEFAULT_MU = 25;
 const DEFAULT_SIGMA = 8.333;
@@ -79,9 +73,7 @@ export function partitionRosterForRating<T extends { isQuitter: boolean }>(
   };
 }
 
-export function assertBothTeamsHaveActivePlayers(
-  active: { slot: number; team: 1 | 2 }[],
-): void {
+export function assertBothTeamsHaveActivePlayers(active: { slot: number; team: 1 | 2 }[]): void {
   const { teamA, teamB } = splitRosterByTeam(active);
 
   if (teamA.length === 0 || teamB.length === 0) {
@@ -134,16 +126,14 @@ export async function applyQuitterPenalties(
   ]);
 
   const globalByPlayer = new Map(globalRatings.map((row) => [row.playerId, row]));
-  const heroByKey = new Map(
-    heroRatings.map((row) => [heroKey(row.playerId, row.heroId), row]),
-  );
+  const heroByKey = new Map(heroRatings.map((row) => [heroKey(row.playerId, row.heroId), row]));
 
   for (const entry of quitters) {
     const global = globalByPlayer.get(entry.playerId) ?? defaultRatingEntity();
     const hero =
       entry.heroId == null
         ? defaultRatingEntity()
-        : heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity();
+        : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity());
     const updated = applySyntheticLosses(
       toOpenSkillRatings(ratingEntitiesForPlayer(global, hero, entry.heroId)),
     );
@@ -208,8 +198,7 @@ function snapshotPreMatchMuSigma(
       continue;
     }
 
-    const hero =
-      heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity();
+    const hero = heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity();
     preHero.set(heroKey(entry.playerId, entry.heroId), {
       mu: hero.mu,
       sigma: hero.sigma,
@@ -258,26 +247,15 @@ function applyLobbyRelativeScalingToResults(
     const offsetKi = playerKi - lobbyAvg;
     const won = entry.team === winningTeam;
 
-    const scaledGlobalMu = scaleAppliedMu(
-      beforeGlobal.mu,
-      updated.global.mu,
-      won,
-      offsetKi,
-    );
+    const scaledGlobalMu = scaleAppliedMu(beforeGlobal.mu, updated.global.mu, won, offsetKi);
     updated.global = rating({ mu: scaledGlobalMu, sigma: updated.global.sigma });
 
     if (entry.heroId == null || !updated.hero) {
       continue;
     }
 
-    const heroBefore =
-      preHero.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity();
-    const scaledHeroMu = scaleAppliedMu(
-      heroBefore.mu,
-      updated.hero.mu,
-      won,
-      offsetKi,
-    );
+    const heroBefore = preHero.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity();
+    const scaledHeroMu = scaleAppliedMu(heroBefore.mu, updated.hero.mu, won, offsetKi);
     updated.hero = rating({ mu: scaledHeroMu, sigma: updated.hero.sigma });
   }
 }
@@ -293,7 +271,7 @@ function buildTeamEntities(
       const hero =
         entry.heroId == null
           ? defaultRatingEntity()
-          : heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity();
+          : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity());
 
       return ratingEntitiesForPlayer(global, hero, entry.heroId);
     }),
@@ -342,9 +320,7 @@ export async function applyMatchRatings(
   ]);
 
   const globalByPlayer = new Map(globalRatings.map((row) => [row.playerId, row]));
-  const heroByKey = new Map(
-    heroRatings.map((row) => [heroKey(row.playerId, row.heroId), row]),
-  );
+  const heroByKey = new Map(heroRatings.map((row) => [heroKey(row.playerId, row.heroId), row]));
 
   const displayStats = await loadMatchDisplayStatsByPlayer(leagueId, playerIds, db);
   const globalGamesByPlayer = gamesByPlayerFromStats(displayStats);

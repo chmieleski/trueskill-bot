@@ -25,7 +25,7 @@ Mods should **always pass `match_id`** when they are not the host (the bot will 
 • `/unlink user:@Player` — unlink someone else
 • Players can only unlink themselves
 
-**What mods do *not* need for everyday play**
+**What mods do _not_ need for everyday play**
 Players still host their own lobbies if they have the create role.
 Mods are the safety net for reporting and account fixes.
 
