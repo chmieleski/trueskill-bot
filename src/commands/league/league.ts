@@ -84,20 +84,30 @@ function formatArchivedLeagueListLine(league: {
   return `• **${league.name}** (\`${league.id}\`) — game \`${league.gameId}\` (archived ${archivedLabel})`;
 }
 
-function buildRolloverPreviewMessage(preview: LeagueRolloverPreview): string {
+/** Build the ephemeral Confirm/Cancel preview copy for a league rollover. */
+export function buildRolloverPreviewMessage(preview: LeagueRolloverPreview): string {
   const resetLine =
     preview.resetMode === 'soft' && preview.compression !== null
       ? `soft (compression ${preview.compression})`
       : preview.resetMode;
 
-  return [
+  const lines = [
     `Archive **${preview.sourceLeagueName}** and create **${preview.successorName}**?`,
     `• Reset: ${resetLine}`,
+  ];
+
+  if (preview.resetMode === 'continue') {
+    lines.push('• Ratings copied unchanged (old league frozen)');
+  }
+
+  lines.push(
     `• Players seeded: ${preview.playerCount}`,
     `• Bindings moved: ${preview.bindingCount}`,
     '',
     'This cannot be undone.',
-  ].join('\n');
+  );
+
+  return lines.join('\n');
 }
 
 const DUPLICATE_LEAGUE_NAME_MESSAGE =
@@ -179,8 +189,9 @@ export const data = new SlashCommandBuilder()
           .setDescription('Rating seed mode for the new league')
           .setRequired(true)
           .addChoices(
-            { name: 'Hard — everyone back to ~1000 ki', value: 'hard' },
+            { name: 'Continue — copy ki unchanged', value: 'continue' },
             { name: 'Soft — compress toward average', value: 'soft' },
+            { name: 'Hard — everyone back to ~1000 ki', value: 'hard' },
           ),
       )
       .addNumberOption((option) =>

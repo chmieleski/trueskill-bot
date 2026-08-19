@@ -1,7 +1,8 @@
 import { ApplicationCommandOptionType, ChannelType } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
-import { data } from './league.js';
+import type { LeagueRolloverPreview } from '../../services/league/index.js';
+import { buildRolloverPreviewMessage, data } from './league.js';
 
 describe('league command data', () => {
   it('exposes create, list, bind, unbind, and rollover subcommands', () => {
@@ -75,11 +76,95 @@ describe('league command data', () => {
     expect(name?.required).toBe(true);
     expect(name?.type).toBe(ApplicationCommandOptionType.String);
     expect(reset?.required).toBe(true);
-    expect(reset?.choices?.map((choice) => choice.value)).toEqual(['hard', 'soft']);
+    expect(reset?.choices?.map((choice) => ({ name: choice.name, value: choice.value }))).toEqual([
+      { name: 'Continue — copy ki unchanged', value: 'continue' },
+      { name: 'Soft — compress toward average', value: 'soft' },
+      { name: 'Hard — everyone back to ~1000 ki', value: 'hard' },
+    ]);
     expect(compression?.required).toBeFalsy();
     expect(compression?.min_value).toBe(0);
     expect(compression?.max_value).toBe(1);
     expect(league?.required).toBeFalsy();
     expect(league?.autocomplete).toBe(true);
+  });
+});
+
+function previewFixture(
+  overrides: Partial<LeagueRolloverPreview> = {},
+): LeagueRolloverPreview {
+  return {
+    draftId: 'draft-1',
+    sourceLeagueId: 'src-1',
+    sourceLeagueName: 'Season 1',
+    successorName: 'Season 1.5',
+    resetMode: 'continue',
+    compression: null,
+    playerCount: 12,
+    bindingCount: 3,
+    ...overrides,
+  };
+}
+
+describe('buildRolloverPreviewMessage', () => {
+  it('says continue copies ratings unchanged and freezes the old league', () => {
+    const message = buildRolloverPreviewMessage(previewFixture());
+
+    expect(message).toBe(
+      [
+        'Archive **Season 1** and create **Season 1.5**?',
+        '• Reset: continue',
+        '• Ratings copied unchanged (old league frozen)',
+        '• Players seeded: 12',
+        '• Bindings moved: 3',
+        '',
+        'This cannot be undone.',
+      ].join('\n'),
+    );
+    expect(message).not.toMatch(/average/i);
+  });
+
+  it('includes compression for soft and omits the copied-unchanged line', () => {
+    const message = buildRolloverPreviewMessage(
+      previewFixture({
+        successorName: 'Season 2',
+        resetMode: 'soft',
+        compression: 0.5,
+      }),
+    );
+
+    expect(message).toBe(
+      [
+        'Archive **Season 1** and create **Season 2**?',
+        '• Reset: soft (compression 0.5)',
+        '• Players seeded: 12',
+        '• Bindings moved: 3',
+        '',
+        'This cannot be undone.',
+      ].join('\n'),
+    );
+    expect(message).not.toContain('copied unchanged');
+  });
+
+  it('omits compression and the copied-unchanged line for hard', () => {
+    const message = buildRolloverPreviewMessage(
+      previewFixture({
+        successorName: 'Fresh Start',
+        resetMode: 'hard',
+        compression: null,
+      }),
+    );
+
+    expect(message).toBe(
+      [
+        'Archive **Season 1** and create **Fresh Start**?',
+        '• Reset: hard',
+        '• Players seeded: 12',
+        '• Bindings moved: 3',
+        '',
+        'This cannot be undone.',
+      ].join('\n'),
+    );
+    expect(message).not.toContain('copied unchanged');
+    expect(message).not.toContain('compression');
   });
 });
