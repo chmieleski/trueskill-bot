@@ -37,6 +37,19 @@ export {
   type MatchHistoryRow,
 } from './match-history.js';
 export {
+  buildMatchListEmbed,
+  buildMatchListPageButtons,
+  buildMatchListPageCustomId,
+  countMatchListTeamSizes,
+  formatMatchListField,
+  formatMatchListFormat,
+  loadMatchListPage,
+  MATCH_LIST_PAGE_SIZE,
+  parseMatchListPageCustomId,
+  type MatchListPage,
+  type MatchListRow,
+} from './match-list.js';
+export {
   loadPlayerGlobalDeltaForMatch,
   persistMatchRatingPreviewToPlayers,
   ratingPreviewFromStoredMatchPlayers,
