@@ -1,3 +1,16 @@
+# [1.1.0](https://github.com/chmieleski/trueskill-bot/compare/v1.0.0...v1.1.0) (2026-08-19)
+
+
+### Features
+
+* **lobby:** add /lobby swap pairs ([b75ecac](https://github.com/chmieleski/trueskill-bot/commit/b75ecac851fa02dc89395adcd8d40cd0d8907ec3))
+* **lobby:** add cancel button on pending lobby cards ([6ab543d](https://github.com/chmieleski/trueskill-bot/commit/6ab543d0b282d578a25adb006744df6a82843107))
+* **lobby:** apply swap pairs sequentially ([f436edf](https://github.com/chmieleski/trueskill-bot/commit/f436edf6564b85890f187558e9aecfed00434c93))
+* **lobby:** confirm pending cancel from the lobby button ([7408bd4](https://github.com/chmieleski/trueskill-bot/commit/7408bd4b04d0ebf75edc53d613f23414e15d45b5))
+* **lobby:** parse swap pairs strings ([c1b627d](https://github.com/chmieleski/trueskill-bot/commit/c1b627d6a92cd215952da9f07bfd72adb29e55d5))
+* **lobby:** resolve swap pair sides to slots ([650ffb4](https://github.com/chmieleski/trueskill-bot/commit/650ffb40927b5d5f4c859e0f2fb07a5dbbdbbecb))
+* **lobby:** xor classic swap and pairs ([44cd86e](https://github.com/chmieleski/trueskill-bot/commit/44cd86ec78a1f16bb435ec6815730aefccc53dec))
+
 # 1.0.0 (2026-08-18)
 
 
