@@ -31,6 +31,10 @@ export function formatRankPrefix(rank: number | null): string {
   return `#${rank}`;
 }
 
+function formatWinRateCell(percent: number | null): string {
+  return percent === null ? '—' : `${percent}%`;
+}
+
 export function formatOverallTable(
   entries: OverallLeaderboardEntry[],
   ratingLabel = 'ki',
@@ -48,12 +52,17 @@ export function formatOverallTable(
     ...entries.map((entry) => formatPublicKi(entry.ki, entry.leagueGames).length),
     labelHeader.length,
   );
-  const header = `${'#'.padEnd(3)} ${'Player'.padEnd(nameWidth)}  ${labelHeader.padStart(kiWidth)}  G`;
+  const wrWidth = Math.max(
+    ...entries.map((entry) => formatWinRateCell(entry.winRatePercent).length),
+    'WR'.length,
+  );
+  const header = `${'#'.padEnd(3)} ${'Player'.padEnd(nameWidth)}  ${labelHeader.padStart(kiWidth)}  G  ${'WR'.padStart(wrWidth)}`;
   const lines = entries.map((entry) => {
     const prefix = formatRankPrefix(entry.rank).padEnd(3);
     const name = entry.username.padEnd(nameWidth, ' ');
     const ki = formatPublicKi(entry.ki, entry.leagueGames).padStart(kiWidth, ' ');
-    return `${prefix} ${name}  ${ki}  ${entry.games}`;
+    const wr = formatWinRateCell(entry.winRatePercent).padStart(wrWidth, ' ');
+    return `${prefix} ${name}  ${ki}  ${entry.games}  ${wr}`;
   });
   return `\`\`\`\n${header}\n${lines.join('\n')}\n\`\`\``;
 }
@@ -146,6 +155,7 @@ export function buildHeroLeaderboardEmbed(
             games: entry.matchesPlayed,
             leagueGames: entry.leagueGames,
             discordId: null,
+            winRatePercent: entry.winRatePercent,
           })),
           ratingLabel,
         );
