@@ -24,6 +24,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+      - run: git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
       - run: npm ci
       - run: npx prisma generate
       - run: npm test
@@ -40,6 +41,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+      - run: git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
       - run: npm ci
       - name: Lint PR title
         env:
@@ -64,6 +66,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+      - run: git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
       - run: npm ci
       - run: npx semantic-release
         env:
