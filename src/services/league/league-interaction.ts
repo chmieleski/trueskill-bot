@@ -191,7 +191,7 @@ export async function autocompleteGuildLeagues(
   return autocompleteAllGuildLeagues(guildId, query);
 }
 
-/** Respond to `league:` autocomplete when that option is focused. Returns true when handled. */
+/** Respond to `league:` autocomplete for write/play commands (active leagues only). */
 export async function respondLeagueAutocomplete(
   interaction: AutocompleteInteraction,
 ): Promise<boolean> {
@@ -205,7 +205,26 @@ export async function respondLeagueAutocomplete(
     return true;
   }
 
-  const choices = await autocompleteGuildLeagues(interaction.guildId, focused.value);
+  const choices = await autocompleteActiveGuildLeagues(interaction.guildId, focused.value);
+  await interaction.respond(choices);
+  return true;
+}
+
+/** Respond to `league:` autocomplete for history/read commands (includes archived). */
+export async function respondAllLeagueAutocomplete(
+  interaction: AutocompleteInteraction,
+): Promise<boolean> {
+  const focused = interaction.options.getFocused(true);
+  if (focused.name !== 'league') {
+    return false;
+  }
+
+  if (!interaction.guildId) {
+    await interaction.respond([]);
+    return true;
+  }
+
+  const choices = await autocompleteAllGuildLeagues(interaction.guildId, focused.value);
   await interaction.respond(choices);
   return true;
 }

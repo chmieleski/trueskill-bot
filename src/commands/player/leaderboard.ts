@@ -35,6 +35,7 @@ import {
   getGameProfileForLeague,
   getLeagueOption,
   resolveLeagueIdFromInteraction,
+  respondAllLeagueAutocomplete,
   respondLeagueAutocomplete,
   withSubcommandLeagueOption,
 } from '../../services/league/index.js';
@@ -114,8 +115,16 @@ export const data = new SlashCommandBuilder()
       .setDescription('Post a live quitter leaderboard message in this channel'),
   );
 
+const LEADERBOARD_HISTORY_SUBCOMMANDS = new Set(['show', 'heroes', 'hero', 'quitters']);
+
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
-  if (await respondLeagueAutocomplete(interaction)) {
+  const subcommand = interaction.options.getSubcommand(false);
+  const leagueAutocomplete =
+    subcommand && LEADERBOARD_HISTORY_SUBCOMMANDS.has(subcommand)
+      ? respondAllLeagueAutocomplete
+      : respondLeagueAutocomplete;
+
+  if (await leagueAutocomplete(interaction)) {
     return;
   }
 

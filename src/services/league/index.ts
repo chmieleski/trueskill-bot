@@ -33,6 +33,7 @@ export {
   LEAGUE_RESOLVE_NOT_IN_GUILD,
   resolveLeagueFromInteraction,
   resolveLeagueIdFromInteraction,
+  respondAllLeagueAutocomplete,
   respondLeagueAutocomplete,
   withOptionalLeagueOption,
   withSubcommandLeagueOption,
