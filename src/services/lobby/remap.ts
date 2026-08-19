@@ -10,6 +10,10 @@ import { movePlayer } from './roster.js';
 
 export type RemapPair = { raw: string; left: string; right: string };
 
+export type SwapForm =
+  | { kind: 'classic'; slotA: number; slotB: number }
+  | { kind: 'pairs'; pairs: string };
+
 const SLOT_TOKEN = /^[1-9]\d*$/;
 
 function invalidPairMessage(segment: string): string {
@@ -102,4 +106,41 @@ export function applyRemapPairs(
   }
 
   return working;
+}
+
+/**
+ * Discord `/lobby swap` XOR: classic two slots, or a pairs string, never both.
+ * Whitespace-only `pairs` counts as absent.
+ */
+export function resolveSwapForm(input: {
+  slotA: number | null;
+  slotB: number | null;
+  pairs: string | null;
+}): SwapForm {
+  const pairs = input.pairs?.trim() ?? '';
+  const hasPairs = pairs !== '';
+  const hasA = input.slotA !== null;
+  const hasB = input.slotB !== null;
+
+  if (hasPairs && !hasA && !hasB) {
+    return { kind: 'pairs', pairs };
+  }
+
+  if (!hasPairs && hasA && hasB) {
+    return { kind: 'classic', slotA: input.slotA!, slotB: input.slotB! };
+  }
+
+  if (hasPairs && (hasA || hasB)) {
+    throw new MatchServiceError(
+      'Use either slot_a and slot_b, or pairs, not both.',
+    );
+  }
+
+  if (hasA !== hasB) {
+    throw new MatchServiceError(
+      'Provide both slot_a and slot_b, or use pairs instead.',
+    );
+  }
+
+  throw new MatchServiceError('Provide slot_a and slot_b, or pairs.');
 }
