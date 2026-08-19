@@ -52,6 +52,12 @@ fi
 echo "==> Installing Node.js 22"
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y nodejs
+npm install -g npm@11
+
+echo "==> Configuring git for HTTPS GitHub deps (openskill, etc.)"
+sudo -u ubuntu git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+sudo -u ubuntu git config --global url."https://github.com/".insteadOf git@github.com:
+sudo -u ubuntu git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
 
 echo "==> Installing AWS CLI v2 (if missing)"
 if ! command -v aws >/dev/null 2>&1; then
@@ -120,7 +126,7 @@ echo "==> Writing .env from SSM"
 /usr/local/bin/dbz-bot-refresh-env
 
 echo "==> Installing dependencies and building"
-sudo -u ubuntu bash -lc "cd '$APP_DIR' && npm ci && npx prisma migrate deploy && npm run build"
+sudo -u ubuntu bash -lc "cd '$APP_DIR' && HUSKY=0 npm ci && npx prisma migrate deploy && npm run build"
 
 if [[ "$DEPLOY_COMMANDS" == "true" ]]; then
   echo "==> Deploying slash commands"

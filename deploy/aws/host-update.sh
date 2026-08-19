@@ -75,7 +75,8 @@ sudo -u "${APP_USER}" git config --global url."https://github.com/".insteadOf gi
 sudo -u "${APP_USER}" git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
 
 echo "==> Installing, migrating, building, registering commands"
-sudo -u "${APP_USER}" bash -lc "cd '${APP_DIR}' && npm ci && npx prisma migrate deploy && npm run build && npm run deploy-commands"
+# Node 22 ships npm 10.x; openskill git dep preparation crashes on npm 10 (edgesOut). CI uses npm 11.
+sudo -u "${APP_USER}" bash -lc "cd '${APP_DIR}' && npm install -g npm@11 && HUSKY=0 npm ci && npx prisma migrate deploy && npm run build && npm run deploy-commands"
 
 echo "==> Restarting dbz-bot"
 systemctl start dbz-bot
