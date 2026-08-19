@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/chmieleski/trueskill-bot/compare/v1.4.0...v1.5.0) (2026-08-19)
+
+
+### Features
+
+* **rank:** show win rate on profiles and leaderboards ([#46](https://github.com/chmieleski/trueskill-bot/issues/46)) ([265e9c6](https://github.com/chmieleski/trueskill-bot/commit/265e9c6573c2655e4adf8e777efa5454aec32be1))
+
 # [1.4.0](https://github.com/chmieleski/trueskill-bot/compare/v1.3.0...v1.4.0) (2026-08-19)
 
 
