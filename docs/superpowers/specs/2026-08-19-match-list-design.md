@@ -63,7 +63,7 @@ Dedicated list module. Thin `/match list` adapter in `match.ts`. Query, compact 
 | `src/services/league/league-lobby-channel.test.ts` | Assert `list` is denied in lobby channels |
 | `docs/discord/public/07-cheat-sheet.md` | One English cheat line |
 
-Do **not** import player-history query, ki preview, or rank-reset into the list module. Duplicate the compact/expand UUID helpers in `match-list.ts` (same algorithm as history) so history internals stay private.
+Do **not** import player-history query, ki preview, or rank-reset into the list module. Extract UUID compact/expand into `src/services/match/compact-custom-id.ts` and import it from both `match-history.ts` and `match-list.ts`.
 
 ## Commands
 
@@ -137,7 +137,7 @@ ml:p:{invokerId}:{compactLeagueId}:{p|n}:{page}
 | colons | 3 |
 | **typical total** | **~60–70 / 100** |
 
-- Compact UUID algorithm matches history (`36` → `32`; restore hyphens on parse).
+- Compact UUID via shared `compactUuidForCustomId` / `expandUuidFromCustomId` (`36` → `32`; restore hyphens on parse). History uses the same helpers.
 - Prefix `ml:p:` must not collide with history `mh:p:`.
 - No player id and no match id on the button.
 - Labels: `Previous` / `Next` (80-char label limit is not a concern).
