@@ -18,11 +18,14 @@ import {
   assertHasMatchModRole,
   buildMatchHistoryEmbed,
   buildMatchHistoryPageButtons,
+  buildMatchListEmbed,
+  buildMatchListPageButtons,
   findInProgressMatchesByHost,
   getMatchById,
   hasMatchModRole,
   loadCompletedMatchShow,
   loadMatchHistoryPage,
+  loadMatchListPage,
   MatchServiceError,
   previewMatchCorrection,
   resolveHistoryPlayer,
@@ -236,9 +239,13 @@ async function replyMatchRead(
 }
 
 function publicReadErrorMessage(subcommand: string): string {
-  return subcommand === 'show'
-    ? 'Something went wrong loading that match.'
-    : 'Something went wrong loading match history.';
+  if (subcommand === 'show') {
+    return 'Something went wrong loading that match.';
+  }
+  if (subcommand === 'list') {
+    return 'Something went wrong loading the match list.';
+  }
+  return 'Something went wrong loading match history.';
 }
 
 export const data = new SlashCommandBuilder()
@@ -252,6 +259,16 @@ export const data = new SlashCommandBuilder()
         .addUserOption((option) =>
           option.setName('user').setDescription('Discord user to look up').setRequired(false),
         )
+        .addIntegerOption((option) =>
+          option.setName('page').setDescription('Page number').setRequired(false).setMinValue(1),
+        ),
+    ),
+  )
+  .addSubcommand((subcommand) =>
+    withSubcommandLeagueOption(
+      subcommand
+        .setName('list')
+        .setDescription('List completed matches in this league (newest first)')
         .addIntegerOption((option) =>
           option.setName('page').setDescription('Page number').setRequired(false).setMinValue(1),
         ),
@@ -361,7 +378,8 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const subcommand = interaction.options.getSubcommand(true);
-  const isPublicRead = subcommand === 'history' || subcommand === 'show';
+  const isPublicRead =
+    subcommand === 'history' || subcommand === 'show' || subcommand === 'list';
 
   const historyUser = subcommand === 'history' ? interaction.options.getUser('user') : null;
   const historyKind =
@@ -370,7 +388,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   // Self-unlinked history must stay private; Discord locks visibility on the first response.
   if (subcommand === 'history' && historyKind === 'user') {
     await interaction.deferReply();
-  } else if (subcommand === 'show') {
+  } else if (subcommand === 'show' || subcommand === 'list') {
     await interaction.deferReply();
   } else if (subcommand !== 'history') {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -431,6 +449,38 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const components = buildMatchHistoryPageButtons({
         invokerId: interaction.user.id,
         playerId: player.id,
+        leagueId: resolved.leagueId,
+        page: pageData.page,
+        totalPages: pageData.totalPages,
+      });
+      await replyMatchRead(interaction, { embeds: [embed], components });
+      return;
+    }
+
+    if (subcommand === 'list') {
+      if (!interaction.guildId) {
+        throw new MatchServiceError('This command can only be used in a server.');
+      }
+      const resolved = await resolveLeagueIdFromInteraction(
+        interaction,
+        getLeagueOption(interaction),
+      );
+      if (!resolved.ok) {
+        await replyMatchRead(interaction, { content: resolved.message });
+        return;
+      }
+
+      const gameProfile = await getGameProfileForLeague(resolved.leagueId);
+      const pageNum = interaction.options.getInteger('page') ?? 1;
+      const pageData = await loadMatchListPage({
+        leagueId: resolved.leagueId,
+        page: pageNum,
+      });
+      const embed = buildMatchListEmbed(pageData, (team) =>
+        teamDisplayName(team, gameProfile),
+      );
+      const components = buildMatchListPageButtons({
+        invokerId: interaction.user.id,
         leagueId: resolved.leagueId,
         page: pageData.page,
         totalPages: pageData.totalPages,
