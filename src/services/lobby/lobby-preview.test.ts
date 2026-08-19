@@ -211,15 +211,25 @@ describe('buildMatchReportButtons', () => {
 });
 
 describe('buildLobbyButtons', () => {
+  function rowCustomIds(
+    row: ReturnType<typeof buildLobbyButtons>[number] | undefined,
+  ): Array<string | undefined> {
+    return row?.toJSON().components.map((button) => button.custom_id) ?? [];
+  }
+
+  function rosterCustomIds(rows: ReturnType<typeof buildLobbyButtons>): Array<string | undefined> {
+    const roster = rows.find((row) => rowCustomIds(row).includes(LOBBY_CUSTOM_IDS.editNick));
+    return rowCustomIds(roster);
+  }
+
   it('labels roster controls with text so they are readable', () => {
     const rows = buildLobbyButtons({
       playerCount: 2,
       playerClaimEnabled: false,
     });
-    const roster = rows.at(-1)?.toJSON().components as Array<{
-      custom_id?: string;
-      label?: string;
-    }>;
+    const roster = rows
+      .find((row) => rowCustomIds(row).includes(LOBBY_CUSTOM_IDS.editNick))
+      ?.toJSON().components as Array<{ custom_id?: string; label?: string }>;
     const labels = Object.fromEntries(
       (roster ?? []).map((button) => [button.custom_id, button.label]),
     );
@@ -236,9 +246,8 @@ describe('buildLobbyButtons', () => {
       playerCount: 11,
       playerClaimEnabled: false,
     });
-    const rosterIds = rows.at(-1)?.toJSON().components.map((button) => button.custom_id);
 
-    expect(rosterIds).toContain(LOBBY_CUSTOM_IDS.add);
+    expect(rosterCustomIds(rows)).toContain(LOBBY_CUSTOM_IDS.add);
   });
 
   it('omits Add when all 12 slots are filled', () => {
@@ -247,10 +256,9 @@ describe('buildLobbyButtons', () => {
       playerCount: 12,
       playerClaimEnabled: false,
     });
-    const rosterIds = rows.at(-1)?.toJSON().components.map((button) => button.custom_id);
 
-    expect(rosterIds).not.toContain(LOBBY_CUSTOM_IDS.add);
-    expect(rosterIds).toEqual([
+    expect(rosterCustomIds(rows)).not.toContain(LOBBY_CUSTOM_IDS.add);
+    expect(rosterCustomIds(rows)).toEqual([
       LOBBY_CUSTOM_IDS.editNick,
       LOBBY_CUSTOM_IDS.move,
       LOBBY_CUSTOM_IDS.remove,
@@ -324,9 +332,53 @@ describe('buildLobbyButtons', () => {
       playerClaimEnabled: false,
       profile: aca,
     });
-    const rosterIds = rows.at(-1)?.toJSON().components.map((button) => button.custom_id);
 
-    expect(rosterIds).not.toContain(LOBBY_CUSTOM_IDS.add);
+    expect(rosterCustomIds(rows)).not.toContain(LOBBY_CUSTOM_IDS.add);
+  });
+
+  it('puts Cancel on its own last row', () => {
+    const rows = buildLobbyButtons({
+      canStart: true,
+      playerCount: 2,
+      playerClaimEnabled: false,
+    });
+
+    expect(rowCustomIds(rows.at(-1))).toEqual([LOBBY_CUSTOM_IDS.cancel]);
+    expect(rows.at(-1)?.toJSON().components[0]).toMatchObject({
+      custom_id: LOBBY_CUSTOM_IDS.cancel,
+      label: 'Cancel',
+      style: 2,
+    });
+  });
+
+  it('shows Cancel when Start is hidden', () => {
+    const rows = buildLobbyButtons({
+      playerCount: 0,
+      playerClaimEnabled: false,
+    });
+    const ids = rows.flatMap((row) => rowCustomIds(row));
+
+    expect(ids).toContain(LOBBY_CUSTOM_IDS.cancel);
+    expect(ids).not.toContain(LOBBY_CUSTOM_IDS.start);
+    expect(rowCustomIds(rows.at(-1))).toEqual([LOBBY_CUSTOM_IDS.cancel]);
+  });
+
+  it('does not put Cancel on the Start / Refresh row', () => {
+    const rows = buildLobbyButtons({
+      canStart: true,
+      playerCount: 2,
+      playerClaimEnabled: false,
+      wc3statsGameId: '42',
+    });
+
+    expect(rowCustomIds(rows[0])).toEqual([LOBBY_CUSTOM_IDS.start, LOBBY_CUSTOM_IDS.refresh]);
+    expect(rowCustomIds(rows.at(-1))).toEqual([LOBBY_CUSTOM_IDS.cancel]);
+  });
+
+  it('omits Cancel when the card is locked', () => {
+    const rows = buildLobbyButtons({ locked: true, canStart: true, playerCount: 2 });
+
+    expect(rows).toEqual([]);
   });
 });
 
