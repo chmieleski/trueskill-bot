@@ -33,10 +33,11 @@ import {
   clearLeagueLobbyChannel,
   formatLobbyChannelConfigLine,
   getLeagueOption,
+  isLeagueWritable,
+  LEAGUE_ARCHIVED_MESSAGE,
   leagueResolveFailureMessage,
   LOBBY_CHANNEL_SET_NEEDS_OPTION,
   resolveLeagueFromInteraction,
-  resolveLeagueIdFromInteraction,
   respondLeagueAutocomplete,
   setLeagueLobbyChannel,
   withSubcommandLeagueOption,
@@ -548,14 +549,25 @@ export const data = new SlashCommandBuilder()
 async function requireLeagueId(
   interaction: ChatInputCommandInteraction,
 ): Promise<string | null> {
-  const resolved = await resolveLeagueIdFromInteraction(interaction, getLeagueOption(interaction));
+  const resolved = await resolveLeagueFromInteraction(
+    interaction,
+    getLeagueOption(interaction),
+  );
   if (!resolved.ok) {
     await interaction.reply({
-      content: resolved.message,
+      content: leagueResolveFailureMessage(resolved.reason),
       flags: MessageFlags.Ephemeral,
     });
+    return null;
   }
-  return resolved.ok ? resolved.leagueId : null;
+  if (!isLeagueWritable(resolved.league)) {
+    await interaction.reply({
+      content: LEAGUE_ARCHIVED_MESSAGE,
+      flags: MessageFlags.Ephemeral,
+    });
+    return null;
+  }
+  return resolved.league.id;
 }
 
 async function requireWc3statsLeague(
