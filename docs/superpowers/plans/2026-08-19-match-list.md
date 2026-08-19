@@ -14,7 +14,7 @@
 
 - Scope: `general` (league-scoped completed matches; not game-specific)
 - English-only user-facing strings and errors
-- `/match list` only; do **not** change `/match history`
+- `/match list` only; do **not** change `/match history` **command behavior**
 - Status: **`COMPLETED` only**; newest first (`completedAt` desc, nulls last)
 - Page size: **10**
 - Rows: date, winner (`teamDisplayName`), format `4v6` (team-1 vs team-2 `MatchPlayer` counts), copyable match id
@@ -26,13 +26,16 @@
 - ESM `.js` imports; named exports
 - No schema migration; no new env/SSM keys
 - Reuse `winningTeamFromPlayers` and `clampMatchHistoryPage` only — do not import history query, ki preview, or rank-reset
-- Duplicate compact/expand UUID helpers in `match-list.ts` (same algorithm as history)
+- Extract UUID compact/expand into `src/services/match/compact-custom-id.ts`; `match-history.ts` and `match-list.ts` both import it (do **not** duplicate the helpers)
 - Branch: `feature/match-list` (create worktree at execution time if using worktrees skill)
 
 ## File map
 
 | File | Role |
 |------|------|
+| `src/services/match/compact-custom-id.ts` | Shared UUID compact/expand for Discord `customId` |
+| `src/services/match/compact-custom-id.test.ts` | Unit tests for compact/expand |
+| `src/services/match/match-history.ts` | Import shared compact/expand (no behavior change) |
 | `src/services/match/match-list.ts` | Format, customIds, page load, embed, buttons |
 | `src/services/match/match-list.test.ts` | Unit tests |
 | `src/services/match/index.ts` | Re-exports |
@@ -45,15 +48,20 @@
 
 ---
 
-### Task 1: Pure helpers — format, team sizes, pagination ids
+### Task 1: Pure helpers — shared customId compact, format, team sizes, pagination ids
 
 **Files:**
+- Create: `src/services/match/compact-custom-id.ts`
+- Create: `src/services/match/compact-custom-id.test.ts`
+- Modify: `src/services/match/match-history.ts` (replace private `compactHistoryId` / `expandHistoryId` with imports)
 - Create: `src/services/match/match-list.ts`
 - Create: `src/services/match/match-list.test.ts`
 
 **Interfaces:**
 - Consumes: nothing from later tasks
 - Produces:
+  - `export function compactUuidForCustomId(id: string): string`
+  - `export function expandUuidFromCustomId(id: string): string`
   - `export const MATCH_LIST_PAGE_SIZE = 10`
   - `export type MatchListRow = { matchId: string; completedAt: Date; winningTeam: 1 | 2; format: string }`
   - `export function formatMatchListFormat(team1Count: number, team2Count: number): string`
@@ -62,7 +70,72 @@
   - `export function buildMatchListPageCustomId(invokerId: string, leagueId: string, direction: 'prev' | 'next', currentPage: number): string`
   - `export function parseMatchListPageCustomId(customId: string): { invokerId: string; leagueId: string; page: number } | null`
 
-- [ ] **Step 1: Write failing tests**
+- [ ] **Step 1: Write failing tests for the shared compact helper**
+
+Create `src/services/match/compact-custom-id.test.ts`:
+
+```typescript
+import { describe, expect, it } from 'vitest';
+import { compactUuidForCustomId, expandUuidFromCustomId } from './compact-custom-id.js';
+
+describe('compactUuidForCustomId / expandUuidFromCustomId', () => {
+  const hyphenated = 'e5863052-d453-48db-b67a-14d1175c298b';
+  const compact = 'e5863052d45348dbb67a14d1175c298b';
+
+  it('strips hyphens from a UUID and restores them', () => {
+    expect(compactUuidForCustomId(hyphenated)).toBe(compact);
+    expect(expandUuidFromCustomId(compact)).toBe(hyphenated);
+  });
+
+  it('leaves cuid and other non-UUID ids unchanged', () => {
+    expect(compactUuidForCustomId('clleagueidxxxxxxxxxxxx')).toBe('clleagueidxxxxxxxxxxxx');
+    expect(expandUuidFromCustomId('clleagueidxxxxxxxxxxxx')).toBe('clleagueidxxxxxxxxxxxx');
+  });
+});
+```
+
+- [ ] **Step 2: Run compact tests to verify they fail**
+
+Run: `npx vitest run src/services/match/compact-custom-id.test.ts`
+
+Expected: FAIL — cannot find module `./compact-custom-id.js`
+
+- [ ] **Step 3: Implement the shared helper and switch history to it**
+
+Create `src/services/match/compact-custom-id.ts`:
+
+```typescript
+const UUID_HYPHENATED =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_COMPACT = /^[0-9a-f]{32}$/i;
+
+/** Strip UUID hyphens so ids + snowflake fit Discord's 100-char customId. */
+export function compactUuidForCustomId(id: string): string {
+  return UUID_HYPHENATED.test(id) ? id.replace(/-/g, '') : id;
+}
+
+/** Restore hyphenated UUID form for Prisma lookups. */
+export function expandUuidFromCustomId(id: string): string {
+  if (!UUID_COMPACT.test(id)) {
+    return id;
+  }
+  return `${id.slice(0, 8)}-${id.slice(8, 12)}-${id.slice(12, 16)}-${id.slice(16, 20)}-${id.slice(20)}`;
+}
+```
+
+In `src/services/match/match-history.ts`, delete the private `UUID_HYPHENATED`, `UUID_COMPACT`, `compactHistoryId`, and `expandHistoryId` block. Import and use the shared functions:
+
+```typescript
+import { compactUuidForCustomId, expandUuidFromCustomId } from './compact-custom-id.js';
+```
+
+Replace `compactHistoryId(...)` with `compactUuidForCustomId(...)` and `expandHistoryId(...)` with `expandUuidFromCustomId(...)`.
+
+Run: `npx vitest run src/services/match/compact-custom-id.test.ts src/services/match/match-history.test.ts`
+
+Expected: PASS (history customId tests still round-trip)
+
+- [ ] **Step 4: Write failing tests for list format and pagination ids**
 
 ```typescript
 import { describe, expect, it } from 'vitest';
@@ -170,17 +243,19 @@ describe('match list page custom ids', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [ ] **Step 5: Run list tests to verify they fail**
 
 Run: `npx vitest run src/services/match/match-list.test.ts`
 
 Expected: FAIL — cannot find module `./match-list.js` (or named exports missing)
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 6: Write minimal list implementation using the shared helper**
 
 Create `src/services/match/match-list.ts`:
 
 ```typescript
+import { compactUuidForCustomId, expandUuidFromCustomId } from './compact-custom-id.js';
+
 export const MATCH_LIST_PAGE_SIZE = 10;
 
 export type MatchListRow = {
@@ -221,23 +296,6 @@ export function formatMatchListField(
   };
 }
 
-const UUID_HYPHENATED =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const UUID_COMPACT = /^[0-9a-f]{32}$/i;
-
-/** Strip UUID hyphens so snowflake + league id fit Discord's 100-char customId. */
-function compactListId(id: string): string {
-  return UUID_HYPHENATED.test(id) ? id.replace(/-/g, '') : id;
-}
-
-/** Restore hyphenated UUID form for Prisma lookups. */
-function expandListId(id: string): string {
-  if (!UUID_COMPACT.test(id)) {
-    return id;
-  }
-  return `${id.slice(0, 8)}-${id.slice(8, 12)}-${id.slice(12, 16)}-${id.slice(16, 20)}-${id.slice(20)}`;
-}
-
 export function buildMatchListPageCustomId(
   invokerId: string,
   leagueId: string,
@@ -245,7 +303,7 @@ export function buildMatchListPageCustomId(
   currentPage: number,
 ): string {
   const dirToken = direction === 'prev' ? 'p' : 'n';
-  return `ml:p:${invokerId}:${compactListId(leagueId)}:${dirToken}:${currentPage}`;
+  return `ml:p:${invokerId}:${compactUuidForCustomId(leagueId)}:${dirToken}:${currentPage}`;
 }
 
 export function parseMatchListPageCustomId(
@@ -262,7 +320,7 @@ export function parseMatchListPageCustomId(
     return null;
   }
   const invokerId = parts[2]!;
-  const leagueId = expandListId(parts[3]!);
+  const leagueId = expandUuidFromCustomId(parts[3]!);
   if (!invokerId || !leagueId) {
     return null;
   }
@@ -276,20 +334,22 @@ export function parseMatchListPageCustomId(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+Do **not** copy the UUID regex or compact/expand functions into `match-list.ts`.
 
-Run: `npx vitest run src/services/match/match-list.test.ts`
+- [ ] **Step 7: Run tests to verify they pass**
+
+Run: `npx vitest run src/services/match/compact-custom-id.test.ts src/services/match/match-list.test.ts src/services/match/match-history.test.ts`
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add src/services/match/match-list.ts src/services/match/match-list.test.ts
+git add src/services/match/compact-custom-id.ts src/services/match/compact-custom-id.test.ts src/services/match/match-history.ts src/services/match/match-list.ts src/services/match/match-list.test.ts
 git commit -m "$(cat <<'EOF'
-feat(match): add match list format and page custom ids
+feat(match): add match list format and shared customId helpers
 
-Keep league-feed pagination ids under Discord's 100-char button limit without touching player history.
+Share UUID compact/expand so history and league-list pagination ids stay under Discord's 100-char button limit.
 EOF
 )"
 ```
@@ -976,7 +1036,7 @@ EOF
 | `ml:p:` customId, compact UUID, ≤ 100 chars | 1 |
 | Invoker-only Prev/Next | 4 |
 | `/match show` unchanged | (no task) |
-| `/match history` unchanged | (no task) |
+| `/match history` command behavior unchanged | (Task 1 may only import shared compact helpers) |
 | Lobby deny + test | 3 |
 | Cheat sheet line | 3 |
-| Dedicated module, reuse clamp + winningTeam only | 1 + 2 |
+| Dedicated list module; shared `compact-custom-id.ts`; reuse clamp + winningTeam only | 1 + 2 |
