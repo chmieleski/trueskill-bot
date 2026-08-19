@@ -1,3 +1,13 @@
+# [1.2.0](https://github.com/chmieleski/trueskill-bot/compare/v1.1.0...v1.2.0) (2026-08-19)
+
+
+### Features
+
+* **match:** add /match list command ([ceaf86c](https://github.com/chmieleski/trueskill-bot/commit/ceaf86cf666c26b095c32465b5abbe9c9d7ccd60))
+* **match:** add match list format and shared customId helpers ([95b880e](https://github.com/chmieleski/trueskill-bot/commit/95b880edf92053b95a090d827376948ca70c77a7))
+* **match:** load paginated league match lists ([fe2b171](https://github.com/chmieleski/trueskill-bot/commit/fe2b171b752401ce8b7057821891f14dfd0ca28c))
+* **match:** paginate /match list with invoker-only buttons ([7fc695d](https://github.com/chmieleski/trueskill-bot/commit/7fc695ddd11789094f81953d764ec60991a9b06c))
+
 # [1.1.0](https://github.com/chmieleski/trueskill-bot/compare/v1.0.0...v1.1.0) (2026-08-19)
 
 
