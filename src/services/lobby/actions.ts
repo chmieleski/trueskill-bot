@@ -12,6 +12,7 @@ import {
   rosterAfterLeave,
   swapPlayers,
 } from './roster.js';
+import { applyRemapPairs } from './remap.js';
 import { applyRosterAndSync, type LobbyActionResult } from './discord-sync.js';
 import {
   resolveHostPendingMatch,
@@ -168,6 +169,24 @@ export async function swapLobbyPlayers(input: {
   });
   const profile = await profileForLeague(match.leagueId);
   const next = swapPlayers(players, input.slotA, input.slotB, profile);
+  return applyRosterAndSync(input.client, match.id, next);
+}
+
+/**
+ * Host `/lobby swap pairs`: apply sequential seat remaps, then persist and sync.
+ */
+export async function remapLobbyPlayers(input: {
+  client: Client;
+  hostDiscordId: string;
+  matchId?: string | null;
+  pairs: string;
+}): Promise<LobbyActionResult> {
+  const { match, players } = await resolveHostPendingMatch({
+    hostDiscordId: input.hostDiscordId,
+    matchId: input.matchId,
+  });
+  const profile = await profileForLeague(match.leagueId);
+  const next = applyRemapPairs(players, input.pairs, profile);
   return applyRosterAndSync(input.client, match.id, next);
 }
 

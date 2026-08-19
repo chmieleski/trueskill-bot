@@ -21,11 +21,14 @@ The lobby message has buttons. Use them like toys that fix the board.
 /lobby remove nick:SomeNick
 /lobby remove slot:3
 /lobby swap slot_a:1 slot_b:7
+/lobby swap pairs:1-7,5-Gohan
 /lobby screenshot print:<attach lobby image>
 /lobby sync
 /lobby start
 /lobby cancel
 ```
+
+**Swap pairs:** each side is a slot or a nick (`1-7`, `Gohan-4`). Comma-separated. Occupied dest swaps; empty dest moves.
 
 **Update from screenshot**
 • `/lobby screenshot` with a lobby image replaces the whole roster (like registering with a print)
