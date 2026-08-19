@@ -1,3 +1,10 @@
+## [1.6.3](https://github.com/chmieleski/trueskill-bot/compare/v1.6.2...v1.6.3) (2026-08-19)
+
+
+### Bug Fixes
+
+* **deploy:** upgrade npm as root on EC2 host update ([#56](https://github.com/chmieleski/trueskill-bot/issues/56)) ([8cfb2a3](https://github.com/chmieleski/trueskill-bot/commit/8cfb2a31b65b01388be834b9263f3831267ad9db))
+
 ## [1.6.2](https://github.com/chmieleski/trueskill-bot/compare/v1.6.1...v1.6.2) (2026-08-19)
 
 
