@@ -59,9 +59,9 @@ export async function resolveLeagueContext(
     }
   }
 
-  // Steps 4-5 — guild fallback
+  // Steps 4-5 — guild fallback (active leagues only; explicit option may still target archived)
   const leagues = await prisma.league.findMany({
-    where: { guildId: input.guildId },
+    where: { guildId: input.guildId, status: 'ACTIVE' },
     orderBy: { createdAt: 'asc' },
   });
 

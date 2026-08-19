@@ -11,6 +11,7 @@ import { createLogger } from '../../lib/logger.js';
 import type { LobbyPlayer } from '../lobby/lobby-ocr.js';
 import { normalizeNick } from '../player/player-nick.js';
 import { assertHeroCatalogReady, assertHeroExists, HeroCatalogError } from '../guild/hero-catalog.js';
+import { isLeagueWritable, LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
 import {
   getGameProfileForLeague,
   LeagueNotFoundError,
@@ -329,6 +330,14 @@ export async function linkMatchWc3statsGameId(
 export async function createPendingMatch(
   input: CreatePendingMatchInput,
 ): Promise<CreatedPendingMatch> {
+  const league = await prisma.league.findUnique({
+    where: { id: input.leagueId },
+    select: { status: true },
+  });
+  if (league && !isLeagueWritable(league)) {
+    throw new MatchServiceError(LEAGUE_ARCHIVED_MESSAGE);
+  }
+
   const profile = await loadMatchProfile(input.leagueId);
   const players = withNormalizedNicks(input.players);
   assertValidSlots(players, profile);

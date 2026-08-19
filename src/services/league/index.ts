@@ -2,6 +2,10 @@ export {
   createLeague,
   getDefaultUdbrLeagueId,
   getLeagueById,
+  isLeagueWritable,
+  LEAGUE_ARCHIVED_MESSAGE,
+  listActiveLeaguesForGuild,
+  listArchivedLeaguesForGuild,
   listLeaguesForGuild,
   type League,
 } from './league.js';
@@ -17,6 +21,8 @@ export {
 } from './league-resolve.js';
 
 export {
+  autocompleteActiveGuildLeagues,
+  autocompleteAllGuildLeagues,
   autocompleteGuildLeagues,
   getInteractionCategoryId,
   getLeagueOption,
@@ -27,6 +33,7 @@ export {
   LEAGUE_RESOLVE_NOT_IN_GUILD,
   resolveLeagueFromInteraction,
   resolveLeagueIdFromInteraction,
+  respondAllLeagueAutocomplete,
   respondLeagueAutocomplete,
   withOptionalLeagueOption,
   withSubcommandLeagueOption,
@@ -51,6 +58,34 @@ export {
   setLeagueWc3statsHostPrompt,
   type ResolvedLeagueConfig,
 } from './league-wc3stats.js';
+
+export {
+  applyLeagueRollover,
+  assertRolloverCompression,
+  buildRolloverCancelCustomId,
+  buildRolloverConfirmCustomId,
+  cancelLeagueRolloverDraft,
+  compressMu,
+  compressSigma,
+  LeagueRolloverError,
+  parseRolloverButtonCustomId,
+  previewLeagueRollover,
+  ROLLOVER_COMPRESSION_DEFAULT,
+  ROLLOVER_COMPRESSION_MAX,
+  ROLLOVER_COMPRESSION_MIN,
+  ROLLOVER_DRAFT_TTL_MS,
+  seedSoftGlobalRatings,
+  seedSoftHeroRatings,
+  type ApplyLeagueRolloverInput,
+  type LeagueResetMode,
+  type LeagueRolloverPreview,
+  type LeagueRolloverResult,
+  type ParsedRolloverButtonCustomId,
+  type PreviewLeagueRolloverInput,
+  type RolloverButtonAction,
+  type SoftResetEntity,
+  type SoftResetHeroEntity,
+} from './league-rollover.js';
 
 export {
   LOBBY_CHANNEL_CHANNEL_ONLY_WHILE_DISABLED,

@@ -1,12 +1,30 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+const { leagueFindUnique, getGameProfileForLeagueMock } = vi.hoisted(() => ({
+  leagueFindUnique: vi.fn(),
+  getGameProfileForLeagueMock: vi.fn(),
+}));
+
+vi.mock('../../lib/prisma.js', () => ({
+  prisma: {
+    league: { findUnique: leagueFindUnique },
+  },
+}));
+
+vi.mock('../league/league-profile.js', () => ({
+  getGameProfileForLeague: getGameProfileForLeagueMock,
+}));
+
 import { getGameProfile } from '../../domain/game-profile.js';
 import {
   WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
   WARCRAFT3_UDBR_GAME_ID,
 } from '../../domain/games.js';
+import { LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
 import { MatchServiceError } from '../match/match-service.js';
 import {
   allowsEmptyMatchOnWc3statsFailure,
+  assertLeagueAllowsWc3statsImport,
   assertProfileAllowsWc3statsImport,
   assertRegisterLobbyAllowedForProfile,
   parseWc3statsId,
@@ -113,6 +131,27 @@ describe('assertRegisterLobbyAllowedForProfile', () => {
     expect(() =>
       assertRegisterLobbyAllowedForProfile(aca, { hasScreenshot: false, hasWc3statsId: false }),
     ).not.toThrow();
+  });
+});
+
+describe('assertLeagueAllowsWc3statsImport', () => {
+  it('rejects when the league is archived', async () => {
+    leagueFindUnique.mockResolvedValue({ status: 'ARCHIVED' });
+
+    await expect(assertLeagueAllowsWc3statsImport('league-archived')).rejects.toThrow(
+      MatchServiceError,
+    );
+    await expect(assertLeagueAllowsWc3statsImport('league-archived')).rejects.toThrow(
+      LEAGUE_ARCHIVED_MESSAGE,
+    );
+    expect(getGameProfileForLeagueMock).not.toHaveBeenCalled();
+  });
+
+  it('delegates to the game profile import check for active leagues', async () => {
+    leagueFindUnique.mockResolvedValue({ status: 'ACTIVE' });
+    getGameProfileForLeagueMock.mockResolvedValue(udbr);
+
+    await expect(assertLeagueAllowsWc3statsImport('league-1')).resolves.toBeUndefined();
   });
 });
 

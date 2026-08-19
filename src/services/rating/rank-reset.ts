@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
+import { isLeagueWritable, LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
 import { assertHasMatchModRole } from '../match/match-auth.js';
 
 export const RANK_RESET_COOLDOWN_MIN_DAYS = 1;
@@ -176,6 +177,9 @@ export async function previewRankReset(
   const league = await prisma.league.findUnique({
     where: { id: input.leagueId },
   });
+  if (league && !isLeagueWritable(league)) {
+    throw new RankResetServiceError(LEAGUE_ARCHIVED_MESSAGE);
+  }
   if (!league?.rankResetEnabled) {
     throw new RankResetServiceError('Rank reset is disabled for this league.');
   }

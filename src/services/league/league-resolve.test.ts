@@ -36,6 +36,8 @@ const league1 = {
   guildId: GUILD,
   gameId: 'warcraft3_udbr',
   name: 'League One',
+  status: 'ACTIVE' as const,
+  archivedAt: null,
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
 };
@@ -45,8 +47,21 @@ const league2 = {
   guildId: GUILD,
   gameId: 'warcraft3_udbr',
   name: 'League Two',
+  status: 'ACTIVE' as const,
+  archivedAt: null,
   createdAt: new Date('2024-02-01'),
   updatedAt: new Date('2024-02-01'),
+};
+
+const archivedLeague = {
+  id: 'league-archived',
+  guildId: GUILD,
+  gameId: 'warcraft3_udbr',
+  name: 'Old Season',
+  status: 'ARCHIVED' as const,
+  archivedAt: new Date('2024-06-01'),
+  createdAt: new Date('2023-01-01'),
+  updatedAt: new Date('2024-06-01'),
 };
 
 function channelBinding(discordId: string, leagueId: string, league = league1) {
@@ -117,6 +132,18 @@ describe('resolveLeagueContext', () => {
       });
 
       expect(bindingFindUnique).not.toHaveBeenCalled();
+      expect(leagueFindMany).not.toHaveBeenCalled();
+    });
+
+    it('explicit archived league option still resolves for reads', async () => {
+      leagueFindUnique.mockResolvedValue(archivedLeague);
+
+      const result = await resolveLeagueContext({
+        guildId: GUILD,
+        leagueIdOption: 'league-archived',
+      });
+
+      expect(result).toEqual({ ok: true, league: archivedLeague });
       expect(leagueFindMany).not.toHaveBeenCalled();
     });
   });
@@ -224,7 +251,20 @@ describe('resolveLeagueContext', () => {
 
       expect(result).toEqual({ ok: true, league: league1 });
       expect(leagueFindMany).toHaveBeenCalledWith({
-        where: { guildId: GUILD },
+        where: { guildId: GUILD, status: 'ACTIVE' },
+        orderBy: { createdAt: 'asc' },
+      });
+    });
+
+    it('single-league fallback ignores archived leagues', async () => {
+      bindingFindUnique.mockResolvedValue(null);
+      leagueFindMany.mockResolvedValue([]);
+
+      const result = await resolveLeagueContext({ guildId: GUILD });
+
+      expect(result).toEqual({ ok: false, reason: 'no_leagues' });
+      expect(leagueFindMany).toHaveBeenCalledWith({
+        where: { guildId: GUILD, status: 'ACTIVE' },
         orderBy: { createdAt: 'asc' },
       });
     });

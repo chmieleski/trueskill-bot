@@ -65,6 +65,7 @@ import {
   RANK_RESET_COOLDOWN_MIN_DAYS,
   RankResetServiceError,
 } from './rank-reset.js';
+import { LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
 
 const NOW = new Date('2026-08-15T12:00:00.000Z');
 const PLAYER = { id: 'player-1', username: 'Goku', discordId: 'discord-target' };
@@ -175,6 +176,7 @@ describe('previewRankReset', () => {
     vi.resetAllMocks();
     leagueFindUnique.mockResolvedValue({
       gameId: 'warcraft3_udbr',
+      status: 'ACTIVE',
       rankResetEnabled: true,
       rankResetCooldownDays: 30,
     });
@@ -183,9 +185,22 @@ describe('previewRankReset', () => {
     playerRankResetFindFirst.mockResolvedValue(null);
   });
 
+  it('rejects when the league is archived', async () => {
+    leagueFindUnique.mockResolvedValue({
+      gameId: 'warcraft3_udbr',
+      status: 'ARCHIVED',
+      rankResetEnabled: true,
+      rankResetCooldownDays: 30,
+    });
+
+    await expect(previewRankReset(selfInput())).rejects.toThrow(LEAGUE_ARCHIVED_MESSAGE);
+    expect(playerFindUnique).not.toHaveBeenCalled();
+  });
+
   it('rejects when rank reset is disabled for the league', async () => {
     leagueFindUnique.mockResolvedValue({
       gameId: 'warcraft3_udbr',
+      status: 'ACTIVE',
       rankResetEnabled: false,
       rankResetCooldownDays: 30,
     });
@@ -287,6 +302,7 @@ describe('applyRankReset', () => {
     vi.resetAllMocks();
     leagueFindUnique.mockResolvedValue({
       gameId: 'warcraft3_udbr',
+      status: 'ACTIVE',
       rankResetEnabled: true,
       rankResetCooldownDays: 30,
     });

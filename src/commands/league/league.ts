@@ -9,15 +9,25 @@ import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from '..
 import { getGameProfile, UnknownGameIdError } from '../../domain/game-profile.js';
 import { createLogger } from '../../lib/logger.js';
 import { assertCanConfigureBot } from '../../services/guild/index.js';
+import { buildRolloverConfirmComponents } from '../../discord/interactions/league-rollover-interactions.js';
 import {
+  autocompleteActiveGuildLeagues,
   bindDiscordToLeague,
   createLeague,
+  getLeagueById,
   getLeagueOption,
+  isLeagueWritable,
+  LEAGUE_ARCHIVED_MESSAGE,
+  LeagueRolloverError,
+  listActiveLeaguesForGuild,
+  listArchivedLeaguesForGuild,
   listLeaguesForGuild,
+  previewLeagueRollover,
   resolveLeagueIdFromInteraction,
-  respondLeagueAutocomplete,
   unbindDiscord,
   type LeagueBindingKind,
+  type LeagueRolloverPreview,
+  type LeagueResetMode,
 } from '../../services/league/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
 
@@ -57,9 +67,41 @@ function formatBindTarget(channelId: string, channelName: string, kind: LeagueBi
   return `<#${channelId}>`;
 }
 
-function formatLeagueListLine(league: { id: string; name: string; gameId: string }): string {
+function formatActiveLeagueListLine(league: { id: string; name: string; gameId: string }): string {
   return `• **${league.name}** (\`${league.id}\`) — game \`${league.gameId}\``;
 }
+
+function formatArchivedLeagueListLine(league: {
+  id: string;
+  name: string;
+  gameId: string;
+  archivedAt: Date | null;
+}): string {
+  const archivedLabel =
+    league.archivedAt === null
+      ? 'unknown date'
+      : `<t:${Math.floor(league.archivedAt.getTime() / 1000)}:D>`;
+  return `• **${league.name}** (\`${league.id}\`) — game \`${league.gameId}\` (archived ${archivedLabel})`;
+}
+
+function buildRolloverPreviewMessage(preview: LeagueRolloverPreview): string {
+  const resetLine =
+    preview.resetMode === 'soft' && preview.compression !== null
+      ? `soft (compression ${preview.compression})`
+      : preview.resetMode;
+
+  return [
+    `Archive **${preview.sourceLeagueName}** and create **${preview.successorName}**?`,
+    `• Reset: ${resetLine}`,
+    `• Players seeded: ${preview.playerCount}`,
+    `• Bindings moved: ${preview.bindingCount}`,
+    '',
+    'This cannot be undone.',
+  ].join('\n');
+}
+
+const DUPLICATE_LEAGUE_NAME_MESSAGE =
+  'A league with that name already exists for this game on this server.';
 
 export const data = new SlashCommandBuilder()
   .setName('league')
@@ -119,10 +161,62 @@ export const data = new SlashCommandBuilder()
           .setRequired(true)
           .addChannelTypes(...BIND_TARGET_CHANNEL_TYPES),
       ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('rollover')
+      .setDescription('Archive a league and open a successor season')
+      .addStringOption((option) =>
+        option
+          .setName('name')
+          .setDescription('Display name for the new league')
+          .setRequired(true)
+          .setMaxLength(100),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('reset')
+          .setDescription('Rating seed mode for the new league')
+          .setRequired(true)
+          .addChoices(
+            { name: 'Hard — everyone back to ~1000 ki', value: 'hard' },
+            { name: 'Soft — compress toward average', value: 'soft' },
+          ),
+      )
+      .addNumberOption((option) =>
+        option
+          .setName('compression')
+          .setDescription('Soft reset pull toward average (0–1, default 0.5)')
+          .setMinValue(0)
+          .setMaxValue(1)
+          .setRequired(false),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('league')
+          .setDescription('League to archive (required when multiple active leagues)')
+          .setRequired(false)
+          .setAutocomplete(true),
+      ),
   );
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
-  await respondLeagueAutocomplete(interaction);
+  const focused = interaction.options.getFocused(true);
+  if (focused.name !== 'league') {
+    return;
+  }
+
+  if (!interaction.guildId) {
+    await interaction.respond([]);
+    return;
+  }
+
+  const choices = await autocompleteActiveGuildLeagues(
+    interaction.guildId,
+    focused.value,
+  );
+
+  await interaction.respond(choices);
 }
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -214,9 +308,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     if (subcommand === 'list') {
-      const leagues = await listLeaguesForGuild(interaction.guildId);
+      const [active, archived] = await Promise.all([
+        listActiveLeaguesForGuild(interaction.guildId),
+        listArchivedLeaguesForGuild(interaction.guildId),
+      ]);
 
-      if (leagues.length === 0) {
+      if (active.length === 0 && archived.length === 0) {
         await interaction.reply({
           content: 'No leagues configured for this server. Use `/league create` to add one.',
           flags: MessageFlags.Ephemeral,
@@ -224,11 +321,20 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         return;
       }
 
+      const sections = [
+        `Active leagues (${active.length}):`,
+        ...(active.length > 0
+          ? active.map(formatActiveLeagueListLine)
+          : ['• None']),
+        '',
+        `Archived leagues (read-only) (${archived.length}):`,
+        ...(archived.length > 0
+          ? archived.map(formatArchivedLeagueListLine)
+          : ['• None']),
+      ];
+
       await interaction.reply({
-        content: [
-          `Leagues in this server (${leagues.length}):`,
-          ...leagues.map(formatLeagueListLine),
-        ].join('\n'),
+        content: sections.join('\n'),
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -245,6 +351,15 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       if (!resolved.ok) {
         await interaction.reply({
           content: resolved.message,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const league = await getLeagueById(resolved.leagueId);
+      if (!league || !isLeagueWritable(league)) {
+        await interaction.reply({
+          content: LEAGUE_ARCHIVED_MESSAGE,
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -268,8 +383,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       );
 
       const leagues = await listLeaguesForGuild(interaction.guildId);
-      const league = leagues.find((entry) => entry.id === resolved.leagueId);
-      const leagueLabel = league ? `**${league.name}**` : `\`${resolved.leagueId}\``;
+      const boundLeague = leagues.find((entry) => entry.id === resolved.leagueId);
+      const leagueLabel = boundLeague ? `**${boundLeague.name}**` : `\`${resolved.leagueId}\``;
       const targetLabel = formatBindTarget(target.id, target.name ?? target.id, kind);
       const kindLabel = kind === 'CATEGORY' ? 'category' : 'channel';
 
@@ -277,6 +392,103 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         content: `Bound ${targetLabel} to league ${leagueLabel} as a ${kindLabel} binding.`,
         flags: MessageFlags.Ephemeral,
       });
+      return;
+    }
+
+    if (subcommand === 'rollover') {
+      const successorName = interaction.options.getString('name', true).trim();
+      const resetMode = interaction.options.getString('reset', true) as LeagueResetMode;
+      const compressionOption = interaction.options.getNumber('compression');
+
+      if (successorName.length === 0) {
+        await interaction.reply({
+          content: 'League name cannot be empty.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const resolved = await resolveLeagueIdFromInteraction(
+        interaction,
+        getLeagueOption(interaction),
+      );
+      if (!resolved.ok) {
+        await interaction.reply({
+          content: resolved.message,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const sourceLeague = await getLeagueById(resolved.leagueId);
+      if (!sourceLeague) {
+        await interaction.reply({
+          content: 'That league was not found.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const guildLeagues = await listLeaguesForGuild(interaction.guildId);
+      if (
+        guildLeagues.some(
+          (league) =>
+            league.gameId === sourceLeague.gameId && league.name === successorName,
+        )
+      ) {
+        await interaction.reply({
+          content: DUPLICATE_LEAGUE_NAME_MESSAGE,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      try {
+        const preview = await previewLeagueRollover({
+          guildId: interaction.guildId,
+          sourceLeagueId: resolved.leagueId,
+          successorName,
+          resetMode,
+          compression: compressionOption ?? undefined,
+          actorDiscordId: interaction.user.id,
+        });
+
+        log.info(
+          {
+            guildId: interaction.guildId,
+            sourceLeagueId: preview.sourceLeagueId,
+            draftId: preview.draftId,
+            resetMode: preview.resetMode,
+            userId: interaction.user.id,
+          },
+          'League rollover preview created',
+        );
+
+        await interaction.reply({
+          content: buildRolloverPreviewMessage(preview),
+          components: buildRolloverConfirmComponents({
+            draftId: preview.draftId,
+            actorDiscordId: interaction.user.id,
+          }),
+          flags: MessageFlags.Ephemeral,
+        });
+      } catch (error) {
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+          await interaction.reply({
+            content: DUPLICATE_LEAGUE_NAME_MESSAGE,
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+        if (error instanceof LeagueRolloverError) {
+          await interaction.reply({
+            content: error.message,
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+        throw error;
+      }
       return;
     }
 

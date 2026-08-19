@@ -30,4 +30,13 @@ Some leagues offer a full rank reset when staff enable it:
 ```
 Resets your overall and hero ki for that league (back near **1000**), and your displayed wins / losses / quits restart from that reset. Match history stays in the database for audit. A cooldown applies between self-resets. You cannot reset while you are in an active lobby or match.
 
+**New season (staff rollover)**
+
+Sometimes staff end a league season and start a fresh one:
+
+• **Hard reset** — everyone starts near **1000 ki** again (like a new league).  
+• **Soft reset** — your ki moves toward the old season’s average (top players drop, others rise); early games swing more until you play again. Hero **Calibrating** may show again even if you keep some skill.
+
+The **previous season is archived** — you can still look up old matches when staff show you how, but new games only count in the active league.
+
 Remember: ki is a score, not a trophy case. Play, learn, climb.

@@ -4,11 +4,11 @@ import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from '..
 import { data } from './league.js';
 
 describe('league command data', () => {
-  it('exposes create, list, bind, and unbind subcommands', () => {
+  it('exposes create, list, bind, unbind, and rollover subcommands', () => {
     const json = data.toJSON();
     const names = json.options?.map((option) => option.name) ?? [];
 
-    expect(names).toEqual(['create', 'list', 'bind', 'unbind']);
+    expect(names).toEqual(['create', 'list', 'bind', 'unbind', 'rollover']);
   });
 
   it('create requires UDBR game choice and name', () => {
@@ -60,5 +60,26 @@ describe('league command data', () => {
     expect(target?.channel_types).toEqual(
       expect.arrayContaining([ChannelType.GuildCategory]),
     );
+  });
+
+  it('rollover requires name and reset with optional compression and league autocomplete', () => {
+    const json = data.toJSON();
+    const rollover = json.options?.find((option) => option.name === 'rollover');
+    const options = rollover && 'options' in rollover ? rollover.options ?? [] : [];
+
+    const name = options.find((option) => option.name === 'name');
+    const reset = options.find((option) => option.name === 'reset');
+    const compression = options.find((option) => option.name === 'compression');
+    const league = options.find((option) => option.name === 'league');
+
+    expect(name?.required).toBe(true);
+    expect(name?.type).toBe(ApplicationCommandOptionType.String);
+    expect(reset?.required).toBe(true);
+    expect(reset?.choices?.map((choice) => choice.value)).toEqual(['hard', 'soft']);
+    expect(compression?.required).toBeFalsy();
+    expect(compression?.min_value).toBe(0);
+    expect(compression?.max_value).toBe(1);
+    expect(league?.required).toBeFalsy();
+    expect(league?.autocomplete).toBe(true);
   });
 });

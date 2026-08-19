@@ -20,6 +20,7 @@ Post in order. Pin the first post in each channel if you want.
 3. `staff/a3-quitters-and-ratings.md`
 4. `staff/a4-wc3stats-mapping.md`
 5. `staff/a5-admin-cheat-sheet.md`
+6. `staff/a6-league-rollover.md`
 
 ## Tips
 
