@@ -55,9 +55,15 @@ export {
   removeLobbyPlayer,
   moveLobbyPlayer,
   swapLobbyPlayers,
+  remapLobbyPlayers,
   editLobbyPlayerNick,
   applyRosterUpdateForMessage,
 } from './actions.js';
+export {
+  applyRemapPairs,
+  parseRemapPairs,
+  resolveSwapForm,
+} from './remap.js';
 export {
   buildLobbyButtons,
   buildMatchCancelledEmbed,
