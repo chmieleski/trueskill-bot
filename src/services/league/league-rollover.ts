@@ -222,15 +222,20 @@ export function parseRolloverButtonCustomId(
   return { action, draftId, actorDiscordId };
 }
 
-async function assertNoActiveMatches(leagueId: string): Promise<void> {
+type ActiveMatchClient = Pick<typeof prisma.match, 'count' | 'findMany'>;
+
+async function assertNoActiveMatchesWithClient(
+  client: { match: ActiveMatchClient },
+  leagueId: string,
+): Promise<void> {
   const [activeCount, sampleMatches] = await Promise.all([
-    prisma.match.count({
+    client.match.count({
       where: {
         leagueId,
         status: { in: [...ACTIVE_MATCH_STATUSES] },
       },
     }),
-    prisma.match.findMany({
+    client.match.findMany({
       where: {
         leagueId,
         status: { in: [...ACTIVE_MATCH_STATUSES] },
@@ -249,6 +254,10 @@ async function assertNoActiveMatches(leagueId: string): Promise<void> {
   throw new LeagueRolloverError(
     `Finish or cancel all active lobbies and matches first (${activeCount} active: ${idList}).`,
   );
+}
+
+async function assertNoActiveMatches(leagueId: string): Promise<void> {
+  return assertNoActiveMatchesWithClient(prisma, leagueId);
 }
 
 async function countRolloverPlayers(leagueId: string): Promise<number> {
@@ -416,8 +425,6 @@ export async function applyLeagueRollover(
     );
   }
 
-  await assertNoActiveMatches(source.id);
-
   const resetMode = parseResetMode(draft.resetMode);
   const compression = draft.compression;
 
@@ -436,6 +443,8 @@ export async function applyLeagueRollover(
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    await assertNoActiveMatchesWithClient(tx, source.id);
+
     const successor = await tx.league.create({
       data: successorLeagueCreateData(source, draft.successorName),
     });

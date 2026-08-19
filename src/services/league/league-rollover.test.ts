@@ -300,6 +300,10 @@ describe('applyLeagueRollover', () => {
     leagueRolloverDraftDelete.mockResolvedValue({ id: 'draft-1' });
     transaction.mockImplementation(async (callback) =>
       callback({
+        match: {
+          count: matchCount,
+          findMany: matchFindMany,
+        },
         league: {
           create: leagueCreate,
           update: leagueUpdate,
@@ -311,6 +315,20 @@ describe('applyLeagueRollover', () => {
         leagueRolloverDraft: { delete: leagueRolloverDraftDelete },
       }),
     );
+  });
+
+  it('blocks apply inside transaction when active matches appear after preview', async () => {
+    matchCount.mockResolvedValue(1);
+    matchFindMany.mockResolvedValue([{ id: 'match-late' }]);
+
+    await expect(
+      applyLeagueRollover({ draftId: 'draft-1', actorDiscordId: ACTOR }),
+    ).rejects.toThrow(
+      'Finish or cancel all active lobbies and matches first (1 active: `match-late`).',
+    );
+
+    expect(leagueCreate).not.toHaveBeenCalled();
+    expect(leagueUpdate).not.toHaveBeenCalled();
   });
 
   it('hard reset seeds global defaults only', async () => {

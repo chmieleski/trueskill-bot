@@ -12,11 +12,12 @@ import { assertCanConfigureBot } from '../../services/guild/index.js';
 import { buildRolloverConfirmComponents } from '../../discord/interactions/league-rollover-interactions.js';
 import {
   autocompleteActiveGuildLeagues,
-  autocompleteGuildLeagues,
   bindDiscordToLeague,
   createLeague,
   getLeagueById,
   getLeagueOption,
+  isLeagueWritable,
+  LEAGUE_ARCHIVED_MESSAGE,
   LeagueRolloverError,
   listActiveLeaguesForGuild,
   listArchivedLeaguesForGuild,
@@ -210,11 +211,10 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
     return;
   }
 
-  const subcommand = interaction.options.getSubcommand(false);
-  const choices =
-    subcommand === 'rollover'
-      ? await autocompleteActiveGuildLeagues(interaction.guildId, focused.value)
-      : await autocompleteGuildLeagues(interaction.guildId, focused.value);
+  const choices = await autocompleteActiveGuildLeagues(
+    interaction.guildId,
+    focused.value,
+  );
 
   await interaction.respond(choices);
 }
@@ -356,6 +356,15 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         return;
       }
 
+      const league = await getLeagueById(resolved.leagueId);
+      if (!league || !isLeagueWritable(league)) {
+        await interaction.reply({
+          content: LEAGUE_ARCHIVED_MESSAGE,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
       await bindDiscordToLeague({
         leagueId: resolved.leagueId,
         discordId: target.id,
@@ -374,8 +383,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       );
 
       const leagues = await listLeaguesForGuild(interaction.guildId);
-      const league = leagues.find((entry) => entry.id === resolved.leagueId);
-      const leagueLabel = league ? `**${league.name}**` : `\`${resolved.leagueId}\``;
+      const boundLeague = leagues.find((entry) => entry.id === resolved.leagueId);
+      const leagueLabel = boundLeague ? `**${boundLeague.name}**` : `\`${resolved.leagueId}\``;
       const targetLabel = formatBindTarget(target.id, target.name ?? target.id, kind);
       const kindLabel = kind === 'CATEGORY' ? 'category' : 'channel';
 
