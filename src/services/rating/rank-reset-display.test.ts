@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { MatchResult } from '@prisma/client';
 import {
+  aggregateHeroMatchDisplayStats,
   aggregateMatchDisplayStats,
   countCompletedGamesThrough,
   gamesByPlayerFromStats,
+  heroStatsFor,
   isMatchCountedAfterRankReset,
+  winRatePercent,
 } from './rank-reset-display.js';
 
 const RESET = new Date('2026-08-10T12:00:00.000Z');
@@ -226,5 +229,97 @@ describe('gamesByPlayerFromStats', () => {
     );
     expect(games.get('p1')).toBe(5);
     expect(games.get('p2')).toBe(0);
+  });
+});
+
+describe('winRatePercent', () => {
+  it('returns null when there are no games', () => {
+    expect(winRatePercent(0, 0)).toBeNull();
+  });
+
+  it('rounds to one decimal', () => {
+    expect(winRatePercent(5, 3)).toBe(62.5);
+    expect(winRatePercent(1, 0)).toBe(100);
+    expect(winRatePercent(2, 1)).toBe(66.7);
+    expect(winRatePercent(0, 1)).toBe(0);
+  });
+});
+
+describe('aggregateHeroMatchDisplayStats', () => {
+  it('groups W/L by player and hero and skips null heroId', () => {
+    const stats = aggregateHeroMatchDisplayStats(
+      [
+        {
+          playerId: 'p1',
+          heroId: 1,
+          result: MatchResult.WIN,
+          isQuitter: false,
+          completedAt: AFTER,
+        },
+        {
+          playerId: 'p1',
+          heroId: 1,
+          result: MatchResult.LOSS,
+          isQuitter: false,
+          completedAt: AFTER,
+        },
+        {
+          playerId: 'p1',
+          heroId: 2,
+          result: MatchResult.WIN,
+          isQuitter: false,
+          completedAt: AFTER,
+        },
+        {
+          playerId: 'p1',
+          heroId: null,
+          result: MatchResult.WIN,
+          isQuitter: false,
+          completedAt: AFTER,
+        },
+      ],
+      new Map(),
+    );
+
+    expect(stats.get('p1')?.get(1)).toEqual({ wins: 1, losses: 1 });
+    expect(stats.get('p1')?.get(2)).toEqual({ wins: 1, losses: 0 });
+    expect(stats.get('p1')?.has(0)).toBe(false);
+  });
+
+  it('ignores pre-reset games and quitters without WIN/LOSS', () => {
+    const stats = aggregateHeroMatchDisplayStats(
+      [
+        {
+          playerId: 'p1',
+          heroId: 1,
+          result: MatchResult.WIN,
+          isQuitter: false,
+          completedAt: BEFORE,
+        },
+        {
+          playerId: 'p1',
+          heroId: 1,
+          result: MatchResult.LOSS,
+          isQuitter: true,
+          completedAt: AFTER,
+        },
+        {
+          playerId: 'p1',
+          heroId: 1,
+          result: null,
+          isQuitter: true,
+          completedAt: AFTER,
+        },
+      ],
+      new Map([['p1', RESET]]),
+    );
+
+    expect(stats.get('p1')?.get(1)).toEqual({ wins: 0, losses: 1 });
+  });
+});
+
+describe('heroStatsFor', () => {
+  it('returns zeros when the bucket is missing', () => {
+    expect(heroStatsFor(new Map(), 'p1', 1)).toEqual({ wins: 0, losses: 0 });
   });
 });
