@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   playerFindUnique,
+  playerFindMany,
   matchFindMany,
   matchCount,
   matchRatingSnapshotFindMany,
@@ -13,6 +14,7 @@ const {
   buildMatchCompletedEmbed,
 } = vi.hoisted(() => ({
   playerFindUnique: vi.fn(),
+  playerFindMany: vi.fn(),
   matchFindMany: vi.fn(),
   matchCount: vi.fn(),
   matchRatingSnapshotFindMany: vi.fn(),
@@ -26,7 +28,7 @@ const {
 
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
-    player: { findUnique: playerFindUnique },
+    player: { findUnique: playerFindUnique, findMany: playerFindMany },
     match: {
       findMany: matchFindMany,
       count: matchCount,
@@ -255,12 +257,13 @@ describe('match history page custom ids', () => {
 describe('resolveHistoryPlayer', () => {
   beforeEach(() => {
     playerFindUnique.mockReset();
+    playerFindMany.mockReset();
   });
 
   it('throws self link message when missing', async () => {
     playerFindUnique.mockResolvedValue(null);
     await expect(
-      resolveHistoryPlayer('warcraft3_udbr', 'd1', 'self'),
+      resolveHistoryPlayer('warcraft3_udbr', { kind: 'self', discordId: 'd1' }),
     ).rejects.toThrow(/not linked/i);
     expect(playerFindUnique).toHaveBeenCalledWith({
       where: {
@@ -272,8 +275,32 @@ describe('resolveHistoryPlayer', () => {
   it('throws player not found for other user', async () => {
     playerFindUnique.mockResolvedValue(null);
     await expect(
-      resolveHistoryPlayer('warcraft3_udbr', 'd2', 'user'),
+      resolveHistoryPlayer('warcraft3_udbr', { kind: 'user', discordId: 'd2' }),
     ).rejects.toThrow('Player not found.');
+  });
+
+  it('resolves player by nick', async () => {
+    playerFindUnique.mockResolvedValue({
+      id: 'p-nick',
+      username: 'ghost',
+    });
+    const player = await resolveHistoryPlayer('warcraft3_udbr', {
+      kind: 'nick',
+      nick: 'ghost',
+    });
+    expect(player).toEqual({ id: 'p-nick', username: 'ghost' });
+    expect(playerFindUnique).toHaveBeenCalledWith({
+      where: {
+        gameId_username: { gameId: 'warcraft3_udbr', username: 'ghost' },
+      },
+    });
+  });
+
+  it('rejects user and nick together', async () => {
+    await expect(
+      resolveHistoryPlayer('warcraft3_udbr', { kind: 'both' }),
+    ).rejects.toThrow(/not both/i);
+    expect(playerFindUnique).not.toHaveBeenCalled();
   });
 });
 

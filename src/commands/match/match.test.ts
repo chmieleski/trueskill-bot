@@ -39,4 +39,13 @@ describe('match command data', () => {
       'void',
     ]);
   });
+
+  it('history subcommand accepts user and nick lookup options', () => {
+    const json = data.toJSON();
+    const history = json.options?.find((option) => option.name === 'history');
+    const optionNames = history?.options?.map((option) => option.name);
+
+    expect(optionNames).toContain('user');
+    expect(optionNames).toContain('nick');
+  });
 });

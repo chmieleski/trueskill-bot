@@ -12,7 +12,7 @@
 • `/lobby add` / `remove` / `swap` / `sync` / `start` / `cancel`
 
 **Match (anyone)**
-• `/match history` — your completed matches (optional user/page)
+• `/match history` — your completed matches (optional user/nick/page)
 • `/match list` — completed matches in this league (optional page)
 • `/match show` — open a completed match by id
 

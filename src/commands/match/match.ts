@@ -40,6 +40,7 @@ import {
   respondAllLeagueAutocomplete,
   withSubcommandLeagueOption,
 } from '../../services/league/index.js';
+import { parseRankOptions } from '../../services/player/index.js';
 
 const log = createLogger('match_cmd');
 
@@ -259,6 +260,9 @@ export const data = new SlashCommandBuilder()
         .addUserOption((option) =>
           option.setName('user').setDescription('Discord user to look up').setRequired(false),
         )
+        .addStringOption((option) =>
+          option.setName('nick').setDescription('In-game nick to look up').setRequired(false),
+        )
         .addIntegerOption((option) =>
           option.setName('page').setDescription('Page number').setRequired(false).setMinValue(1),
         ),
@@ -381,12 +385,17 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const isPublicRead =
     subcommand === 'history' || subcommand === 'show' || subcommand === 'list';
 
-  const historyUser = subcommand === 'history' ? interaction.options.getUser('user') : null;
-  const historyKind =
-    historyUser && historyUser.id !== interaction.user.id ? ('user' as const) : ('self' as const);
+  const historyLookup =
+    subcommand === 'history'
+      ? parseRankOptions({
+          selfDiscordId: interaction.user.id,
+          userDiscordId: interaction.options.getUser('user')?.id,
+          nick: interaction.options.getString('nick'),
+        })
+      : null;
 
   // Self-unlinked history must stay private; Discord locks visibility on the first response.
-  if (subcommand === 'history' && historyKind === 'user') {
+  if (subcommand === 'history' && historyLookup?.kind !== 'self') {
     await interaction.deferReply();
   } else if (subcommand === 'show' || subcommand === 'list') {
     await interaction.deferReply();
@@ -411,7 +420,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       if (!interaction.guildId) {
         throw new MatchServiceError('This command can only be used in a server.');
       }
-      const discordId = historyUser?.id ?? interaction.user.id;
       const resolved = await resolveLeagueIdFromInteraction(
         interaction,
         getLeagueOption(interaction),
@@ -420,17 +428,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         await replyMatchRead(
           interaction,
           { content: resolved.message },
-          historyKind === 'self' && !interaction.deferred,
+          historyLookup?.kind === 'self' && !interaction.deferred,
         );
         return;
       }
 
       const gameProfile = await getGameProfileForLeague(resolved.leagueId);
-      const player = await resolveHistoryPlayer(
-        gameProfile.gameId,
-        discordId,
-        historyKind,
-      );
+      const player = await resolveHistoryPlayer(gameProfile.gameId, historyLookup!);
 
       if (!interaction.deferred) {
         await interaction.deferReply();
@@ -637,7 +641,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         await replyMatchRead(
           interaction,
           { content: error.message },
-          subcommand === 'history' && historyKind === 'self' && !interaction.deferred,
+          subcommand === 'history' && historyLookup?.kind === 'self' && !interaction.deferred,
         );
       } else {
         await interaction.editReply({ content: error.message });
@@ -650,7 +654,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       await replyMatchRead(
         interaction,
         { content: publicReadErrorMessage(subcommand) },
-        subcommand === 'history' && historyKind === 'self' && !interaction.deferred,
+        subcommand === 'history' && historyLookup?.kind === 'self' && !interaction.deferred,
       );
       return;
     }

@@ -22,6 +22,10 @@ import {
   loadLatestRankResetAtByPlayer,
 } from '../rating/rank-reset-display.js';
 import {
+  findPlayerForRankLookup,
+  type RankLookup,
+} from '../player/player-profile.js';
+import {
   loadPlayerGlobalDeltaForMatch,
   resolveCompletedRatingPreview,
 } from './match-history-preview.js';
@@ -146,14 +150,17 @@ export function parseMatchHistoryPageCustomId(
 
 export async function resolveHistoryPlayer(
   gameId: string,
-  discordId: string,
-  kind: 'self' | 'user',
+  lookup: RankLookup,
 ): Promise<{ id: string; username: string }> {
-  const player = await prisma.player.findUnique({
-    where: { gameId_discordId: { gameId, discordId } },
-  });
+  if (lookup.kind === 'both') {
+    throw new MatchServiceError(
+      'Provide either a Discord user or a nick, not both.',
+    );
+  }
+
+  const player = await findPlayerForRankLookup(gameId, lookup);
   if (!player) {
-    if (kind === 'self') {
+    if (lookup.kind === 'self') {
       throw new MatchServiceError(
         "Your Discord is not linked to an in-game nick for this league's game. Use /link to bind it.",
       );
