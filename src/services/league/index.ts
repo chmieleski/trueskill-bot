@@ -53,6 +53,34 @@ export {
 } from './league-wc3stats.js';
 
 export {
+  applyLeagueRollover,
+  assertRolloverCompression,
+  buildRolloverCancelCustomId,
+  buildRolloverConfirmCustomId,
+  cancelLeagueRolloverDraft,
+  compressMu,
+  compressSigma,
+  LeagueRolloverError,
+  parseRolloverButtonCustomId,
+  previewLeagueRollover,
+  ROLLOVER_COMPRESSION_DEFAULT,
+  ROLLOVER_COMPRESSION_MAX,
+  ROLLOVER_COMPRESSION_MIN,
+  ROLLOVER_DRAFT_TTL_MS,
+  seedSoftGlobalRatings,
+  seedSoftHeroRatings,
+  type ApplyLeagueRolloverInput,
+  type LeagueResetMode,
+  type LeagueRolloverPreview,
+  type LeagueRolloverResult,
+  type ParsedRolloverButtonCustomId,
+  type PreviewLeagueRolloverInput,
+  type RolloverButtonAction,
+  type SoftResetEntity,
+  type SoftResetHeroEntity,
+} from './league-rollover.js';
+
+export {
   LOBBY_CHANNEL_CHANNEL_ONLY_WHILE_DISABLED,
   LOBBY_CHANNEL_ENABLE_NEEDS_CHANNEL,
   LOBBY_CHANNEL_HOST_PROMPT_MISMATCH,
