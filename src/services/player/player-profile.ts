@@ -112,6 +112,17 @@ async function findPlayerByNick(gameId: string, nick: string) {
   return matches.length === 1 ? matches[0]! : null;
 }
 
+/** Resolve a Player row for rank/history lookups (not `both`). */
+export async function findPlayerForRankLookup(
+  gameId: string,
+  lookup: Exclude<RankLookup, { kind: 'both' }>,
+) {
+  if (lookup.kind === 'nick') {
+    return findPlayerByNick(gameId, lookup.nick);
+  }
+  return findPlayerByDiscordId(gameId, lookup.discordId);
+}
+
 export async function loadPlayerProfile(
   leagueId: string,
   lookup: RankLookup,
@@ -125,10 +136,7 @@ export async function loadPlayerProfile(
   const gameProfile = await getGameProfileForLeague(leagueId);
   const gameId = gameProfile.gameId;
 
-  let player =
-    lookup.kind === 'nick'
-      ? await findPlayerByNick(gameId, lookup.nick)
-      : await findPlayerByDiscordId(gameId, lookup.discordId);
+  const player = await findPlayerForRankLookup(gameId, lookup);
 
   if (!player) {
     if (lookup.kind === 'self') {
