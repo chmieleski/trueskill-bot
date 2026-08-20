@@ -3,10 +3,10 @@ import { isCalibrating } from './rating-math.js';
 /** Ki offset from lobby average at which scaling reaches full effect. */
 export const LOBBY_OFFSET_KI_FULL_EFFECT = 2000;
 
-export const LOBBY_SCALE_MIN = 0.5;
-export const LOBBY_SCALE_MAX = 1.5;
-export const LOBBY_SCALE_WIN_COEFF = 0.5;
-export const LOBBY_SCALE_LOSS_COEFF = 0.5;
+export const LOBBY_SCALE_MIN = 0.75;
+export const LOBBY_SCALE_MAX = 1.25;
+export const LOBBY_SCALE_WIN_COEFF = 0.25;
+export const LOBBY_SCALE_LOSS_COEFF = 0.25;
 
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
