@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { matchPlayerFindMany, playerRankResetFindMany } = vi.hoisted(() => ({
-  matchPlayerFindMany: vi.fn(),
-  playerRankResetFindMany: vi.fn(),
-}));
+const { matchPlayerFindMany, playerRankResetFindMany, matchRatingSnapshotFindMany } = vi.hoisted(
+  () => ({
+    matchPlayerFindMany: vi.fn(),
+    playerRankResetFindMany: vi.fn(),
+    matchRatingSnapshotFindMany: vi.fn(),
+  }),
+);
 
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
-    matchRatingSnapshot: { findMany: vi.fn() },
+    matchRatingSnapshot: { findMany: matchRatingSnapshotFindMany },
     matchPlayer: {
       groupBy: vi.fn(),
       findMany: matchPlayerFindMany,
@@ -23,6 +26,7 @@ import {
 } from './match-history-preview.js';
 import type { MatchWithPlayers } from './match-service.js';
 import { CALIBRATING_LABEL, formatPublicKi } from '../rating/rating-math.js';
+import { prisma } from '../../lib/prisma.js';
 
 function storedMatchFixture(): MatchWithPlayers {
   return {
@@ -118,7 +122,9 @@ describe('resolveCompletedRatingPreview', () => {
   beforeEach(() => {
     matchPlayerFindMany.mockReset();
     playerRankResetFindMany.mockReset();
+    matchRatingSnapshotFindMany.mockReset();
     playerRankResetFindMany.mockResolvedValue([]);
+    matchRatingSnapshotFindMany.mockResolvedValue([]);
   });
 
   it('uses point-in-time after-match games, not current league totals', async () => {
@@ -145,5 +151,58 @@ describe('resolveCompletedRatingPreview', () => {
     for (const line of preview?.players ?? []) {
       expect(formatPublicKi(line.globalOrdinal, line.leagueGames)).toBe(CALIBRATING_LABEL);
     }
+  });
+
+  it('attaches pre-match win chance from rating snapshots', async () => {
+    const match = storedMatchFixture();
+    const completedAt = match.completedAt!;
+
+    matchPlayerFindMany.mockResolvedValue([
+      ...completedRowsForPlayer('P1', 5, 5, completedAt),
+      ...completedRowsForPlayer('P2', 5, 5, completedAt),
+    ]);
+    matchRatingSnapshotFindMany.mockResolvedValue([
+      {
+        playerId: 'P1',
+        entityKind: 'GLOBAL',
+        heroId: 0,
+        mu: 40,
+        sigma: 3,
+        matchesPlayed: null,
+      },
+      {
+        playerId: 'P1',
+        entityKind: 'HERO',
+        heroId: 3,
+        mu: 40,
+        sigma: 3,
+        matchesPlayed: 5,
+      },
+      {
+        playerId: 'P2',
+        entityKind: 'GLOBAL',
+        heroId: 0,
+        mu: 20,
+        sigma: 3,
+        matchesPlayed: null,
+      },
+      {
+        playerId: 'P2',
+        entityKind: 'HERO',
+        heroId: 8,
+        mu: 20,
+        sigma: 3,
+        matchesPlayed: 5,
+      },
+    ]);
+
+    const preview = await resolveCompletedRatingPreview(match);
+
+    expect(prisma.matchRatingSnapshot.findMany).toHaveBeenCalledWith({
+      where: { matchId: 'm1' },
+    });
+    expect(preview?.winChance).toBeDefined();
+    expect(preview!.winChance!.teamAPercent).toBeGreaterThan(50);
+    expect(preview!.winChance!.teamAPercent + preview!.winChance!.teamBPercent).toBe(100);
   });
 });

@@ -6,9 +6,11 @@ import {
 import { displayOrdinal } from '../rating/rating-math.js';
 import {
   buildCompletedRatingPreview,
+  computeWinChanceFromRatings,
   matchPlayersToRatingEntries,
   type LobbyRatingPreview,
   type PlayerKiPair,
+  type WinChancePercents,
 } from '../rating/rating-preview.js';
 import { simulatePostMatchRatings, type RatingRosterEntry } from '../rating/rating-update.js';
 import type { MatchWithPlayers } from './match-service.js';
@@ -81,6 +83,35 @@ function snapshotsToMaps(snapshots: SnapshotRow[]): {
   }
 
   return { globalByPlayer, heroByKey };
+}
+
+/** Pre-match lobby win chance from MatchRatingSnapshot rows, when complete. */
+function winChanceFromSnapshots(
+  match: MatchWithPlayers,
+  snapshots: SnapshotRow[],
+): WinChancePercents | undefined {
+  const playerIds = match.players.map((player) => player.playerId);
+  const globalSnaps = snapshots.filter((snap) => snap.entityKind === 'GLOBAL');
+  if (!playerIds.every((playerId) => globalSnaps.some((snap) => snap.playerId === playerId))) {
+    return undefined;
+  }
+
+  const { globalByPlayer, heroByKey } = snapshotsToMaps(snapshots);
+  return computeWinChanceFromRatings(
+    matchPlayersToRatingEntries(match.players),
+    globalByPlayer,
+    heroByKey,
+  );
+}
+
+/** Load pre-match win chance from snapshots for a completed match (for /match show). */
+export async function loadWinChanceFromMatchSnapshots(
+  match: MatchWithPlayers,
+): Promise<WinChancePercents | undefined> {
+  const snapshots = await prisma.matchRatingSnapshot.findMany({
+    where: { matchId: match.id },
+  });
+  return winChanceFromSnapshots(match, snapshots);
 }
 
 function kiPairFromState(
@@ -196,6 +227,7 @@ export async function rebuildCompletedRatingPreview(
     beforeBySlot,
     afterBySlot,
     leagueGamesByPlayer,
+    winChanceFromSnapshots(match, snapshots),
   );
 }
 
@@ -304,6 +336,7 @@ export function ratingPreviewFromStoredMatchPlayers(
 
 /**
  * Prefer stored MatchPlayer ki, else rebuild from snapshots (and backfill store).
+ * Always attach pre-match win chance from snapshots when available.
  */
 export async function resolveCompletedRatingPreview(
   match: MatchWithPlayers,
@@ -311,7 +344,8 @@ export async function resolveCompletedRatingPreview(
   const leagueGamesByPlayer = await loadLeagueGamesAfterMatch(match);
   const stored = ratingPreviewFromStoredMatchPlayers(match, leagueGamesByPlayer);
   if (stored) {
-    return stored;
+    const winChance = await loadWinChanceFromMatchSnapshots(match);
+    return winChance ? { ...stored, winChance } : stored;
   }
 
   const rebuilt = await rebuildCompletedRatingPreview(match);

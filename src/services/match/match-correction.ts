@@ -6,6 +6,7 @@ import {
   buildCompletedRatingPreview,
   ensurePlayerRatings,
   loadPlayerKiBySlot,
+  loadRosterWinChance,
   matchPlayersToRatingEntries,
   type LobbyRatingPreview,
 } from '../rating/rating-preview.js';
@@ -537,6 +538,7 @@ export async function flipCompletedMatch(
       tx,
     );
     const beforeBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
+    const winChance = await loadRosterWinChance(match.leagueId, previewEntries, tx);
 
     for (const player of match.players) {
       const isQuitter = quitterSet.has(player.slot);
@@ -566,6 +568,7 @@ export async function flipCompletedMatch(
       beforeBySlot,
       afterBySlot,
       gamesByPlayerFromStats(displayStats),
+      winChance,
     );
     await persistMatchRatingPreviewToPlayers(matchId, ratingPreview, match.players, tx);
   });

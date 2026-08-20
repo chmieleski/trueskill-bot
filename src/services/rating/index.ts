@@ -2,6 +2,7 @@ export {
   loadLobbyRatingPreview,
   matchPlayersToRatingEntries,
   type LobbyRatingPreview,
+  type WinChancePercents,
 } from './rating-preview.js';
 export {
   applyRankReset,
