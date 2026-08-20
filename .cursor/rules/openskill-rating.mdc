@@ -38,7 +38,7 @@ Compare Team A vs Team B to get P(win). After the match, OpenSkill updates μ/σ
 
 ## Lobby-relative μ scaling (after `rate()`)
 
-After OpenSkill `rate()` on active match players, scale each human's **Δμ** by offset from **lobby-average global ki** (pre-match, active non-quitters). **σ unchanged.** `predictWin` / balance hints use unscaled μ/σ.
+After OpenSkill `rate()` on active match players, scale each human's **Δμ** by offset from **lobby-average global ki** (pre-match, active non-quitters who are **not** calibrating — `games < 5` excluded). If the whole lobby is still calibrating, fall back to every active human. **σ unchanged.** `predictWin` / balance hints use unscaled μ/σ.
 
 ```text
 offsetKi = playerGlobalKi − lobbyAvgKi

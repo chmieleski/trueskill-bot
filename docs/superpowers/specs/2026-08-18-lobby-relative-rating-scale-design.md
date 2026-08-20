@@ -117,7 +117,8 @@ Scale **Δμ after** `rate()`; leave **σ** from OpenSkill unchanged.
 After `rate()` returns updated entities, adjust each **human global** (and optionally hero) entity:
 
 ```text
-lobbyAvgKi = mean(displayOrdinal(global μ, σ, games) for active humans)
+lobbyAvgKi = mean(displayOrdinal(global μ, σ, games) for calibrated active humans)
+             // games >= 5; if none calibrated → all active humans
 playerKi   = displayOrdinal(this player global before match)
 offset     = playerKi − lobbyAvgKi   // signed
 
@@ -129,7 +130,7 @@ scaleLoss = g(offset)   // offset > 0 → scaleLoss > 1 (more loss)
 ```
 
 - `f`, `g` are monotonic, clamped (e.g. 0.25–2.0), tunable.
-- **Lobby average** uses **league-global** ki only (not hero), pre-match, active non-quitters.
+- **Lobby average** uses **league-global** ki only (not hero), pre-match, active non-quitters who are **not** calibrating.
 - **σ unchanged** by scaler (preserves OpenSkill uncertainty model).
 - Quitter synthetic path: **unchanged** unless product wants lobby scaling there too.
 
@@ -169,12 +170,15 @@ Raise σ for veterans when lobby average is much lower, or cap σ reduction — 
 
 ```text
 activeHumans = roster entries where !isQuitter
-lobbyAvgKi   = round( mean( preMatchGlobalKi(p) for p in activeHumans ) )
+calibrated   = activeHumans where leagueGames >= 5
+lobbyAvgKi   = mean( preMatchGlobalKi(p) for p in calibrated )
+             // if calibrated empty → mean over all activeHumans
 ```
 
 - Use `displayOrdinal(global μ, σ, leagueGames)` with pre-match game counts (same as completed embed “before”).
 - **Unbalanced fills:** include all active humans on both teams (empty slots excluded).
 - **Single league:** always filter by `leagueId`.
+- **Calibrating:** still get a personal offset vs that avg (and still have Δμ scaled); they just do not pull the avg down/up.
 
 ### Offset and scales (initial proposal — tune in implementation plan)
 
@@ -212,14 +216,14 @@ applyMatchRatings / simulatePostMatchRatings
 
 ### Edge cases
 
-| Case                   | Rule                                                                           |
-| ---------------------- | ------------------------------------------------------------------------------ |
-| 1v1                    | Lobby avg = opponent ki; full ± effect                                         |
-| All players similar ki | t ≈ 0 → scaler ≈ 1 (no-op)                                                     |
-| Calibrating players    | Include in lobby avg if they have a rating row; ki may be hidden but μ/σ exist |
-| Quitters               | Excluded from lobby avg and active apply; penalty path unchanged               |
-| Rank reset             | No special case; uses current μ/σ                                              |
-| Multi-league           | Scaler computed inside `leagueId` only                                         |
+| Case                   | Rule                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------- |
+| 1v1                    | Lobby avg = opponent ki; full ± effect                                                            |
+| All players similar ki | t ≈ 0 → scaler ≈ 1 (no-op)                                                                        |
+| Calibrating players    | Excluded from lobby avg (`games < 5`); if everyone is calibrating, fall back to all active humans |
+| Quitters               | Excluded from lobby avg and active apply; penalty path unchanged                                  |
+| Rank reset             | No special case; uses current μ/σ                                                                 |
+| Multi-league           | Scaler computed inside `leagueId` only                                                            |
 
 ### Testing
 

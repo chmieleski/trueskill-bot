@@ -20,7 +20,8 @@ export const CALIBRATING_LABEL = 'Calibrating';
 
 /**
  * True while the player has fewer than {@link KI_Z_BLEND_GAMES} completed
- * league games. Display-only; does not affect OpenSkill rate().
+ * league games. Does not change OpenSkill `rate()`; used for public display
+ * and to exclude the player from lobby-average ki when scaling Δμ.
  */
 export function isCalibrating(matchesPlayed: number): boolean {
   return Math.max(0, matchesPlayed) < KI_Z_BLEND_GAMES;

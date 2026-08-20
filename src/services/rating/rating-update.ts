@@ -3,7 +3,7 @@ import { rating, rate, type Rating } from 'openskill';
 import { prisma } from '../../lib/prisma.js';
 import { MatchServiceError } from '../match/match-service.js';
 import { ratingEntitiesForPlayer } from './rating-entities.js';
-import { computeLobbyAvgKi, scaleAppliedMu } from './lobby-relative-scale.js';
+import { computeLobbyAvgKi, kisForLobbyAverage, scaleAppliedMu } from './lobby-relative-scale.js';
 import { displayOrdinal, splitRosterByTeam, toOpenSkillRatings } from './rating-math.js';
 import { ensurePlayerRatings } from './rating-preview.js';
 import { gamesByPlayerFromStats, loadMatchDisplayStatsByPlayer } from './rank-reset-display.js';
@@ -233,6 +233,8 @@ function snapshotPreMatchMuSigma(
 
 /**
  * Scale OpenSkill μ deltas by each player's offset from lobby-average global ki.
+ * Lobby average uses calibrated players only (< 5 games excluded); if the
+ * whole lobby is still calibrating, falls back to every active human.
  * Mutates `updatedByPlayer` in place; σ is unchanged.
  */
 function applyLobbyRelativeScalingToResults(
@@ -243,7 +245,7 @@ function applyLobbyRelativeScalingToResults(
   updatedByPlayer: Map<string, UpdatedPlayerRating>,
   globalGamesByPlayer: Map<string, number>,
 ): void {
-  const preKis: number[] = [];
+  const prePlayers: Array<{ ki: number; games: number }> = [];
   const preKiByPlayer = new Map<string, number>();
 
   for (const entry of active) {
@@ -254,10 +256,10 @@ function applyLobbyRelativeScalingToResults(
     const games = globalGamesByPlayer.get(entry.playerId) ?? 0;
     const ki = displayOrdinal(before.mu, before.sigma, games);
     preKiByPlayer.set(entry.playerId, ki);
-    preKis.push(ki);
+    prePlayers.push({ ki, games });
   }
 
-  const lobbyAvg = computeLobbyAvgKi(preKis);
+  const lobbyAvg = computeLobbyAvgKi(kisForLobbyAverage(prePlayers));
 
   for (const entry of active) {
     const beforeGlobal = preGlobal.get(entry.playerId);
