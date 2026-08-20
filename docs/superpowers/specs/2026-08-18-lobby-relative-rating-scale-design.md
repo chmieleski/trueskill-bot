@@ -117,7 +117,8 @@ Scale **Δμ after** `rate()`; leave **σ** from OpenSkill unchanged.
 After `rate()` returns updated entities, adjust each **human global** (and optionally hero) entity:
 
 ```text
-lobbyAvgKi = mean(displayOrdinal(global μ, σ, games) for active humans)
+lobbyAvgKi = mean(displayOrdinal(global μ, σ, games) for calibrated active humans)
+             // games >= 5; if none calibrated → all active humans
 playerKi   = displayOrdinal(this player global before match)
 offset     = playerKi − lobbyAvgKi   // signed
 
@@ -129,7 +130,7 @@ scaleLoss = g(offset)   // offset > 0 → scaleLoss > 1 (more loss)
 ```
 
 - `f`, `g` are monotonic, clamped (e.g. 0.25–2.0), tunable.
-- **Lobby average** uses **league-global** ki only (not hero), pre-match, active non-quitters.
+- **Lobby average** uses **league-global** ki only (not hero), pre-match, active non-quitters who are **not** calibrating.
 - **σ unchanged** by scaler (preserves OpenSkill uncertainty model).
 - Quitter synthetic path: **unchanged** unless product wants lobby scaling there too.
 
@@ -169,12 +170,15 @@ Raise σ for veterans when lobby average is much lower, or cap σ reduction — 
 
 ```text
 activeHumans = roster entries where !isQuitter
-lobbyAvgKi   = round( mean( preMatchGlobalKi(p) for p in activeHumans ) )
+calibrated   = activeHumans where leagueGames >= 5
+lobbyAvgKi   = mean( preMatchGlobalKi(p) for p in calibrated )
+             // if calibrated empty → mean over all activeHumans
 ```
 
 - Use `displayOrdinal(global μ, σ, leagueGames)` with pre-match game counts (same as completed embed “before”).
 - **Unbalanced fills:** include all active humans on both teams (empty slots excluded).
 - **Single league:** always filter by `leagueId`.
+- **Calibrating:** still get a personal offset vs that avg (and still have Δμ scaled); they just do not pull the avg down/up.
 
 ### Offset and scales (initial proposal — tune in implementation plan)
 
@@ -182,17 +186,17 @@ lobbyAvgKi   = round( mean( preMatchGlobalKi(p) for p in activeHumans ) )
 offsetKi = playerGlobalKi − lobbyAvgKi
 t        = clamp(offsetKi / 2000, −1, 1)   // ±2000 ki → full effect
 
-scaleWin  = clamp(1 − 0.5 × t, 0.5, 1.5)   // above avg: min 0.5× gain
-scaleLoss = clamp(1 + 0.5 × t, 0.5, 1.5)   // above avg: max 1.5× loss
+scaleWin  = clamp(1 − 0.25 × t, 0.75, 1.25)   // above avg: min 0.75× gain
+scaleLoss = clamp(1 + 0.25 × t, 0.75, 1.25)   // above avg: max 1.25× loss
 ```
 
 Illustrative targets (to validate in sim):
 
 | Player vs lobby           | Win scale | Loss scale |
 | ------------------------- | --------- | ---------- |
-| +2000 ki (5k in 3k lobby) | 0.5×      | 1.5×       |
+| +2000 ki (5k in 3k lobby) | 0.75×     | 1.25×      |
 | At average                | 1.0×      | 1.0×       |
-| −2000 ki                  | 1.5×      | 0.5×       |
+| −2000 ki                  | 1.25×     | 0.75×      |
 
 Apply to **Δμ** only for each player's **global** entity after team `rate()`. **Hero entity:** same scale factors using **global** offset (keep global/hero aligned) unless playtesting says hero-only offset.
 
@@ -212,14 +216,14 @@ applyMatchRatings / simulatePostMatchRatings
 
 ### Edge cases
 
-| Case                   | Rule                                                                           |
-| ---------------------- | ------------------------------------------------------------------------------ |
-| 1v1                    | Lobby avg = opponent ki; full ± effect                                         |
-| All players similar ki | t ≈ 0 → scaler ≈ 1 (no-op)                                                     |
-| Calibrating players    | Include in lobby avg if they have a rating row; ki may be hidden but μ/σ exist |
-| Quitters               | Excluded from lobby avg and active apply; penalty path unchanged               |
-| Rank reset             | No special case; uses current μ/σ                                              |
-| Multi-league           | Scaler computed inside `leagueId` only                                         |
+| Case                   | Rule                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------- |
+| 1v1                    | Lobby avg = opponent ki; full ± effect                                                            |
+| All players similar ki | t ≈ 0 → scaler ≈ 1 (no-op)                                                                        |
+| Calibrating players    | Excluded from lobby avg (`games < 5`); if everyone is calibrating, fall back to all active humans |
+| Quitters               | Excluded from lobby avg and active apply; penalty path unchanged                                  |
+| Rank reset             | No special case; uses current μ/σ                                                                 |
+| Multi-league           | Scaler computed inside `leagueId` only                                                            |
 
 ### Testing
 
@@ -239,7 +243,7 @@ applyMatchRatings / simulatePostMatchRatings
 
 ## Locked for v1 (2026-08-18)
 
-1. **Scale curve** — linear `t`, clamps **0.5×–1.5×**, offset full effect at **±2000 ki** (ship defaults; tune later if needed).
+1. **Scale curve** — linear `t`, clamps **0.75×–1.25×**, offset full effect at **±2000 ki** (tuned from initial 0.5×–1.5×).
 2. **Hero entity** — same scale factors as global (offset from **global** ki).
 3. **Quitter penalties** — **unchanged** (no lobby scaling on synthetic path).
 4. **Migration** — forward-only; no retroactive recalc.

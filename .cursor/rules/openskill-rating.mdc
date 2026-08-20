@@ -38,15 +38,16 @@ Compare Team A vs Team B to get P(win). After the match, OpenSkill updates μ/σ
 
 ## Lobby-relative μ scaling (after `rate()`)
 
-After OpenSkill `rate()` on active match players, scale each human's **Δμ** by offset from **lobby-average global ki** (pre-match, active non-quitters). **σ unchanged.** `predictWin` / balance hints use unscaled μ/σ.
+After OpenSkill `rate()` on active match players, scale each human's **Δμ** by offset from **lobby-average global ki** (pre-match, active non-quitters who are **not** calibrating — `games < 5` excluded). If the whole lobby is still calibrating, fall back to every active human. **σ unchanged.** `predictWin` / balance hints use unscaled μ/σ.
 
 ```text
 offsetKi = playerGlobalKi − lobbyAvgKi
 t = clamp(offsetKi / 2000, −1, 1)
-scaleWin  = clamp(1 − 0.5×t, 0.5, 1.5)   // above avg → less gain
-scaleLoss = clamp(1 + 0.5×t, 0.5, 1.5)   // above avg → more loss
+scaleWin  = clamp(1 − 0.25×t, 0.75, 1.25)   // above avg → less gain
+scaleLoss = clamp(1 + 0.25×t, 0.75, 1.25)   // above avg → more loss
 Δμ_applied = Δμ_openskill × scaleWin|scaleLoss
 ```
+
 
 - Hero entity uses the **same** scale factors (offset from global ki).
 - Quitter synthetic path is **not** scaled.

@@ -1,10 +1,12 @@
+import { isCalibrating } from './rating-math.js';
+
 /** Ki offset from lobby average at which scaling reaches full effect. */
 export const LOBBY_OFFSET_KI_FULL_EFFECT = 2000;
 
-export const LOBBY_SCALE_MIN = 0.5;
-export const LOBBY_SCALE_MAX = 1.5;
-export const LOBBY_SCALE_WIN_COEFF = 0.5;
-export const LOBBY_SCALE_LOSS_COEFF = 0.5;
+export const LOBBY_SCALE_MIN = 0.75;
+export const LOBBY_SCALE_MAX = 1.25;
+export const LOBBY_SCALE_WIN_COEFF = 0.25;
+export const LOBBY_SCALE_LOSS_COEFF = 0.25;
 
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -25,6 +27,22 @@ export function lobbyScaleWin(offsetKi: number): number {
 export function lobbyScaleLoss(offsetKi: number): number {
   const t = lobbyOffsetT(offsetKi);
   return clamp(1 + LOBBY_SCALE_LOSS_COEFF * t, LOBBY_SCALE_MIN, LOBBY_SCALE_MAX);
+}
+
+/**
+ * Ki values that feed lobby average: calibrated players only.
+ * If everyone is still calibrating, fall back to all so avg is not 0.
+ */
+export function kisForLobbyAverage(
+  players: ReadonlyArray<{ ki: number; games: number }>,
+): number[] {
+  const calibrated = players
+    .filter((player) => !isCalibrating(player.games))
+    .map((player) => player.ki);
+  if (calibrated.length > 0) {
+    return calibrated;
+  }
+  return players.map((player) => player.ki);
 }
 
 /** Arithmetic mean of pre-match global ki values; 0 when empty. */
