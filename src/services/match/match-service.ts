@@ -401,6 +401,7 @@ export async function createPendingMatch(
             heroId: entry.heroId,
             result: null,
             isQuitter: false,
+            isGriffer: false,
           })),
         },
       },
@@ -563,6 +564,7 @@ export async function replaceMatchRoster(
           heroId: entry.heroId,
           result: null,
           isQuitter: false,
+          isGriffer: false,
         })),
       });
     }

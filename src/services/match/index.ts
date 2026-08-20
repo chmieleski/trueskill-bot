@@ -9,7 +9,9 @@ export {
 export {
   cancelInProgressMatch,
   completeMatch,
+  setGriffers,
   setQuitters,
+  resolveGrifferSlots,
   type CompleteMatchResult,
 } from './match-report.js';
 export {

@@ -169,7 +169,12 @@ export function formatLobbyChannelConfigLine(
   return `**Lobby channel:** \`on\` · <#${channelId}>`;
 }
 
-const LOBBY_CHANNEL_ALLOWED_MATCH_SUBCOMMANDS = new Set(['complete', 'cancel', 'quitters']);
+const LOBBY_CHANNEL_ALLOWED_MATCH_SUBCOMMANDS = new Set([
+  'complete',
+  'cancel',
+  'quitters',
+  'abusers',
+]);
 
 /** User-facing copy when a non-allowlisted slash command is used in a ready lobby channel. */
 export function lobbyChannelCommandsLimitedMessage(channelId: string): string {

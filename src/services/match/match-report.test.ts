@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveQuitterSlots } from './match-report.js';
+import { resolveGrifferSlots, resolveQuitterSlots } from './match-report.js';
 
 describe('resolveQuitterSlots', () => {
   const persistedFlags = [
@@ -23,5 +23,22 @@ describe('resolveQuitterSlots', () => {
 
   it('normalizes explicit slots', () => {
     expect(resolveQuitterSlots(persistedFlags, [9, 1, 9, 3])).toEqual([1, 3, 9]);
+  });
+});
+
+describe('resolveGrifferSlots', () => {
+  const persistedFlags = [
+    { slot: 5, isGriffer: true },
+    { slot: 1, isGriffer: false },
+    { slot: 9, isGriffer: true },
+    { slot: 3, isGriffer: true },
+  ];
+
+  it('uses persisted griffer flags when slots are omitted', () => {
+    expect(resolveGrifferSlots(persistedFlags)).toEqual([3, 5, 9]);
+  });
+
+  it('clears griffers when an explicit empty list is provided', () => {
+    expect(resolveGrifferSlots(persistedFlags, [])).toEqual([]);
   });
 });

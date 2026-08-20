@@ -224,6 +224,7 @@ describe('buildMatchReportButtons', () => {
     expect(row?.toJSON().components.map((button) => button.custom_id)).toEqual([
       'match:report',
       'match:quitters',
+      'match:griffers',
       'match:cancel',
     ]);
   });

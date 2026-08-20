@@ -226,7 +226,8 @@ model MatchPlayer {
   slot      Int // 1..profile.slotCount (absolute lobby position; team from profile)
   heroId    Int? // slot_bound: equals slot; optional_in_game: null until pick (phase 2)
   result    MatchResult? // Null until match ends
-  isQuitter Boolean      @default(false) // Quitter penalty flag
+  isQuitter Boolean      @default(false) // Quitter penalty flag; excluded from team rating
+  isGriffer Boolean      @default(false) // Bug-abuse penalty flag; stays in team rating
   /// Display ki after this match (null until completed with preview written).
   globalKi      Int?
   /// after − before global display ki for this match.

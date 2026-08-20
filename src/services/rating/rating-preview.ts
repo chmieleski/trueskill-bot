@@ -38,7 +38,7 @@ export interface LobbyRatingPlayerLine {
   /** Completed-match only: ki change for hero (after − before). */
   heroDelta?: number;
   isQuitter?: boolean;
-  /** When false, lobby embeds omit the hero ki column. Default true. */
+  isGriffer?: boolean;
   showHero?: boolean;
   /** League completed WIN/LOSS count used for the Calibrating gate. */
   leagueGames: number;
@@ -62,6 +62,7 @@ export type RatingPreviewRosterEntry = {
   heroId: number | null;
   nick: string;
   isQuitter?: boolean;
+  isGriffer?: boolean;
 };
 
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -197,6 +198,7 @@ export function buildCompletedRatingPreview(
         globalDelta: after.global - before.global,
         heroDelta: after.hero - before.hero,
         isQuitter: entry.isQuitter,
+        isGriffer: entry.isGriffer,
         showHero: entry.heroId != null,
         leagueGames: leagueGamesByPlayer.get(entry.playerId) ?? 0,
       };
@@ -270,6 +272,7 @@ export async function loadLobbyRatingPreview(
           globalOrdinal,
           heroOrdinal: globalOrdinal,
           isQuitter: entry.isQuitter,
+          isGriffer: entry.isGriffer,
           showHero: false,
           leagueGames: globalGames,
         };
@@ -284,6 +287,7 @@ export async function loadLobbyRatingPreview(
         globalOrdinal,
         heroOrdinal: displayOrdinal(hero.mu, hero.sigma, heroGames),
         isQuitter: entry.isQuitter,
+        isGriffer: entry.isGriffer,
         showHero: true,
         leagueGames: globalGames,
       };
@@ -366,6 +370,7 @@ export function matchPlayersToRatingEntries(
     team: number;
     heroId: number | null;
     isQuitter?: boolean;
+    isGriffer?: boolean;
     player: { username: string };
   }[],
 ): RatingPreviewRosterEntry[] {
@@ -376,5 +381,6 @@ export function matchPlayersToRatingEntries(
     heroId: entry.heroId,
     nick: entry.player.username,
     isQuitter: entry.isQuitter,
+    isGriffer: entry.isGriffer,
   }));
 }

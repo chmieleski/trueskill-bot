@@ -18,7 +18,12 @@ import {
   syncLobbyDiscordMessage,
 } from '../../services/lobby/index.js';
 import { refreshAllLeaderboardChannels } from '../../services/leaderboard/index.js';
-import { cancelInProgressMatch, completeMatch, setQuitters } from '../../services/match/index.js';
+import {
+  cancelInProgressMatch,
+  completeMatch,
+  setGriffers,
+  setQuitters,
+} from '../../services/match/index.js';
 import {
   getMatchById,
   MatchServiceError,
@@ -106,10 +111,27 @@ function formatQuitterSummary(match: MatchWithPlayers, quitterSlots: number[]): 
   return `Quitters:\n${quitters.map((player) => `- ${formatPlayer(player)}`).join('\n')}`;
 }
 
+function formatAbuserSummary(match: MatchWithPlayers, abuserSlots: number[]): string {
+  const abuserSet = new Set(abuserSlots);
+  const abusers = sortedPlayers(match).filter((player) => abuserSet.has(player.slot));
+
+  if (abusers.length === 0) {
+    return 'Abusers: none';
+  }
+
+  return `Abusers:\n${abusers.map((player) => `- ${formatPlayer(player)}`).join('\n')}`;
+}
+
 /** Slots already flagged as quitters on the match (for select defaults / Continue). */
 function preselectedQuitterSlots(match: MatchWithPlayers): number[] {
   return sortedPlayers(match)
     .filter((player) => player.isQuitter)
+    .map((player) => player.slot);
+}
+
+function preselectedGrifferSlots(match: MatchWithPlayers): number[] {
+  return sortedPlayers(match)
+    .filter((player) => player.isGriffer)
     .map((player) => player.slot);
 }
 
@@ -158,6 +180,51 @@ function buildQuitterContinueRow(
   );
 }
 
+function buildAbuserSelectRow(
+  match: MatchWithPlayers,
+  customId: string,
+): ActionRowBuilder<StringSelectMenuBuilder> {
+  const options = sortedPlayers(match).map((player) => ({
+    label: formatPlayer(player).slice(0, 100),
+    value: String(player.slot),
+    default: player.isGriffer,
+  }));
+
+  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(customId)
+      .setPlaceholder('Select abusers (bug abuse)')
+      .setMinValues(0)
+      .setMaxValues(options.length)
+      .addOptions(options),
+  );
+}
+
+function buildGrifferSelectRow(
+  match: MatchWithPlayers,
+  customId: string,
+): ActionRowBuilder<StringSelectMenuBuilder> {
+  return buildAbuserSelectRow(match, customId);
+}
+
+function buildGrifferContinueRow(
+  matchId: string,
+  grifferSlots: number[],
+): ActionRowBuilder<ButtonBuilder> | null {
+  if (grifferSlots.length === 0) {
+    return null;
+  }
+
+  const slotsCsv = encodeSlots(grifferSlots);
+
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`match:gok:${matchId}:${slotsCsv}`)
+      .setLabel('Save selected')
+      .setStyle(ButtonStyle.Primary),
+  );
+}
+
 function buildReportSkipRow(matchId: string): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -199,10 +266,42 @@ function buildConfirmRow(
   );
 }
 
-function buildCancelConfirmRow(matchId: string): ActionRowBuilder<ButtonBuilder> {
+function buildCancelAbuserSkipRow(matchId: string): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(`match:cancel:ok:${matchId}`)
+      .setCustomId(`match:cancel:skip:${matchId}`)
+      .setLabel('No Abusers')
+      .setStyle(ButtonStyle.Secondary),
+  );
+}
+
+function buildCancelAbuserContinueRow(
+  matchId: string,
+  abuserSlots: number[],
+): ActionRowBuilder<ButtonBuilder> | null {
+  if (abuserSlots.length === 0) {
+    return null;
+  }
+
+  const slotsCsv = encodeSlots(abuserSlots);
+
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`match:cancel:aok:${matchId}:${slotsCsv}`)
+      .setLabel('Continue with selected')
+      .setStyle(ButtonStyle.Primary),
+  );
+}
+
+function buildCancelConfirmRow(
+  matchId: string,
+  abuserSlots: number[],
+): ActionRowBuilder<ButtonBuilder> {
+  const slotsCsv = encodeSlots(abuserSlots);
+
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`match:cancel:ok:${matchId}:${slotsCsv}`)
       .setLabel('Cancel Match')
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
@@ -369,13 +468,101 @@ async function handleQuittersEntry(interaction: ButtonInteraction): Promise<void
   await replyEphemeral(interaction, hint, components);
 }
 
+async function handleGriffersEntry(interaction: ButtonInteraction): Promise<void> {
+  const match = await resolveByMessage(interaction);
+
+  if (match.players.length === 0) {
+    throw new MatchServiceError('This match has no players to update.');
+  }
+
+  const preselected = preselectedGrifferSlots(match);
+  const components: ComponentRow[] = [buildGrifferSelectRow(match, `match:gset:${match.id}`)];
+  const continueRow = buildGrifferContinueRow(match.id, preselected);
+  if (continueRow) {
+    components.push(continueRow);
+  }
+
+  const hint =
+    preselected.length > 0
+      ? 'Select abusers (bug abuse), or Save selected to keep the current flags:'
+      : 'Select players who abused a bug to cancel the match:';
+
+  await replyEphemeral(interaction, hint, components);
+}
+
 async function handleCancelEntry(interaction: ButtonInteraction): Promise<void> {
   const match = await resolveByMessage(interaction);
 
-  await replyEphemeral(
+  if (match.players.length === 0) {
+    throw new MatchServiceError('This match has no players to cancel.');
+  }
+
+  const preselected = preselectedGrifferSlots(match);
+  const components: ComponentRow[] = [buildAbuserSelectRow(match, `match:cancel:gset:${match.id}`)];
+  const continueRow = buildCancelAbuserContinueRow(match.id, preselected);
+  if (continueRow) {
+    components.push(continueRow);
+  }
+  components.push(buildCancelAbuserSkipRow(match.id));
+
+  const hint =
+    preselected.length > 0
+      ? 'Select any abusers (bug abuse), or Continue with selected, then confirm cancel:'
+      : 'Select any abusers (bug abuse), then confirm cancel:';
+
+  await replyEphemeral(interaction, hint, components);
+}
+
+async function handleCancelAbusers(
+  interaction: StringSelectMenuInteraction,
+  matchId: string,
+): Promise<void> {
+  const match = await resolveById(interaction, matchId);
+  const abuserSlots = interaction.values.map((slot) => Number(slot));
+
+  await updateEphemeral(
     interaction,
-    `Cancel match \`${match.id}\`? Quitter penalties will be applied if quitters are already marked.`,
-    [buildCancelConfirmRow(match.id)],
+    [
+      `Cancel match \`${matchId}\`?`,
+      formatAbuserSummary(match, abuserSlots),
+      '',
+      'Abusers get a ki penalty.',
+    ].join('\n'),
+    [buildCancelConfirmRow(matchId, abuserSlots)],
+  );
+}
+
+async function handleCancelAbusersKeep(
+  interaction: ButtonInteraction,
+  matchId: string,
+  abuserSlots: number[],
+): Promise<void> {
+  const match = await resolveById(interaction, matchId);
+
+  await updateEphemeral(
+    interaction,
+    [
+      `Cancel match \`${matchId}\`?`,
+      formatAbuserSummary(match, abuserSlots),
+      '',
+      'Abusers get a ki penalty.',
+    ].join('\n'),
+    [buildCancelConfirmRow(matchId, abuserSlots)],
+  );
+}
+
+async function handleCancelSkip(interaction: ButtonInteraction, matchId: string): Promise<void> {
+  const match = await resolveById(interaction, matchId);
+
+  await updateEphemeral(
+    interaction,
+    [
+      `Cancel match \`${matchId}\`?`,
+      'Abusers: none',
+      '',
+      'Quitter penalties still apply if any are marked.',
+    ].join('\n'),
+    [buildCancelConfirmRow(matchId, [])],
   );
 }
 
@@ -495,14 +682,50 @@ async function handleQuittersKeep(
   });
 }
 
-async function handleCancelConfirm(interaction: ButtonInteraction, matchId: string): Promise<void> {
+async function handleGriffersSet(
+  interaction: StringSelectMenuInteraction,
+  matchId: string,
+): Promise<void> {
+  await resolveById(interaction, matchId);
+  await showWorking(interaction, 'Saving abusers…');
+
+  const grifferSlots = interaction.values.map((slot) => Number(slot));
+  const updated = await setGriffers(matchId, grifferSlots);
+  await syncLobbyDiscordMessage(interaction.client, updated, 'started');
+  await interaction.editReply({
+    content: `Abusers updated.\n${formatAbuserSummary(updated, grifferSlots)}`,
+    components: [],
+  });
+}
+
+async function handleGriffersKeep(
+  interaction: ButtonInteraction,
+  matchId: string,
+  grifferSlots: number[],
+): Promise<void> {
+  await resolveById(interaction, matchId);
+  await showWorking(interaction, 'Saving abusers…');
+
+  const updated = await setGriffers(matchId, grifferSlots);
+  await syncLobbyDiscordMessage(interaction.client, updated, 'started');
+  await interaction.editReply({
+    content: `Abusers updated.\n${formatAbuserSummary(updated, grifferSlots)}`,
+    components: [],
+  });
+}
+
+async function handleCancelConfirm(
+  interaction: ButtonInteraction,
+  matchId: string,
+  abuserSlots: number[],
+): Promise<void> {
   await resolveById(interaction, matchId);
   await showWorking(
     interaction,
-    'Cancelling the match… Applying quitter penalties if any are marked.',
+    'Cancelling the match… Applying quitter or abuser penalties if any are marked.',
   );
 
-  const cancelled = await cancelInProgressMatch(matchId);
+  const cancelled = await cancelInProgressMatch(matchId, abuserSlots);
   await syncLobbyDiscordMessage(interaction.client, cancelled, 'cancelled');
   await interaction.editReply({
     content: `Match \`${matchId}\` cancelled.`,
@@ -530,6 +753,11 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
       return;
     }
 
+    if (interaction.customId === 'match:griffers') {
+      await handleGriffersEntry(interaction);
+      return;
+    }
+
     if (interaction.customId === 'match:cancel') {
       await handleCancelEntry(interaction);
       return;
@@ -550,6 +778,11 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
       return;
     }
 
+    if (parts[1] === 'gok' && parts[2] && parts[3]) {
+      await handleGriffersKeep(interaction, parts[2], decodeSlots(parts[3]));
+      return;
+    }
+
     if (parts[1] === 'rw' && parts[2] === 'win' && parts[3] && parts[4] && parts[5]) {
       await handleWinnerChoice(interaction, parts[3], decodeTeam(parts[4]), decodeSlots(parts[5]));
       return;
@@ -560,8 +793,23 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
       return;
     }
 
+    if (parts[1] === 'cancel' && parts[2] === 'skip' && parts[3]) {
+      await handleCancelSkip(interaction, parts[3]);
+      return;
+    }
+
+    if (parts[1] === 'cancel' && parts[2] === 'aok' && parts[3] && parts[4]) {
+      await handleCancelAbusersKeep(interaction, parts[3], decodeSlots(parts[4]));
+      return;
+    }
+
+    if (parts[1] === 'cancel' && parts[2] === 'ok' && parts[3] && parts[4]) {
+      await handleCancelConfirm(interaction, parts[3], decodeSlots(parts[4]));
+      return;
+    }
+
     if (parts[1] === 'cancel' && parts[2] === 'ok' && parts[3]) {
-      await handleCancelConfirm(interaction, parts[3]);
+      await handleCancelConfirm(interaction, parts[3], []);
       return;
     }
 
@@ -589,6 +837,16 @@ async function handleSelect(interaction: StringSelectMenuInteraction): Promise<v
 
     if (parts[1] === 'qset' && parts[2]) {
       await handleQuittersSet(interaction, parts[2]);
+      return;
+    }
+
+    if (parts[1] === 'cancel' && parts[2] === 'gset' && parts[3]) {
+      await handleCancelAbusers(interaction, parts[3]);
+      return;
+    }
+
+    if (parts[1] === 'gset' && parts[2]) {
+      await handleGriffersSet(interaction, parts[2]);
       return;
     }
 

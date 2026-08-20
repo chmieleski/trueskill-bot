@@ -11,6 +11,7 @@ import {
 } from '../rating/rating-preview.js';
 import { assertTeam } from '../../domain/game-profile.js';
 import {
+  applyGrifferPenalties,
   applyMatchRatings,
   applyQuitterPenalties,
   assertBothTeamsHaveActivePlayers,
@@ -84,20 +85,38 @@ export function resolveQuitterSlots(
   );
 }
 
-function toRatingEntries(match: MatchWithPlayers, quitterSlots: Set<number>): RatingRosterEntry[] {
+export function resolveGrifferSlots(
+  persistedFlags: Pick<MatchWithPlayers['players'][number], 'slot' | 'isGriffer'>[],
+  grifferSlots?: number[],
+): number[] {
+  if (grifferSlots !== undefined) {
+    return normalizeSlots(grifferSlots);
+  }
+
+  return normalizeSlots(
+    persistedFlags.filter((player) => player.isGriffer).map((player) => player.slot),
+  );
+}
+
+function toRatingEntries(
+  match: MatchWithPlayers,
+  quitterSlots: Set<number>,
+  grifferSlots: Set<number>,
+): RatingRosterEntry[] {
   return match.players.map((player) => ({
     playerId: player.playerId,
     slot: player.slot,
     team: assertTeam(player.team),
     heroId: player.heroId,
     isQuitter: quitterSlots.has(player.slot),
+    isGriffer: grifferSlots.has(player.slot),
   }));
 }
 
-function assertKnownQuitterSlots(match: MatchWithPlayers, quitterSlots: Set<number>): void {
-  for (const slot of quitterSlots) {
+function assertKnownSlots(match: MatchWithPlayers, slots: Set<number>, label: string): void {
+  for (const slot of slots) {
     if (!match.players.some((player) => player.slot === slot)) {
-      throw new MatchServiceError(`No player in slot ${slot}.`);
+      throw new MatchServiceError(`No ${label} player in slot ${slot}.`);
     }
   }
 }
@@ -113,7 +132,7 @@ export async function setQuitters(
   const match = requireInProgress(await getMatchById(matchId));
   const quitterSet = new Set(quitterSlots);
 
-  assertKnownQuitterSlots(match, quitterSet);
+  assertKnownSlots(match, quitterSet, 'quitter');
 
   await prisma.$transaction(async (tx) => {
     const current = await tx.match.findUnique({
@@ -130,9 +149,13 @@ export async function setQuitters(
     }
 
     for (const player of match.players) {
+      const isQuitter = quitterSet.has(player.slot);
       await tx.matchPlayer.update({
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
-        data: { isQuitter: quitterSet.has(player.slot) },
+        data: {
+          isQuitter,
+          ...(isQuitter ? { isGriffer: false } : {}),
+        },
       });
     }
   });
@@ -142,21 +165,66 @@ export async function setQuitters(
   return updated!;
 }
 
+export async function setGriffers(
+  matchId: string,
+  grifferSlots: number[],
+): Promise<MatchWithPlayers> {
+  const match = requireInProgress(await getMatchById(matchId));
+  const grifferSet = new Set(grifferSlots);
+
+  assertKnownSlots(match, grifferSet, 'griffer');
+
+  await prisma.$transaction(async (tx) => {
+    const current = await tx.match.findUnique({
+      where: { id: matchId },
+      select: { status: true },
+    });
+
+    if (!current) {
+      throw new MatchServiceError('This match was not found.');
+    }
+
+    if (current.status !== 'IN_PROGRESS') {
+      throw new MatchServiceError('This match is not in progress.');
+    }
+
+    for (const player of match.players) {
+      const isGriffer = grifferSet.has(player.slot);
+      await tx.matchPlayer.update({
+        where: { matchId_playerId: { matchId, playerId: player.playerId } },
+        data: {
+          isGriffer,
+          ...(isGriffer ? { isQuitter: false } : {}),
+        },
+      });
+    }
+  });
+
+  const updated = await getMatchById(matchId);
+  log.info({ matchId, grifferSlots: [...grifferSet] }, 'Griffers updated');
+  return updated!;
+}
+
 export async function completeMatch(
   matchId: string,
   winningTeam: 1 | 2,
   quitterSlots?: number[],
+  grifferSlots?: number[],
 ): Promise<CompleteMatchResult> {
   let resolvedQuitterSlots: number[] = [];
+  let resolvedGrifferSlots: number[] = [];
   let ratingPreview: LobbyRatingPreview = { players: [] };
 
   await prisma.$transaction(async (tx) => {
     const match = await lockInProgressMatch(tx, matchId);
     resolvedQuitterSlots = resolveQuitterSlots(match.players, quitterSlots);
+    resolvedGrifferSlots = resolveGrifferSlots(match.players, grifferSlots);
     const quitterSet = new Set(resolvedQuitterSlots);
-    assertKnownQuitterSlots(match, quitterSet);
+    const grifferSet = new Set(resolvedGrifferSlots);
+    assertKnownSlots(match, quitterSet, 'quitter');
+    assertKnownSlots(match, grifferSet, 'griffer');
 
-    const entries = toRatingEntries(match, quitterSet);
+    const entries = toRatingEntries(match, quitterSet, grifferSet);
     const active = entries.filter((entry) => !entry.isQuitter);
     assertBothTeamsHaveActivePlayers(active);
 
@@ -164,6 +232,7 @@ export async function completeMatch(
       match.players.map((player) => ({
         ...player,
         isQuitter: quitterSet.has(player.slot),
+        isGriffer: grifferSet.has(player.slot),
       })),
     );
 
@@ -189,12 +258,14 @@ export async function completeMatch(
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
         data: {
           isQuitter,
+          isGriffer: grifferSet.has(player.slot),
           result: won ? 'WIN' : 'LOSS',
         },
       });
     }
 
     await applyQuitterPenalties(match.leagueId, entries, tx);
+    await applyGrifferPenalties(match.leagueId, entries, tx);
     await applyMatchRatings(match.leagueId, entries, winningTeam, tx);
 
     await tx.match.update({
@@ -218,20 +289,53 @@ export async function completeMatch(
   });
 
   const updated = await getMatchById(matchId);
-  log.info({ matchId, winningTeam, quitterSlots: resolvedQuitterSlots }, 'Match completed');
+  log.info(
+    {
+      matchId,
+      winningTeam,
+      quitterSlots: resolvedQuitterSlots,
+      grifferSlots: resolvedGrifferSlots,
+    },
+    'Match completed',
+  );
   return { match: updated!, ratingPreview };
 }
 
-export async function cancelInProgressMatch(matchId: string): Promise<MatchWithPlayers> {
+export async function cancelInProgressMatch(
+  matchId: string,
+  grifferSlots?: number[],
+): Promise<MatchWithPlayers> {
   let quitterSlots: number[] = [];
+  let resolvedGrifferSlots: number[] = [];
 
   await prisma.$transaction(async (tx) => {
     const match = await lockInProgressMatch(tx, matchId);
     quitterSlots = resolveQuitterSlots(match.players);
-    const entries = toRatingEntries(match, new Set(quitterSlots));
+    resolvedGrifferSlots = resolveGrifferSlots(match.players, grifferSlots);
+    const grifferSet = new Set(resolvedGrifferSlots);
+    assertKnownSlots(match, grifferSet, 'griffer');
+
+    if (grifferSlots !== undefined) {
+      for (const player of match.players) {
+        const isGriffer = grifferSet.has(player.slot);
+        await tx.matchPlayer.update({
+          where: { matchId_playerId: { matchId, playerId: player.playerId } },
+          data: {
+            isGriffer,
+            ...(isGriffer ? { isQuitter: false } : {}),
+          },
+        });
+      }
+    }
+
+    const entries = toRatingEntries(match, new Set(quitterSlots), grifferSet);
 
     if (quitterSlots.length > 0) {
       await applyQuitterPenalties(match.leagueId, entries, tx);
+    }
+
+    if (resolvedGrifferSlots.length > 0) {
+      await applyGrifferPenalties(match.leagueId, entries, tx);
     }
 
     await tx.match.update({
@@ -241,6 +345,9 @@ export async function cancelInProgressMatch(matchId: string): Promise<MatchWithP
   });
 
   const updated = await getMatchById(matchId);
-  log.info({ matchId, quitterSlots }, 'In-progress match cancelled');
+  log.info(
+    { matchId, quitterSlots, grifferSlots: resolvedGrifferSlots },
+    'In-progress match cancelled',
+  );
   return updated!;
 }
