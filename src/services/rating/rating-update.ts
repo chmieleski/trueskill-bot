@@ -24,6 +24,7 @@ export type RatingRosterEntry = {
   team: 1 | 2;
   heroId: number | null;
   isQuitter: boolean;
+  isGriffer?: boolean;
 };
 
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -73,39 +74,32 @@ export function partitionRosterForRating<T extends { isQuitter: boolean }>(
   };
 }
 
-export function assertBothTeamsHaveActivePlayers(active: { slot: number; team: 1 | 2 }[]): void {
-  const { teamA, teamB } = splitRosterByTeam(active);
-
-  if (teamA.length === 0 || teamB.length === 0) {
-    throw new MatchServiceError(
-      'Cannot complete: after quitters, a team has no remaining players. Cancel the match instead.',
-    );
-  }
+function grifferPenaltyEntries(entries: RatingRosterEntry[]): RatingRosterEntry[] {
+  return entries.filter((entry) => entry.isGriffer && !entry.isQuitter);
 }
 
-export async function applyQuitterPenalties(
+async function applySyntheticPenalties(
   leagueId: string,
-  entries: RatingRosterEntry[],
-  db: Db = prisma,
+  penaltyEntries: RatingRosterEntry[],
+  db: Db,
 ): Promise<void> {
-  const sorted = [...entries].sort((left, right) => left.slot - right.slot);
-  const { quitters } = partitionRosterForRating(sorted);
+  const sorted = [...penaltyEntries].sort((left, right) => left.slot - right.slot);
 
-  if (quitters.length === 0) {
+  if (sorted.length === 0) {
     return;
   }
 
   await ensurePlayerRatings(
     leagueId,
-    quitters.map((entry) => ({
+    sorted.map((entry) => ({
       playerId: entry.playerId,
       heroId: entry.heroId,
     })),
     db,
   );
 
-  const playerIds = quitters.map((entry) => entry.playerId);
-  const withHero = quitters.filter(
+  const playerIds = sorted.map((entry) => entry.playerId);
+  const withHero = sorted.filter(
     (entry): entry is RatingRosterEntry & { heroId: number } => entry.heroId != null,
   );
   const [globalRatings, heroRatings] = await Promise.all([
@@ -128,7 +122,7 @@ export async function applyQuitterPenalties(
   const globalByPlayer = new Map(globalRatings.map((row) => [row.playerId, row]));
   const heroByKey = new Map(heroRatings.map((row) => [heroKey(row.playerId, row.heroId), row]));
 
-  for (const entry of quitters) {
+  for (const entry of sorted) {
     const global = globalByPlayer.get(entry.playerId) ?? defaultRatingEntity();
     const hero =
       entry.heroId == null
@@ -174,6 +168,35 @@ export async function applyQuitterPenalties(
       },
     });
   }
+}
+
+export function assertBothTeamsHaveActivePlayers(active: { slot: number; team: 1 | 2 }[]): void {
+  const { teamA, teamB } = splitRosterByTeam(active);
+
+  if (teamA.length === 0 || teamB.length === 0) {
+    throw new MatchServiceError(
+      'Cannot complete: after quitters, a team has no remaining players. Cancel the match instead.',
+    );
+  }
+}
+
+export async function applyQuitterPenalties(
+  leagueId: string,
+  entries: RatingRosterEntry[],
+  db: Db = prisma,
+): Promise<void> {
+  const sorted = [...entries].sort((left, right) => left.slot - right.slot);
+  const { quitters } = partitionRosterForRating(sorted);
+  await applySyntheticPenalties(leagueId, quitters, db);
+}
+
+export async function applyGrifferPenalties(
+  leagueId: string,
+  entries: RatingRosterEntry[],
+  db: Db = prisma,
+): Promise<void> {
+  const sorted = [...entries].sort((left, right) => left.slot - right.slot);
+  await applySyntheticPenalties(leagueId, grifferPenaltyEntries(sorted), db);
 }
 
 type UpdatedPlayerRating = {
@@ -430,6 +453,31 @@ export function simulatePostMatchRatings(
   const { quitters, active } = partitionRosterForRating(sorted);
 
   for (const entry of quitters) {
+    const global = globalByPlayer.get(entry.playerId) ?? defaultRatingEntity();
+    const hero =
+      entry.heroId == null
+        ? defaultRatingEntity()
+        : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity());
+    const updated = applySyntheticLosses(
+      toOpenSkillRatings(ratingEntitiesForPlayer(global, hero, entry.heroId)),
+    );
+    const nextGlobal = updated[0];
+    if (!nextGlobal) {
+      continue;
+    }
+    globalByPlayer.set(entry.playerId, { mu: nextGlobal.mu, sigma: nextGlobal.sigma });
+    if (entry.heroId != null) {
+      const nextHero = updated[1];
+      if (nextHero) {
+        heroByKey.set(heroKey(entry.playerId, entry.heroId), {
+          mu: nextHero.mu,
+          sigma: nextHero.sigma,
+        });
+      }
+    }
+  }
+
+  for (const entry of grifferPenaltyEntries(sorted)) {
     const global = globalByPlayer.get(entry.playerId) ?? defaultRatingEntity();
     const hero =
       entry.heroId == null

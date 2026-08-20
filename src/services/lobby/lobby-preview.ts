@@ -31,6 +31,7 @@ export const LOBBY_CUSTOM_IDS = {
   cancel: 'lobby:cancel',
   reportWinner: 'match:report',
   quitters: 'match:quitters',
+  griffers: 'match:griffers',
   cancelInProgress: 'match:cancel',
 } as const;
 
@@ -92,7 +93,7 @@ function formatKiCell(ki: number, leagueGames: number, delta: number | undefined
  * Prefixes each occupied line with the lobby slot (1–12) so hosts can add/move
  * by number. Uses monospace padding so rating columns align. When deltas are
  * present (completed match), appends signed change inline. Quitter lines get a
- * trailing 🚪 marker outside the code span.
+ * trailing 🚪 marker outside the code span; griffer lines get 🐛.
  */
 export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): string {
   if (players.length === 0) {
@@ -118,11 +119,13 @@ export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): st
       const nick = player.nick.padEnd(nickWidth, ' ');
       const global = cells[index]!.global.padStart(ratingWidth, ' ');
       const quitterMark = player.isQuitter ? ' 🚪' : '';
+      const grifferMark = !player.isQuitter && player.isGriffer ? ' 🐛' : '';
+      const flagMark = `${quitterMark}${grifferMark}`;
       if (player.showHero === false) {
-        return `\`${slotLabel}  ${nick}   ${global}\`${quitterMark}`;
+        return `\`${slotLabel}  ${nick}   ${global}\`${flagMark}`;
       }
       const hero = cells[index]!.hero.padStart(ratingWidth, ' ');
-      return `\`${slotLabel}  ${nick}   ${global} / ${hero}\`${quitterMark}`;
+      return `\`${slotLabel}  ${nick}   ${global} / ${hero}\`${flagMark}`;
     })
     .join('\n');
 }
@@ -409,6 +412,11 @@ export function buildMatchReportButtons(): ActionRowBuilder<ButtonBuilder>[] {
         .setCustomId(LOBBY_CUSTOM_IDS.quitters)
         .setLabel('Quitters')
         .setEmoji('🚪')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId(LOBBY_CUSTOM_IDS.griffers)
+        .setLabel('Abuser')
+        .setEmoji('🐛')
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId(LOBBY_CUSTOM_IDS.cancelInProgress)

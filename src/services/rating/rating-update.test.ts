@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { MatchServiceError } from '../match/match-service.js';
 import { ensurePlayerRatings } from './rating-preview.js';
 import {
+  applyGrifferPenalties,
   applyMatchRatings,
   applyQuitterPenalties,
   applySyntheticLosses,
@@ -63,6 +64,16 @@ describe('partitionRosterForRating', () => {
 
     expect(quitters.map((entry) => entry.slot)).toEqual([1]);
     expect(active.map((entry) => entry.slot)).toEqual([2, 7]);
+  });
+
+  it('keeps griffers in the active roster', () => {
+    const { quitters, active } = partitionRosterForRating([
+      { slot: 1, isQuitter: false },
+      { slot: 2, isQuitter: false },
+    ]);
+
+    expect(quitters).toEqual([]);
+    expect(active.map((entry) => entry.slot)).toEqual([1, 2]);
   });
 });
 
@@ -163,19 +174,29 @@ describe('applyMatchRatings', () => {
   });
 });
 
-describe('applyQuitterPenalties', () => {
-  it('updates global ratings only for a quitter with heroId null', async () => {
+describe('applyGrifferPenalties', () => {
+  it('updates global ratings for a griffer with heroId null', async () => {
     const db = heroNullDb();
 
-    await applyQuitterPenalties(
+    await applyGrifferPenalties(
       'league-1',
-      [{ playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: true }],
+      [{ playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: false, isGriffer: true }],
       db as never,
     );
 
     expect(db.playerHeroRating.findMany).not.toHaveBeenCalled();
-    expect(db.playerHeroRating.update).not.toHaveBeenCalled();
-    expect(db.playerHeroRating.createMany).not.toHaveBeenCalled();
     expect(db.playerRating.update).toHaveBeenCalled();
+  });
+
+  it('skips griffer penalty when the player is also marked quitter', async () => {
+    const db = heroNullDb();
+
+    await applyGrifferPenalties(
+      'league-1',
+      [{ playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: true, isGriffer: true }],
+      db as never,
+    );
+
+    expect(db.playerRating.update).not.toHaveBeenCalled();
   });
 });

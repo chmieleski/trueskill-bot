@@ -11,6 +11,7 @@ import {
 } from '../rating/rating-preview.js';
 import { assertTeam } from '../../domain/game-profile.js';
 import {
+  applyGrifferPenalties,
   applyMatchRatings,
   applyQuitterPenalties,
   assertBothTeamsHaveActivePlayers,
@@ -450,6 +451,7 @@ function toRatingEntries(match: MatchWithPlayers, quitterSet: Set<number>): Rati
     team: assertTeam(player.team),
     heroId: player.heroId,
     isQuitter: quitterSet.has(player.slot),
+    isGriffer: player.isGriffer,
   }));
 }
 
@@ -526,6 +528,7 @@ export async function flipCompletedMatch(
       match.players.map((p) => ({
         ...p,
         isQuitter: quitterSet.has(p.slot),
+        isGriffer: p.isGriffer,
       })),
     );
     await ensurePlayerRatings(
@@ -542,12 +545,14 @@ export async function flipCompletedMatch(
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
         data: {
           isQuitter,
+          isGriffer: player.isGriffer,
           result: won ? 'WIN' : 'LOSS',
         },
       });
     }
 
     await applyQuitterPenalties(match.leagueId, entries, tx);
+    await applyGrifferPenalties(match.leagueId, entries, tx);
     await applyMatchRatings(match.leagueId, entries, winningTeam, tx);
 
     const displayStats = await loadMatchDisplayStatsByPlayer(
@@ -589,7 +594,7 @@ export async function voidCompletedMatch(matchId: string): Promise<MatchWithPlay
     for (const player of match.players) {
       await tx.matchPlayer.update({
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
-        data: { result: null, isQuitter: false },
+        data: { result: null, isQuitter: false, isGriffer: false },
       });
     }
 

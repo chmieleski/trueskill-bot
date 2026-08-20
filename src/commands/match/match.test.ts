@@ -33,6 +33,7 @@ describe('match command data', () => {
       'list',
       'show',
       'quitters',
+      'abusers',
       'complete',
       'cancel',
       'flip',

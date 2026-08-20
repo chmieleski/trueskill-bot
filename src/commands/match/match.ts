@@ -12,7 +12,12 @@ import {
   refreshAllLeaderboardChannels,
   refreshLeagueLeaderboard,
 } from '../../services/leaderboard/index.js';
-import { cancelInProgressMatch, completeMatch, setQuitters } from '../../services/match/index.js';
+import {
+  cancelInProgressMatch,
+  completeMatch,
+  setGriffers,
+  setQuitters,
+} from '../../services/match/index.js';
 import {
   assertHasMatchModRole,
   buildMatchHistoryEmbed,
@@ -103,6 +108,40 @@ export function parseQuitterSlots(slotsRaw: string | null | undefined): number[]
     if (!Number.isInteger(slot) || slot < MIN_SLOT || slot > MAX_SLOT) {
       throw new MatchServiceError(
         `Invalid quitter slot "${value}". Slots must be between ${MIN_SLOT} and ${MAX_SLOT}.`,
+      );
+    }
+
+    slots.add(slot);
+  }
+
+  return [...slots].sort((a, b) => a - b);
+}
+
+export function parseAbuserSlots(slotsRaw: string | null | undefined): number[] {
+  return parseGrifferSlots(slotsRaw);
+}
+
+export function parseGrifferSlots(slotsRaw: string | null | undefined): number[] {
+  const trimmed = slotsRaw?.trim();
+
+  if (!trimmed) {
+    return [];
+  }
+
+  const slots = new Set<number>();
+
+  for (const token of trimmed.split(',')) {
+    const value = token.trim();
+
+    if (!value) {
+      continue;
+    }
+
+    const slot = Number(value);
+
+    if (!Number.isInteger(slot) || slot < MIN_SLOT || slot > MAX_SLOT) {
+      throw new MatchServiceError(
+        `Invalid abuser slot "${value}". Slots must be between ${MIN_SLOT} and ${MAX_SLOT}.`,
       );
     }
 
@@ -308,6 +347,23 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand((subcommand) =>
     subcommand
+      .setName('abusers')
+      .setDescription('Mark players who abused a bug (host or mod)')
+      .addStringOption((option) =>
+        option
+          .setName('slots')
+          .setDescription('Comma-separated slots like "1,3,7"')
+          .setRequired(false),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('match_id')
+          .setDescription('In-progress match id (required if you have more than one)')
+          .setRequired(false),
+      ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
       .setName('complete')
       .setDescription('Complete a match and apply ratings')
       .addStringOption((option) =>
@@ -337,6 +393,12 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('cancel')
       .setDescription('Cancel an in-progress match')
+      .addStringOption((option) =>
+        option
+          .setName('abusers')
+          .setDescription('Comma-separated abuser slots like "2,8" (bug abuse penalty)')
+          .setRequired(false),
+      )
       .addStringOption((option) =>
         option
           .setName('match_id')
@@ -597,6 +659,19 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
 
+    if (subcommand === 'abusers') {
+      const abuserSlots = parseAbuserSlots(interaction.options.getString('slots'));
+      await interaction.editReply({ content: 'Saving abusers…' });
+      const updated = await setGriffers(match.id, abuserSlots);
+      await applyMatchMutation(
+        interaction,
+        updated,
+        'started',
+        `Abusers updated in match \`${updated.id}\`.`,
+      );
+      return;
+    }
+
     if (subcommand === 'complete') {
       const winner = parseWinner(interaction.options.getString('winner', true));
       const quittersRaw = interaction.options.getString('quitters');
@@ -618,10 +693,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     if (subcommand === 'cancel') {
+      const abusersRaw = interaction.options.getString('abusers');
+      const abuserSlots = abusersRaw === null ? undefined : parseAbuserSlots(abusersRaw);
       await interaction.editReply({
-        content: 'Cancelling the match… Applying quitter penalties if any are marked.',
+        content: 'Cancelling the match… Applying quitter or abuser penalties if any are marked.',
       });
-      const cancelled = await cancelInProgressMatch(match.id);
+      const cancelled = await cancelInProgressMatch(match.id, abuserSlots);
       await applyMatchMutation(
         interaction,
         cancelled,
