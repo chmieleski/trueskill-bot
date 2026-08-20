@@ -5,7 +5,11 @@ import { listCatalogHeroIds } from '../guild/hero-catalog.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
 import { prisma } from '../../lib/prisma.js';
 import { createLogger } from '../../lib/logger.js';
-import { ratingEntitiesForPlayer, rosterEntriesWithHeroId } from './rating-entities.js';
+import {
+  ratingEntitiesForPlayer,
+  rosterEntriesWithHeroId,
+  type MuSigma,
+} from './rating-entities.js';
 import {
   displayOrdinal,
   roundWinPercents,
@@ -25,6 +29,11 @@ const log = createLogger('rating-preview');
 
 const DEFAULT_MU = 25;
 const DEFAULT_SIGMA = 8.333;
+
+export type WinChancePercents = {
+  teamAPercent: number;
+  teamBPercent: number;
+};
 
 export interface LobbyRatingPlayerLine {
   slot: number;
@@ -46,11 +55,8 @@ export interface LobbyRatingPlayerLine {
 
 export interface LobbyRatingPreview {
   players: LobbyRatingPlayerLine[];
-  /** Present only when both teams have ≥1 human. */
-  winChance?: {
-    teamAPercent: number;
-    teamBPercent: number;
-  };
+  /** Present only when both teams have ≥1 human. Pre-match OpenSkill predictWin. */
+  winChance?: WinChancePercents;
   /** Up to 3 improving single moves (best first); empty-slot moves deduped per player. */
   balanceSuggestions?: BalanceSuggestion[];
 }
@@ -98,8 +104,85 @@ export async function ensurePlayerRatings(
   }
 }
 
-function defaultMuSigma(): { mu: number; sigma: number } {
+function defaultMuSigma(): MuSigma {
   return { mu: DEFAULT_MU, sigma: DEFAULT_SIGMA };
+}
+
+/**
+ * Pre-match win chance from μ/σ maps (same predictWin path as the lobby).
+ * Returns undefined when either team has no humans.
+ */
+export function computeWinChanceFromRatings(
+  entries: Pick<RatingPreviewRosterEntry, 'playerId' | 'slot' | 'team' | 'heroId'>[],
+  globalByPlayer: Map<string, MuSigma>,
+  heroByKey: Map<string, MuSigma>,
+): WinChancePercents | undefined {
+  const { teamA, teamB } = splitRosterByTeam([...entries].sort((a, b) => a.slot - b.slot));
+  if (teamA.length === 0 || teamB.length === 0) {
+    return undefined;
+  }
+
+  const heroKey = (playerId: string, heroId: number) => `${playerId}:${heroId}`;
+  const teamEntities = (team: typeof teamA) =>
+    toOpenSkillRatings(
+      team.flatMap((entry) => {
+        const global = globalByPlayer.get(entry.playerId) ?? defaultMuSigma();
+        const hero =
+          entry.heroId == null
+            ? defaultMuSigma()
+            : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultMuSigma());
+        return ratingEntitiesForPlayer(global, hero, entry.heroId);
+      }),
+    );
+
+  const [pA, pB] = predictWin([teamEntities(teamA), teamEntities(teamB)]);
+  return roundWinPercents(pA ?? 0.5, pB ?? 0.5);
+}
+
+/**
+ * Load league μ/σ for a roster and compute pre-match win chance.
+ * Call before OpenSkill writes so the percents match the lobby.
+ */
+export async function loadRosterWinChance(
+  leagueId: string,
+  entries: Pick<RatingPreviewRosterEntry, 'playerId' | 'slot' | 'team' | 'heroId'>[],
+  db: Db = prisma,
+): Promise<WinChancePercents | undefined> {
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  await ensurePlayerRatings(leagueId, entries, db);
+
+  const playerIds = entries.map((entry) => entry.playerId);
+  const withHero = entries.filter(
+    (entry): entry is typeof entry & { heroId: number } => entry.heroId != null,
+  );
+  const [globals, heroes] = await Promise.all([
+    db.playerRating.findMany({
+      where: { leagueId, playerId: { in: playerIds } },
+    }),
+    withHero.length > 0
+      ? db.playerHeroRating.findMany({
+          where: {
+            leagueId,
+            OR: withHero.map((entry) => ({
+              playerId: entry.playerId,
+              heroId: entry.heroId,
+            })),
+          },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const globalByPlayer = new Map(
+    globals.map((row) => [row.playerId, { mu: row.mu, sigma: row.sigma }]),
+  );
+  const heroByKey = new Map(
+    heroes.map((row) => [`${row.playerId}:${row.heroId}`, { mu: row.mu, sigma: row.sigma }]),
+  );
+
+  return computeWinChanceFromRatings(entries, globalByPlayer, heroByKey);
 }
 
 export type PlayerKiPair = {
@@ -175,12 +258,14 @@ export async function loadPlayerKiBySlot(
 
 /**
  * Build completed-match preview lines with final ki and after−before deltas.
+ * Optional `winChance` is the pre-match lobby predictWin (not post-update).
  */
 export function buildCompletedRatingPreview(
   entries: RatingPreviewRosterEntry[],
   beforeBySlot: Map<number, PlayerKiPair>,
   afterBySlot: Map<number, PlayerKiPair>,
   leagueGamesByPlayer: Map<string, number>,
+  winChance?: WinChancePercents,
 ): LobbyRatingPreview {
   const players: LobbyRatingPlayerLine[] = [...entries]
     .sort((a, b) => a.slot - b.slot)
@@ -204,7 +289,7 @@ export function buildCompletedRatingPreview(
       };
     });
 
-  return { players };
+  return winChance ? { players, winChance } : { players };
 }
 
 /**
@@ -298,20 +383,20 @@ export async function loadLobbyRatingPreview(
       return { players };
     }
 
-    const teamEntities = (team: RatingPreviewRosterEntry[]) =>
-      toOpenSkillRatings(
-        team.flatMap((entry) => {
-          const global = globalByPlayer.get(entry.playerId) ?? defaultMuSigma();
-          const hero =
-            entry.heroId == null
-              ? defaultMuSigma()
-              : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultMuSigma());
-          return ratingEntitiesForPlayer(global, hero, entry.heroId);
-        }),
-      );
+    const globalMuSigma = new Map(
+      [...globalByPlayer.entries()].map(([playerId, row]) => [
+        playerId,
+        { mu: row.mu, sigma: row.sigma },
+      ]),
+    );
+    const heroMuSigma = new Map(
+      [...heroByKey.entries()].map(([key, row]) => [key, { mu: row.mu, sigma: row.sigma }]),
+    );
+    const winChance = computeWinChanceFromRatings(sorted, globalMuSigma, heroMuSigma);
+    if (!winChance) {
+      return { players };
+    }
 
-    const [pA, pB] = predictWin([teamEntities(teamA), teamEntities(teamB)]);
-    const winChance = roundWinPercents(pA ?? 0.5, pB ?? 0.5);
     const lookup: BalanceRatingLookup = {
       global: (playerId) => {
         const row = globalByPlayer.get(playerId);

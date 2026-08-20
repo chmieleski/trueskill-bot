@@ -213,6 +213,31 @@ describe('buildCompletedRatingPreview', () => {
         leagueGames: 8,
       },
     ]);
+    expect(preview.winChance).toBeUndefined();
+  });
+
+  it('includes optional pre-match win chance', () => {
+    const preview = buildCompletedRatingPreview(
+      [
+        { playerId: 'p1', slot: 1, team: 1, heroId: 1, nick: 'goku' },
+        { playerId: 'p2', slot: 7, team: 2, heroId: 7, nick: 'vegeta' },
+      ],
+      new Map([
+        [1, { global: 1000, hero: 1000 }],
+        [7, { global: 1000, hero: 1000 }],
+      ]),
+      new Map([
+        [1, { global: 1100, hero: 1100 }],
+        [7, { global: 900, hero: 900 }],
+      ]),
+      new Map([
+        ['p1', 5],
+        ['p2', 5],
+      ]),
+      { teamAPercent: 55, teamBPercent: 45 },
+    );
+
+    expect(preview.winChance).toEqual({ teamAPercent: 55, teamBPercent: 45 });
   });
 });
 
@@ -635,6 +660,48 @@ describe('buildMatchCompletedEmbed', () => {
     expect(json.fields?.[1]?.value).not.toContain('🚪');
     expect(json.footer?.text).toBe('Per player: slot  nick  global / hero (ki)');
     expect(json.color).toBe(0xf1c40f);
+  });
+
+  it('shows pre-match win chance when provided', () => {
+    const embed = buildMatchCompletedEmbed(
+      'match-wc',
+      [
+        { slot: 1, nick: 'goku' },
+        { slot: 7, nick: 'vegeta' },
+      ],
+      {
+        winningTeam: 1,
+        ratingPreview: {
+          players: [
+            {
+              slot: 1,
+              nick: 'goku',
+              globalOrdinal: 1186,
+              heroOrdinal: 1200,
+              globalDelta: 186,
+              heroDelta: 200,
+              leagueGames: 8,
+            },
+            {
+              slot: 7,
+              nick: 'vegeta',
+              globalOrdinal: 3300,
+              heroOrdinal: 4400,
+              globalDelta: -50,
+              heroDelta: -80,
+              leagueGames: 8,
+            },
+          ],
+          winChance: { teamAPercent: 62, teamBPercent: 38 },
+        },
+      },
+    );
+
+    const json = embed.toJSON();
+    const winFields = json.fields?.filter((field) => field.name?.includes('win')) ?? [];
+    expect(winFields).toHaveLength(2);
+    expect(winFields[0]?.value).toContain('62%');
+    expect(winFields[1]?.value).toContain('38%');
   });
 
   it('uses Team A / Team B and a global-only footer for ACA', () => {

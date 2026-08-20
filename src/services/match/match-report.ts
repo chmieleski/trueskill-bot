@@ -6,6 +6,7 @@ import {
   buildCompletedRatingPreview,
   ensurePlayerRatings,
   loadPlayerKiBySlot,
+  loadRosterWinChance,
   matchPlayersToRatingEntries,
   type LobbyRatingPreview,
 } from '../rating/rating-preview.js';
@@ -243,6 +244,7 @@ export async function completeMatch(
       match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
       tx,
     );
+    const winChance = await loadRosterWinChance(match.leagueId, previewEntries, tx);
     await writeMatchRatingSnapshots(
       match.leagueId,
       matchId,
@@ -284,6 +286,7 @@ export async function completeMatch(
       beforeBySlot,
       afterBySlot,
       gamesByPlayerFromStats(displayStats),
+      winChance,
     );
     await persistMatchRatingPreviewToPlayers(matchId, ratingPreview, match.players, tx);
   });

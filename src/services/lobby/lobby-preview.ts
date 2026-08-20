@@ -464,6 +464,7 @@ export function buildMatchCompletedEmbed(
         value: teamBValue,
         inline: false,
       },
+      ...ratingPreviewFields(options.ratingPreview, profile),
     )
     .setColor(color);
 
