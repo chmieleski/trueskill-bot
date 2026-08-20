@@ -1,3 +1,10 @@
+## [1.8.1](https://github.com/chmieleski/trueskill-bot/compare/v1.8.0...v1.8.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* **rating:** soften lobby scale and exclude calibrating from lobby avg ([#62](https://github.com/chmieleski/trueskill-bot/issues/62)) ([acca992](https://github.com/chmieleski/trueskill-bot/commit/acca99215e06c04b53c53cd84924321ad098fc74)), closes [#59](https://github.com/chmieleski/trueskill-bot/issues/59) [#60](https://github.com/chmieleski/trueskill-bot/issues/60)
+
 # [1.8.0](https://github.com/chmieleski/trueskill-bot/compare/v1.7.0...v1.8.0) (2026-08-20)
 
 
