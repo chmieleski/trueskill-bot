@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/chmieleski/trueskill-bot/compare/v1.7.0...v1.8.0) (2026-08-20)
+
+
+### Features
+
+* **match:** add abuser penalty for bug-abuse cancels ([#58](https://github.com/chmieleski/trueskill-bot/issues/58)) ([64262c0](https://github.com/chmieleski/trueskill-bot/commit/64262c0325b35f61fb388f3661e2a2db047bb0fc))
+
 # [1.7.0](https://github.com/chmieleski/trueskill-bot/compare/v1.6.3...v1.7.0) (2026-08-19)
 
 
