@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/chmieleski/trueskill-bot/compare/v1.8.1...v1.9.0) (2026-08-20)
+
+
+### Features
+
+* **match:** show lobby win chance on report and show ([#63](https://github.com/chmieleski/trueskill-bot/issues/63)) ([72107f7](https://github.com/chmieleski/trueskill-bot/commit/72107f77f698deb4d0955bb0441de8591669673f))
+
 ## [1.8.1](https://github.com/chmieleski/trueskill-bot/compare/v1.8.0...v1.8.1) (2026-08-20)
 
 
