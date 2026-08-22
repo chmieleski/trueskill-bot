@@ -1,3 +1,12 @@
+# [1.10.0](https://github.com/chmieleski/trueskill-bot/compare/v1.9.0...v1.10.0) (2026-08-22)
+
+
+### Features
+
+* **lobby:** flag 50%+ quitters on the match roster ([#66](https://github.com/chmieleski/trueskill-bot/issues/66)) ([02e24c8](https://github.com/chmieleski/trueskill-bot/commit/02e24c8a4b426bdadbecec5b1914f8a8a3769dee))
+* **rating:** isolate New players from team OpenSkill ([#67](https://github.com/chmieleski/trueskill-bot/issues/67)) ([c01cb80](https://github.com/chmieleski/trueskill-bot/commit/c01cb80c8298344406a422a3331e9ee43dc236cd))
+* **rating:** weight lobby balance 80/20 player vs hero ([#64](https://github.com/chmieleski/trueskill-bot/issues/64)) ([d1cd8ed](https://github.com/chmieleski/trueskill-bot/commit/d1cd8ed09b6f0b6a45916b6926d8ab0880564096))
+
 # [1.9.0](https://github.com/chmieleski/trueskill-bot/compare/v1.8.1...v1.9.0) (2026-08-20)
 
 
