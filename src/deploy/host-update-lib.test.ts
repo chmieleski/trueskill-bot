@@ -70,7 +70,7 @@ describe('host-update-lib', () => {
 describe('host-update.sh cut-over order', () => {
   it('runs npm ci before systemctl stop', () => {
     const sh = readFileSync(join(repoRoot, 'deploy/aws/host-update.sh'), 'utf8');
-    const ciIdx = sh.indexOf('npm ci');
+    const ciIdx = sh.indexOf('HUSKY=0 npm ci');
     const stopIdx = sh.indexOf('systemctl stop dbz-bot');
     expect(ciIdx).toBeGreaterThan(-1);
     expect(stopIdx).toBeGreaterThan(ciIdx);
