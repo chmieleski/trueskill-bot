@@ -66,3 +66,23 @@ describe('host-update-lib', () => {
     expect(result.status).toBe(0);
   });
 });
+
+describe('host-update.sh cut-over order', () => {
+  it('runs npm ci before systemctl stop', () => {
+    const sh = readFileSync(join(repoRoot, 'deploy/aws/host-update.sh'), 'utf8');
+    const ciIdx = sh.indexOf('npm ci');
+    const stopIdx = sh.indexOf('systemctl stop dbz-bot');
+    expect(ciIdx).toBeGreaterThan(-1);
+    expect(stopIdx).toBeGreaterThan(ciIdx);
+  });
+
+  it('builds in a .next stage, not only in APP_DIR', () => {
+    const sh = readFileSync(join(repoRoot, 'deploy/aws/host-update.sh'), 'utf8');
+    expect(sh).toContain('host_update_stage_dir');
+    expect(sh).toContain('npx prisma migrate deploy');
+    expect(sh.indexOf('npm run build')).toBeGreaterThan(-1);
+    expect(sh.indexOf('npx prisma migrate deploy')).toBeGreaterThan(
+      sh.indexOf('systemctl stop dbz-bot'),
+    );
+  });
+});
