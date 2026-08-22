@@ -21,21 +21,21 @@ Players should see who has a high quit rate **on the match roster**, without loo
 
 ## Locked decisions
 
-| Topic | Choice |
-| ----- | ------ |
-| Approach | Derive the flag from display stats already loaded for Calibrating |
-| Surfaces | PENDING lobby, IN_PROGRESS, and completed **match roster lines** (ki preview formatter) |
-| Tenancy | **This league only** — same W/L/Q as `/rank` |
-| Rank reset | Same cutoff as `/rank` (counts restart after latest `PlayerRankReset`) |
-| Threshold | `quits / games ≥ 0.5` (inclusive). No minimum games |
-| Cancelled-only | `games = 0` and `quits ≥ 1` → flag |
-| Marker | ⚠️ outside the code span |
-| This-match quit | 🚪 unchanged |
-| Griffer | 🐛 unchanged (still omitted when they quit this match) |
-| Marker order | ⚠️ then 🚪 then 🐛 |
-| Legend | Footer suffix ` · ⚠️ quit 50%+` only when at least one line is flagged |
-| Unlinked nick | No flag |
-| Language | English user-facing strings |
+| Topic           | Choice                                                                                  |
+| --------------- | --------------------------------------------------------------------------------------- |
+| Approach        | Derive the flag from display stats already loaded for Calibrating                       |
+| Surfaces        | PENDING lobby, IN_PROGRESS, and completed **match roster lines** (ki preview formatter) |
+| Tenancy         | **This league only** — same W/L/Q as `/rank`                                            |
+| Rank reset      | Same cutoff as `/rank` (counts restart after latest `PlayerRankReset`)                  |
+| Threshold       | `quits / games ≥ 0.5` (inclusive). No minimum games                                     |
+| Cancelled-only  | `games = 0` and `quits ≥ 1` → flag                                                      |
+| Marker          | ⚠️ outside the code span                                                                |
+| This-match quit | 🚪 unchanged                                                                            |
+| Griffer         | 🐛 unchanged (still omitted when they quit this match)                                  |
+| Marker order    | ⚠️ then 🚪 then 🐛                                                                      |
+| Legend          | Footer suffix ` · ⚠️ quit 50%+` only when at least one line is flagged                  |
+| Unlinked nick   | No flag                                                                                 |
+| Language        | English user-facing strings                                                             |
 
 ## Rule
 
@@ -102,18 +102,18 @@ Commands and buttons stay thin.
 
 ## Edge cases
 
-| Case | Rule |
-| ---- | ---- |
-| 1 quit in 1 completed game | Flag (100%) |
-| 1 quit in 2 completed games | Flag (50%) |
-| Cancelled quits, 0 completed games | Flag |
-| Quits > games (cancelled + completed) | Use `quits / games`; can exceed 100% and still flag |
-| Rank reset | Flag can drop when post-reset `quits`/`games` no longer meet the rule |
-| Unlinked / no `playerId` | No flag |
-| This-match quitter, historically clean | 🚪 only until complete; then stats include this quit |
-| Habitual + this-match quit | `⚠️ 🚪` |
-| Habitual + griffer, not this-match quit | `⚠️ 🐛` |
-| Rating preview failed / omitted | Nick-only fallback: no flag |
+| Case                                    | Rule                                                                  |
+| --------------------------------------- | --------------------------------------------------------------------- |
+| 1 quit in 1 completed game              | Flag (100%)                                                           |
+| 1 quit in 2 completed games             | Flag (50%)                                                            |
+| Cancelled quits, 0 completed games      | Flag                                                                  |
+| Quits > games (cancelled + completed)   | Use `quits / games`; can exceed 100% and still flag                   |
+| Rank reset                              | Flag can drop when post-reset `quits`/`games` no longer meet the rule |
+| Unlinked / no `playerId`                | No flag                                                               |
+| This-match quitter, historically clean  | 🚪 only until complete; then stats include this quit                  |
+| Habitual + this-match quit              | `⚠️ 🚪`                                                               |
+| Habitual + griffer, not this-match quit | `⚠️ 🐛`                                                               |
+| Rating preview failed / omitted         | Nick-only fallback: no flag                                           |
 
 ## Testing (acceptance)
 

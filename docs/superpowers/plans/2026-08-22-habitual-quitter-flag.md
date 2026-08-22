@@ -27,17 +27,17 @@
 
 ## File map
 
-| File | Role |
-| ---- | ---- |
-| `src/services/rating/rank-reset-display.ts` | `isHabitualQuitter`, `habitualQuitterFromStats` |
-| `src/services/rating/rank-reset-display.test.ts` | Predicate unit tests |
-| `src/services/rating/rating-preview.ts` | `habitualQuitter` on DTO; set it in lobby + completed builders |
-| `src/services/lobby/lobby-preview.ts` | ⚠️ on roster lines; footer legend |
-| `src/services/lobby/lobby-preview.test.ts` | Formatter, footer, completed-preview mapping |
-| `src/services/match/match-report.ts` | Pass display stats into completed preview |
-| `src/services/match/match-correction.ts` | Same on flip |
-| `src/services/match/match-history-preview.ts` | Set flag on stored/rebuild completed preview (`/match show`) |
-| `src/services/match/match-history-preview.test.ts` | Stored preview includes `habitualQuitter` |
+| File                                               | Role                                                           |
+| -------------------------------------------------- | -------------------------------------------------------------- |
+| `src/services/rating/rank-reset-display.ts`        | `isHabitualQuitter`, `habitualQuitterFromStats`                |
+| `src/services/rating/rank-reset-display.test.ts`   | Predicate unit tests                                           |
+| `src/services/rating/rating-preview.ts`            | `habitualQuitter` on DTO; set it in lobby + completed builders |
+| `src/services/lobby/lobby-preview.ts`              | ⚠️ on roster lines; footer legend                              |
+| `src/services/lobby/lobby-preview.test.ts`         | Formatter, footer, completed-preview mapping                   |
+| `src/services/match/match-report.ts`               | Pass display stats into completed preview                      |
+| `src/services/match/match-correction.ts`           | Same on flip                                                   |
+| `src/services/match/match-history-preview.ts`      | Set flag on stored/rebuild completed preview (`/match show`)   |
+| `src/services/match/match-history-preview.test.ts` | Stored preview includes `habitualQuitter`                      |
 
 Work from the isolated worktree: `.worktrees/feat-habitual-quitter-flag` on `feat/habitual-quitter-flag`.
 
@@ -185,50 +185,50 @@ EOF
 In `src/services/lobby/lobby-preview.test.ts`, inside `describe('formatTeamLinesFromPreview'…)` after the existing quitter-marker test, add:
 
 ```typescript
-  it('appends the habitual-quitter marker outside the code span before 🚪', () => {
-    const value = formatTeamLinesFromPreview([
-      {
-        slot: 1,
-        nick: 'goku',
-        globalOrdinal: 1100,
-        heroOrdinal: 2200,
-        habitualQuitter: true,
-        isQuitter: true,
-        leagueGames: 8,
-      },
-      {
-        slot: 2,
-        nick: 'vegeta',
-        globalOrdinal: 3300,
-        heroOrdinal: 4400,
-        habitualQuitter: true,
-        isGriffer: true,
-        leagueGames: 8,
-      },
-      { slot: 3, nick: 'piccolo', globalOrdinal: 2100, heroOrdinal: 1800, leagueGames: 8 },
-    ]);
-    const [first, second, third] = value.split('\n');
+it('appends the habitual-quitter marker outside the code span before 🚪', () => {
+  const value = formatTeamLinesFromPreview([
+    {
+      slot: 1,
+      nick: 'goku',
+      globalOrdinal: 1100,
+      heroOrdinal: 2200,
+      habitualQuitter: true,
+      isQuitter: true,
+      leagueGames: 8,
+    },
+    {
+      slot: 2,
+      nick: 'vegeta',
+      globalOrdinal: 3300,
+      heroOrdinal: 4400,
+      habitualQuitter: true,
+      isGriffer: true,
+      leagueGames: 8,
+    },
+    { slot: 3, nick: 'piccolo', globalOrdinal: 2100, heroOrdinal: 1800, leagueGames: 8 },
+  ]);
+  const [first, second, third] = value.split('\n');
 
-    expect(first).toMatch(/`\s*1\s+goku\s+1100 \/ 2200`\s+⚠️ 🚪$/);
-    expect(second).toMatch(/`\s*2\s+vegeta\s+3300 \/ 4400`\s+⚠️ 🐛$/);
-    expect(third).not.toContain('⚠️');
-    expect(third).not.toContain('🚪');
-  });
+  expect(first).toMatch(/`\s*1\s+goku\s+1100 \/ 2200`\s+⚠️ 🚪$/);
+  expect(second).toMatch(/`\s*2\s+vegeta\s+3300 \/ 4400`\s+⚠️ 🐛$/);
+  expect(third).not.toContain('⚠️');
+  expect(third).not.toContain('🚪');
+});
 
-  it('keeps ⚠️ next to Calibrating', () => {
-    const value = formatTeamLinesFromPreview([
-      {
-        slot: 1,
-        nick: 'goku',
-        globalOrdinal: 1186,
-        heroOrdinal: 1200,
-        habitualQuitter: true,
-        leagueGames: 4,
-      },
-    ]);
-    expect(value).toContain('Calibrating');
-    expect(value).toMatch(/`[^`]+`\s+⚠️$/);
-  });
+it('keeps ⚠️ next to Calibrating', () => {
+  const value = formatTeamLinesFromPreview([
+    {
+      slot: 1,
+      nick: 'goku',
+      globalOrdinal: 1186,
+      heroOrdinal: 1200,
+      habitualQuitter: true,
+      leagueGames: 4,
+    },
+  ]);
+  expect(value).toContain('Calibrating');
+  expect(value).toMatch(/`[^`]+`\s+⚠️$/);
+});
 ```
 
 In `describe('buildMatchCompletedEmbed'…)`, after the test that asserts
@@ -238,41 +238,41 @@ In `describe('buildMatchCompletedEmbed'…)`, after the test that asserts
 add:
 
 ```typescript
-  it('adds the ⚠️ footer legend only when a line is flagged', () => {
-    const withFlag = buildMatchCompletedEmbed(
-      'match-123',
-      [
-        { slot: 1, nick: 'goku' },
-        { slot: 7, nick: 'vegeta' },
-      ],
-      {
-        winningTeam: 1,
-        ratingPreview: {
-          players: [
-            {
-              slot: 1,
-              nick: 'goku',
-              globalOrdinal: 1186,
-              heroOrdinal: 1200,
-              habitualQuitter: true,
-              leagueGames: 8,
-            },
-            {
-              slot: 7,
-              nick: 'vegeta',
-              globalOrdinal: 3300,
-              heroOrdinal: 4400,
-              leagueGames: 8,
-            },
-          ],
-        },
+it('adds the ⚠️ footer legend only when a line is flagged', () => {
+  const withFlag = buildMatchCompletedEmbed(
+    'match-123',
+    [
+      { slot: 1, nick: 'goku' },
+      { slot: 7, nick: 'vegeta' },
+    ],
+    {
+      winningTeam: 1,
+      ratingPreview: {
+        players: [
+          {
+            slot: 1,
+            nick: 'goku',
+            globalOrdinal: 1186,
+            heroOrdinal: 1200,
+            habitualQuitter: true,
+            leagueGames: 8,
+          },
+          {
+            slot: 7,
+            nick: 'vegeta',
+            globalOrdinal: 3300,
+            heroOrdinal: 4400,
+            leagueGames: 8,
+          },
+        ],
       },
-    );
-    expect(withFlag.toJSON().footer?.text).toBe(
-      'Per player: slot  nick  global / hero (ki) · ⚠️ quit 50%+',
-    );
-    expect(withFlag.toJSON().fields?.[0]?.value).toContain('⚠️');
-  });
+    },
+  );
+  expect(withFlag.toJSON().footer?.text).toBe(
+    'Per player: slot  nick  global / hero (ki) · ⚠️ quit 50%+',
+  );
+  expect(withFlag.toJSON().fields?.[0]?.value).toContain('⚠️');
+});
 ```
 
 The existing completed-embed test (no `habitualQuitter`) must keep footer `Per player: slot  nick  global / hero (ki)` with **no** suffix.
@@ -318,20 +318,20 @@ function ordinalFooterText(
 3. Update `ordinalFooter` to pass the flag:
 
 ```typescript
-  return ordinalFooterText(
-    profile.ratingLabel,
-    hideHero,
-    preview.players.some((player) => player.habitualQuitter === true),
-  );
+return ordinalFooterText(
+  profile.ratingLabel,
+  hideHero,
+  preview.players.some((player) => player.habitualQuitter === true),
+);
 ```
 
 4. In `formatTeamLinesFromPreview`, replace the marker block:
 
 ```typescript
-      const habitualMark = player.habitualQuitter ? ' ⚠️' : '';
-      const quitterMark = player.isQuitter ? ' 🚪' : '';
-      const grifferMark = !player.isQuitter && player.isGriffer ? ' 🐛' : '';
-      const flagMark = `${habitualMark}${quitterMark}${grifferMark}`;
+const habitualMark = player.habitualQuitter ? ' ⚠️' : '';
+const quitterMark = player.isQuitter ? ' 🚪' : '';
+const grifferMark = !player.isQuitter && player.isGriffer ? ' 🐛' : '';
+const flagMark = `${habitualMark}${quitterMark}${grifferMark}`;
 ```
 
 5. Extend the function JSDoc: habitual 50%+ lines get trailing ⚠️ outside the code span (before 🚪 / 🐛).
@@ -412,53 +412,53 @@ Update `toEqual` players to include `habitualQuitter: false`.
 Add:
 
 ```typescript
-  it('sets habitualQuitter from display stats including a just-completed quit', () => {
-    const preview = buildCompletedRatingPreview(
-      [
-        { playerId: 'p1', slot: 1, team: 1, heroId: 1, nick: 'goku', isQuitter: false },
-        { playerId: 'p2', slot: 7, team: 2, heroId: 7, nick: 'vegeta', isQuitter: true },
-      ],
-      new Map([
-        [1, { global: 1000, hero: 1000 }],
-        [7, { global: 1000, hero: 1000 }],
-      ]),
-      new Map([
-        [1, { global: 1186, hero: 1200 }],
-        [7, { global: 900, hero: 850 }],
-      ]),
-      new Map([
-        ['p1', 5],
-        ['p2', 1],
-      ]),
-      displayStats([
-        ['p1', { games: 5, quits: 0 }],
-        ['p2', { games: 1, quits: 1 }],
-      ]),
-    );
+it('sets habitualQuitter from display stats including a just-completed quit', () => {
+  const preview = buildCompletedRatingPreview(
+    [
+      { playerId: 'p1', slot: 1, team: 1, heroId: 1, nick: 'goku', isQuitter: false },
+      { playerId: 'p2', slot: 7, team: 2, heroId: 7, nick: 'vegeta', isQuitter: true },
+    ],
+    new Map([
+      [1, { global: 1000, hero: 1000 }],
+      [7, { global: 1000, hero: 1000 }],
+    ]),
+    new Map([
+      [1, { global: 1186, hero: 1200 }],
+      [7, { global: 900, hero: 850 }],
+    ]),
+    new Map([
+      ['p1', 5],
+      ['p2', 1],
+    ]),
+    displayStats([
+      ['p1', { games: 5, quits: 0 }],
+      ['p2', { games: 1, quits: 1 }],
+    ]),
+  );
 
-    expect(preview.players[0]?.habitualQuitter).toBe(false);
-    expect(preview.players[1]?.habitualQuitter).toBe(true);
-  });
+  expect(preview.players[0]?.habitualQuitter).toBe(false);
+  expect(preview.players[1]?.habitualQuitter).toBe(true);
+});
 ```
 
 In `src/services/match/match-history-preview.test.ts`, change `ratingPreviewFromStoredMatchPlayers` to pass a stats map and assert the flag:
 
 ```typescript
-    const displayStatsByPlayer = new Map([
-      ['P1', { games: 2, wins: 1, losses: 1, quits: 1 }],
-      ['P2', { games: 4, wins: 3, losses: 1, quits: 0 }],
-    ]);
+const displayStatsByPlayer = new Map([
+  ['P1', { games: 2, wins: 1, losses: 1, quits: 1 }],
+  ['P2', { games: 4, wins: 3, losses: 1, quits: 0 }],
+]);
 
-    const preview = ratingPreviewFromStoredMatchPlayers(
-      storedMatchFixture(),
-      leagueGamesByPlayer,
-      displayStatsByPlayer,
-    );
+const preview = ratingPreviewFromStoredMatchPlayers(
+  storedMatchFixture(),
+  leagueGamesByPlayer,
+  displayStatsByPlayer,
+);
 
-    expect(preview?.players).toEqual([
-      expect.objectContaining({ slot: 3, leagueGames: 2, habitualQuitter: true }),
-      expect.objectContaining({ slot: 8, leagueGames: 4, habitualQuitter: false }),
-    ]);
+expect(preview?.players).toEqual([
+  expect.objectContaining({ slot: 3, leagueGames: 2, habitualQuitter: true }),
+  expect.objectContaining({ slot: 8, leagueGames: 4, habitualQuitter: false }),
+]);
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -537,14 +537,14 @@ In `loadLobbyRatingPreview`, on **both** player-line return objects (hero `null`
 **`src/services/match/match-report.ts`** — completed preview call:
 
 ```typescript
-    ratingPreview = buildCompletedRatingPreview(
-      previewEntries,
-      beforeBySlot,
-      afterBySlot,
-      gamesByPlayerFromStats(displayStats),
-      displayStats,
-      winChance,
-    );
+ratingPreview = buildCompletedRatingPreview(
+  previewEntries,
+  beforeBySlot,
+  afterBySlot,
+  gamesByPlayerFromStats(displayStats),
+  displayStats,
+  winChance,
+);
 ```
 
 **`src/services/match/match-correction.ts`** — same argument order on the flip call.
@@ -556,10 +556,10 @@ Import `habitualQuitterFromStats`, `loadMatchDisplayStatsByPlayer`, and `PlayerM
 `rebuildCompletedRatingPreview`: after `leagueGamesByPlayer` is loaded, also:
 
 ```typescript
-  const displayStatsByPlayer = await loadMatchDisplayStatsByPlayer(
-    match.leagueId,
-    match.players.map((player) => player.playerId),
-  );
+const displayStatsByPlayer = await loadMatchDisplayStatsByPlayer(
+  match.leagueId,
+  match.players.map((player) => player.playerId),
+);
 ```
 
 Pass `displayStatsByPlayer` into `buildCompletedRatingPreview` before `winChanceFromSnapshots(...)`.
@@ -596,16 +596,16 @@ export function ratingPreviewFromStoredMatchPlayers(
 `resolveCompletedRatingPreview`: load stats in parallel with games:
 
 ```typescript
-  const playerIds = match.players.map((player) => player.playerId);
-  const [leagueGamesByPlayer, displayStatsByPlayer] = await Promise.all([
-    loadLeagueGamesAfterMatch(match),
-    loadMatchDisplayStatsByPlayer(match.leagueId, playerIds),
-  ]);
-  const stored = ratingPreviewFromStoredMatchPlayers(
-    match,
-    leagueGamesByPlayer,
-    displayStatsByPlayer,
-  );
+const playerIds = match.players.map((player) => player.playerId);
+const [leagueGamesByPlayer, displayStatsByPlayer] = await Promise.all([
+  loadLeagueGamesAfterMatch(match),
+  loadMatchDisplayStatsByPlayer(match.leagueId, playerIds),
+]);
+const stored = ratingPreviewFromStoredMatchPlayers(
+  match,
+  leagueGamesByPlayer,
+  displayStatsByPlayer,
+);
 ```
 
 `matchPlayer.findMany` will run twice (point-in-time games + display stats). Existing history tests mock `findMany` with one `mockResolvedValue`; that array is reused. Rows without `isQuitter` count as 0 quits — the point-in-time games test must still pass. If a test fails because the mock row shape lacks `match.completedAt` for the display-stats mapper, add `isQuitter: false` and `match: { completedAt, status: 'COMPLETED' }` on the fixture rows — do **not** change the Calibrating games source (`loadLeagueGamesAfterMatch`).
@@ -644,18 +644,18 @@ EOF
 
 ## Spec coverage (self-review)
 
-| Spec requirement | Task |
-| ---------------- | ---- |
-| `isHabitualQuitter` rule + examples | 1 |
-| Cancelled-only (`games = 0`, `quits ≥ 1`) | 1 |
-| Same stats as `/rank` / rank reset | 1 + 3 (`loadMatchDisplayStatsByPlayer`) |
-| DTO `habitualQuitter` | 2 (field) + 3 (set) |
-| ⚠️ outside span; order ⚠️ 🚪 🐛 | 2 |
-| Calibrating + ⚠️ | 2 |
-| Footer legend only when flagged | 2 |
-| PENDING / IN_PROGRESS via `loadLobbyRatingPreview` | 3 |
-| Completed via `buildCompletedRatingPreview` + complete/flip | 3 |
-| After-match quit can newly cross 50% | 3 (stats loaded after write) |
-| `/match show` completed roster | 3 (`resolveCompletedRatingPreview`) |
-| Nick-only fallback unflagged | 2 (no DTO field) |
-| No schema / no `/rank` / no leaderboard | none (intentionally omitted) |
+| Spec requirement                                            | Task                                    |
+| ----------------------------------------------------------- | --------------------------------------- |
+| `isHabitualQuitter` rule + examples                         | 1                                       |
+| Cancelled-only (`games = 0`, `quits ≥ 1`)                   | 1                                       |
+| Same stats as `/rank` / rank reset                          | 1 + 3 (`loadMatchDisplayStatsByPlayer`) |
+| DTO `habitualQuitter`                                       | 2 (field) + 3 (set)                     |
+| ⚠️ outside span; order ⚠️ 🚪 🐛                             | 2                                       |
+| Calibrating + ⚠️                                            | 2                                       |
+| Footer legend only when flagged                             | 2                                       |
+| PENDING / IN_PROGRESS via `loadLobbyRatingPreview`          | 3                                       |
+| Completed via `buildCompletedRatingPreview` + complete/flip | 3                                       |
+| After-match quit can newly cross 50%                        | 3 (stats loaded after write)            |
+| `/match show` completed roster                              | 3 (`resolveCompletedRatingPreview`)     |
+| Nick-only fallback unflagged                                | 2 (no DTO field)                        |
+| No schema / no `/rank` / no leaderboard                     | none (intentionally omitted)            |
