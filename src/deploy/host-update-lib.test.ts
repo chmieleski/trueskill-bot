@@ -93,3 +93,15 @@ describe('host-update.sh cut-over order', () => {
     expect(sh).toMatch(/git -C "\$\{APP_DIR\}" pull --ff-only origin "\$\{BRANCH\}"/);
   });
 });
+
+describe('CI deploy SSM command', () => {
+  it('does not stop dbz-bot before host-update.sh', () => {
+    const yml = readFileSync(join(repoRoot, '.github/workflows/ci-cd.yml'), 'utf8');
+    const marker = '"echo ==> deploy \\($sha)"';
+    const from = yml.indexOf(marker);
+    expect(from).toBeGreaterThan(-1);
+    const chunk = yml.slice(from, yml.indexOf('echo "SSM command:"', from));
+    expect(chunk).toContain('host-update.sh');
+    expect(chunk).not.toMatch(/systemctl stop dbz-bot/);
+  });
+});
