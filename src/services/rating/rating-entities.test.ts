@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ratingEntitiesForPlayer, rosterEntriesWithHeroId } from './rating-entities.js';
+import {
+  blendedRatingForBalance,
+  ratingEntitiesForBalance,
+  ratingEntitiesForPlayer,
+  rosterEntriesWithHeroId,
+} from './rating-entities.js';
 
 const G = { mu: 25, sigma: 8.333 };
 const H = { mu: 28, sigma: 7 };
@@ -11,6 +16,25 @@ describe('ratingEntitiesForPlayer', () => {
 
   it('returns global only when heroId is null', () => {
     expect(ratingEntitiesForPlayer(G, H, null)).toEqual([G]);
+  });
+});
+
+describe('blendedRatingForBalance', () => {
+  it('weights player μ at 80% and hero μ at 20%', () => {
+    const blended = blendedRatingForBalance({ mu: 40, sigma: 4 }, { mu: 10, sigma: 8 });
+
+    expect(blended.mu).toBeCloseTo(0.8 * 40 + 0.2 * 10);
+    expect(blended.sigma).toBeCloseTo(Math.sqrt((0.8 * 4) ** 2 + (0.2 * 8) ** 2));
+  });
+});
+
+describe('ratingEntitiesForBalance', () => {
+  it('returns one 80/20 blended entity when heroId is set', () => {
+    expect(ratingEntitiesForBalance(G, H, 3)).toEqual([blendedRatingForBalance(G, H)]);
+  });
+
+  it('returns global only when heroId is null', () => {
+    expect(ratingEntitiesForBalance(G, H, null)).toEqual([G]);
   });
 });
 

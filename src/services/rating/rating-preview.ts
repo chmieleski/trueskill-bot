@@ -6,7 +6,7 @@ import { getGameProfileForLeague } from '../league/league-profile.js';
 import { prisma } from '../../lib/prisma.js';
 import { createLogger } from '../../lib/logger.js';
 import {
-  ratingEntitiesForPlayer,
+  ratingEntitiesForBalance,
   rosterEntriesWithHeroId,
   type MuSigma,
 } from './rating-entities.js';
@@ -110,6 +110,7 @@ function defaultMuSigma(): MuSigma {
 
 /**
  * Pre-match win chance from μ/σ maps (same predictWin path as the lobby).
+ * Hero slots use an 80% player / 20% hero blend; `rate()` stays dual-entity.
  * Returns undefined when either team has no humans.
  */
 export function computeWinChanceFromRatings(
@@ -131,7 +132,7 @@ export function computeWinChanceFromRatings(
           entry.heroId == null
             ? defaultMuSigma()
             : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultMuSigma());
-        return ratingEntitiesForPlayer(global, hero, entry.heroId);
+        return ratingEntitiesForBalance(global, hero, entry.heroId);
       }),
     );
 

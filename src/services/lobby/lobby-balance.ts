@@ -6,7 +6,7 @@ import {
   type GameProfile,
 } from '../../domain/game-profile.js';
 import { WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
-import { ratingEntitiesForPlayer } from '../rating/rating-entities.js';
+import { ratingEntitiesForBalance } from '../rating/rating-entities.js';
 import { roundWinPercents, splitRosterByTeam, toOpenSkillRatings } from '../rating/rating-math.js';
 
 export type MuSigma = { mu: number; sigma: number };
@@ -70,7 +70,7 @@ function winChanceForRoster(
     for (const entry of team) {
       const global = lookup.global(entry.playerId);
       const hero = entry.heroId == null ? global : lookup.hero(entry.playerId, entry.heroId);
-      list.push(...ratingEntitiesForPlayer(global, hero, entry.heroId));
+      list.push(...ratingEntitiesForBalance(global, hero, entry.heroId));
     }
     return toOpenSkillRatings(list);
   };
