@@ -16,7 +16,12 @@ import {
   splitRosterByTeam,
   toOpenSkillRatings,
 } from './rating-math.js';
-import { gamesByPlayerFromStats, loadMatchDisplayStatsByPlayer } from './rank-reset-display.js';
+import {
+  gamesByPlayerFromStats,
+  habitualQuitterFromStats,
+  loadMatchDisplayStatsByPlayer,
+  type PlayerMatchDisplayStats,
+} from './rank-reset-display.js';
 import {
   suggestBalanceMoves,
   type BalanceRatingLookup,
@@ -51,6 +56,8 @@ export interface LobbyRatingPlayerLine {
   showHero?: boolean;
   /** League completed WIN/LOSS count used for the Calibrating gate. */
   leagueGames: number;
+  /** League `/rank` quit rate is 50%+ (post–rank-reset). */
+  habitualQuitter?: boolean;
 }
 
 export interface LobbyRatingPreview {
@@ -266,6 +273,7 @@ export function buildCompletedRatingPreview(
   beforeBySlot: Map<number, PlayerKiPair>,
   afterBySlot: Map<number, PlayerKiPair>,
   leagueGamesByPlayer: Map<string, number>,
+  displayStatsByPlayer: Map<string, PlayerMatchDisplayStats>,
   winChance?: WinChancePercents,
 ): LobbyRatingPreview {
   const players: LobbyRatingPlayerLine[] = [...entries]
@@ -287,6 +295,7 @@ export function buildCompletedRatingPreview(
         isGriffer: entry.isGriffer,
         showHero: entry.heroId != null,
         leagueGames: leagueGamesByPlayer.get(entry.playerId) ?? 0,
+        habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),
       };
     });
 
@@ -361,6 +370,7 @@ export async function loadLobbyRatingPreview(
           isGriffer: entry.isGriffer,
           showHero: false,
           leagueGames: globalGames,
+          habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),
         };
       }
 
@@ -376,6 +386,7 @@ export async function loadLobbyRatingPreview(
         isGriffer: entry.isGriffer,
         showHero: true,
         leagueGames: globalGames,
+        habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),
       };
     });
 

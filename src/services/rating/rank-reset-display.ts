@@ -138,6 +138,26 @@ export function gamesByPlayerFromStats(
   return new Map([...stats.entries()].map(([playerId, row]) => [playerId, row.games]));
 }
 
+/** True when league quit rate is 50%+ (same W/L/Q window as `/rank`). */
+export function isHabitualQuitter(quits: number, games: number): boolean {
+  if (quits < 1) {
+    return false;
+  }
+  if (games === 0) {
+    return true;
+  }
+  return quits / games >= 0.5;
+}
+
+/** Look up display stats for one player; missing row is 0/0 (not flagged). */
+export function habitualQuitterFromStats(
+  stats: Map<string, PlayerMatchDisplayStats>,
+  playerId: string,
+): boolean {
+  const row = stats.get(playerId);
+  return isHabitualQuitter(row?.quits ?? 0, row?.games ?? 0);
+}
+
 /** Public win rate: one decimal, null when no completed WIN/LOSS. */
 export function winRatePercent(wins: number, losses: number): number | null {
   const games = wins + losses;

@@ -286,6 +286,7 @@ export async function completeMatch(
       beforeBySlot,
       afterBySlot,
       gamesByPlayerFromStats(displayStats),
+      displayStats,
       winChance,
     );
     await persistMatchRatingPreviewToPlayers(matchId, ratingPreview, match.players, tx);

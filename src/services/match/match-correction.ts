@@ -568,6 +568,7 @@ export async function flipCompletedMatch(
       beforeBySlot,
       afterBySlot,
       gamesByPlayerFromStats(displayStats),
+      displayStats,
       winChance,
     );
     await persistMatchRatingPreviewToPlayers(matchId, ratingPreview, match.players, tx);

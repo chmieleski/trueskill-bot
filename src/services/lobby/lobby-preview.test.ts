@@ -16,6 +16,18 @@ import {
 import { getGameProfile } from '../../domain/game-profile.js';
 import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID } from '../../domain/games.js';
 import { buildCompletedRatingPreview } from '../rating/rating-preview.js';
+import type { PlayerMatchDisplayStats } from '../rating/rank-reset-display.js';
+
+function displayStats(
+  entries: Array<[string, { games: number; quits: number }]>,
+): Map<string, PlayerMatchDisplayStats> {
+  return new Map(
+    entries.map(([playerId, row]) => [
+      playerId,
+      { games: row.games, wins: 0, losses: 0, quits: row.quits },
+    ]),
+  );
+}
 
 describe('formatSignedDelta', () => {
   it('formats signed deltas and omits when undefined', () => {
@@ -74,6 +86,51 @@ describe('formatTeamLinesFromPreview', () => {
     expect(firstLine).toMatch(/`\s*1\s+goku\s+1100 \/ 2200`\s+🚪$/);
     expect(secondLine).toContain('vegeta');
     expect(secondLine).not.toContain('🚪');
+  });
+
+  it('appends the habitual-quitter marker outside the code span before 🚪', () => {
+    const value = formatTeamLinesFromPreview([
+      {
+        slot: 1,
+        nick: 'goku',
+        globalOrdinal: 1100,
+        heroOrdinal: 2200,
+        habitualQuitter: true,
+        isQuitter: true,
+        leagueGames: 8,
+      },
+      {
+        slot: 2,
+        nick: 'vegeta',
+        globalOrdinal: 3300,
+        heroOrdinal: 4400,
+        habitualQuitter: true,
+        isGriffer: true,
+        leagueGames: 8,
+      },
+      { slot: 3, nick: 'piccolo', globalOrdinal: 2100, heroOrdinal: 1800, leagueGames: 8 },
+    ]);
+    const [first, second, third] = value.split('\n');
+
+    expect(first).toMatch(/`\s*1\s+goku\s+1100 \/ 2200`\s+⚠️ 🚪$/);
+    expect(second).toMatch(/`\s*2\s+vegeta\s+3300 \/ 4400`\s+⚠️ 🐛$/);
+    expect(third).not.toContain('⚠️');
+    expect(third).not.toContain('🚪');
+  });
+
+  it('keeps ⚠️ next to Calibrating', () => {
+    const value = formatTeamLinesFromPreview([
+      {
+        slot: 1,
+        nick: 'goku',
+        globalOrdinal: 1186,
+        heroOrdinal: 1200,
+        habitualQuitter: true,
+        leagueGames: 4,
+      },
+    ]);
+    expect(value).toContain('Calibrating');
+    expect(value).toMatch(/`[^`]+`\s+⚠️$/);
   });
 
   it('shows signed ki deltas inline on completed roster lines', () => {
@@ -187,6 +244,10 @@ describe('buildCompletedRatingPreview', () => {
         ['p1', 5],
         ['p2', 8],
       ]),
+      displayStats([
+        ['p1', { games: 5, quits: 0 }],
+        ['p2', { games: 8, quits: 0 }],
+      ]),
     );
 
     expect(preview.players).toEqual([
@@ -200,6 +261,7 @@ describe('buildCompletedRatingPreview', () => {
         isQuitter: false,
         showHero: true,
         leagueGames: 5,
+        habitualQuitter: false,
       },
       {
         slot: 7,
@@ -211,6 +273,7 @@ describe('buildCompletedRatingPreview', () => {
         isQuitter: true,
         showHero: true,
         leagueGames: 8,
+        habitualQuitter: false,
       },
     ]);
     expect(preview.winChance).toBeUndefined();
@@ -234,10 +297,42 @@ describe('buildCompletedRatingPreview', () => {
         ['p1', 5],
         ['p2', 5],
       ]),
+      displayStats([
+        ['p1', { games: 5, quits: 0 }],
+        ['p2', { games: 5, quits: 0 }],
+      ]),
       { teamAPercent: 55, teamBPercent: 45 },
     );
 
     expect(preview.winChance).toEqual({ teamAPercent: 55, teamBPercent: 45 });
+  });
+
+  it('sets habitualQuitter from display stats including a just-completed quit', () => {
+    const preview = buildCompletedRatingPreview(
+      [
+        { playerId: 'p1', slot: 1, team: 1, heroId: 1, nick: 'goku', isQuitter: false },
+        { playerId: 'p2', slot: 7, team: 2, heroId: 7, nick: 'vegeta', isQuitter: true },
+      ],
+      new Map([
+        [1, { global: 1000, hero: 1000 }],
+        [7, { global: 1000, hero: 1000 }],
+      ]),
+      new Map([
+        [1, { global: 1186, hero: 1200 }],
+        [7, { global: 900, hero: 850 }],
+      ]),
+      new Map([
+        ['p1', 5],
+        ['p2', 1],
+      ]),
+      displayStats([
+        ['p1', { games: 5, quits: 0 }],
+        ['p2', { games: 1, quits: 1 }],
+      ]),
+    );
+
+    expect(preview.players[0]?.habitualQuitter).toBe(false);
+    expect(preview.players[1]?.habitualQuitter).toBe(true);
   });
 });
 
@@ -660,6 +755,42 @@ describe('buildMatchCompletedEmbed', () => {
     expect(json.fields?.[1]?.value).not.toContain('🚪');
     expect(json.footer?.text).toBe('Per player: slot  nick  global / hero (ki)');
     expect(json.color).toBe(0xf1c40f);
+  });
+
+  it('adds the ⚠️ footer legend only when a line is flagged', () => {
+    const withFlag = buildMatchCompletedEmbed(
+      'match-123',
+      [
+        { slot: 1, nick: 'goku' },
+        { slot: 7, nick: 'vegeta' },
+      ],
+      {
+        winningTeam: 1,
+        ratingPreview: {
+          players: [
+            {
+              slot: 1,
+              nick: 'goku',
+              globalOrdinal: 1186,
+              heroOrdinal: 1200,
+              habitualQuitter: true,
+              leagueGames: 8,
+            },
+            {
+              slot: 7,
+              nick: 'vegeta',
+              globalOrdinal: 3300,
+              heroOrdinal: 4400,
+              leagueGames: 8,
+            },
+          ],
+        },
+      },
+    );
+    expect(withFlag.toJSON().footer?.text).toBe(
+      'Per player: slot  nick  global / hero (ki) · ⚠️ quit 50%+',
+    );
+    expect(withFlag.toJSON().fields?.[0]?.value).toContain('⚠️');
   });
 
   it('shows pre-match win chance when provided', () => {

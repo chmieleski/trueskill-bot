@@ -40,16 +40,22 @@ export const LOBBY_PENDING_TTL_MS = 2 * 60 * 60 * 1000;
 
 const TEAM_A_EMOJI = '🟥';
 const TEAM_B_EMOJI = '🟦';
+const HABITUAL_QUITTER_FOOTER_SUFFIX = ' · ⚠️ quit 50%+';
 
 function resolvedProfile(profile?: GameProfile): GameProfile {
   return profile ?? getGameProfile(WARCRAFT3_UDBR_GAME_ID);
 }
 
 /** Real Discord embed footer (not a field) — no markdown supported here. */
-function ordinalFooterText(ratingLabel: string, hideHero: boolean): string {
-  return hideHero
+function ordinalFooterText(
+  ratingLabel: string,
+  hideHero: boolean,
+  showHabitualQuitterLegend: boolean,
+): string {
+  const base = hideHero
     ? `Per player: slot  nick  global (${ratingLabel})`
     : `Per player: slot  nick  global / hero (${ratingLabel})`;
+  return showHabitualQuitterLegend ? `${base}${HABITUAL_QUITTER_FOOTER_SUFFIX}` : base;
 }
 
 /** Pad slot 1–12 so columns stay aligned in monospace roster lines. */
@@ -92,8 +98,9 @@ function formatKiCell(ki: number, leagueGames: number, delta: number | undefined
  * Format roster lines with global / hero display ki (DTO *Ordinal fields).
  * Prefixes each occupied line with the lobby slot (1–12) so hosts can add/move
  * by number. Uses monospace padding so rating columns align. When deltas are
- * present (completed match), appends signed change inline. Quitter lines get a
- * trailing 🚪 marker outside the code span; griffer lines get 🐛.
+ * present (completed match), appends signed change inline. Habitual 50%+ quit
+ * lines get trailing ⚠️ outside the code span (before 🚪 / 🐛). Quitter lines
+ * get a trailing 🚪 marker outside the code span; griffer lines get 🐛.
  */
 export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): string {
   if (players.length === 0) {
@@ -118,9 +125,10 @@ export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): st
       const slotLabel = formatSlotLabel(player.slot);
       const nick = player.nick.padEnd(nickWidth, ' ');
       const global = cells[index]!.global.padStart(ratingWidth, ' ');
+      const habitualMark = player.habitualQuitter ? ' ⚠️' : '';
       const quitterMark = player.isQuitter ? ' 🚪' : '';
       const grifferMark = !player.isQuitter && player.isGriffer ? ' 🐛' : '';
-      const flagMark = `${quitterMark}${grifferMark}`;
+      const flagMark = `${habitualMark}${quitterMark}${grifferMark}`;
       if (player.showHero === false) {
         return `\`${slotLabel}  ${nick}   ${global}\`${flagMark}`;
       }
@@ -263,7 +271,11 @@ function ordinalFooter(
   const hideHero =
     profile.heroBinding === 'optional_in_game' ||
     preview.players.some((player) => player.showHero === false);
-  return ordinalFooterText(profile.ratingLabel, hideHero);
+  return ordinalFooterText(
+    profile.ratingLabel,
+    hideHero,
+    preview.players.some((player) => player.habitualQuitter === true),
+  );
 }
 
 /** Shared chrome: author (match id), footer legend, timestamp. */
