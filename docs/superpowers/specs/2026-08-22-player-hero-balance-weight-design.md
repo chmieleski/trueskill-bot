@@ -2,7 +2,8 @@
 
 **Date:** 2026-08-22  
 **Status:** Approved (Approach 1 — predictWin / balance hints only)  
-**Scope:** `general` (OpenSkill `predictWin` + lobby balance hints; keyed by `leagueId`)
+**Scope:** `general` (OpenSkill `predictWin` + lobby balance hints; keyed by `leagueId`)  
+**Superseded for apply:** Dual-entity `rate()` / synthetics are replaced by [`2026-08-22-independent-overall-hero-rate-design.md`](./2026-08-22-independent-overall-hero-rate-design.md). This spec remains the source for **predictWin / balance hints only**.
 
 ## Goal
 
@@ -10,15 +11,15 @@ Lobby win chance and balance hints treat **player (league-global) skill as 80%**
 
 ## Non-goals
 
-- Changing OpenSkill `rate()` / persisted `PlayerRating` or `PlayerHeroRating` μ/σ
 - Merging the two rating tables into one μ
 - Blending **display ki** (ki stays display-only; blend μ/σ)
 - Retroactive recalculation of past matches
 - ACA v1 (`heroId` null) — still global-only
+- Apply-path `rate()` (deferred here, then done in independent-overall-hero-rate)
 
 ## Decision
 
-**Approach 1:** Blend only on the `predictWin` path (lobby embed win%, match-history win%, balance hints). Match apply, replay, and quitter synthetics keep `ratingEntitiesForPlayer` = `[global, hero]`.
+**Approach 1:** Blend only on the `predictWin` path (lobby embed win%, match-history win%, balance hints). Match apply, replay, and quitter synthetics use independent overall then hero `rate()` — see the independent-overall-hero-rate spec.
 
 ```text
 μ_eff = 0.8 × μ_player + 0.2 × μ_hero
@@ -30,15 +31,16 @@ Lobby win chance and balance hints treat **player (league-global) skill as 80%**
 ## Architecture
 
 ```text
-ratingEntitiesForPlayer     → rate() / quitter synthetics (unchanged dual entity)
-ratingEntitiesForBalance    → predictWin / lobby-balance (one blended entity per hero slot)
+ratingEntitiesForOverall     → overall rate() / overall synthetics
+ratingEntitiesForHero        → hero rate() / hero synthetics
+ratingEntitiesForBalance     → predictWin / lobby-balance (one blended entity per hero slot)
 ```
 
-| Call site                                           | Helper                     |
-| --------------------------------------------------- | -------------------------- |
-| `rating-update.ts` `buildTeamEntities` + synthetics | `ratingEntitiesForPlayer`  |
-| `rating-preview.ts` `computeWinChanceFromRatings`   | `ratingEntitiesForBalance` |
-| `lobby-balance.ts` `winChanceForRoster`             | `ratingEntitiesForBalance` |
+| Call site                                               | Helper                                               |
+| ------------------------------------------------------- | ---------------------------------------------------- |
+| `rating-update.ts` overall + hero `rate()` / synthetics | `ratingEntitiesForOverall` / `ratingEntitiesForHero` |
+| `rating-preview.ts` `computeWinChanceFromRatings`       | `ratingEntitiesForBalance`                           |
+| `lobby-balance.ts` `winChanceForRoster`                 | `ratingEntitiesForBalance`                           |
 
 Roster lines still show separate player ki and hero ki.
 

@@ -6,19 +6,14 @@ export const BALANCE_PLAYER_WEIGHT = 0.8;
 /** Hero share of `predictWin` / balance-hint team strength. */
 export const BALANCE_HERO_WEIGHT = 0.2;
 
-/**
- * OpenSkill entities for one roster player: global only when `heroId` is null,
- * otherwise the dual [global, hero] pair (stride 2).
- */
-export function ratingEntitiesForPlayer(
-  global: MuSigma,
-  hero: MuSigma,
-  heroId: number | null,
-): MuSigma[] {
-  if (heroId == null) {
-    return [global];
-  }
-  return [global, hero];
+/** Overall OpenSkill entity for `rate()` / overall synthetics (hero-agnostic). */
+export function ratingEntitiesForOverall(global: MuSigma): MuSigma[] {
+  return [global];
+}
+
+/** Hero OpenSkill entity for `rate()` / hero synthetics. */
+export function ratingEntitiesForHero(hero: MuSigma): MuSigma[] {
+  return [hero];
 }
 
 /**

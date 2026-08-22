@@ -2,20 +2,23 @@ import { describe, expect, it } from 'vitest';
 import {
   blendedRatingForBalance,
   ratingEntitiesForBalance,
-  ratingEntitiesForPlayer,
+  ratingEntitiesForHero,
+  ratingEntitiesForOverall,
   rosterEntriesWithHeroId,
 } from './rating-entities.js';
 
 const G = { mu: 25, sigma: 8.333 };
 const H = { mu: 28, sigma: 7 };
 
-describe('ratingEntitiesForPlayer', () => {
-  it('returns global + hero when heroId is set', () => {
-    expect(ratingEntitiesForPlayer(G, H, 3)).toEqual([G, H]);
+describe('ratingEntitiesForOverall', () => {
+  it('returns only the global entity', () => {
+    expect(ratingEntitiesForOverall(G)).toEqual([G]);
   });
+});
 
-  it('returns global only when heroId is null', () => {
-    expect(ratingEntitiesForPlayer(G, H, null)).toEqual([G]);
+describe('ratingEntitiesForHero', () => {
+  it('returns only the hero entity', () => {
+    expect(ratingEntitiesForHero(H)).toEqual([H]);
   });
 });
 

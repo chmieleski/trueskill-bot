@@ -122,7 +122,7 @@ function defaultMuSigma(): MuSigma {
 
 /**
  * Pre-match win chance from μ/σ maps (same predictWin path as the lobby).
- * Hero slots use an 80% player / 20% hero blend; `rate()` stays dual-entity.
+ * Hero slots use an 80% player / 20% hero blend; `rate()` is independent overall then hero.
  * Returns undefined when either team has no humans.
  */
 export function computeWinChanceFromRatings(
