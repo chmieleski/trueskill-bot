@@ -1,3 +1,10 @@
+# [1.12.0](https://github.com/chmieleski/trueskill-bot/compare/v1.11.0...v1.12.0) (2026-08-22)
+
+
+### Features
+
+* **lobby:** show screenshot command above win chance ([#72](https://github.com/chmieleski/trueskill-bot/issues/72)) ([729c14f](https://github.com/chmieleski/trueskill-bot/commit/729c14fbde4af3006c73b5c2d510dcfe284f1e62))
+
 # [1.11.0](https://github.com/chmieleski/trueskill-bot/compare/v1.10.1...v1.11.0) (2026-08-22)
 
 
