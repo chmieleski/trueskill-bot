@@ -15,6 +15,7 @@ import {
 } from './lobby-preview.js';
 import { getGameProfile } from '../../domain/game-profile.js';
 import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID } from '../../domain/games.js';
+import { NEW_PLAYER_LABEL, NEW_PLAYER_ROSTER_MARKER } from '../rating/new-player.js';
 import { buildCompletedRatingPreview } from '../rating/rating-preview.js';
 import type { PlayerMatchDisplayStats } from '../rating/rank-reset-display.js';
 
@@ -86,6 +87,59 @@ describe('formatTeamLinesFromPreview', () => {
     expect(firstLine).toMatch(/`\s*1\s+goku\s+1100 \/ 2200`\s+🚪$/);
     expect(secondLine).toContain('vegeta');
     expect(secondLine).not.toContain('🚪');
+  });
+
+  it('appends New marker when isNewPlayer', () => {
+    const value = formatTeamLinesFromPreview([
+      {
+        slot: 1,
+        nick: 'goku',
+        globalOrdinal: 1100,
+        heroOrdinal: 2200,
+        isNewPlayer: true,
+        leagueGames: 8,
+      },
+      { slot: 2, nick: 'vegeta', globalOrdinal: 3300, heroOrdinal: 4400, leagueGames: 8 },
+    ]);
+    const [firstLine, secondLine] = value.split('\n');
+
+    expect(firstLine).toContain(NEW_PLAYER_LABEL);
+    expect(firstLine).toContain(NEW_PLAYER_ROSTER_MARKER);
+    expect(firstLine).toMatch(/`\s*1\s+goku\s+1100 \/ 2200` · New$/);
+    expect(secondLine).not.toContain(NEW_PLAYER_LABEL);
+  });
+
+  it('appends New marker when wasNewPlayer on completed lines', () => {
+    const value = formatTeamLinesFromPreview([
+      {
+        slot: 1,
+        nick: 'goku',
+        globalOrdinal: 1100,
+        heroOrdinal: 2200,
+        globalDelta: 0,
+        heroDelta: 0,
+        wasNewPlayer: true,
+        leagueGames: 1,
+      },
+    ]);
+
+    expect(value).toContain(NEW_PLAYER_ROSTER_MARKER);
+  });
+
+  it('places New beside the quitter marker', () => {
+    const value = formatTeamLinesFromPreview([
+      {
+        slot: 1,
+        nick: 'goku',
+        globalOrdinal: 1100,
+        heroOrdinal: 2200,
+        isQuitter: true,
+        wasNewPlayer: true,
+        leagueGames: 8,
+      },
+    ]);
+
+    expect(value).toMatch(/`\s*1\s+goku\s+1100 \/ 2200` 🚪 · New$/);
   });
 
   it('appends the habitual-quitter marker outside the code span before 🚪', () => {
@@ -305,6 +359,41 @@ describe('buildCompletedRatingPreview', () => {
     );
 
     expect(preview.winChance).toEqual({ teamAPercent: 55, teamBPercent: 45 });
+  });
+
+  it('carries wasNewPlayer onto completed preview lines', () => {
+    const preview = buildCompletedRatingPreview(
+      [
+        {
+          playerId: 'p1',
+          slot: 1,
+          team: 1,
+          heroId: 1,
+          nick: 'goku',
+          wasNewPlayer: true,
+        },
+        { playerId: 'p2', slot: 7, team: 2, heroId: 7, nick: 'vegeta', wasNewPlayer: false },
+      ],
+      new Map([
+        [1, { global: 1000, hero: 1000 }],
+        [7, { global: 1000, hero: 1000 }],
+      ]),
+      new Map([
+        [1, { global: 1000, hero: 1000 }],
+        [7, { global: 950, hero: 950 }],
+      ]),
+      new Map([
+        ['p1', 1],
+        ['p2', 8],
+      ]),
+      displayStats([
+        ['p1', { games: 1, quits: 0 }],
+        ['p2', { games: 8, quits: 0 }],
+      ]),
+    );
+
+    expect(preview.players[0]?.wasNewPlayer).toBe(true);
+    expect(preview.players[1]?.wasNewPlayer).toBeUndefined();
   });
 
   it('sets habitualQuitter from display stats including a just-completed quit', () => {

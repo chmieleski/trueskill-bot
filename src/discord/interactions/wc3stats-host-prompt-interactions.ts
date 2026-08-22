@@ -8,11 +8,13 @@ import {
 } from '../../services/lobby/create-from-wc3stats.js';
 import { MatchServiceError } from '../../services/match/index.js';
 import { assertLeagueLobbyCreateChannel } from '../../services/league/index.js';
+import { resolveGuildConfig } from '../../services/guild/index.js';
 import {
   buildHostPromptDismissEphemeral,
   parseHostPromptCustomId,
 } from '../../services/wc3stats/wc3stats-host-prompt.js';
 import { rememberHostPromptKey } from '../../services/wc3stats/wc3stats-host-prompt-poller.js';
+import { sendNewPlayerSuggestPrompts } from './new-player-interactions.js';
 
 const log = createLogger('wc3stats-host-prompt-interaction');
 
@@ -114,6 +116,20 @@ async function handleOpen(interaction: ButtonInteraction): Promise<void> {
 
     await attachCreatedMatchMessage(created.matchId, interaction.message.id, interaction.channelId);
     rememberHostPromptKey(parsed.leagueId, parsed.wc3statsId);
+
+    if (created.newPlayerSuggestions.length > 0) {
+      const matchModRoleId = (await resolveGuildConfig(interaction.guildId)).matchModRoleId;
+      await sendNewPlayerSuggestPrompts({
+        interaction,
+        match: {
+          id: created.matchId,
+          hostDiscordId: parsed.hostDiscordId,
+          leagueId: parsed.leagueId,
+        },
+        suggestions: created.newPlayerSuggestions,
+        matchModRoleId,
+      });
+    }
 
     log.info(
       {

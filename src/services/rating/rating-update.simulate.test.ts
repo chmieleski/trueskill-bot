@@ -70,3 +70,95 @@ describe('simulatePostMatchRatings', () => {
     expect(Math.abs(lowDelta)).toBeLessThan(Math.abs(highDelta) * 3);
   });
 });
+
+describe('simulatePostMatchRatings with New', () => {
+  it('freezes New non-quit μ and still rates veterans', () => {
+    const entries = [
+      {
+        playerId: 'newA',
+        slot: 1,
+        team: 1 as const,
+        heroId: null,
+        isQuitter: false,
+        wasNewPlayer: true,
+      },
+      {
+        playerId: 'vetA',
+        slot: 2,
+        team: 1 as const,
+        heroId: null,
+        isQuitter: false,
+        wasNewPlayer: false,
+      },
+      {
+        playerId: 'newB',
+        slot: 7,
+        team: 2 as const,
+        heroId: null,
+        isQuitter: false,
+        wasNewPlayer: true,
+      },
+      {
+        playerId: 'vetB',
+        slot: 8,
+        team: 2 as const,
+        heroId: null,
+        isQuitter: false,
+        wasNewPlayer: false,
+      },
+    ];
+    const start = new Map([
+      ['newA', { mu: 25, sigma: 8.333 }],
+      ['vetA', { mu: 32, sigma: 5 }],
+      ['newB', { mu: 25, sigma: 8.333 }],
+      ['vetB', { mu: 32, sigma: 5 }],
+    ]);
+
+    const { globalByPlayer } = simulatePostMatchRatings(entries, 1, start, new Map());
+
+    expect(globalByPlayer.get('newA')!.mu).toBe(25);
+    expect(globalByPlayer.get('newB')!.mu).toBe(25);
+    expect(globalByPlayer.get('vetA')!.mu).toBeGreaterThan(32);
+    expect(globalByPlayer.get('vetB')!.mu).toBeLessThan(32);
+  });
+
+  it('skips team rate when both sides are only New (quitters optional)', () => {
+    const entries = [
+      {
+        playerId: 'newA',
+        slot: 1,
+        team: 1 as const,
+        heroId: null,
+        isQuitter: false,
+        wasNewPlayer: true,
+      },
+      {
+        playerId: 'newB',
+        slot: 7,
+        team: 2 as const,
+        heroId: null,
+        isQuitter: false,
+        wasNewPlayer: true,
+      },
+      {
+        playerId: 'quitA',
+        slot: 2,
+        team: 1 as const,
+        heroId: null,
+        isQuitter: true,
+        wasNewPlayer: true,
+      },
+    ];
+    const start = new Map([
+      ['newA', { mu: 25, sigma: 8.333 }],
+      ['newB', { mu: 25, sigma: 8.333 }],
+      ['quitA', { mu: 25, sigma: 8.333 }],
+    ]);
+
+    const { globalByPlayer } = simulatePostMatchRatings(entries, 1, start, new Map());
+
+    expect(globalByPlayer.get('newA')!.mu).toBe(25);
+    expect(globalByPlayer.get('newB')!.mu).toBe(25);
+    expect(globalByPlayer.get('quitA')!.mu).toBeLessThan(25);
+  });
+});

@@ -132,9 +132,10 @@ model Player {
 model PlayerRating {
   leagueId  String
   playerId  String
-  mu        Float    @default(25.0)
-  sigma     Float    @default(8.333)
-  updatedAt DateTime @updatedAt
+  mu          Float    @default(25.0)
+  sigma       Float    @default(8.333)
+  isNewPlayer Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
 
   league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
@@ -227,7 +228,8 @@ model MatchPlayer {
   heroId    Int? // slot_bound: equals slot; optional_in_game: null until pick (phase 2)
   result    MatchResult? // Null until match ends
   isQuitter Boolean      @default(false) // Quitter penalty flag; excluded from team rating
-  isGriffer Boolean      @default(false) // Bug-abuse penalty flag; stays in team rating
+  isGriffer    Boolean      @default(false) // Bug-abuse penalty flag; stays in team rating
+  wasNewPlayer Boolean      @default(false) // Snapshot of PlayerRating.isNewPlayer at rating apply
   /// Display ki after this match (null until completed with preview written).
   globalKi      Int?
   /// after − before global display ki for this match.

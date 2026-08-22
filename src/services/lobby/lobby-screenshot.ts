@@ -5,6 +5,7 @@ import { MatchServiceError, touchLobbyRosterAuthority } from '../match/match-ser
 import {
   applyRosterAndSync,
   syncLobbyDiscordMessage,
+  withNewPlayerSuggestions,
   type LobbyActionResult,
 } from './discord-sync.js';
 import { extractLobbyPlayers, type LobbyPlayer } from './lobby-ocr.js';
@@ -145,8 +146,13 @@ export async function refreshLobbyFromScreenshot(input: {
     'Lobby roster replaced from screenshot',
   );
 
+  const withSuggestions = await withNewPlayerSuggestions(
+    result,
+    new Set(match.players.map((player) => player.playerId)),
+  );
+
   return {
-    ...result,
+    ...withSuggestions,
     keptExisting: false,
     message: LOBBY_UPDATED_MESSAGE,
   };

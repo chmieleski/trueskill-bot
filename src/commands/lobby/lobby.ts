@@ -19,6 +19,7 @@ import {
   swapLobbyPlayers,
 } from '../../services/lobby/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
+import { sendNewPlayerSuggestPrompts } from '../../discord/interactions/new-player-interactions.js';
 
 const log = createLogger('lobby_cmd');
 
@@ -239,6 +240,19 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       await interaction.editReply({
         content: `Added **${seatedNick}** to slot ${slot} in match \`${result.match.id}\`.`,
       });
+      const matchModRoleId = interaction.guildId
+        ? (await resolveGuildConfig(interaction.guildId)).matchModRoleId
+        : undefined;
+      await sendNewPlayerSuggestPrompts({
+        interaction,
+        match: {
+          id: result.match.id,
+          hostDiscordId: result.match.hostDiscordId,
+          leagueId: result.match.leagueId,
+        },
+        suggestions: result.newPlayerSuggestions ?? [],
+        matchModRoleId,
+      });
       return;
     }
 
@@ -343,6 +357,16 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         mimeType: resolveMimeType(attachment),
       });
       await interaction.editReply({ content: result.message });
+      await sendNewPlayerSuggestPrompts({
+        interaction,
+        match: {
+          id: result.match.id,
+          hostDiscordId: result.match.hostDiscordId,
+          leagueId: result.match.leagueId,
+        },
+        suggestions: result.newPlayerSuggestions ?? [],
+        matchModRoleId,
+      });
       return;
     }
 
@@ -357,6 +381,19 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         guildId: interaction.guildId,
       });
       await interaction.editReply({ content: result.message });
+      const syncModRoleId = interaction.guildId
+        ? (await resolveGuildConfig(interaction.guildId)).matchModRoleId
+        : undefined;
+      await sendNewPlayerSuggestPrompts({
+        interaction,
+        match: {
+          id: result.match.id,
+          hostDiscordId: result.match.hostDiscordId,
+          leagueId: result.match.leagueId,
+        },
+        suggestions: result.newPlayerSuggestions ?? [],
+        matchModRoleId: syncModRoleId,
+      });
       return;
     }
 

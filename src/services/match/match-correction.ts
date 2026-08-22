@@ -26,6 +26,7 @@ import {
   gamesByPlayerFromStats,
   loadMatchDisplayStatsByPlayer,
 } from '../rating/rank-reset-display.js';
+import { playerIdsToClearNewFlag } from '../rating/new-player.js';
 
 const log = createLogger('match-correction');
 
@@ -453,6 +454,7 @@ function toRatingEntries(match: MatchWithPlayers, quitterSet: Set<number>): Rati
     heroId: player.heroId,
     isQuitter: quitterSet.has(player.slot),
     isGriffer: player.isGriffer,
+    wasNewPlayer: player.wasNewPlayer,
   }));
 }
 
@@ -530,6 +532,7 @@ export async function flipCompletedMatch(
         ...p,
         isQuitter: quitterSet.has(p.slot),
         isGriffer: p.isGriffer,
+        wasNewPlayer: p.wasNewPlayer,
       })),
     );
     await ensurePlayerRatings(
@@ -557,17 +560,23 @@ export async function flipCompletedMatch(
     await applyGrifferPenalties(match.leagueId, entries, tx);
     await applyMatchRatings(match.leagueId, entries, winningTeam, tx);
 
-    const displayStats = await loadMatchDisplayStatsByPlayer(
-      match.leagueId,
-      previewEntries.map((entry) => entry.playerId),
-      tx,
-    );
+    const playerIds = previewEntries.map((entry) => entry.playerId);
+    const displayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds, tx);
+    const gamesByPlayer = gamesByPlayerFromStats(displayStats);
+    const clearIds = playerIdsToClearNewFlag(playerIds, gamesByPlayer);
+    if (clearIds.length > 0) {
+      await tx.playerRating.updateMany({
+        where: { leagueId: match.leagueId, playerId: { in: clearIds }, isNewPlayer: true },
+        data: { isNewPlayer: false },
+      });
+    }
+
     const afterBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
     ratingPreview = buildCompletedRatingPreview(
       previewEntries,
       beforeBySlot,
       afterBySlot,
-      gamesByPlayerFromStats(displayStats),
+      gamesByPlayer,
       displayStats,
       winChance,
     );

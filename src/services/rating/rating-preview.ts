@@ -53,6 +53,10 @@ export interface LobbyRatingPlayerLine {
   heroDelta?: number;
   isQuitter?: boolean;
   isGriffer?: boolean;
+  /** Live PENDING/in-progress: from PlayerRating.isNewPlayer. */
+  isNewPlayer?: boolean;
+  /** Completed/history: from MatchPlayer.wasNewPlayer snapshot. */
+  wasNewPlayer?: boolean;
   showHero?: boolean;
   /** League completed WIN/LOSS count used for the Calibrating gate. */
   leagueGames: number;
@@ -76,6 +80,7 @@ export type RatingPreviewRosterEntry = {
   nick: string;
   isQuitter?: boolean;
   isGriffer?: boolean;
+  wasNewPlayer?: boolean;
 };
 
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -293,6 +298,7 @@ export function buildCompletedRatingPreview(
         heroDelta: after.hero - before.hero,
         isQuitter: entry.isQuitter,
         isGriffer: entry.isGriffer,
+        ...(entry.wasNewPlayer === true ? { wasNewPlayer: true as const } : {}),
         showHero: entry.heroId != null,
         leagueGames: leagueGamesByPlayer.get(entry.playerId) ?? 0,
         habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),
@@ -356,9 +362,11 @@ export async function loadLobbyRatingPreview(
     const heroByKey = new Map(heroes.map((row) => [heroKey(row.playerId, row.heroId), row]));
 
     const players: LobbyRatingPlayerLine[] = sorted.map((entry) => {
-      const global = globalByPlayer.get(entry.playerId) ?? defaultMuSigma();
+      const globalRow = globalByPlayer.get(entry.playerId);
+      const global = globalRow ?? defaultMuSigma();
       const globalGames = gamesByPlayer.get(entry.playerId) ?? 0;
       const globalOrdinal = displayOrdinal(global.mu, global.sigma, globalGames);
+      const newFlag = globalRow?.isNewPlayer === true ? { isNewPlayer: true as const } : {};
 
       if (entry.heroId == null) {
         return {
@@ -368,6 +376,7 @@ export async function loadLobbyRatingPreview(
           heroOrdinal: globalOrdinal,
           isQuitter: entry.isQuitter,
           isGriffer: entry.isGriffer,
+          ...newFlag,
           showHero: false,
           leagueGames: globalGames,
           habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),
@@ -384,6 +393,7 @@ export async function loadLobbyRatingPreview(
         heroOrdinal: displayOrdinal(hero.mu, hero.sigma, heroGames),
         isQuitter: entry.isQuitter,
         isGriffer: entry.isGriffer,
+        ...newFlag,
         showHero: true,
         leagueGames: globalGames,
         habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),
@@ -468,6 +478,7 @@ export function matchPlayersToRatingEntries(
     heroId: number | null;
     isQuitter?: boolean;
     isGriffer?: boolean;
+    wasNewPlayer?: boolean;
     player: { username: string };
   }[],
 ): RatingPreviewRosterEntry[] {
@@ -479,5 +490,6 @@ export function matchPlayersToRatingEntries(
     nick: entry.player.username,
     isQuitter: entry.isQuitter,
     isGriffer: entry.isGriffer,
+    wasNewPlayer: entry.wasNewPlayer,
   }));
 }

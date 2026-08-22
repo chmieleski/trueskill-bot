@@ -163,6 +163,7 @@ export async function rebuildCompletedRatingPreview(
     heroId: player.heroId,
     isQuitter: player.isQuitter,
     isGriffer: player.isGriffer,
+    wasNewPlayer: player.wasNewPlayer,
   }));
 
   const globalGames = await loadGlobalGamesBeforeMatch(
@@ -337,6 +338,7 @@ export function ratingPreviewFromStoredMatchPlayers(
       globalDelta: player.globalKiDelta ?? undefined,
       heroDelta: player.heroKiDelta ?? undefined,
       isQuitter: player.isQuitter,
+      ...(player.wasNewPlayer ? { wasNewPlayer: true as const } : {}),
       showHero: player.heroId != null && player.heroKi != null,
       leagueGames: leagueGamesByPlayer.get(player.playerId) ?? 0,
       habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, player.playerId),

@@ -20,6 +20,10 @@ import type { GameProfile } from '../../domain/game-profile.js';
 import { resolveGuildConfig } from '../guild/index.js';
 import { importWc3statsLobby, loadLeagueWc3statsHeroSlotMap } from '../wc3stats/index.js';
 import { loadLobbyRatingPreview, matchPlayersToRatingEntries } from '../rating/index.js';
+import {
+  collectNewPlayerSuggestionsForPendingCreate,
+  type NewPlayerSuggestion,
+} from '../rating/new-player.js';
 
 const log = createLogger('create-from-wc3stats');
 
@@ -43,6 +47,8 @@ export type CreateMatchFromWc3statsResult = {
   playerClaimEnabled: boolean;
   ratingPreview: Awaited<ReturnType<typeof loadLobbyRatingPreview>> | undefined;
   profile: GameProfile;
+  /** First-timers on the initial roster (host/mod may confirm New). */
+  newPlayerSuggestions: NewPlayerSuggestion[];
 };
 
 /**
@@ -130,6 +136,17 @@ export async function createMatchFromWc3statsLobby(
     ? await loadLobbyRatingPreview(input.leagueId, matchPlayersToRatingEntries(match.players))
     : undefined;
 
+  const newPlayerSuggestions = match
+    ? await collectNewPlayerSuggestionsForPendingCreate({
+        leagueId: match.leagueId,
+        matchId: match.id,
+        players: match.players.map((player) => ({
+          playerId: player.playerId,
+          username: player.player.username,
+        })),
+      })
+    : [];
+
   return {
     matchId: created.matchId,
     createdAt: created.createdAt,
@@ -141,6 +158,7 @@ export async function createMatchFromWc3statsLobby(
     playerClaimEnabled: leagueConfig.lobbyPlayerClaimEnabled,
     ratingPreview,
     profile,
+    newPlayerSuggestions,
   };
 }
 

@@ -51,6 +51,8 @@ import {
   type GameProfile,
   type TeamId,
 } from '../../domain/game-profile.js';
+import type { LobbyActionResult } from '../../services/lobby/index.js';
+import { sendNewPlayerSuggestPrompts } from './new-player-interactions.js';
 
 const log = createLogger('lobby');
 
@@ -344,15 +346,15 @@ async function applyPlayersUpdate(
   interaction: MessageComponentInteraction | ModalSubmitInteraction,
   messageId: string,
   nextPlayers: LobbyPlayer[],
-): Promise<boolean> {
+): Promise<LobbyActionResult | null> {
   try {
-    await applyRosterUpdateForMessage({
+    const result = await applyRosterUpdateForMessage({
       client: interaction.client,
       messageId,
       nextPlayers,
     });
     log.debug({ messageId, playerCount: nextPlayers.length }, 'Lobby message refreshed');
-    return true;
+    return result;
   } catch (error) {
     if (error instanceof MatchServiceError) {
       log.warn(
@@ -360,13 +362,39 @@ async function applyPlayersUpdate(
         'Lobby roster update rejected',
       );
       await replyEphemeral(interaction, error.message);
-      return false;
+      return null;
     }
 
     log.error({ err: error, messageId }, 'Failed to update lobby roster');
     await replyEphemeral(interaction, 'Could not update the lobby. Please try again.');
-    return false;
+    return null;
   }
+}
+
+async function maybeSendNewPlayerSuggests(
+  interaction: MessageComponentInteraction | ModalSubmitInteraction,
+  result: LobbyActionResult,
+  guildId: string | null,
+): Promise<void> {
+  const suggestions = result.newPlayerSuggestions;
+  if (!suggestions?.length) {
+    return;
+  }
+
+  const matchModRoleId = guildId
+    ? (await resolveGuildConfig(guildId)).matchModRoleId
+    : undefined;
+
+  await sendNewPlayerSuggestPrompts({
+    interaction,
+    match: {
+      id: result.match.id,
+      hostDiscordId: result.match.hostDiscordId,
+      leagueId: result.match.leagueId,
+    },
+    suggestions,
+    matchModRoleId,
+  });
 }
 
 async function handleStart(interaction: ButtonInteraction): Promise<void> {
@@ -739,6 +767,7 @@ async function handleRefresh(interaction: ButtonInteraction): Promise<void> {
     });
 
     await replyEphemeral(interaction, result.message);
+    await maybeSendNewPlayerSuggests(interaction, result, guildId);
   } catch (error) {
     if (error instanceof MatchServiceError) {
       await replyEphemeral(interaction, error.message);
@@ -767,7 +796,7 @@ async function handleSelectClaim(
   const slot = Number(interaction.values[0]);
 
   try {
-    await claimLobbySlot({
+    const result = await claimLobbySlot({
       client: interaction.client,
       messageId,
       discordId: interaction.user.id,
@@ -775,6 +804,7 @@ async function handleSelectClaim(
       slot,
     });
     await updateEphemeral(interaction, `Claimed slot ${slot}.`);
+    await maybeSendNewPlayerSuggests(interaction, result, guildId);
   } catch (error) {
     if (error instanceof MatchServiceError) {
       await replyEphemeral(interaction, error.message);
@@ -888,10 +918,11 @@ async function handleSelectMoveSlot(
     const profile = await profileForMatch(result.match.leagueId);
     const toSlot = resolveDestinationSlot(rawDestination, result.players, profile);
     const nextPlayers = movePlayer(result.players, fromSlot, toSlot, profile);
-    const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
+    const updated = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
-    if (ok) {
+    if (updated) {
       await updateEphemeral(interaction, UPDATED_MESSAGE);
+      await maybeSendNewPlayerSuggests(interaction, updated, interaction.guildId);
     }
   } catch (error) {
     if (error instanceof MatchServiceError) {
@@ -919,10 +950,11 @@ async function handleSelectRemove(
   try {
     const profile = await profileForMatch(result.match.leagueId);
     const nextPlayers = removePlayer(result.players, { slot }, profile);
-    const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
+    const updated = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
-    if (ok) {
+    if (updated) {
       await updateEphemeral(interaction, UPDATED_MESSAGE);
+      await maybeSendNewPlayerSuggests(interaction, updated, interaction.guildId);
     }
   } catch (error) {
     if (error instanceof MatchServiceError) {
@@ -965,10 +997,11 @@ async function handleModalEditNick(
   try {
     const profile = await profileForMatch(result.match.leagueId);
     const nextPlayers = editPlayerNick(result.players, slot, nick, profile);
-    const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
+    const updated = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
-    if (ok) {
+    if (updated) {
       await interaction.editReply({ content: UPDATED_MESSAGE });
+      await maybeSendNewPlayerSuggests(interaction, updated, interaction.guildId);
     }
   } catch (error) {
     if (error instanceof MatchServiceError) {
@@ -1031,10 +1064,11 @@ async function handleModalAdd(
     }
 
     const nextPlayers = addPlayer(result.players, nick, slot, profile);
-    const ok = await applyPlayersUpdate(interaction, messageId, nextPlayers);
+    const updated = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
-    if (ok) {
+    if (updated) {
       await interaction.editReply({ content: UPDATED_MESSAGE });
+      await maybeSendNewPlayerSuggests(interaction, updated, interaction.guildId);
     }
   } catch (error) {
     if (error instanceof MatchServiceError) {

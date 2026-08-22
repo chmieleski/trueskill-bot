@@ -10,6 +10,7 @@ import type { LobbyPlayer, ValidatedLobby } from './lobby-ocr.js';
 import { formatBalanceHints } from './lobby-balance.js';
 import type { LobbyRatingPlayerLine, LobbyRatingPreview } from '../rating/rating-preview.js';
 import { formatPublicKi, isCalibrating } from '../rating/rating-math.js';
+import { NEW_PLAYER_ROSTER_MARKER } from '../rating/new-player.js';
 import { teamDisplayName, teamDisplayNameForSlot } from '../guild/team-names.js';
 import {
   getGameProfile,
@@ -100,7 +101,8 @@ function formatKiCell(ki: number, leagueGames: number, delta: number | undefined
  * by number. Uses monospace padding so rating columns align. When deltas are
  * present (completed match), appends signed change inline. Habitual 50%+ quit
  * lines get trailing ⚠️ outside the code span (before 🚪 / 🐛). Quitter lines
- * get a trailing 🚪 marker outside the code span; griffer lines get 🐛.
+ * get a trailing 🚪 marker outside the code span; griffer lines get 🐛. New
+ * players get ` · New` beside those marks.
  */
 export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): string {
   if (players.length === 0) {
@@ -128,7 +130,9 @@ export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): st
       const habitualMark = player.habitualQuitter ? ' ⚠️' : '';
       const quitterMark = player.isQuitter ? ' 🚪' : '';
       const grifferMark = !player.isQuitter && player.isGriffer ? ' 🐛' : '';
-      const flagMark = `${habitualMark}${quitterMark}${grifferMark}`;
+      const newMark =
+        player.isNewPlayer || player.wasNewPlayer ? NEW_PLAYER_ROSTER_MARKER : '';
+      const flagMark = `${habitualMark}${quitterMark}${grifferMark}${newMark}`;
       if (player.showHero === false) {
         return `\`${slotLabel}  ${nick}   ${global}\`${flagMark}`;
       }
