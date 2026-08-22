@@ -67,9 +67,9 @@ export function applySyntheticLosses(
   return current;
 }
 
-export function partitionRosterForRating<
-  T extends { isQuitter: boolean; wasNewPlayer?: boolean },
->(entries: T[]): { quitters: T[]; newNonQuit: T[]; activeRateable: T[] } {
+export function partitionRosterForRating<T extends { isQuitter: boolean; wasNewPlayer?: boolean }>(
+  entries: T[],
+): { quitters: T[]; newNonQuit: T[]; activeRateable: T[] } {
   const quitters = entries.filter((entry) => entry.isQuitter);
   const nonQuit = entries.filter((entry) => !entry.isQuitter);
   return {

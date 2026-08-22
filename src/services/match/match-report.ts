@@ -24,10 +24,7 @@ import {
   gamesByPlayerFromStats,
   loadMatchDisplayStatsByPlayer,
 } from '../rating/rank-reset-display.js';
-import {
-  loadIsNewPlayerByPlayerId,
-  playerIdsToClearNewFlag,
-} from '../rating/new-player.js';
+import { loadIsNewPlayerByPlayerId, playerIdsToClearNewFlag } from '../rating/new-player.js';
 
 const log = createLogger('match-report');
 

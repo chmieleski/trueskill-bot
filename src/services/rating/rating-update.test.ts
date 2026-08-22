@@ -104,12 +104,7 @@ describe('partitionRosterForRating', () => {
 
 describe('canRunTeamRate', () => {
   it('requires at least one rateable player on each team', () => {
-    expect(
-      canRunTeamRate([
-        { team: 1 },
-        { team: 2 },
-      ]),
-    ).toBe(true);
+    expect(canRunTeamRate([{ team: 1 }, { team: 2 }])).toBe(true);
     expect(canRunTeamRate([{ team: 1 }])).toBe(false);
     expect(canRunTeamRate([])).toBe(false);
   });

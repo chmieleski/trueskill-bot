@@ -381,9 +381,7 @@ async function maybeSendNewPlayerSuggests(
     return;
   }
 
-  const matchModRoleId = guildId
-    ? (await resolveGuildConfig(guildId)).matchModRoleId
-    : undefined;
+  const matchModRoleId = guildId ? (await resolveGuildConfig(guildId)).matchModRoleId : undefined;
 
   await sendNewPlayerSuggestPrompts({
     interaction,
