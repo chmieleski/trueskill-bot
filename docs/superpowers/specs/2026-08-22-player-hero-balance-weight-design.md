@@ -36,11 +36,11 @@ ratingEntitiesForHero        → hero rate() / hero synthetics
 ratingEntitiesForBalance     → predictWin / lobby-balance (one blended entity per hero slot)
 ```
 
-| Call site                                           | Helper                     |
-| --------------------------------------------------- | -------------------------- |
+| Call site                                               | Helper                                               |
+| ------------------------------------------------------- | ---------------------------------------------------- |
 | `rating-update.ts` overall + hero `rate()` / synthetics | `ratingEntitiesForOverall` / `ratingEntitiesForHero` |
-| `rating-preview.ts` `computeWinChanceFromRatings`   | `ratingEntitiesForBalance` |
-| `lobby-balance.ts` `winChanceForRoster`             | `ratingEntitiesForBalance` |
+| `rating-preview.ts` `computeWinChanceFromRatings`       | `ratingEntitiesForBalance`                           |
+| `lobby-balance.ts` `winChanceForRoster`                 | `ratingEntitiesForBalance`                           |
 
 Roster lines still show separate player ki and hero ki.
 

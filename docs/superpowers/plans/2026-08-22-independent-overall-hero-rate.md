@@ -28,16 +28,16 @@
 
 ## File map
 
-| File | Role |
-| ---- | ---- |
-| `src/services/rating/rating-entities.ts` | `ratingEntitiesForOverall` / `ratingEntitiesForHero`; remove dual `ratingEntitiesForPlayer` |
-| `src/services/rating/rating-entities.test.ts` | Entity helper tests; keep 80/20 tests unchanged |
-| `src/services/rating/rating-update.ts` | `canRunHeroRate`; independent synthetics; two-pass team `rate()` |
-| `src/services/rating/rating-update.test.ts` | `canRunHeroRate`; apply skip-hero; ACA unchanged |
-| `src/services/rating/rating-update.simulate.test.ts` | Product claim; skip hero `rate()`; quit overall independent of hero |
-| `src/services/rating/rating-preview.ts` | Comment only (`rate()` no longer dual-entity) |
-| `.cursor/rules/openskill-rating.mdc` | Independent ladders; 80/20 stays predictWin-only |
-| `docs/superpowers/specs/2026-08-22-player-hero-balance-weight-design.md` | Note apply/synthetics superseded |
+| File                                                                     | Role                                                                                        |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `src/services/rating/rating-entities.ts`                                 | `ratingEntitiesForOverall` / `ratingEntitiesForHero`; remove dual `ratingEntitiesForPlayer` |
+| `src/services/rating/rating-entities.test.ts`                            | Entity helper tests; keep 80/20 tests unchanged                                             |
+| `src/services/rating/rating-update.ts`                                   | `canRunHeroRate`; independent synthetics; two-pass team `rate()`                            |
+| `src/services/rating/rating-update.test.ts`                              | `canRunHeroRate`; apply skip-hero; ACA unchanged                                            |
+| `src/services/rating/rating-update.simulate.test.ts`                     | Product claim; skip hero `rate()`; quit overall independent of hero                         |
+| `src/services/rating/rating-preview.ts`                                  | Comment only (`rate()` no longer dual-entity)                                               |
+| `.cursor/rules/openskill-rating.mdc`                                     | Independent ladders; 80/20 stays predictWin-only                                            |
+| `docs/superpowers/specs/2026-08-22-player-hero-balance-weight-design.md` | Note apply/synthetics superseded                                                            |
 
 ---
 
@@ -192,9 +192,7 @@ In `src/services/rating/rating-update.ts`, immediately after `canRunTeamRate`:
 
 ```ts
 /** True when both teams have ≥1 hero seat eligible for the hero OpenSkill rate(). */
-export function canRunHeroRate(
-  activeRateable: { team: 1 | 2; heroId: number | null }[],
-): boolean {
+export function canRunHeroRate(activeRateable: { team: 1 | 2; heroId: number | null }[]): boolean {
   const withHero = activeRateable.filter((entry) => entry.heroId != null);
   const hasTeamA = withHero.some((entry) => entry.team === 1);
   const hasTeamB = withHero.some((entry) => entry.team === 2);
@@ -307,9 +305,7 @@ function applyIndependentSyntheticLosses(
   hero: { mu: number; sigma: number },
   heroId: number | null,
 ): { global: Rating; hero?: Rating } {
-  const [nextGlobal] = applySyntheticLosses(
-    toOpenSkillRatings(ratingEntitiesForOverall(global)),
-  );
+  const [nextGlobal] = applySyntheticLosses(toOpenSkillRatings(ratingEntitiesForOverall(global)));
   if (!nextGlobal) {
     return { global: rating({ mu: global.mu, sigma: global.sigma }) };
   }
@@ -324,34 +320,34 @@ function applyIndependentSyntheticLosses(
 3. In `applySyntheticPenalties`, replace the `applySyntheticLosses(ratingEntitiesForPlayer(...))` block with:
 
 ```ts
-    const updated = applyIndependentSyntheticLosses(global, hero, entry.heroId);
-    const nextGlobal = updated.global;
+const updated = applyIndependentSyntheticLosses(global, hero, entry.heroId);
+const nextGlobal = updated.global;
 
-    await db.playerRating.update({
-      where: { leagueId_playerId: { leagueId, playerId: entry.playerId } },
-      data: {
-        mu: nextGlobal.mu,
-        sigma: nextGlobal.sigma,
-      },
-    });
+await db.playerRating.update({
+  where: { leagueId_playerId: { leagueId, playerId: entry.playerId } },
+  data: {
+    mu: nextGlobal.mu,
+    sigma: nextGlobal.sigma,
+  },
+});
 
-    if (entry.heroId == null || !updated.hero) {
-      continue;
-    }
+if (entry.heroId == null || !updated.hero) {
+  continue;
+}
 
-    await db.playerHeroRating.update({
-      where: {
-        leagueId_playerId_heroId: {
-          leagueId,
-          playerId: entry.playerId,
-          heroId: entry.heroId,
-        },
-      },
-      data: {
-        mu: updated.hero.mu,
-        sigma: updated.hero.sigma,
-      },
-    });
+await db.playerHeroRating.update({
+  where: {
+    leagueId_playerId_heroId: {
+      leagueId,
+      playerId: entry.playerId,
+      heroId: entry.heroId,
+    },
+  },
+  data: {
+    mu: updated.hero.mu,
+    sigma: updated.hero.sigma,
+  },
+});
 ```
 
 Still do **not** increment `matchesPlayed` here.
@@ -359,14 +355,14 @@ Still do **not** increment `matchesPlayed` here.
 4. In `simulatePostMatchRatings`, replace **both** quitter and griffer loops with:
 
 ```ts
-    const updated = applyIndependentSyntheticLosses(global, hero, entry.heroId);
-    globalByPlayer.set(entry.playerId, { mu: updated.global.mu, sigma: updated.global.sigma });
-    if (entry.heroId != null && updated.hero) {
-      heroByKey.set(heroKey(entry.playerId, entry.heroId), {
-        mu: updated.hero.mu,
-        sigma: updated.hero.sigma,
-      });
-    }
+const updated = applyIndependentSyntheticLosses(global, hero, entry.heroId);
+globalByPlayer.set(entry.playerId, { mu: updated.global.mu, sigma: updated.global.sigma });
+if (entry.heroId != null && updated.hero) {
+  heroByKey.set(heroKey(entry.playerId, entry.heroId), {
+    mu: updated.hero.mu,
+    sigma: updated.hero.sigma,
+  });
+}
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -474,36 +470,36 @@ describe('independent overall vs hero rate', () => {
 Add to `src/services/rating/rating-update.test.ts` inside `describe('applyMatchRatings')`:
 
 ```ts
-  it('does not write hero ratings when one team has no hero seats', async () => {
-    const playerRating = {
-      createMany: vi.fn().mockResolvedValue({ count: 2 }),
-      findMany: vi.fn().mockResolvedValue([
-        { playerId: 'p1', mu: 25, sigma: 8.333 },
-        { playerId: 'p2', mu: 25, sigma: 8.333 },
-      ]),
-      update: vi.fn().mockResolvedValue({}),
-    };
-    const playerHeroRating = {
-      createMany: vi.fn().mockResolvedValue({ count: 1 }),
-      findMany: vi.fn().mockResolvedValue([{ playerId: 'p2', heroId: 7, mu: 28, sigma: 7 }]),
-      update: vi.fn().mockResolvedValue({}),
-    };
-    const db = {
-      playerRating,
-      playerHeroRating,
-      matchPlayer: { findMany: vi.fn().mockResolvedValue([]) },
-      playerRankReset: { findMany: vi.fn().mockResolvedValue([]) },
-    };
-    const roster: RatingRosterEntry[] = [
-      { playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: false },
-      { playerId: 'p2', slot: 7, team: 2, heroId: 7, isQuitter: false },
-    ];
+it('does not write hero ratings when one team has no hero seats', async () => {
+  const playerRating = {
+    createMany: vi.fn().mockResolvedValue({ count: 2 }),
+    findMany: vi.fn().mockResolvedValue([
+      { playerId: 'p1', mu: 25, sigma: 8.333 },
+      { playerId: 'p2', mu: 25, sigma: 8.333 },
+    ]),
+    update: vi.fn().mockResolvedValue({}),
+  };
+  const playerHeroRating = {
+    createMany: vi.fn().mockResolvedValue({ count: 1 }),
+    findMany: vi.fn().mockResolvedValue([{ playerId: 'p2', heroId: 7, mu: 28, sigma: 7 }]),
+    update: vi.fn().mockResolvedValue({}),
+  };
+  const db = {
+    playerRating,
+    playerHeroRating,
+    matchPlayer: { findMany: vi.fn().mockResolvedValue([]) },
+    playerRankReset: { findMany: vi.fn().mockResolvedValue([]) },
+  };
+  const roster: RatingRosterEntry[] = [
+    { playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: false },
+    { playerId: 'p2', slot: 7, team: 2, heroId: 7, isQuitter: false },
+  ];
 
-    await applyMatchRatings('league-1', roster, 1, db as never);
+  await applyMatchRatings('league-1', roster, 1, db as never);
 
-    expect(playerRating.update).toHaveBeenCalled();
-    expect(playerHeroRating.update).not.toHaveBeenCalled();
-  });
+  expect(playerRating.update).toHaveBeenCalled();
+  expect(playerHeroRating.update).not.toHaveBeenCalled();
+});
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -538,8 +534,7 @@ function buildHeroTeamEntities(
 ): Rating[] {
   return toOpenSkillRatings(
     rosterEntriesWithHeroId(team).flatMap((entry) => {
-      const hero =
-        heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity();
+      const hero = heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity();
       return ratingEntitiesForHero(hero);
     }),
   );
@@ -555,11 +550,7 @@ function rateActiveMatchTeams(
   const { teamA, teamB } = splitRosterByTeam(activeRateable);
   const winningRoster = winningTeam === 1 ? teamA : teamB;
   const losingRoster = winningTeam === 1 ? teamB : teamA;
-  const { preGlobal, preHero } = snapshotPreMatchMuSigma(
-    activeRateable,
-    globalByPlayer,
-    heroByKey,
-  );
+  const { preGlobal, preHero } = snapshotPreMatchMuSigma(activeRateable, globalByPlayer, heroByKey);
 
   const [updatedWinningOverall, updatedLosingOverall] = rate(
     [
@@ -632,13 +623,13 @@ function rateActiveMatchTeams(
 3. In `applyMatchRatings`, after loading maps and `globalGamesByPlayer`, replace the `splitRosterByTeam` / `rate` / `registerTeam` block with:
 
 ```ts
-  const updatedByPlayer = rateActiveMatchTeams(
-    activeRateable,
-    winningTeam,
-    globalByPlayer,
-    heroByKey,
-    globalGamesByPlayer,
-  );
+const updatedByPlayer = rateActiveMatchTeams(
+  activeRateable,
+  winningTeam,
+  globalByPlayer,
+  heroByKey,
+  globalGamesByPlayer,
+);
 ```
 
 Keep the persist loop as-is (`matchesPlayed` increment only when `updated.hero` is set).
@@ -646,13 +637,13 @@ Keep the persist loop as-is (`matchesPlayed` increment only when `updated.hero` 
 4. In `simulatePostMatchRatings`, after the `canRunTeamRate` early return, replace the `rate` / `registerTeam` / scale block with:
 
 ```ts
-  const updatedByPlayer = rateActiveMatchTeams(
-    activeRateable,
-    winningTeam,
-    globalByPlayer,
-    heroByKey,
-    globalGamesByPlayer,
-  );
+const updatedByPlayer = rateActiveMatchTeams(
+  activeRateable,
+  winningTeam,
+  globalByPlayer,
+  heroByKey,
+  globalGamesByPlayer,
+);
 ```
 
 Keep the loop that writes `updatedByPlayer` back into the maps.
@@ -699,7 +690,7 @@ EOF
 
 Replace the **Dual entity graph** section and the predictWin paragraph that still says dual `rate()`, with:
 
-```md
+````md
 ## Dual ratings (per human participant)
 
 Each filled human slot still has **two persisted** ratings:
@@ -713,11 +704,13 @@ They are **not** teammates in `rate()`. Apply runs two independent OpenSkill cal
 Team array (overall rate()) = [Player1, Player2, ...]
 Team array (hero rate())    = [Hero1, Hero2, ...]   // seats with heroId only
 ```
+````
 
 A full 6v6 is 12 overall entities, then up to 12 hero entities — not 24 in one array. Unbalanced fills (e.g. 4v6) are valid if both teams have ≥1 rateable human. If either team has 0 hero seats, skip the hero `rate()`; overall still runs.
 
 Spec: `docs/superpowers/specs/2026-08-22-independent-overall-hero-rate-design.md`
-```
+
+````
 
 In **Team strength**, keep the 80/20 blend. Change:
 
@@ -739,7 +732,7 @@ At the top of `docs/superpowers/specs/2026-08-22-player-hero-balance-weight-desi
 
 ```md
 **Superseded for apply:** Dual-entity `rate()` / synthetics are replaced by [`2026-08-22-independent-overall-hero-rate-design.md`](./2026-08-22-independent-overall-hero-rate-design.md). This spec remains the source for **predictWin / balance hints only**.
-```
+````
 
 Change the Non-goals bullet `Changing OpenSkill rate()...` to past tense / “deferred, then done in independent-overall-hero-rate”. Change Decision + Architecture so `ratingEntitiesForPlayer` is no longer the apply helper; list `ratingEntitiesForOverall` / `ratingEntitiesForHero` instead.
 
@@ -772,20 +765,20 @@ EOF
 
 ## Self-review (spec coverage)
 
-| Spec requirement | Task |
-| ---------------- | ---- |
-| Two independent `rate()` calls | 4 |
-| Overall team = one entity per human | 1, 4 |
-| Hero team = `heroId` seats only | 1, 4 |
-| Skip both team `rate()` if empty `activeRateable` side | unchanged; still `canRunTeamRate` |
-| Skip hero `rate()` if empty hero side; overall still runs; no hero write | 2, 4 |
-| ACA overall-only | 4 (existing ACA apply test + skip-hero test) |
-| New / quitters excluded from both team `rate()` | unchanged partition |
-| Independent quit/griffer synthetics | 3 |
-| Lobby-relative scale after both `rate()`, global-ki offset, σ unchanged | 4 (`rateActiveMatchTeams` still calls existing scaler) |
-| `matchesPlayed` not on quit; not when hero `rate()` skipped | 3, 4 |
-| Product claim: same overall Δμ cold vs main | 4 |
-| Apply / simulate lockstep | 4 (shared helper) |
-| 80/20 predictWin unchanged | 1 (do not touch balance helpers), 5 |
-| No schema / no backfill | — |
-| Docs | 5 |
+| Spec requirement                                                         | Task                                                   |
+| ------------------------------------------------------------------------ | ------------------------------------------------------ |
+| Two independent `rate()` calls                                           | 4                                                      |
+| Overall team = one entity per human                                      | 1, 4                                                   |
+| Hero team = `heroId` seats only                                          | 1, 4                                                   |
+| Skip both team `rate()` if empty `activeRateable` side                   | unchanged; still `canRunTeamRate`                      |
+| Skip hero `rate()` if empty hero side; overall still runs; no hero write | 2, 4                                                   |
+| ACA overall-only                                                         | 4 (existing ACA apply test + skip-hero test)           |
+| New / quitters excluded from both team `rate()`                          | unchanged partition                                    |
+| Independent quit/griffer synthetics                                      | 3                                                      |
+| Lobby-relative scale after both `rate()`, global-ki offset, σ unchanged  | 4 (`rateActiveMatchTeams` still calls existing scaler) |
+| `matchesPlayed` not on quit; not when hero `rate()` skipped              | 3, 4                                                   |
+| Product claim: same overall Δμ cold vs main                              | 4                                                      |
+| Apply / simulate lockstep                                                | 4 (shared helper)                                      |
+| 80/20 predictWin unchanged                                               | 1 (do not touch balance helpers), 5                    |
+| No schema / no backfill                                                  | —                                                      |
+| Docs                                                                     | 5                                                      |
