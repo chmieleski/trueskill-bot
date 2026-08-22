@@ -273,7 +273,8 @@ jobs:
           fi
 
           # Single bash -lc so pipefail works under SSM (default shell is dash).
-          # Stop the bot before pull/update so npm ci cannot race a live process.
+          # git pull loads the new host-update.sh; that script stops the bot only
+          # after the stage build succeeds.
           COMMAND_ID="$(aws ssm send-command \
             --instance-ids "${INSTANCE_ID}" \
             --document-name AWS-RunShellScript \
@@ -288,7 +289,6 @@ jobs:
                     [
                       "set -euo pipefail",
                       "echo ==> deploy \($sha)",
-                      "systemctl stop dbz-bot || true",
                       "sudo -u ubuntu git -C \($app) fetch --all",
                       "sudo -u ubuntu git -C \($app) checkout main",
                       "sudo -u ubuntu git -C \($app) pull --ff-only origin main",

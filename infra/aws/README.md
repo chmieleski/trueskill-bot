@@ -105,7 +105,7 @@ sudo chmod 755 /usr/local/bin/dbz-bot-refresh-env
 
 ## CI/CD (push to `main`)
 
-Pull requests run `npm test`. A push to `main` runs the same tests, then AWS SSM runs `deploy/aws/host-update.sh` on the EC2 host (pull, migrate, build, register slash commands, restart).
+Pull requests run `npm test`. A push to `main` runs the same tests, then AWS SSM `git pull`s and runs `deploy/aws/host-update.sh`. The live bot stays up through `npm ci` / `tsc` in `/home/ubuntu/bot.next`. Restart is only the cut-over (stop → migrate → swap → start). A failed prepare leaves the current process running.
 
 ### One-time setup
 
