@@ -189,18 +189,47 @@ export function canStartLobby(players: LobbyPlayer[], profile?: GameProfile): bo
   return teamA.length >= 1 && teamB.length >= 1;
 }
 
+type LobbyEmbedField = { name: string; value: string; inline: boolean };
+
+/**
+ * Shown above win-chance on pending lobbies whose game allows screenshot OCR.
+ * Italic wraps only the prose so `/lobby screenshot` stays a Discord inline code span.
+ */
+export const SCREENSHOT_COMMAND_FOOTNOTE = '_Replace the roster with_ `/lobby screenshot`.';
+
+/**
+ * Full-width lead field for the screenshot command. Omitted when the game
+ * refuses screenshots (`import: none`).
+ */
+function screenshotCommandLeadField(profile: GameProfile): LobbyEmbedField | undefined {
+  if (profile.import === 'none') {
+    return undefined;
+  }
+  return {
+    name: '\u200b',
+    value: SCREENSHOT_COMMAND_FOOTNOTE,
+    inline: false,
+  };
+}
+
 /**
  * Win-chance row: two inline fields + blank spacer so Discord keeps a clean
  * two-column row (embeds lay out inline fields in groups of three).
+ * `leadField` (pending screenshot hint) replaces the blank full-width spacer
+ * so the command sits immediately above the odds.
  */
-function ratingPreviewFields(preview: LobbyRatingPreview | undefined, profile?: GameProfile) {
+function ratingPreviewFields(
+  preview: LobbyRatingPreview | undefined,
+  profile?: GameProfile,
+  leadField?: LobbyEmbedField,
+): LobbyEmbedField[] {
   if (!preview?.winChance) {
-    return [];
+    return leadField ? [leadField] : [];
   }
 
   const { teamAPercent, teamBPercent } = preview.winChance;
   return [
-    {
+    leadField ?? {
       name: '\u200b',
       value: '\u200b',
       inline: false,
@@ -364,7 +393,7 @@ export function buildMatchLobbyEmbed(
         value: teamBValue,
         inline: false,
       },
-      ...ratingPreviewFields(options.ratingPreview, profile),
+      ...ratingPreviewFields(options.ratingPreview, profile, screenshotCommandLeadField(profile)),
       ...balanceHintFields(options.ratingPreview),
     )
     .setColor(0x5865f2);

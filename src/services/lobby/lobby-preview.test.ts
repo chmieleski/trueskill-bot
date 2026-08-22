@@ -12,6 +12,7 @@ import {
   formatTeamLines,
   formatTeamLinesFromPreview,
   LOBBY_CUSTOM_IDS,
+  SCREENSHOT_COMMAND_FOOTNOTE,
 } from './lobby-preview.js';
 import { getGameProfile } from '../../domain/game-profile.js';
 import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID } from '../../domain/games.js';
@@ -793,6 +794,99 @@ describe('buildMatchLobbyEmbed', () => {
     expect(embed.data.description).toContain(
       'Use Refresh to attach the live Warcraft lobby. The host Discord must be linked with /link and seated in that lobby.',
     );
+  });
+
+  it('places the screenshot command footnote immediately above win-chance', () => {
+    const embed = buildMatchLobbyEmbed(
+      'm1',
+      [
+        { nick: 'Alice', slot: 1 },
+        { nick: 'Bob', slot: 7 },
+      ],
+      {
+        ratingPreview: {
+          players: [
+            { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
+            { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
+          ],
+          winChance: { teamAPercent: 70, teamBPercent: 30 },
+        },
+      },
+    );
+    const fields = embed.data.fields ?? [];
+    const footnoteIndex = fields.findIndex((field) => field.value === SCREENSHOT_COMMAND_FOOTNOTE);
+    const winIndex = fields.findIndex((field) => field.name?.includes('win'));
+
+    expect(footnoteIndex).toBeGreaterThanOrEqual(0);
+    expect(winIndex).toBe(footnoteIndex + 1);
+  });
+
+  it('still shows the screenshot command footnote when win-chance is missing', () => {
+    const embed = buildMatchLobbyEmbed('m1', [{ nick: 'Alice', slot: 1 }]);
+    const fields = embed.data.fields ?? [];
+
+    expect(fields.at(-1)?.value).toBe(SCREENSHOT_COMMAND_FOOTNOTE);
+  });
+
+  it('omits the screenshot command footnote when the game refuses screenshots', () => {
+    const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
+    const embed = buildMatchLobbyEmbed(
+      'match-aca',
+      [
+        { nick: 'alice', slot: 1 },
+        { nick: 'bob', slot: 6 },
+      ],
+      {
+        profile: aca,
+        ratingPreview: {
+          players: [
+            {
+              slot: 1,
+              nick: 'alice',
+              globalOrdinal: 1100,
+              heroOrdinal: 1100,
+              showHero: false,
+              leagueGames: 8,
+            },
+            {
+              slot: 6,
+              nick: 'bob',
+              globalOrdinal: 900,
+              heroOrdinal: 900,
+              showHero: false,
+              leagueGames: 8,
+            },
+          ],
+          winChance: { teamAPercent: 55, teamBPercent: 45 },
+        },
+      },
+    );
+    const fields = embed.data.fields ?? [];
+
+    expect(fields.some((field) => field.value === SCREENSHOT_COMMAND_FOOTNOTE)).toBe(false);
+    expect(fields.find((field) => field.name?.includes('win'))?.value).toContain('55%');
+  });
+
+  it('omits the screenshot command footnote on Match In Progress', () => {
+    const embed = buildMatchInProgressEmbed(
+      'm1',
+      [
+        { nick: 'Alice', slot: 1 },
+        { nick: 'Bob', slot: 7 },
+      ],
+      {
+        ratingPreview: {
+          players: [
+            { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
+            { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
+          ],
+          winChance: { teamAPercent: 70, teamBPercent: 30 },
+        },
+      },
+    );
+    const fields = embed.data.fields ?? [];
+
+    expect(fields.some((field) => field.value === SCREENSHOT_COMMAND_FOOTNOTE)).toBe(false);
   });
 });
 
