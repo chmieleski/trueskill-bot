@@ -19,7 +19,7 @@ vi.mock('../../lib/prisma.js', () => ({
   },
 }));
 
-import { collectNewPlayerSuggestions } from '../rating/new-player.js';
+import { collectNewPlayerSuggestions, collectNewPlayerSuggestionsForPendingCreate } from '../rating/new-player.js';
 
 function statsMap(
   entries: Array<[string, number]>,
@@ -122,5 +122,68 @@ describe('collectNewPlayerSuggestions', () => {
         matchId: 'match-1',
       },
     ]);
+  });
+});
+
+describe('collectNewPlayerSuggestionsForPendingCreate', () => {
+  beforeEach(() => {
+    loadMatchDisplayStatsByPlayer.mockReset();
+    playerRatingFindMany.mockReset();
+    playerRatingFindMany.mockResolvedValue([]);
+  });
+
+  it('returns [] for an empty create roster', async () => {
+    await expect(
+      collectNewPlayerSuggestionsForPendingCreate({
+        leagueId: 'league-1',
+        matchId: 'match-1',
+        players: [],
+      }),
+    ).resolves.toEqual([]);
+    expect(loadMatchDisplayStatsByPlayer).not.toHaveBeenCalled();
+  });
+
+  it('suggests first-timers on PENDING create with empty previous set', async () => {
+    loadMatchDisplayStatsByPlayer.mockResolvedValue(
+      statsMap([
+        ['p-new', 0],
+        ['p-vet', 3],
+      ]),
+    );
+
+    const suggestions = await collectNewPlayerSuggestionsForPendingCreate({
+      leagueId: 'league-1',
+      matchId: 'match-1',
+      players: [
+        { playerId: 'p-new', username: 'rookie' },
+        { playerId: 'p-vet', username: 'veteran' },
+      ],
+    });
+
+    expect(suggestions).toEqual([
+      {
+        playerId: 'p-new',
+        username: 'rookie',
+        leagueId: 'league-1',
+        matchId: 'match-1',
+      },
+    ]);
+    expect(loadMatchDisplayStatsByPlayer).toHaveBeenCalledWith(
+      'league-1',
+      ['p-new', 'p-vet'],
+      expect.anything(),
+    );
+  });
+
+  it('returns [] when create roster has no eligible first-timers', async () => {
+    loadMatchDisplayStatsByPlayer.mockResolvedValue(statsMap([['p-vet', 2]]));
+
+    await expect(
+      collectNewPlayerSuggestionsForPendingCreate({
+        leagueId: 'league-1',
+        matchId: 'match-1',
+        players: [{ playerId: 'p-vet', username: 'veteran' }],
+      }),
+    ).resolves.toEqual([]);
   });
 });

@@ -9,7 +9,7 @@ import { KI_Z_BLEND_GAMES } from './rating-math.js';
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
-/** Payload for host/mod New-player confirm prompts after a roster add. */
+/** Payload for host/mod New-player confirm prompts after a roster add or PENDING create. */
 export type NewPlayerSuggestion = {
   playerId: string;
   username: string;
@@ -135,6 +135,31 @@ export async function collectNewPlayerSuggestions(input: {
   }
 
   return suggestions.length > 0 ? suggestions : undefined;
+}
+
+/**
+ * After PENDING create with a seated roster, treat every seated player as newly joined
+ * (`previousPlayerIds` empty). Returns [] when the roster is empty or nobody qualifies.
+ * One follow-up prompt per suggestion is fine for v1 (register/create can seat many).
+ */
+export async function collectNewPlayerSuggestionsForPendingCreate(input: {
+  leagueId: string;
+  matchId: string;
+  players: Array<{ playerId: string; username: string }>;
+  db?: Db;
+}): Promise<NewPlayerSuggestion[]> {
+  if (input.players.length === 0) {
+    return [];
+  }
+
+  const suggestions = await collectNewPlayerSuggestions({
+    leagueId: input.leagueId,
+    matchId: input.matchId,
+    previousPlayerIds: new Set(),
+    nextPlayers: input.players,
+    db: input.db,
+  });
+  return suggestions ?? [];
 }
 
 function newPlayerActionCode(action: NewPlayerButtonAction): string {

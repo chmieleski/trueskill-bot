@@ -57,6 +57,7 @@ import {
   buildNewPlayerSuggestComponents,
   buildNewPlayerSuggestContent,
   handleNewPlayerInteraction,
+  sendNewPlayerSuggestPrompts,
 } from './new-player-interactions.js';
 import { MatchServiceError } from '../../services/match/index.js';
 
@@ -80,6 +81,15 @@ function buttonInteraction(customId: string, overrides: Record<string, unknown> 
     followUp: vi.fn(),
     ...overrides,
   } as unknown as Interaction;
+}
+
+function chatInputInteraction(overrides: Record<string, unknown> = {}) {
+  return {
+    user: { id: HOST_ID },
+    member: { roles: ['role-1'] },
+    followUp: vi.fn(),
+    ...overrides,
+  };
 }
 
 describe('buildNewPlayerSuggestComponents', () => {
@@ -125,6 +135,63 @@ describe('buildNewPlayerSuggestComponents', () => {
 describe('buildNewPlayerSuggestContent', () => {
   it('asks host/mod to mark the player as New', () => {
     expect(buildNewPlayerSuggestContent('Goku')).toBe('Mark **Goku** as New? (host/mod)');
+  });
+});
+
+describe('sendNewPlayerSuggestPrompts', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    canManageMatch.mockReturnValue(true);
+  });
+
+  it('no-ops when there are no suggestions', async () => {
+    const interaction = chatInputInteraction();
+    await sendNewPlayerSuggestPrompts({
+      interaction: interaction as never,
+      match: { id: MATCH_ID, hostDiscordId: HOST_ID, leagueId: LEAGUE_ID },
+      suggestions: [],
+      matchModRoleId: 'mod-role',
+    });
+    expect(interaction.followUp).not.toHaveBeenCalled();
+  });
+
+  it('sends one ephemeral follow-up per suggestion when the host can manage', async () => {
+    const interaction = chatInputInteraction();
+    await sendNewPlayerSuggestPrompts({
+      interaction: interaction as never,
+      match: { id: MATCH_ID, hostDiscordId: HOST_ID, leagueId: LEAGUE_ID },
+      suggestions: [
+        {
+          playerId: PLAYER_ID,
+          username: 'Goku',
+          leagueId: LEAGUE_ID,
+          matchId: MATCH_ID,
+        },
+        {
+          playerId: '550e8400-e29b-41d4-a716-446655440001',
+          username: 'Vegeta',
+          leagueId: LEAGUE_ID,
+          matchId: MATCH_ID,
+        },
+      ],
+      matchModRoleId: 'mod-role',
+    });
+
+    expect(interaction.followUp).toHaveBeenCalledTimes(2);
+    expect(interaction.followUp).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        content: 'Mark **Goku** as New? (host/mod)',
+        flags: MessageFlags.Ephemeral,
+      }),
+    );
+    expect(interaction.followUp).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        content: 'Mark **Vegeta** as New? (host/mod)',
+        flags: MessageFlags.Ephemeral,
+      }),
+    );
   });
 });
 

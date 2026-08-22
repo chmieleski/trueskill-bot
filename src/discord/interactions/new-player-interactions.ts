@@ -99,10 +99,11 @@ export function buildNewPlayerSuggestContent(username: string): string {
 }
 
 /**
- * After claim/add, show New-player confirm buttons.
+ * After claim/add or PENDING create (`/register_lobby`, wc3stats open), show New-player confirm buttons.
  * Ephemeral when the actor can manage the match; otherwise a public follow-up.
  * Custom ids bind `actorDiscordId` to the match host (mods still authorized on click).
- * Discord API failures are logged and do not fail the successful roster claim/add.
+ * One follow-up per suggestion (v1); Discord API failures are logged and do not fail the
+ * successful roster claim/add/create.
  */
 export async function sendNewPlayerSuggestPrompts(
   input: SendNewPlayerSuggestPromptsInput,

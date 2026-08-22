@@ -19,6 +19,7 @@ import {
 import {
   loadLobbyRatingPreview,
   matchPlayersToRatingEntries,
+  collectNewPlayerSuggestionsForPendingCreate,
 } from '../../services/rating/index.js';
 import {
   allowsEmptyMatchOnWc3statsFailure,
@@ -43,6 +44,7 @@ import {
 } from '../../services/league/league-wc3stats.js';
 import { importWc3statsLobby } from '../../services/wc3stats/index.js';
 import { loadLeagueWc3statsHeroSlotMap } from '../../services/wc3stats/index.js';
+import { sendNewPlayerSuggestPrompts } from '../../discord/interactions/new-player-interactions.js';
 
 const log = createLogger('register_lobby');
 
@@ -305,6 +307,27 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const previewMessage = await interaction.fetchReply();
 
     await attachDiscordMessage(created.matchId, previewMessage.id, interaction.channelId);
+
+    if (match && match.players.length > 0) {
+      const suggestions = await collectNewPlayerSuggestionsForPendingCreate({
+        leagueId,
+        matchId: created.matchId,
+        players: match.players.map((player) => ({
+          playerId: player.playerId,
+          username: player.player.username,
+        })),
+      });
+      await sendNewPlayerSuggestPrompts({
+        interaction,
+        match: {
+          id: match.id,
+          hostDiscordId: match.hostDiscordId,
+          leagueId: match.leagueId,
+        },
+        suggestions,
+        matchModRoleId: guildConfig?.matchModRoleId,
+      });
+    }
 
     log.info(
       {

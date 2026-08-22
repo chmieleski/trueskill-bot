@@ -37,6 +37,7 @@ export {
   buildNewPlayerConfirmCustomId,
   buildNewPlayerDeclineCustomId,
   collectNewPlayerSuggestions,
+  collectNewPlayerSuggestionsForPendingCreate,
   loadIsNewPlayerByPlayerId,
   NEW_PLAYER_LABEL,
   NEW_PLAYER_PROMPT_PREFIX,
