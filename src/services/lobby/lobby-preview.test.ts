@@ -16,6 +16,18 @@ import {
 import { getGameProfile } from '../../domain/game-profile.js';
 import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID } from '../../domain/games.js';
 import { buildCompletedRatingPreview } from '../rating/rating-preview.js';
+import type { PlayerMatchDisplayStats } from '../rating/rank-reset-display.js';
+
+function displayStats(
+  entries: Array<[string, { games: number; quits: number }]>,
+): Map<string, PlayerMatchDisplayStats> {
+  return new Map(
+    entries.map(([playerId, row]) => [
+      playerId,
+      { games: row.games, wins: 0, losses: 0, quits: row.quits },
+    ]),
+  );
+}
 
 describe('formatSignedDelta', () => {
   it('formats signed deltas and omits when undefined', () => {
@@ -232,6 +244,10 @@ describe('buildCompletedRatingPreview', () => {
         ['p1', 5],
         ['p2', 8],
       ]),
+      displayStats([
+        ['p1', { games: 5, quits: 0 }],
+        ['p2', { games: 8, quits: 0 }],
+      ]),
     );
 
     expect(preview.players).toEqual([
@@ -245,6 +261,7 @@ describe('buildCompletedRatingPreview', () => {
         isQuitter: false,
         showHero: true,
         leagueGames: 5,
+        habitualQuitter: false,
       },
       {
         slot: 7,
@@ -256,6 +273,7 @@ describe('buildCompletedRatingPreview', () => {
         isQuitter: true,
         showHero: true,
         leagueGames: 8,
+        habitualQuitter: false,
       },
     ]);
     expect(preview.winChance).toBeUndefined();
@@ -279,10 +297,42 @@ describe('buildCompletedRatingPreview', () => {
         ['p1', 5],
         ['p2', 5],
       ]),
+      displayStats([
+        ['p1', { games: 5, quits: 0 }],
+        ['p2', { games: 5, quits: 0 }],
+      ]),
       { teamAPercent: 55, teamBPercent: 45 },
     );
 
     expect(preview.winChance).toEqual({ teamAPercent: 55, teamBPercent: 45 });
+  });
+
+  it('sets habitualQuitter from display stats including a just-completed quit', () => {
+    const preview = buildCompletedRatingPreview(
+      [
+        { playerId: 'p1', slot: 1, team: 1, heroId: 1, nick: 'goku', isQuitter: false },
+        { playerId: 'p2', slot: 7, team: 2, heroId: 7, nick: 'vegeta', isQuitter: true },
+      ],
+      new Map([
+        [1, { global: 1000, hero: 1000 }],
+        [7, { global: 1000, hero: 1000 }],
+      ]),
+      new Map([
+        [1, { global: 1186, hero: 1200 }],
+        [7, { global: 900, hero: 850 }],
+      ]),
+      new Map([
+        ['p1', 5],
+        ['p2', 1],
+      ]),
+      displayStats([
+        ['p1', { games: 5, quits: 0 }],
+        ['p2', { games: 1, quits: 1 }],
+      ]),
+    );
+
+    expect(preview.players[0]?.habitualQuitter).toBe(false);
+    expect(preview.players[1]?.habitualQuitter).toBe(true);
   });
 });
 

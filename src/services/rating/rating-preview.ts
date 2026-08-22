@@ -16,7 +16,12 @@ import {
   splitRosterByTeam,
   toOpenSkillRatings,
 } from './rating-math.js';
-import { gamesByPlayerFromStats, loadMatchDisplayStatsByPlayer } from './rank-reset-display.js';
+import {
+  gamesByPlayerFromStats,
+  habitualQuitterFromStats,
+  loadMatchDisplayStatsByPlayer,
+  type PlayerMatchDisplayStats,
+} from './rank-reset-display.js';
 import {
   suggestBalanceMoves,
   type BalanceRatingLookup,
@@ -267,6 +272,7 @@ export function buildCompletedRatingPreview(
   beforeBySlot: Map<number, PlayerKiPair>,
   afterBySlot: Map<number, PlayerKiPair>,
   leagueGamesByPlayer: Map<string, number>,
+  displayStatsByPlayer: Map<string, PlayerMatchDisplayStats>,
   winChance?: WinChancePercents,
 ): LobbyRatingPreview {
   const players: LobbyRatingPlayerLine[] = [...entries]
@@ -288,6 +294,7 @@ export function buildCompletedRatingPreview(
         isGriffer: entry.isGriffer,
         showHero: entry.heroId != null,
         leagueGames: leagueGamesByPlayer.get(entry.playerId) ?? 0,
+        habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),
       };
     });
 
@@ -362,6 +369,7 @@ export async function loadLobbyRatingPreview(
           isGriffer: entry.isGriffer,
           showHero: false,
           leagueGames: globalGames,
+          habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),
         };
       }
 
@@ -377,6 +385,7 @@ export async function loadLobbyRatingPreview(
         isGriffer: entry.isGriffer,
         showHero: true,
         leagueGames: globalGames,
+        habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),
       };
     });
 
