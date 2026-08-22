@@ -162,3 +162,50 @@ describe('simulatePostMatchRatings with New', () => {
     expect(globalByPlayer.get('quitA')!.mu).toBeLessThan(25);
   });
 });
+
+describe('simulatePostMatchRatings quit synthetics', () => {
+  it('moves overall Δμ the same regardless of hero μ/σ', () => {
+    const entries = [
+      {
+        playerId: 'quitA',
+        slot: 1,
+        team: 1 as const,
+        heroId: 1,
+        isQuitter: true,
+      },
+      {
+        playerId: 'vetB',
+        slot: 7,
+        team: 2 as const,
+        heroId: null,
+        isQuitter: false,
+      },
+    ];
+    const overall = { mu: 28, sigma: 6 };
+    const afterCold = simulatePostMatchRatings(
+      entries,
+      2,
+      new Map([
+        ['quitA', overall],
+        ['vetB', { mu: 25, sigma: 8.333 }],
+      ]),
+      new Map([['quitA:1', { mu: 25, sigma: 8.333 }]]),
+    );
+    const afterMain = simulatePostMatchRatings(
+      entries,
+      2,
+      new Map([
+        ['quitA', overall],
+        ['vetB', { mu: 25, sigma: 8.333 }],
+      ]),
+      new Map([['quitA:1', { mu: 35, sigma: 3 }]]),
+    );
+
+    expect(afterCold.globalByPlayer.get('quitA')!.mu).toBeCloseTo(
+      afterMain.globalByPlayer.get('quitA')!.mu,
+    );
+    expect(afterCold.heroByKey.get('quitA:1')!.mu).not.toBeCloseTo(
+      afterMain.heroByKey.get('quitA:1')!.mu,
+    );
+  });
+});

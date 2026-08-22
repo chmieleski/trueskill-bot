@@ -2,7 +2,11 @@ import type { Prisma } from '@prisma/client';
 import { rating, rate, type Rating } from 'openskill';
 import { prisma } from '../../lib/prisma.js';
 import { MatchServiceError } from '../match/match-service.js';
-import { ratingEntitiesForPlayer } from './rating-entities.js';
+import {
+  ratingEntitiesForHero,
+  ratingEntitiesForOverall,
+  ratingEntitiesForPlayer,
+} from './rating-entities.js';
 import { computeLobbyAvgKi, kisForLobbyAverage, scaleAppliedMu } from './lobby-relative-scale.js';
 import { displayOrdinal, splitRosterByTeam, toOpenSkillRatings } from './rating-math.js';
 import { ensurePlayerRatings } from './rating-preview.js';
@@ -65,6 +69,24 @@ export function applySyntheticLosses(
   }
 
   return current;
+}
+
+function applyIndependentSyntheticLosses(
+  global: { mu: number; sigma: number },
+  hero: { mu: number; sigma: number },
+  heroId: number | null,
+): { global: Rating; hero?: Rating } {
+  const [nextGlobal] = applySyntheticLosses(
+    toOpenSkillRatings(ratingEntitiesForOverall(global)),
+  );
+  if (!nextGlobal) {
+    return { global: rating({ mu: global.mu, sigma: global.sigma }) };
+  }
+  if (heroId == null) {
+    return { global: nextGlobal };
+  }
+  const [nextHero] = applySyntheticLosses(toOpenSkillRatings(ratingEntitiesForHero(hero)));
+  return { global: nextGlobal, hero: nextHero };
 }
 
 export function partitionRosterForRating<T extends { isQuitter: boolean; wasNewPlayer?: boolean }>(
@@ -150,14 +172,8 @@ async function applySyntheticPenalties(
       entry.heroId == null
         ? defaultRatingEntity()
         : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity());
-    const updated = applySyntheticLosses(
-      toOpenSkillRatings(ratingEntitiesForPlayer(global, hero, entry.heroId)),
-    );
-    const nextGlobal = updated[0];
-
-    if (!nextGlobal) {
-      continue;
-    }
+    const updated = applyIndependentSyntheticLosses(global, hero, entry.heroId);
+    const nextGlobal = updated.global;
 
     await db.playerRating.update({
       where: { leagueId_playerId: { leagueId, playerId: entry.playerId } },
@@ -167,12 +183,7 @@ async function applySyntheticPenalties(
       },
     });
 
-    if (entry.heroId == null) {
-      continue;
-    }
-
-    const nextHero = updated[1];
-    if (!nextHero) {
+    if (entry.heroId == null || !updated.hero) {
       continue;
     }
 
@@ -185,8 +196,8 @@ async function applySyntheticPenalties(
         },
       },
       data: {
-        mu: nextHero.mu,
-        sigma: nextHero.sigma,
+        mu: updated.hero.mu,
+        sigma: updated.hero.sigma,
       },
     });
   }
@@ -484,22 +495,13 @@ export function simulatePostMatchRatings(
       entry.heroId == null
         ? defaultRatingEntity()
         : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity());
-    const updated = applySyntheticLosses(
-      toOpenSkillRatings(ratingEntitiesForPlayer(global, hero, entry.heroId)),
-    );
-    const nextGlobal = updated[0];
-    if (!nextGlobal) {
-      continue;
-    }
-    globalByPlayer.set(entry.playerId, { mu: nextGlobal.mu, sigma: nextGlobal.sigma });
-    if (entry.heroId != null) {
-      const nextHero = updated[1];
-      if (nextHero) {
-        heroByKey.set(heroKey(entry.playerId, entry.heroId), {
-          mu: nextHero.mu,
-          sigma: nextHero.sigma,
-        });
-      }
+    const updated = applyIndependentSyntheticLosses(global, hero, entry.heroId);
+    globalByPlayer.set(entry.playerId, { mu: updated.global.mu, sigma: updated.global.sigma });
+    if (entry.heroId != null && updated.hero) {
+      heroByKey.set(heroKey(entry.playerId, entry.heroId), {
+        mu: updated.hero.mu,
+        sigma: updated.hero.sigma,
+      });
     }
   }
 
@@ -509,22 +511,13 @@ export function simulatePostMatchRatings(
       entry.heroId == null
         ? defaultRatingEntity()
         : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity());
-    const updated = applySyntheticLosses(
-      toOpenSkillRatings(ratingEntitiesForPlayer(global, hero, entry.heroId)),
-    );
-    const nextGlobal = updated[0];
-    if (!nextGlobal) {
-      continue;
-    }
-    globalByPlayer.set(entry.playerId, { mu: nextGlobal.mu, sigma: nextGlobal.sigma });
-    if (entry.heroId != null) {
-      const nextHero = updated[1];
-      if (nextHero) {
-        heroByKey.set(heroKey(entry.playerId, entry.heroId), {
-          mu: nextHero.mu,
-          sigma: nextHero.sigma,
-        });
-      }
+    const updated = applyIndependentSyntheticLosses(global, hero, entry.heroId);
+    globalByPlayer.set(entry.playerId, { mu: updated.global.mu, sigma: updated.global.sigma });
+    if (entry.heroId != null && updated.hero) {
+      heroByKey.set(heroKey(entry.playerId, entry.heroId), {
+        mu: updated.hero.mu,
+        sigma: updated.hero.sigma,
+      });
     }
   }
 
