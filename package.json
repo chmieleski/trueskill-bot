@@ -21,6 +21,7 @@
     "db:restore": "bash scripts/db-restore-local.sh",
     "db:migrate-multi-league": "tsx scripts/migrate-multi-league.ts",
     "seed:veterans": "tsx scripts/seed-veteran-ratings.ts",
+    "release:sync-pr": "tsx scripts/update-release-pr.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write .",

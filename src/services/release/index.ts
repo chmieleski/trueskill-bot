@@ -43,3 +43,11 @@ export {
   truncateDiscordField,
 } from './release-embed.js';
 export type { ReleaseCustomAction, StaffReleaseStatus } from './release-embed.js';
+export {
+  buildReleasePrBody,
+  commitSubjectToSummaryBullet,
+  isReleaseSyncCommit,
+  parseConventionalSubject,
+  pickReleasePrTitle,
+} from './release-pr-content.js';
+export type { ReleaseCommit } from './release-pr-content.js';
