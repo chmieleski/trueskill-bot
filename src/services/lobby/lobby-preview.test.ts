@@ -160,7 +160,7 @@ describe('formatTeamLinesFromPreview', () => {
         globalOrdinal: 3300,
         heroOrdinal: 4400,
         habitualQuitter: true,
-        isGriffer: true,
+        isGriefer: true,
         leagueGames: 8,
       },
       { slot: 3, nick: 'piccolo', globalOrdinal: 2100, heroOrdinal: 1800, leagueGames: 8 },
@@ -434,8 +434,14 @@ describe('buildMatchReportButtons', () => {
     expect(row?.toJSON().components.map((button) => button.custom_id)).toEqual([
       'match:report',
       'match:quitters',
-      'match:griffers',
+      'match:griefers',
       'match:cancel',
+    ]);
+    expect(row?.toJSON().components.map((button) => button.label)).toEqual([
+      'Report Winner',
+      'Quitters',
+      'Griefer',
+      'Cancel',
     ]);
   });
 });

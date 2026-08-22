@@ -12,7 +12,7 @@ import {
 } from '../rating/rating-preview.js';
 import { assertTeam } from '../../domain/game-profile.js';
 import {
-  applyGrifferPenalties,
+  applyGrieferPenalties,
   applyMatchRatings,
   applyQuitterPenalties,
   assertBothTeamsHaveActivePlayers,
@@ -87,23 +87,23 @@ export function resolveQuitterSlots(
   );
 }
 
-export function resolveGrifferSlots(
-  persistedFlags: Pick<MatchWithPlayers['players'][number], 'slot' | 'isGriffer'>[],
-  grifferSlots?: number[],
+export function resolveGrieferSlots(
+  persistedFlags: Pick<MatchWithPlayers['players'][number], 'slot' | 'isGriefer'>[],
+  grieferSlots?: number[],
 ): number[] {
-  if (grifferSlots !== undefined) {
-    return normalizeSlots(grifferSlots);
+  if (grieferSlots !== undefined) {
+    return normalizeSlots(grieferSlots);
   }
 
   return normalizeSlots(
-    persistedFlags.filter((player) => player.isGriffer).map((player) => player.slot),
+    persistedFlags.filter((player) => player.isGriefer).map((player) => player.slot),
   );
 }
 
 function toRatingEntries(
   match: MatchWithPlayers,
   quitterSlots: Set<number>,
-  grifferSlots: Set<number>,
+  grieferSlots: Set<number>,
   wasNewByPlayerId?: Map<string, boolean>,
 ): RatingRosterEntry[] {
   return match.players.map((player) => ({
@@ -112,7 +112,7 @@ function toRatingEntries(
     team: assertTeam(player.team),
     heroId: player.heroId,
     isQuitter: quitterSlots.has(player.slot),
-    isGriffer: grifferSlots.has(player.slot),
+    isGriefer: grieferSlots.has(player.slot),
     wasNewPlayer: wasNewByPlayerId?.get(player.playerId) === true,
   }));
 }
@@ -158,7 +158,7 @@ export async function setQuitters(
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
         data: {
           isQuitter,
-          ...(isQuitter ? { isGriffer: false } : {}),
+          ...(isQuitter ? { isGriefer: false } : {}),
         },
       });
     }
@@ -169,14 +169,14 @@ export async function setQuitters(
   return updated!;
 }
 
-export async function setGriffers(
+export async function setGriefers(
   matchId: string,
-  grifferSlots: number[],
+  grieferSlots: number[],
 ): Promise<MatchWithPlayers> {
   const match = requireInProgress(await getMatchById(matchId));
-  const grifferSet = new Set(grifferSlots);
+  const grieferSet = new Set(grieferSlots);
 
-  assertKnownSlots(match, grifferSet, 'griffer');
+  assertKnownSlots(match, grieferSet, 'griefer');
 
   await prisma.$transaction(async (tx) => {
     const current = await tx.match.findUnique({
@@ -193,19 +193,19 @@ export async function setGriffers(
     }
 
     for (const player of match.players) {
-      const isGriffer = grifferSet.has(player.slot);
+      const isGriefer = grieferSet.has(player.slot);
       await tx.matchPlayer.update({
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
         data: {
-          isGriffer,
-          ...(isGriffer ? { isQuitter: false } : {}),
+          isGriefer,
+          ...(isGriefer ? { isQuitter: false } : {}),
         },
       });
     }
   });
 
   const updated = await getMatchById(matchId);
-  log.info({ matchId, grifferSlots: [...grifferSet] }, 'Griffers updated');
+  log.info({ matchId, grieferSlots: [...grieferSet] }, 'Griefers updated');
   return updated!;
 }
 
@@ -213,26 +213,26 @@ export async function completeMatch(
   matchId: string,
   winningTeam: 1 | 2,
   quitterSlots?: number[],
-  grifferSlots?: number[],
+  grieferSlots?: number[],
 ): Promise<CompleteMatchResult> {
   let resolvedQuitterSlots: number[] = [];
-  let resolvedGrifferSlots: number[] = [];
+  let resolvedGrieferSlots: number[] = [];
   let ratingPreview: LobbyRatingPreview = { players: [] };
 
   await prisma.$transaction(async (tx) => {
     const match = await lockInProgressMatch(tx, matchId);
     resolvedQuitterSlots = resolveQuitterSlots(match.players, quitterSlots);
-    resolvedGrifferSlots = resolveGrifferSlots(match.players, grifferSlots);
+    resolvedGrieferSlots = resolveGrieferSlots(match.players, grieferSlots);
     const quitterSet = new Set(resolvedQuitterSlots);
-    const grifferSet = new Set(resolvedGrifferSlots);
+    const grieferSet = new Set(resolvedGrieferSlots);
     assertKnownSlots(match, quitterSet, 'quitter');
-    assertKnownSlots(match, grifferSet, 'griffer');
+    assertKnownSlots(match, grieferSet, 'griefer');
 
     const previewEntries = matchPlayersToRatingEntries(
       match.players.map((player) => ({
         ...player,
         isQuitter: quitterSet.has(player.slot),
-        isGriffer: grifferSet.has(player.slot),
+        isGriefer: grieferSet.has(player.slot),
       })),
     );
 
@@ -245,7 +245,7 @@ export async function completeMatch(
     );
     const playerIds = match.players.map((p) => p.playerId);
     const isNewByPlayerId = await loadIsNewPlayerByPlayerId(match.leagueId, playerIds, tx);
-    const entries = toRatingEntries(match, quitterSet, grifferSet, isNewByPlayerId);
+    const entries = toRatingEntries(match, quitterSet, grieferSet, isNewByPlayerId);
     const active = entries.filter((entry) => !entry.isQuitter);
     assertBothTeamsHaveActivePlayers(active);
 
@@ -269,7 +269,7 @@ export async function completeMatch(
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
         data: {
           isQuitter,
-          isGriffer: grifferSet.has(player.slot),
+          isGriefer: grieferSet.has(player.slot),
           result: won ? 'WIN' : 'LOSS',
           wasNewPlayer: isNewByPlayerId.get(player.playerId) === true,
         },
@@ -277,7 +277,7 @@ export async function completeMatch(
     }
 
     await applyQuitterPenalties(match.leagueId, entries, tx);
-    await applyGrifferPenalties(match.leagueId, entries, tx);
+    await applyGrieferPenalties(match.leagueId, entries, tx);
     await applyMatchRatings(match.leagueId, entries, winningTeam, tx);
 
     await tx.match.update({
@@ -313,7 +313,7 @@ export async function completeMatch(
       matchId,
       winningTeam,
       quitterSlots: resolvedQuitterSlots,
-      grifferSlots: resolvedGrifferSlots,
+      grieferSlots: resolvedGrieferSlots,
     },
     'Match completed',
   );
@@ -322,39 +322,39 @@ export async function completeMatch(
 
 export async function cancelInProgressMatch(
   matchId: string,
-  grifferSlots?: number[],
+  grieferSlots?: number[],
 ): Promise<MatchWithPlayers> {
   let quitterSlots: number[] = [];
-  let resolvedGrifferSlots: number[] = [];
+  let resolvedGrieferSlots: number[] = [];
 
   await prisma.$transaction(async (tx) => {
     const match = await lockInProgressMatch(tx, matchId);
     quitterSlots = resolveQuitterSlots(match.players);
-    resolvedGrifferSlots = resolveGrifferSlots(match.players, grifferSlots);
-    const grifferSet = new Set(resolvedGrifferSlots);
-    assertKnownSlots(match, grifferSet, 'griffer');
+    resolvedGrieferSlots = resolveGrieferSlots(match.players, grieferSlots);
+    const grieferSet = new Set(resolvedGrieferSlots);
+    assertKnownSlots(match, grieferSet, 'griefer');
 
-    if (grifferSlots !== undefined) {
+    if (grieferSlots !== undefined) {
       for (const player of match.players) {
-        const isGriffer = grifferSet.has(player.slot);
+        const isGriefer = grieferSet.has(player.slot);
         await tx.matchPlayer.update({
           where: { matchId_playerId: { matchId, playerId: player.playerId } },
           data: {
-            isGriffer,
-            ...(isGriffer ? { isQuitter: false } : {}),
+            isGriefer,
+            ...(isGriefer ? { isQuitter: false } : {}),
           },
         });
       }
     }
 
-    const entries = toRatingEntries(match, new Set(quitterSlots), grifferSet);
+    const entries = toRatingEntries(match, new Set(quitterSlots), grieferSet);
 
     if (quitterSlots.length > 0) {
       await applyQuitterPenalties(match.leagueId, entries, tx);
     }
 
-    if (resolvedGrifferSlots.length > 0) {
-      await applyGrifferPenalties(match.leagueId, entries, tx);
+    if (resolvedGrieferSlots.length > 0) {
+      await applyGrieferPenalties(match.leagueId, entries, tx);
     }
 
     await tx.match.update({
@@ -365,7 +365,7 @@ export async function cancelInProgressMatch(
 
   const updated = await getMatchById(matchId);
   log.info(
-    { matchId, quitterSlots, grifferSlots: resolvedGrifferSlots },
+    { matchId, quitterSlots, grieferSlots: resolvedGrieferSlots },
     'In-progress match cancelled',
   );
   return updated!;

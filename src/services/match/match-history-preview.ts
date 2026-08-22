@@ -162,7 +162,7 @@ export async function rebuildCompletedRatingPreview(
     team: player.team === 1 || player.team === 2 ? player.team : 1,
     heroId: player.heroId,
     isQuitter: player.isQuitter,
-    isGriffer: player.isGriffer,
+    isGriefer: player.isGriefer,
     wasNewPlayer: player.wasNewPlayer,
   }));
 

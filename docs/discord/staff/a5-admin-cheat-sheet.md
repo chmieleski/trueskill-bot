@@ -33,7 +33,7 @@
 • Edit the player summary, then Publish (all changelog channels) or Dismiss (no player post)
 
 **Mod role**
-• `/match complete|quitters|cancel` (+ `match_id`)
+• `/match complete|quitters|griefers|cancel` (+ `match_id`)
 • `/match flip match_id:… winner:…` — fix wrong winner within 24h (optional `quitters`)
 • `/match void match_id:…` — undo result and restore ki within 24h (mod only, not host)
 • `/link nick: user:@…` (others + relink)

@@ -33,7 +33,7 @@ describe('match command data', () => {
       'list',
       'show',
       'quitters',
-      'abusers',
+      'griefers',
       'complete',
       'cancel',
       'flip',
@@ -48,5 +48,14 @@ describe('match command data', () => {
 
     expect(optionNames).toContain('user');
     expect(optionNames).toContain('nick');
+  });
+
+  it('cancel subcommand takes griefers slots', () => {
+    const json = data.toJSON();
+    const cancel = json.options?.find((option) => option.name === 'cancel');
+    const optionNames = cancel?.options?.map((option) => option.name);
+
+    expect(optionNames).toContain('griefers');
+    expect(optionNames).not.toContain('abusers');
   });
 });

@@ -94,9 +94,9 @@ activeRateable    = !isQuitter && !wasNewPlayer
 - Run existing N=1 synthetic loss vs peer dummy on league-global + hero (unchanged).
 - Quit counts / quitter leaderboard behavior unchanged.
 
-### Griffer
+### Griefer
 
-Unchanged: griffer stays in team rating when not a quitter. New + griffer: New exclusion wins (not in team `rate()`); if also quitter, synthetic path only.
+Unchanged: griefer stays in team rating when not a quitter. New + griefer: New exclusion wins (not in team `rate()`); if also quitter, synthetic path only.
 
 ### Lobby-relative scale
 

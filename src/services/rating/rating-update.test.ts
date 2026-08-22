@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { MatchServiceError } from '../match/match-service.js';
 import { ensurePlayerRatings } from './rating-preview.js';
 import {
-  applyGrifferPenalties,
+  applyGrieferPenalties,
   applyMatchRatings,
   applyQuitterPenalties,
   applySyntheticLosses,
@@ -69,7 +69,7 @@ describe('partitionRosterForRating', () => {
     expect(activeRateable.map((entry) => entry.slot)).toEqual([2, 7]);
   });
 
-  it('keeps griffers in the rateable roster when not New', () => {
+  it('keeps griefers in the rateable roster when not New', () => {
     const { quitters, newNonQuit, activeRateable } = partitionRosterForRating([
       { slot: 1, isQuitter: false },
       { slot: 2, isQuitter: false },
@@ -284,13 +284,13 @@ describe('applyMatchRatings', () => {
   });
 });
 
-describe('applyGrifferPenalties', () => {
-  it('updates global ratings for a griffer with heroId null', async () => {
+describe('applyGrieferPenalties', () => {
+  it('updates global ratings for a griefer with heroId null', async () => {
     const db = heroNullDb();
 
-    await applyGrifferPenalties(
+    await applyGrieferPenalties(
       'league-1',
-      [{ playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: false, isGriffer: true }],
+      [{ playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: false, isGriefer: true }],
       db as never,
     );
 
@@ -298,12 +298,12 @@ describe('applyGrifferPenalties', () => {
     expect(db.playerRating.update).toHaveBeenCalled();
   });
 
-  it('skips griffer penalty when the player is also marked quitter', async () => {
+  it('skips griefer penalty when the player is also marked quitter', async () => {
     const db = heroNullDb();
 
-    await applyGrifferPenalties(
+    await applyGrieferPenalties(
       'league-1',
-      [{ playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: true, isGriffer: true }],
+      [{ playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: true, isGriefer: true }],
       db as never,
     );
 

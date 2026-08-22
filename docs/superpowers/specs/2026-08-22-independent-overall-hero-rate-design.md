@@ -32,7 +32,7 @@ Today one `rate()` treats `[overall, hero]` as two equal teammates. The hero ent
 | Empty hero side           | If either team has 0 hero seats → skip **hero** `rate()` only; overall still runs                      |
 | ACA (`heroId` null)       | Overall only; no hero seat                                                                             |
 | New / quitters            | Unchanged partition; excluded from **both** team `rate()` calls. New non-quit still freeze             |
-| Quit / griffer synthetics | Two N=1 peer losses: overall vs mirrored overall, hero vs mirrored hero (when `heroId` set)            |
+| Quit / griefer synthetics | Two N=1 peer losses: overall vs mirrored overall, hero vs mirrored hero (when `heroId` set)            |
 | Lobby-relative scale      | After both `rate()` calls; same global-ki offset on overall **and** hero Δμ; σ unchanged               |
 | Quit synthetics vs scale  | Still **not** lobby-scaled                                                                             |
 | Hero `matchesPlayed`      | Increment on non-quit apply with `heroId`; still **not** on quit                                       |
@@ -47,7 +47,7 @@ Hero remains a parallel ladder: a cold hero still takes a large high-σ swing on
 
 ## Apply flow
 
-Quit/griffer synthetics stay in `applyQuitterPenalties` / `applyGrifferPenalties` (and the matching loops inside `simulatePostMatchRatings`). Team `rate()` stays in `applyMatchRatings` / `simulatePostMatchRatings`. Both paths use the same overall-only and hero-only entity builders.
+Quit/griefer synthetics stay in `applyQuitterPenalties` / `applyGrieferPenalties` (and the matching loops inside `simulatePostMatchRatings`). Team `rate()` stays in `applyMatchRatings` / `simulatePostMatchRatings`. Both paths use the same overall-only and hero-only entity builders.
 
 ```text
 synthetics (per flagged human):
@@ -94,7 +94,7 @@ No Prisma migration. Tables stay separate (SRP).
 | ACA                  | Overall only                                                                                                                                  |
 | Mixed UDBR + ACA     | Hero pass uses only `heroId` seats; skip hero `rate()` if either team has 0                                                                   |
 | New / quitters       | Excluded from both team `rate()` calls                                                                                                        |
-| Quit / griffer       | Independent synthetics on each ladder; hero `matchesPlayed` not incremented on quit                                                           |
+| Quit / griefer       | Independent synthetics on each ladder; hero `matchesPlayed` not incremented on quit                                                           |
 | Empty rateable team  | Skip both team `rate()` calls; synthetics still run                                                                                           |
 | Lobby-relative scale | Same global-ki offset on both ladders; σ untouched                                                                                            |
 | `/match flip` (24h)  | Restore snapshots, re-apply current math (will not reproduce dual-entity results)                                                             |

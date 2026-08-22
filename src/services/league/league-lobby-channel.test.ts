@@ -274,10 +274,12 @@ describe('isLobbyChannelAllowedCommand', () => {
     expect(isLobbyChannelAllowedCommand('lobby', null)).toBe(true);
   });
 
-  it('allows only match complete, cancel, and quitters', () => {
+  it('allows only match complete, cancel, quitters, and griefers', () => {
     expect(isLobbyChannelAllowedCommand('match', 'complete')).toBe(true);
     expect(isLobbyChannelAllowedCommand('match', 'cancel')).toBe(true);
     expect(isLobbyChannelAllowedCommand('match', 'quitters')).toBe(true);
+    expect(isLobbyChannelAllowedCommand('match', 'griefers')).toBe(true);
+    expect(isLobbyChannelAllowedCommand('match', 'abusers')).toBe(false);
     expect(isLobbyChannelAllowedCommand('match', 'history')).toBe(false);
     expect(isLobbyChannelAllowedCommand('match', 'list')).toBe(false);
     expect(isLobbyChannelAllowedCommand('match', 'show')).toBe(false);

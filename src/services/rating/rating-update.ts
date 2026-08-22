@@ -28,7 +28,7 @@ export type RatingRosterEntry = {
   team: 1 | 2;
   heroId: number | null;
   isQuitter: boolean;
-  isGriffer?: boolean;
+  isGriefer?: boolean;
   /** Snapshot of New at apply time; missing/false means not New. */
   wasNewPlayer?: boolean;
 };
@@ -114,8 +114,8 @@ export function canRunHeroRate(activeRateable: { team: 1 | 2; heroId: number | n
   return hasTeamA && hasTeamB;
 }
 
-function grifferPenaltyEntries(entries: RatingRosterEntry[]): RatingRosterEntry[] {
-  return entries.filter((entry) => entry.isGriffer && !entry.isQuitter);
+function grieferPenaltyEntries(entries: RatingRosterEntry[]): RatingRosterEntry[] {
+  return entries.filter((entry) => entry.isGriefer && !entry.isQuitter);
 }
 
 async function applySyntheticPenalties(
@@ -219,13 +219,13 @@ export async function applyQuitterPenalties(
   await applySyntheticPenalties(leagueId, quitters, db);
 }
 
-export async function applyGrifferPenalties(
+export async function applyGrieferPenalties(
   leagueId: string,
   entries: RatingRosterEntry[],
   db: Db = prisma,
 ): Promise<void> {
   const sorted = [...entries].sort((left, right) => left.slot - right.slot);
-  await applySyntheticPenalties(leagueId, grifferPenaltyEntries(sorted), db);
+  await applySyntheticPenalties(leagueId, grieferPenaltyEntries(sorted), db);
 }
 
 type UpdatedPlayerRating = {
@@ -543,7 +543,7 @@ export function simulatePostMatchRatings(
     }
   }
 
-  for (const entry of grifferPenaltyEntries(sorted)) {
+  for (const entry of grieferPenaltyEntries(sorted)) {
     const global = globalByPlayer.get(entry.playerId) ?? defaultRatingEntity();
     const hero =
       entry.heroId == null
