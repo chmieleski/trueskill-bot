@@ -9,6 +9,7 @@ import {
   applySyntheticLosses,
   assertBothTeamsHaveActivePlayers,
   buildDummyOpponentTeam,
+  canRunHeroRate,
   canRunTeamRate,
   partitionRosterForRating,
   QUITTER_SYNTHETIC_LOSSES,
@@ -107,6 +108,40 @@ describe('canRunTeamRate', () => {
     expect(canRunTeamRate([{ team: 1 }, { team: 2 }])).toBe(true);
     expect(canRunTeamRate([{ team: 1 }])).toBe(false);
     expect(canRunTeamRate([])).toBe(false);
+  });
+});
+
+describe('canRunHeroRate', () => {
+  it('requires at least one hero seat on each team', () => {
+    expect(
+      canRunHeroRate([
+        { team: 1, heroId: 1 },
+        { team: 2, heroId: 7 },
+      ]),
+    ).toBe(true);
+    expect(
+      canRunHeroRate([
+        { team: 1, heroId: null },
+        { team: 2, heroId: 7 },
+      ]),
+    ).toBe(false);
+    expect(
+      canRunHeroRate([
+        { team: 1, heroId: 1 },
+        { team: 2, heroId: null },
+      ]),
+    ).toBe(false);
+    expect(canRunHeroRate([])).toBe(false);
+  });
+
+  it('allows mixed ACA + hero when both teams still have a hero', () => {
+    expect(
+      canRunHeroRate([
+        { team: 1, heroId: null },
+        { team: 1, heroId: 2 },
+        { team: 2, heroId: 7 },
+      ]),
+    ).toBe(true);
   });
 });
 

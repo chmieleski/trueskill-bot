@@ -86,6 +86,16 @@ export function canRunTeamRate(activeRateable: { team: 1 | 2 }[]): boolean {
   return hasTeamA && hasTeamB;
 }
 
+/** True when both teams have ≥1 hero seat eligible for the hero OpenSkill rate(). */
+export function canRunHeroRate(
+  activeRateable: { team: 1 | 2; heroId: number | null }[],
+): boolean {
+  const withHero = activeRateable.filter((entry) => entry.heroId != null);
+  const hasTeamA = withHero.some((entry) => entry.team === 1);
+  const hasTeamB = withHero.some((entry) => entry.team === 2);
+  return hasTeamA && hasTeamB;
+}
+
 function grifferPenaltyEntries(entries: RatingRosterEntry[]): RatingRosterEntry[] {
   return entries.filter((entry) => entry.isGriffer && !entry.isQuitter);
 }
