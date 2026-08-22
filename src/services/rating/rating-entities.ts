@@ -17,21 +17,6 @@ export function ratingEntitiesForHero(hero: MuSigma): MuSigma[] {
 }
 
 /**
- * OpenSkill entities for one roster player: global only when `heroId` is null,
- * otherwise the dual [global, hero] pair (stride 2).
- */
-export function ratingEntitiesForPlayer(
-  global: MuSigma,
-  hero: MuSigma,
-  heroId: number | null,
-): MuSigma[] {
-  if (heroId == null) {
-    return [global];
-  }
-  return [global, hero];
-}
-
-/**
  * Weighted Gaussian for lobby win% / balance hints: 80% player μ/σ + 20% hero.
  * Does not change persisted ratings or `rate()`.
  */

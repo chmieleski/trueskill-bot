@@ -251,6 +251,37 @@ describe('applyMatchRatings', () => {
     await expect(applyMatchRatings('league-1', roster, 1, db as never)).resolves.toBeUndefined();
     expect(db.playerRating.update).not.toHaveBeenCalled();
   });
+
+  it('does not write hero ratings when one team has no hero seats', async () => {
+    const playerRating = {
+      createMany: vi.fn().mockResolvedValue({ count: 2 }),
+      findMany: vi.fn().mockResolvedValue([
+        { playerId: 'p1', mu: 25, sigma: 8.333 },
+        { playerId: 'p2', mu: 25, sigma: 8.333 },
+      ]),
+      update: vi.fn().mockResolvedValue({}),
+    };
+    const playerHeroRating = {
+      createMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findMany: vi.fn().mockResolvedValue([{ playerId: 'p2', heroId: 7, mu: 28, sigma: 7 }]),
+      update: vi.fn().mockResolvedValue({}),
+    };
+    const db = {
+      playerRating,
+      playerHeroRating,
+      matchPlayer: { findMany: vi.fn().mockResolvedValue([]) },
+      playerRankReset: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    const roster: RatingRosterEntry[] = [
+      { playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: false },
+      { playerId: 'p2', slot: 7, team: 2, heroId: 7, isQuitter: false },
+    ];
+
+    await applyMatchRatings('league-1', roster, 1, db as never);
+
+    expect(playerRating.update).toHaveBeenCalled();
+    expect(playerHeroRating.update).not.toHaveBeenCalled();
+  });
 });
 
 describe('applyGrifferPenalties', () => {

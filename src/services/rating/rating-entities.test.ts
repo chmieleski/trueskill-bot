@@ -4,7 +4,6 @@ import {
   ratingEntitiesForBalance,
   ratingEntitiesForHero,
   ratingEntitiesForOverall,
-  ratingEntitiesForPlayer,
   rosterEntriesWithHeroId,
 } from './rating-entities.js';
 
@@ -20,16 +19,6 @@ describe('ratingEntitiesForOverall', () => {
 describe('ratingEntitiesForHero', () => {
   it('returns only the hero entity', () => {
     expect(ratingEntitiesForHero(H)).toEqual([H]);
-  });
-});
-
-describe('ratingEntitiesForPlayer', () => {
-  it('returns global + hero when heroId is set', () => {
-    expect(ratingEntitiesForPlayer(G, H, 3)).toEqual([G, H]);
-  });
-
-  it('returns global only when heroId is null', () => {
-    expect(ratingEntitiesForPlayer(G, H, null)).toEqual([G]);
   });
 });
 

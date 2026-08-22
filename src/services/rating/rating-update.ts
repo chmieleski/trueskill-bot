@@ -5,7 +5,7 @@ import { MatchServiceError } from '../match/match-service.js';
 import {
   ratingEntitiesForHero,
   ratingEntitiesForOverall,
-  ratingEntitiesForPlayer,
+  rosterEntriesWithHeroId,
 } from './rating-entities.js';
 import { computeLobbyAvgKi, kisForLobbyAverage, scaleAppliedMu } from './lobby-relative-scale.js';
 import { displayOrdinal, splitRosterByTeam, toOpenSkillRatings } from './rating-math.js';
@@ -76,9 +76,7 @@ function applyIndependentSyntheticLosses(
   hero: { mu: number; sigma: number },
   heroId: number | null,
 ): { global: Rating; hero?: Rating } {
-  const [nextGlobal] = applySyntheticLosses(
-    toOpenSkillRatings(ratingEntitiesForOverall(global)),
-  );
+  const [nextGlobal] = applySyntheticLosses(toOpenSkillRatings(ratingEntitiesForOverall(global)));
   if (!nextGlobal) {
     return { global: rating({ mu: global.mu, sigma: global.sigma }) };
   }
@@ -109,9 +107,7 @@ export function canRunTeamRate(activeRateable: { team: 1 | 2 }[]): boolean {
 }
 
 /** True when both teams have ≥1 hero seat eligible for the hero OpenSkill rate(). */
-export function canRunHeroRate(
-  activeRateable: { team: 1 | 2; heroId: number | null }[],
-): boolean {
+export function canRunHeroRate(activeRateable: { team: 1 | 2; heroId: number | null }[]): boolean {
   const withHero = activeRateable.filter((entry) => entry.heroId != null);
   const hasTeamA = withHero.some((entry) => entry.team === 1);
   const hasTeamB = withHero.some((entry) => entry.team === 2);
@@ -318,22 +314,107 @@ function applyLobbyRelativeScalingToResults(
   }
 }
 
-function buildTeamEntities(
+function buildOverallTeamEntities(
   team: RatingRosterEntry[],
   globalByPlayer: Map<string, { mu: number; sigma: number }>,
-  heroByKey: Map<string, { mu: number; sigma: number }>,
 ): Rating[] {
   return toOpenSkillRatings(
     team.flatMap((entry) => {
       const global = globalByPlayer.get(entry.playerId) ?? defaultRatingEntity();
-      const hero =
-        entry.heroId == null
-          ? defaultRatingEntity()
-          : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity());
-
-      return ratingEntitiesForPlayer(global, hero, entry.heroId);
+      return ratingEntitiesForOverall(global);
     }),
   );
+}
+
+function buildHeroTeamEntities(
+  team: RatingRosterEntry[],
+  heroByKey: Map<string, { mu: number; sigma: number }>,
+): Rating[] {
+  return toOpenSkillRatings(
+    rosterEntriesWithHeroId(team).flatMap((entry) => {
+      const hero = heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity();
+      return ratingEntitiesForHero(hero);
+    }),
+  );
+}
+
+function rateActiveMatchTeams(
+  activeRateable: RatingRosterEntry[],
+  winningTeam: 1 | 2,
+  globalByPlayer: Map<string, MuSigma>,
+  heroByKey: Map<string, MuSigma>,
+  globalGamesByPlayer: Map<string, number>,
+): Map<string, UpdatedPlayerRating> {
+  const { teamA, teamB } = splitRosterByTeam(activeRateable);
+  const winningRoster = winningTeam === 1 ? teamA : teamB;
+  const losingRoster = winningTeam === 1 ? teamB : teamA;
+  const { preGlobal, preHero } = snapshotPreMatchMuSigma(activeRateable, globalByPlayer, heroByKey);
+
+  const [updatedWinningOverall, updatedLosingOverall] = rate(
+    [
+      buildOverallTeamEntities(winningRoster, globalByPlayer),
+      buildOverallTeamEntities(losingRoster, globalByPlayer),
+    ],
+    { rank: [1, 2] },
+  );
+
+  const updatedByPlayer = new Map<string, UpdatedPlayerRating>();
+
+  const registerOverall = (team: RatingRosterEntry[], ratings: Rating[]): void => {
+    for (const [index, entry] of team.entries()) {
+      const global = ratings[index];
+      if (!global) {
+        continue;
+      }
+      updatedByPlayer.set(entry.playerId, {
+        global,
+        heroId: entry.heroId,
+      });
+    }
+  };
+
+  registerOverall(winningRoster, updatedWinningOverall);
+  registerOverall(losingRoster, updatedLosingOverall);
+
+  if (canRunHeroRate(activeRateable)) {
+    const winningHeroRoster = rosterEntriesWithHeroId(winningRoster);
+    const losingHeroRoster = rosterEntriesWithHeroId(losingRoster);
+    const [updatedWinningHero, updatedLosingHero] = rate(
+      [
+        buildHeroTeamEntities(winningRoster, heroByKey),
+        buildHeroTeamEntities(losingRoster, heroByKey),
+      ],
+      { rank: [1, 2] },
+    );
+
+    const registerHero = (
+      team: Array<RatingRosterEntry & { heroId: number }>,
+      ratings: Rating[],
+    ): void => {
+      for (const [index, entry] of team.entries()) {
+        const hero = ratings[index];
+        const updated = updatedByPlayer.get(entry.playerId);
+        if (!updated || !hero) {
+          continue;
+        }
+        updated.hero = hero;
+      }
+    };
+
+    registerHero(winningHeroRoster, updatedWinningHero);
+    registerHero(losingHeroRoster, updatedLosingHero);
+  }
+
+  applyLobbyRelativeScalingToResults(
+    activeRateable,
+    winningTeam,
+    preGlobal,
+    preHero,
+    updatedByPlayer,
+    globalGamesByPlayer,
+  );
+
+  return updatedByPlayer;
 }
 
 export async function applyMatchRatings(
@@ -384,54 +465,11 @@ export async function applyMatchRatings(
 
   const displayStats = await loadMatchDisplayStatsByPlayer(leagueId, playerIds, db);
   const globalGamesByPlayer = gamesByPlayerFromStats(displayStats);
-  const { preGlobal, preHero } = snapshotPreMatchMuSigma(activeRateable, globalByPlayer, heroByKey);
-
-  const { teamA, teamB } = splitRosterByTeam(activeRateable);
-  const winningRoster = winningTeam === 1 ? teamA : teamB;
-  const losingRoster = winningTeam === 1 ? teamB : teamA;
-
-  const [updatedWinningTeam, updatedLosingTeam] = rate(
-    [
-      buildTeamEntities(winningRoster, globalByPlayer, heroByKey),
-      buildTeamEntities(losingRoster, globalByPlayer, heroByKey),
-    ],
-    { rank: [1, 2] },
-  );
-
-  const updatedByPlayer = new Map<string, UpdatedPlayerRating>();
-
-  const registerTeam = (team: RatingRosterEntry[], ratings: Rating[]): void => {
-    let offset = 0;
-    for (const entry of team) {
-      const stride = entry.heroId == null ? 1 : 2;
-      const global = ratings[offset];
-      const hero = stride === 2 ? ratings[offset + 1] : undefined;
-      offset += stride;
-
-      if (!global) {
-        continue;
-      }
-      if (stride === 2 && !hero) {
-        continue;
-      }
-
-      updatedByPlayer.set(entry.playerId, {
-        global,
-        hero,
-        heroId: entry.heroId,
-      });
-    }
-  };
-
-  registerTeam(winningRoster, updatedWinningTeam);
-  registerTeam(losingRoster, updatedLosingTeam);
-
-  applyLobbyRelativeScalingToResults(
+  const updatedByPlayer = rateActiveMatchTeams(
     activeRateable,
     winningTeam,
-    preGlobal,
-    preHero,
-    updatedByPlayer,
+    globalByPlayer,
+    heroByKey,
     globalGamesByPlayer,
   );
 
@@ -525,53 +563,11 @@ export function simulatePostMatchRatings(
     return { globalByPlayer, heroByKey };
   }
 
-  const { teamA, teamB } = splitRosterByTeam(activeRateable);
-  const winningRoster = winningTeam === 1 ? teamA : teamB;
-  const losingRoster = winningTeam === 1 ? teamB : teamA;
-  const { preGlobal, preHero } = snapshotPreMatchMuSigma(activeRateable, globalByPlayer, heroByKey);
-
-  const [updatedWinningTeam, updatedLosingTeam] = rate(
-    [
-      buildTeamEntities(winningRoster, globalByPlayer, heroByKey),
-      buildTeamEntities(losingRoster, globalByPlayer, heroByKey),
-    ],
-    { rank: [1, 2] },
-  );
-
-  const updatedByPlayer = new Map<string, UpdatedPlayerRating>();
-
-  const registerTeam = (team: RatingRosterEntry[], ratings: Rating[]): void => {
-    let offset = 0;
-    for (const entry of team) {
-      const stride = entry.heroId == null ? 1 : 2;
-      const global = ratings[offset];
-      const hero = stride === 2 ? ratings[offset + 1] : undefined;
-      offset += stride;
-
-      if (!global) {
-        continue;
-      }
-      if (stride === 2 && !hero) {
-        continue;
-      }
-
-      updatedByPlayer.set(entry.playerId, {
-        global,
-        hero,
-        heroId: entry.heroId,
-      });
-    }
-  };
-
-  registerTeam(winningRoster, updatedWinningTeam);
-  registerTeam(losingRoster, updatedLosingTeam);
-
-  applyLobbyRelativeScalingToResults(
+  const updatedByPlayer = rateActiveMatchTeams(
     activeRateable,
     winningTeam,
-    preGlobal,
-    preHero,
-    updatedByPlayer,
+    globalByPlayer,
+    heroByKey,
     globalGamesByPlayer,
   );
 

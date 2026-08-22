@@ -209,3 +209,62 @@ describe('simulatePostMatchRatings quit synthetics', () => {
     );
   });
 });
+
+describe('independent overall vs hero rate', () => {
+  it('gives the same overall Δμ on a cold hero as on a main', () => {
+    const overallA = { mu: 32, sigma: 5 };
+    const overallB = { mu: 25, sigma: 8.333 };
+    const entries = [
+      { playerId: 'a', slot: 1, team: 1 as const, heroId: 1, isQuitter: false },
+      { playerId: 'b', slot: 7, team: 2 as const, heroId: 7, isQuitter: false },
+    ];
+    const globals = new Map([
+      ['a', overallA],
+      ['b', overallB],
+    ]);
+    const afterCold = simulatePostMatchRatings(
+      entries,
+      1,
+      globals,
+      new Map([
+        ['a:1', { mu: 25, sigma: 8.333 }],
+        ['b:7', { mu: 25, sigma: 8.333 }],
+      ]),
+    );
+    const afterMain = simulatePostMatchRatings(
+      entries,
+      1,
+      globals,
+      new Map([
+        ['a:1', { mu: 32, sigma: 5 }],
+        ['b:7', { mu: 25, sigma: 8.333 }],
+      ]),
+    );
+
+    const coldOverallDelta = afterCold.globalByPlayer.get('a')!.mu - overallA.mu;
+    const mainOverallDelta = afterMain.globalByPlayer.get('a')!.mu - overallA.mu;
+    expect(coldOverallDelta).toBeCloseTo(mainOverallDelta);
+
+    const coldHeroDelta = afterCold.heroByKey.get('a:1')!.mu - 25;
+    const mainHeroDelta = afterMain.heroByKey.get('a:1')!.mu - 32;
+    expect(coldHeroDelta).not.toBeCloseTo(mainHeroDelta);
+  });
+
+  it('skips hero rate when one team has no hero seats and still updates overall', () => {
+    const entries = [
+      { playerId: 'aca', slot: 1, team: 1 as const, heroId: null, isQuitter: false },
+      { playerId: 'udbr', slot: 7, team: 2 as const, heroId: 7, isQuitter: false },
+    ];
+    const startGlobal = new Map([
+      ['aca', { mu: 25, sigma: 8.333 }],
+      ['udbr', { mu: 25, sigma: 8.333 }],
+    ]);
+    const startHero = new Map([['udbr:7', { mu: 28, sigma: 7 }]]);
+    const after = simulatePostMatchRatings(entries, 1, startGlobal, startHero);
+
+    expect(after.globalByPlayer.get('aca')!.mu).toBeGreaterThan(25);
+    expect(after.globalByPlayer.get('udbr')!.mu).toBeLessThan(25);
+    expect(after.heroByKey.get('udbr:7')!.mu).toBe(28);
+    expect(after.heroByKey.get('udbr:7')!.sigma).toBe(7);
+  });
+});
