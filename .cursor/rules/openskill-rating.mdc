@@ -1,5 +1,5 @@
 ---
-description: OpenSkill rating business rules — μ/σ, dual entities, ordinal, edge cases
+description: OpenSkill rating business rules — μ/σ, dual persisted ratings, ordinal, edge cases
 globs: src/**/*.{ts},prisma/**/*.{prisma,sql,ts}
 alwaysApply: false
 ---
@@ -10,22 +10,27 @@ Ranking uses **OpenSkill** (Weng–Lin Bayesian). Prefer it over Elo/Glicko-2 fo
 
 **Tenancy:** every rating row is keyed by `leagueId`. “Global rating” in this doc means **league-global** (hero-agnostic skill within one IHL) — not cross-guild or cross-league. The same Discord user in two leagues has independent μ/σ in each.
 
-## Dual entity graph (per human participant)
+## Dual ratings (per human participant)
 
-Each filled human slot contributes **two** ratings to the team array:
+Each filled human slot still has **two persisted** ratings:
 
-1. **League-global** (`PlayerRating`, PK `leagueId` + `playerId`) — game sense / positioning, hero-agnostic within that league
+1. **League-global** (`PlayerRating`, PK `leagueId` + `playerId`) — hero-agnostic within that league
 2. **Hero** (`PlayerHeroRating`, PK `leagueId` + `playerId` + `heroId`) — mechanics on that slot’s hero (IDs **1–12** for UDBR; slot = hero)
 
-A full 6v6 is therefore up to **24** rating entities (12 players × 2), not 12. Team A slots 1–6, Team B slots 7–12. Unbalanced fills (e.g. 4v6) are valid if both teams have ≥1 player.
+They are **not** teammates in `rate()`. Apply runs two independent OpenSkill calls on the same win/loss:
 
 ```text
-Team array (rate()) = [Player1, Hero1, Player2, Hero2, ...]
+Team array (overall rate()) = [Player1, Player2, ...]
+Team array (hero rate())    = [Hero1, Hero2, ...]   // seats with heroId only
 ```
+
+A full 6v6 is 12 overall entities, then up to 12 hero entities — not 24 in one array. Unbalanced fills (e.g. 4v6) are valid if both teams have ≥1 rateable human. If either team has 0 hero seats, skip the hero `rate()`; overall still runs.
+
+Spec: `docs/superpowers/specs/2026-08-22-independent-overall-hero-rate-design.md`
 
 ## Team strength (for win probability / balance hints)
 
-`predictWin` and lobby balance hints do **not** feed the dual-entity array. Each human with a hero becomes **one** blended Gaussian (80% league-global, 20% hero). ACA (`heroId` null) stays global-only.
+`predictWin` and lobby balance hints do **not** feed the apply arrays. Each human with a hero becomes **one** blended Gaussian (80% league-global, 20% hero). ACA (`heroId` null) stays global-only.
 
 ```text
 μ_eff = 0.8 × μ_player + 0.2 × μ_hero
@@ -36,9 +41,9 @@ Team array (predictWin) = [Blend1, Blend2, ...]
 - Team μ: `Σ μᵢ` of that `predictWin` array
 - Team variance: `Σ σᵢ²`
 
-Public roster ki is unchanged (still two numbers). `rate()` / quitter synthetics stay equal dual entities. Spec: `docs/superpowers/specs/2026-08-22-player-hero-balance-weight-design.md`
+Public roster ki is unchanged (still two numbers). `rate()` is the independent ladders above, not this blend. Spec: `docs/superpowers/specs/2026-08-22-player-hero-balance-weight-design.md`
 
-Compare Team A vs Team B to get P(win). After the match, OpenSkill updates μ/σ from actual vs expected outcome on the **unblended** dual-entity arrays.
+Compare Team A vs Team B to get P(win). After the match, OpenSkill updates overall then hero from the actual outcome on those separate arrays.
 
 ## Update dynamics (do not reinvent)
 
@@ -87,9 +92,9 @@ Cold start (0 games, z=3) ≈ 1000; after 5+ games the board is slightly less ha
 
 | Case | Rule |
 |------|------|
-| **Cold start (new hero)** | Missing `PlayerHeroRating` for `(leagueId, playerId, heroId)` → create defaults (μ 25, σ ≈ 8.333). League-global rating still enters the team array, so pairing is not tanked. Wins mostly raise the new hero’s μ; veteran league-global μ barely moves. |
+| **Cold start (new hero)** | Missing `PlayerHeroRating` for `(leagueId, playerId, heroId)` → create defaults (μ 25, σ ≈ 8.333). Overall `rate()` does not see the new hero, so a veteran’s global Δμ is the same as on a main. The new hero’s high-σ row still absorbs a large swing on the hero ladder. |
 | **Asymmetric lobbies** | Fewer humans → lower `Σ μ`. Upset underfill gets maximized reward. Empty slots are absent entities, not zero-μ fillers. |
-| **Quitters** | `MatchPlayer.isQuitter` → N=1 OpenSkill synthetic loss (`rate` vs **peer** dummy that mirrors the quitter’s league-global+hero μ/σ) on both tables; excluded from match Bayesian `rate()`. Hero `matchesPlayed` is **not** incremented (so hero display **z** may lag global after a quit LOSS). A strong fixed dummy under-punishes display ki (expected loss). Host/mod may still complete remaining players or cancel (cancel applies quit penalties if flagged). |
+| **Quitters** | `MatchPlayer.isQuitter` → N=1 OpenSkill synthetic loss vs a **peer** dummy on overall, and a second N=1 vs a peer dummy on hero when `heroId` is set; excluded from match team `rate()`. Hero `matchesPlayed` is **not** incremented (so hero display **z** may lag global after a quit LOSS). A strong fixed dummy under-punishes display ki (expected loss). Host/mod may still complete remaining players or cancel (cancel applies quit penalties if flagged). |
 | **Soft early ki (display z)** | See Public ki above. Global g = completed W/L count **since the player's latest `PlayerRankReset` in that league** (lifetime if never reset); hero g = `PlayerHeroRating.matchesPlayed` (hero rows deleted on reset). Spec: `docs/superpowers/specs/2026-08-15-soft-early-ki-design.md`. |
 | **Calibrating label** | Public surfaces hide ki until 5 completed league games (same g as soft-z, including after rank reset) |
 | **New player isolation** | `PlayerRating.isNewPlayer` (league-scoped) → excluded from team `rate()`; μ/σ **freeze** on non-quit path (no lobby-relative scale). Quitter synthetic loss **still applies** to New quitters. After removing New + quitters, if **either** team has 0 rateable humans → **skip** team `rate()` for the whole match. Completed games still count toward the 5-game gate; auto-clear `isNewPlayer` when g **≥ 5**. Snapshot `MatchPlayer.wasNewPlayer` at apply time (re-rating uses snapshot, not live flag). Unmarked calibrating players rate normally. Spec: `docs/superpowers/specs/2026-08-22-new-player-rating-isolation-design.md`. |
@@ -100,6 +105,7 @@ Cold start (0 games, z=3) ≈ 1000; after 5+ games the board is slightly less ha
 
 - Keep league-global vs hero ratings in separate tables/services (SRP); do not merge into one persisted μ
 - Lobby win% / balance hints may blend μ/σ at 80/20 for `predictWin` only (`ratingEntitiesForBalance`); never persist the blend
+- Never feed `[global, hero]` as one `rate()` team
 - Every `playerRating` / `playerHeroRating` query must filter by `leagueId`
 - Rating math belongs in a dedicated service (e.g. match report / rating update); commands and buttons only call it
 - `MatchResult.DRAW` exists in schema but game flow is WIN/LOSS only
