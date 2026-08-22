@@ -252,6 +252,10 @@ export async function completeMatch(
     const active = entries.filter((entry) => !entry.isQuitter);
     assertBothTeamsHaveActivePlayers(active);
 
+    for (const entry of previewEntries) {
+      entry.wasNewPlayer = isNewByPlayerId.get(entry.playerId) === true;
+    }
+
     const winChance = await loadRosterWinChance(match.leagueId, previewEntries, tx);
     await writeMatchRatingSnapshots(
       match.leagueId,

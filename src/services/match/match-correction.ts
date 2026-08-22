@@ -532,6 +532,7 @@ export async function flipCompletedMatch(
         ...p,
         isQuitter: quitterSet.has(p.slot),
         isGriffer: p.isGriffer,
+        wasNewPlayer: p.wasNewPlayer,
       })),
     );
     await ensurePlayerRatings(

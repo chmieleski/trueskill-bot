@@ -40,6 +40,7 @@ export {
   loadIsNewPlayerByPlayerId,
   NEW_PLAYER_LABEL,
   NEW_PLAYER_PROMPT_PREFIX,
+  NEW_PLAYER_ROSTER_MARKER,
   parseNewPlayerButtonCustomId,
   playerIdsToClearNewFlag,
   shouldClearNewPlayer,

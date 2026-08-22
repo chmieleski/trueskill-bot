@@ -20,6 +20,9 @@ export type NewPlayerSuggestion = {
 /** Roster suffix rendered as ` · New`. */
 export const NEW_PLAYER_LABEL = 'New';
 
+/** Appended outside the roster code span when the player is New. */
+export const NEW_PLAYER_ROSTER_MARKER = ` · ${NEW_PLAYER_LABEL}`;
+
 /** Prefix for new-player confirmation button custom IDs. */
 export const NEW_PLAYER_PROMPT_PREFIX = 'np:';
 
