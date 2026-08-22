@@ -9,6 +9,7 @@ import {
   applySyntheticLosses,
   assertBothTeamsHaveActivePlayers,
   buildDummyOpponentTeam,
+  canRunTeamRate,
   partitionRosterForRating,
   QUITTER_SYNTHETIC_LOSSES,
   type RatingRosterEntry,
@@ -55,25 +56,62 @@ describe('applySyntheticLosses', () => {
 });
 
 describe('partitionRosterForRating', () => {
-  it('splits quitters from active entries', () => {
-    const { quitters, active } = partitionRosterForRating([
+  it('splits quitters from rateable veterans', () => {
+    const { quitters, newNonQuit, activeRateable } = partitionRosterForRating([
       { slot: 1, isQuitter: true },
       { slot: 2, isQuitter: false },
       { slot: 7, isQuitter: false },
     ]);
 
     expect(quitters.map((entry) => entry.slot)).toEqual([1]);
-    expect(active.map((entry) => entry.slot)).toEqual([2, 7]);
+    expect(newNonQuit).toEqual([]);
+    expect(activeRateable.map((entry) => entry.slot)).toEqual([2, 7]);
   });
 
-  it('keeps griffers in the active roster', () => {
-    const { quitters, active } = partitionRosterForRating([
+  it('keeps griffers in the rateable roster when not New', () => {
+    const { quitters, newNonQuit, activeRateable } = partitionRosterForRating([
       { slot: 1, isQuitter: false },
       { slot: 2, isQuitter: false },
     ]);
 
     expect(quitters).toEqual([]);
-    expect(active.map((entry) => entry.slot)).toEqual([1, 2]);
+    expect(newNonQuit).toEqual([]);
+    expect(activeRateable.map((entry) => entry.slot)).toEqual([1, 2]);
+  });
+
+  it('puts non-quit New into newNonQuit and veterans into activeRateable', () => {
+    const { quitters, newNonQuit, activeRateable } = partitionRosterForRating([
+      { slot: 1, isQuitter: false, wasNewPlayer: true },
+      { slot: 2, isQuitter: false, wasNewPlayer: false },
+      { slot: 7, isQuitter: true, wasNewPlayer: true },
+    ]);
+
+    expect(newNonQuit.map((entry) => entry.slot)).toEqual([1]);
+    expect(activeRateable.map((entry) => entry.slot)).toEqual([2]);
+    expect(quitters.map((entry) => entry.slot)).toEqual([7]);
+  });
+
+  it('treats missing wasNewPlayer as not New', () => {
+    const { newNonQuit, activeRateable } = partitionRosterForRating([
+      { slot: 1, isQuitter: false },
+      { slot: 2, isQuitter: false, wasNewPlayer: false },
+    ]);
+
+    expect(newNonQuit).toEqual([]);
+    expect(activeRateable.map((entry) => entry.slot)).toEqual([1, 2]);
+  });
+});
+
+describe('canRunTeamRate', () => {
+  it('requires at least one rateable player on each team', () => {
+    expect(
+      canRunTeamRate([
+        { team: 1 },
+        { team: 2 },
+      ]),
+    ).toBe(true);
+    expect(canRunTeamRate([{ team: 1 }])).toBe(false);
+    expect(canRunTeamRate([])).toBe(false);
   });
 });
 
@@ -171,6 +209,17 @@ describe('applyMatchRatings', () => {
     expect(db.playerHeroRating.update).not.toHaveBeenCalled();
     expect(db.playerHeroRating.createMany).not.toHaveBeenCalled();
     expect(db.playerRating.update).toHaveBeenCalled();
+  });
+
+  it('skips team rate without throwing when only New remain on a side', async () => {
+    const db = heroNullDb();
+    const roster: RatingRosterEntry[] = [
+      { playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: false, wasNewPlayer: true },
+      { playerId: 'p2', slot: 6, team: 2, heroId: null, isQuitter: false, wasNewPlayer: false },
+    ];
+
+    await expect(applyMatchRatings('league-1', roster, 1, db as never)).resolves.toBeUndefined();
+    expect(db.playerRating.update).not.toHaveBeenCalled();
   });
 });
 

@@ -25,6 +25,8 @@ export type RatingRosterEntry = {
   heroId: number | null;
   isQuitter: boolean;
   isGriffer?: boolean;
+  /** Snapshot of New at apply time; missing/false means not New. */
+  wasNewPlayer?: boolean;
 };
 
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -65,13 +67,22 @@ export function applySyntheticLosses(
   return current;
 }
 
-export function partitionRosterForRating<T extends { isQuitter: boolean }>(
-  entries: T[],
-): { quitters: T[]; active: T[] } {
+export function partitionRosterForRating<
+  T extends { isQuitter: boolean; wasNewPlayer?: boolean },
+>(entries: T[]): { quitters: T[]; newNonQuit: T[]; activeRateable: T[] } {
+  const quitters = entries.filter((entry) => entry.isQuitter);
+  const nonQuit = entries.filter((entry) => !entry.isQuitter);
   return {
-    quitters: entries.filter((entry) => entry.isQuitter),
-    active: entries.filter((entry) => !entry.isQuitter),
+    quitters,
+    newNonQuit: nonQuit.filter((entry) => entry.wasNewPlayer === true),
+    activeRateable: nonQuit.filter((entry) => entry.wasNewPlayer !== true),
   };
+}
+
+/** True when both teams have ≥1 player eligible for team OpenSkill rate(). */
+export function canRunTeamRate(activeRateable: { team: 1 | 2 }[]): boolean {
+  const { teamA, teamB } = splitRosterByTeam(activeRateable);
+  return teamA.length >= 1 && teamB.length >= 1;
 }
 
 function grifferPenaltyEntries(entries: RatingRosterEntry[]): RatingRosterEntry[] {
@@ -310,21 +321,23 @@ export async function applyMatchRatings(
   db: Db = prisma,
 ): Promise<void> {
   const sorted = [...entries].sort((left, right) => left.slot - right.slot);
-  const { active } = partitionRosterForRating(sorted);
+  const { activeRateable } = partitionRosterForRating(sorted);
 
-  assertBothTeamsHaveActivePlayers(active);
+  if (!canRunTeamRate(activeRateable)) {
+    return;
+  }
 
   await ensurePlayerRatings(
     leagueId,
-    active.map((entry) => ({
+    activeRateable.map((entry) => ({
       playerId: entry.playerId,
       heroId: entry.heroId,
     })),
     db,
   );
 
-  const playerIds = active.map((entry) => entry.playerId);
-  const withHero = active.filter(
+  const playerIds = activeRateable.map((entry) => entry.playerId);
+  const withHero = activeRateable.filter(
     (entry): entry is RatingRosterEntry & { heroId: number } => entry.heroId != null,
   );
   const [globalRatings, heroRatings] = await Promise.all([
@@ -349,9 +362,9 @@ export async function applyMatchRatings(
 
   const displayStats = await loadMatchDisplayStatsByPlayer(leagueId, playerIds, db);
   const globalGamesByPlayer = gamesByPlayerFromStats(displayStats);
-  const { preGlobal, preHero } = snapshotPreMatchMuSigma(active, globalByPlayer, heroByKey);
+  const { preGlobal, preHero } = snapshotPreMatchMuSigma(activeRateable, globalByPlayer, heroByKey);
 
-  const { teamA, teamB } = splitRosterByTeam(active);
+  const { teamA, teamB } = splitRosterByTeam(activeRateable);
   const winningRoster = winningTeam === 1 ? teamA : teamB;
   const losingRoster = winningTeam === 1 ? teamB : teamA;
 
@@ -392,7 +405,7 @@ export async function applyMatchRatings(
   registerTeam(losingRoster, updatedLosingTeam);
 
   applyLobbyRelativeScalingToResults(
-    active,
+    activeRateable,
     winningTeam,
     preGlobal,
     preHero,
@@ -400,7 +413,7 @@ export async function applyMatchRatings(
     globalGamesByPlayer,
   );
 
-  for (const entry of active) {
+  for (const entry of activeRateable) {
     const updated = updatedByPlayer.get(entry.playerId);
 
     if (!updated) {
@@ -452,7 +465,7 @@ export function simulatePostMatchRatings(
   const globalByPlayer = new Map(startingGlobal);
   const heroByKey = new Map(startingHero);
   const sorted = [...entries].sort((left, right) => left.slot - right.slot);
-  const { quitters, active } = partitionRosterForRating(sorted);
+  const { quitters, activeRateable } = partitionRosterForRating(sorted);
 
   for (const entry of quitters) {
     const global = globalByPlayer.get(entry.playerId) ?? defaultRatingEntity();
@@ -504,16 +517,14 @@ export function simulatePostMatchRatings(
     }
   }
 
-  if (active.length === 0) {
+  if (!canRunTeamRate(activeRateable)) {
     return { globalByPlayer, heroByKey };
   }
 
-  assertBothTeamsHaveActivePlayers(active);
-
-  const { teamA, teamB } = splitRosterByTeam(active);
+  const { teamA, teamB } = splitRosterByTeam(activeRateable);
   const winningRoster = winningTeam === 1 ? teamA : teamB;
   const losingRoster = winningTeam === 1 ? teamB : teamA;
-  const { preGlobal, preHero } = snapshotPreMatchMuSigma(active, globalByPlayer, heroByKey);
+  const { preGlobal, preHero } = snapshotPreMatchMuSigma(activeRateable, globalByPlayer, heroByKey);
 
   const [updatedWinningTeam, updatedLosingTeam] = rate(
     [
@@ -552,7 +563,7 @@ export function simulatePostMatchRatings(
   registerTeam(losingRoster, updatedLosingTeam);
 
   applyLobbyRelativeScalingToResults(
-    active,
+    activeRateable,
     winningTeam,
     preGlobal,
     preHero,
@@ -560,7 +571,7 @@ export function simulatePostMatchRatings(
     globalGamesByPlayer,
   );
 
-  for (const entry of active) {
+  for (const entry of activeRateable) {
     const updated = updatedByPlayer.get(entry.playerId);
     if (!updated) {
       continue;
