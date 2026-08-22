@@ -1,9 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import {
-  compactUuidForCustomId,
-  expandUuidFromCustomId,
-} from '../match/compact-custom-id.js';
+import { compactUuidForCustomId, expandUuidFromCustomId } from '../match/compact-custom-id.js';
 import { gamesByPlayerFromStats, loadMatchDisplayStatsByPlayer } from './rank-reset-display.js';
 import { KI_Z_BLEND_GAMES } from './rating-math.js';
 

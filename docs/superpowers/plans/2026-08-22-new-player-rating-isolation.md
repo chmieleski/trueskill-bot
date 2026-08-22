@@ -29,26 +29,26 @@
 
 ## File map
 
-| File | Role |
-| ---- | ---- |
-| `prisma/schema.prisma` | `PlayerRating.isNewPlayer`, `MatchPlayer.wasNewPlayer` |
-| `prisma/migrations/<ts>_new_player_rating_isolation/` | SQL migration |
-| `src/services/rating/new-player.ts` | Flag mark/clear, suggest eligibility, button custom ids, label |
-| `src/services/rating/new-player.test.ts` | Unit tests for pure helpers |
-| `src/services/rating/rating-update.ts` | Partition + skip/freeze in apply + simulate |
-| `src/services/rating/rating-update.test.ts` | Partition / skip / freeze tests |
-| `src/services/rating/rating-update.simulate.test.ts` | Simulate freeze regression |
-| `src/services/rating/index.ts` | Re-exports |
-| `src/services/match/match-report.ts` | Snapshot `wasNewPlayer`; pass into entries; clear flags after count |
-| `src/services/match/match-correction.ts` | Pass `wasNewPlayer` from stored rows into entries |
-| `src/services/match/match-history-preview.ts` | Pass `wasNewPlayer` into simulate entries |
-| `src/services/lobby/discord-sync.ts` | Optional `newPlayerSuggestions` on `LobbyActionResult` |
-| `src/services/lobby/actions.ts` / claim paths | Populate suggestions after roster sync |
-| `src/services/lobby/lobby-preview.ts` | **New** roster marker |
-| `src/services/rating/rating-preview.ts` | Carry `isNewPlayer` / `wasNewPlayer` on preview lines |
-| `src/discord/interactions/new-player-interactions.ts` | Confirm / decline buttons |
-| `src/discord/interactions/lobby-interactions.ts` | Emit suggest after claim/add; route buttons |
-| `.cursor/rules/openskill-rating.mdc` | Document New isolation |
+| File                                                  | Role                                                                |
+| ----------------------------------------------------- | ------------------------------------------------------------------- |
+| `prisma/schema.prisma`                                | `PlayerRating.isNewPlayer`, `MatchPlayer.wasNewPlayer`              |
+| `prisma/migrations/<ts>_new_player_rating_isolation/` | SQL migration                                                       |
+| `src/services/rating/new-player.ts`                   | Flag mark/clear, suggest eligibility, button custom ids, label      |
+| `src/services/rating/new-player.test.ts`              | Unit tests for pure helpers                                         |
+| `src/services/rating/rating-update.ts`                | Partition + skip/freeze in apply + simulate                         |
+| `src/services/rating/rating-update.test.ts`           | Partition / skip / freeze tests                                     |
+| `src/services/rating/rating-update.simulate.test.ts`  | Simulate freeze regression                                          |
+| `src/services/rating/index.ts`                        | Re-exports                                                          |
+| `src/services/match/match-report.ts`                  | Snapshot `wasNewPlayer`; pass into entries; clear flags after count |
+| `src/services/match/match-correction.ts`              | Pass `wasNewPlayer` from stored rows into entries                   |
+| `src/services/match/match-history-preview.ts`         | Pass `wasNewPlayer` into simulate entries                           |
+| `src/services/lobby/discord-sync.ts`                  | Optional `newPlayerSuggestions` on `LobbyActionResult`              |
+| `src/services/lobby/actions.ts` / claim paths         | Populate suggestions after roster sync                              |
+| `src/services/lobby/lobby-preview.ts`                 | **New** roster marker                                               |
+| `src/services/rating/rating-preview.ts`               | Carry `isNewPlayer` / `wasNewPlayer` on preview lines               |
+| `src/discord/interactions/new-player-interactions.ts` | Confirm / decline buttons                                           |
+| `src/discord/interactions/lobby-interactions.ts`      | Emit suggest after claim/add; route buttons                         |
+| `.cursor/rules/openskill-rating.mdc`                  | Document New isolation                                              |
 
 ---
 
@@ -208,9 +208,9 @@ EOF
 - Consumes: `wasNewPlayer` on roster entries
 - Produces:
   - Extend `RatingRosterEntry` with `wasNewPlayer?: boolean` (default treat missing as `false`)
-  - `partitionRosterForRating` returns `{ quitters, newNonQuit, activeRateable }`  
-    - `quitters = isQuitter`  
-    - `newNonQuit = !isQuitter && wasNewPlayer`  
+  - `partitionRosterForRating` returns `{ quitters, newNonQuit, activeRateable }`
+    - `quitters = isQuitter`
+    - `newNonQuit = !isQuitter && wasNewPlayer`
     - `activeRateable = !isQuitter && !wasNewPlayer`
   - Keep deprecated alias: `active` = `[...newNonQuit, ...activeRateable]` **only if** existing callers need non-quitters; prefer updating callers. Spec: team `rate()` uses `activeRateable` only.
   - `canRunTeamRate(activeRateable: { team: 1|2 }[]): boolean` — both teams have length ≥ 1
@@ -258,9 +258,9 @@ Expected: FAIL on new assertions / missing return fields
 Update `partitionRosterForRating`:
 
 ```typescript
-export function partitionRosterForRating<
-  T extends { isQuitter: boolean; wasNewPlayer?: boolean },
->(entries: T[]): { quitters: T[]; newNonQuit: T[]; activeRateable: T[] } {
+export function partitionRosterForRating<T extends { isQuitter: boolean; wasNewPlayer?: boolean }>(
+  entries: T[],
+): { quitters: T[]; newNonQuit: T[]; activeRateable: T[] } {
   const quitters = entries.filter((e) => e.isQuitter);
   const nonQuit = entries.filter((e) => !e.isQuitter);
   return {
@@ -417,7 +417,7 @@ export async function collectNewPlayerSuggestions(input: {
   previousPlayerIds: Set<string>;
   nextPlayers: Array<{ playerId: string; username: string }>;
   db?: Db;
-}): Promise<LobbyActionResult['newPlayerSuggestions']>
+}): Promise<LobbyActionResult['newPlayerSuggestions']>;
 ```
 
 Logic: for each `next` playerId not in `previousPlayerIds` (newly seated), load completed games via `loadMatchDisplayStatsByPlayer` + `gamesByPlayerFromStats`, load `isNewPlayer`, if `shouldSuggestNewPlayer(games, isNew)` include them. Cap: one entry per playerId.
@@ -578,29 +578,29 @@ npx vitest run src/services/rating src/services/match/match-report.test.ts src/s
 Expected: PASS
 
 - [ ] **Step 3: `npx tsc --noEmit`** (or `npm run build`)  
-Expected: PASS
+      Expected: PASS
 
 ---
 
 ## Spec coverage checklist
 
-| Spec requirement | Task |
-| ---------------- | ---- |
-| `PlayerRating.isNewPlayer` | 1 |
-| `MatchPlayer.wasNewPlayer` snapshot | 1, 4 |
-| Always exclude New from team `rate()` | 3 |
-| Freeze New non-quit μ/σ | 3 |
-| New quitters still synthetic | 3 (quitters bucket unchanged) |
-| Skip team `rate()` if either rateable side empty | 3 |
-| Keep complete assert on non-quitters | 3 note + existing match-report |
-| Clear New at games ≥ 5 | 2, 4 |
-| Unmarked calibrating rates normally | 3 (`wasNewPlayer` false) |
-| Auto-suggest at 0 games | 5, 6 |
-| Host/mod confirm only | 6 |
-| Decline → no flag | 6 |
-| Roster New marker | 7 |
-| Correction uses snapshot | 4 |
-| openskill rule doc | 8 |
+| Spec requirement                                 | Task                           |
+| ------------------------------------------------ | ------------------------------ |
+| `PlayerRating.isNewPlayer`                       | 1                              |
+| `MatchPlayer.wasNewPlayer` snapshot              | 1, 4                           |
+| Always exclude New from team `rate()`            | 3                              |
+| Freeze New non-quit μ/σ                          | 3                              |
+| New quitters still synthetic                     | 3 (quitters bucket unchanged)  |
+| Skip team `rate()` if either rateable side empty | 3                              |
+| Keep complete assert on non-quitters             | 3 note + existing match-report |
+| Clear New at games ≥ 5                           | 2, 4                           |
+| Unmarked calibrating rates normally              | 3 (`wasNewPlayer` false)       |
+| Auto-suggest at 0 games                          | 5, 6                           |
+| Host/mod confirm only                            | 6                              |
+| Decline → no flag                                | 6                              |
+| Roster New marker                                | 7                              |
+| Correction uses snapshot                         | 4                              |
+| openskill rule doc                               | 8                              |
 
 ## Placeholder / consistency review
 

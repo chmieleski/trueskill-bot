@@ -32,10 +32,7 @@ describe('playerIdsToClearNewFlag', () => {
       ['c', KI_Z_BLEND_GAMES + 2],
     ]);
 
-    expect(playerIdsToClearNewFlag(['a', 'b', 'c', 'missing'], gamesByPlayer)).toEqual([
-      'b',
-      'c',
-    ]);
+    expect(playerIdsToClearNewFlag(['a', 'b', 'c', 'missing'], gamesByPlayer)).toEqual(['b', 'c']);
   });
 });
 

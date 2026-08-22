@@ -19,7 +19,10 @@ vi.mock('../../lib/prisma.js', () => ({
   },
 }));
 
-import { collectNewPlayerSuggestions, collectNewPlayerSuggestionsForPendingCreate } from '../rating/new-player.js';
+import {
+  collectNewPlayerSuggestions,
+  collectNewPlayerSuggestionsForPendingCreate,
+} from '../rating/new-player.js';
 
 function statsMap(
   entries: Array<[string, number]>,

@@ -42,10 +42,7 @@ export type BuildNewPlayerSuggestComponentsInput = {
 };
 
 export type SendNewPlayerSuggestPromptsInput = {
-  interaction:
-    | MessageComponentInteraction
-    | ModalSubmitInteraction
-    | ChatInputCommandInteraction;
+  interaction: MessageComponentInteraction | ModalSubmitInteraction | ChatInputCommandInteraction;
   match: { id: string; hostDiscordId: string; leagueId: string };
   suggestions: NewPlayerSuggestion[];
   matchModRoleId?: string;

@@ -23,21 +23,21 @@ Maps are hard to learn. Veterans want first-timers in lobbies to grow the player
 
 ## Locked decisions
 
-| Topic | Choice |
-| ----- | ------ |
-| Approach | Hard exclude + freeze while `isNewPlayer` |
-| When exclude | **Always** while New (every completed match), not only when quitters or equal New counts |
-| New’s own μ/σ (non-quit) | **Freeze** — no OpenSkill write from team `rate()` |
-| New + quitter | Synthetic quit penalty **still applies**; still excluded from team `rate()` |
-| New ends | Auto-clear when completed league games (same count as calibrating / soft-z, including after rank reset) **≥ 5**, even if those games were frozen |
-| Unmarked calibrating | Full OpenSkill participation |
-| Degenerate lobby | After removing New + quitters, if **either** team has **0** rateable players → **skip team `rate()` for the whole match**; quit synthetics still run |
-| UX | Auto-suggest when a player with **0** completed games joins a PENDING lobby; **host/mod confirms** |
-| Decline suggest | Player remains unmarked → normal rating |
-| Persistence | `PlayerRating.isNewPlayer` (league-scoped); snapshot `MatchPlayer.wasNewPlayer` at apply time |
-| Rank reset | Post-reset game count returns to 0 → eligible for suggest again; **do not** auto-set without confirm |
-| Equal New counts | Superseded by always-exclude; no separate pairing rule |
-| Language | English user-facing strings |
+| Topic                    | Choice                                                                                                                                               |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Approach                 | Hard exclude + freeze while `isNewPlayer`                                                                                                            |
+| When exclude             | **Always** while New (every completed match), not only when quitters or equal New counts                                                             |
+| New’s own μ/σ (non-quit) | **Freeze** — no OpenSkill write from team `rate()`                                                                                                   |
+| New + quitter            | Synthetic quit penalty **still applies**; still excluded from team `rate()`                                                                          |
+| New ends                 | Auto-clear when completed league games (same count as calibrating / soft-z, including after rank reset) **≥ 5**, even if those games were frozen     |
+| Unmarked calibrating     | Full OpenSkill participation                                                                                                                         |
+| Degenerate lobby         | After removing New + quitters, if **either** team has **0** rateable players → **skip team `rate()` for the whole match**; quit synthetics still run |
+| UX                       | Auto-suggest when a player with **0** completed games joins a PENDING lobby; **host/mod confirms**                                                   |
+| Decline suggest          | Player remains unmarked → normal rating                                                                                                              |
+| Persistence              | `PlayerRating.isNewPlayer` (league-scoped); snapshot `MatchPlayer.wasNewPlayer` at apply time                                                        |
+| Rank reset               | Post-reset game count returns to 0 → eligible for suggest again; **do not** auto-set without confirm                                                 |
+| Equal New counts         | Superseded by always-exclude; no separate pairing rule                                                                                               |
+| Language                 | English user-facing strings                                                                                                                          |
 
 ## Product note (intentional)
 
@@ -47,16 +47,16 @@ After five frozen completed games, New and Calibrating both clear while μ/σ ar
 
 ### `PlayerRating`
 
-| Field | Type | Default | Meaning |
-| ----- | ---- | ------- | ------- |
+| Field         | Type      | Default | Meaning                               |
+| ------------- | --------- | ------- | ------------------------------------- |
 | `isNewPlayer` | `Boolean` | `false` | League-scoped source of truth for New |
 
 Clear `isNewPlayer` to `false` when the player’s completed-game count for that league (since latest `PlayerRankReset`, else lifetime) reaches **≥ 5**. Clearing happens on match completion after that game is counted (same “reveal after match” timing as calibrating ki).
 
 ### `MatchPlayer`
 
-| Field | Type | Default | Meaning |
-| ----- | ---- | ------- | ------- |
+| Field          | Type      | Default | Meaning                                                        |
+| -------------- | --------- | ------- | -------------------------------------------------------------- |
 | `wasNewPlayer` | `Boolean` | `false` | Snapshot of New at rating-apply time (embeds, history, audits) |
 
 Copy from `PlayerRating.isNewPlayer` (or the in-memory decision used for partition) when ratings are applied. Do not recompute later from current flag.
@@ -150,14 +150,14 @@ Commands and buttons stay thin: confirm handler writes the flag; rating service 
 
 ## Edge cases
 
-| Case | Rule |
-| ---- | ---- |
-| All humans on one team are New | Other team rates only if it has ≥1 rateable; if not, skip team `rate()` |
-| New on both teams, no quitters | Both sides omit New; remaining veterans rate vs each other |
-| Only New (+ quitters) left rateable-empty | Skip team `rate()`; quit synthetics only |
-| Rank reset | Flag not auto-set; games=0 → suggest eligible again |
-| Flip / correction re-apply | Use `wasNewPlayer` snapshot on the match, not live flag, if re-rating from stored roster |
-| Unlinked nick marked New | Flag lives on `PlayerRating` once the player row exists; suggest only after a real `playerId` is known |
+| Case                                      | Rule                                                                                                   |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| All humans on one team are New            | Other team rates only if it has ≥1 rateable; if not, skip team `rate()`                                |
+| New on both teams, no quitters            | Both sides omit New; remaining veterans rate vs each other                                             |
+| Only New (+ quitters) left rateable-empty | Skip team `rate()`; quit synthetics only                                                               |
+| Rank reset                                | Flag not auto-set; games=0 → suggest eligible again                                                    |
+| Flip / correction re-apply                | Use `wasNewPlayer` snapshot on the match, not live flag, if re-rating from stored roster               |
+| Unlinked nick marked New                  | Flag lives on `PlayerRating` once the player row exists; suggest only after a real `playerId` is known |
 
 ## Testing (acceptance)
 
