@@ -6,7 +6,7 @@ import { getGameProfileForLeague } from '../league/league-profile.js';
 import { prisma } from '../../lib/prisma.js';
 import { createLogger } from '../../lib/logger.js';
 import {
-  ratingEntitiesForPlayer,
+  ratingEntitiesForBalance,
   rosterEntriesWithHeroId,
   type MuSigma,
 } from './rating-entities.js';
@@ -16,7 +16,12 @@ import {
   splitRosterByTeam,
   toOpenSkillRatings,
 } from './rating-math.js';
-import { gamesByPlayerFromStats, loadMatchDisplayStatsByPlayer } from './rank-reset-display.js';
+import {
+  gamesByPlayerFromStats,
+  habitualQuitterFromStats,
+  loadMatchDisplayStatsByPlayer,
+  type PlayerMatchDisplayStats,
+} from './rank-reset-display.js';
 import {
   suggestBalanceMoves,
   type BalanceRatingLookup,
@@ -55,6 +60,8 @@ export interface LobbyRatingPlayerLine {
   showHero?: boolean;
   /** League completed WIN/LOSS count used for the Calibrating gate. */
   leagueGames: number;
+  /** League `/rank` quit rate is 50%+ (post–rank-reset). */
+  habitualQuitter?: boolean;
 }
 
 export interface LobbyRatingPreview {
@@ -115,6 +122,7 @@ function defaultMuSigma(): MuSigma {
 
 /**
  * Pre-match win chance from μ/σ maps (same predictWin path as the lobby).
+ * Hero slots use an 80% player / 20% hero blend; `rate()` stays dual-entity.
  * Returns undefined when either team has no humans.
  */
 export function computeWinChanceFromRatings(
@@ -136,7 +144,7 @@ export function computeWinChanceFromRatings(
           entry.heroId == null
             ? defaultMuSigma()
             : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultMuSigma());
-        return ratingEntitiesForPlayer(global, hero, entry.heroId);
+        return ratingEntitiesForBalance(global, hero, entry.heroId);
       }),
     );
 
@@ -270,6 +278,7 @@ export function buildCompletedRatingPreview(
   beforeBySlot: Map<number, PlayerKiPair>,
   afterBySlot: Map<number, PlayerKiPair>,
   leagueGamesByPlayer: Map<string, number>,
+  displayStatsByPlayer: Map<string, PlayerMatchDisplayStats>,
   winChance?: WinChancePercents,
 ): LobbyRatingPreview {
   const players: LobbyRatingPlayerLine[] = [...entries]
@@ -292,6 +301,7 @@ export function buildCompletedRatingPreview(
         ...(entry.wasNewPlayer === true ? { wasNewPlayer: true as const } : {}),
         showHero: entry.heroId != null,
         leagueGames: leagueGamesByPlayer.get(entry.playerId) ?? 0,
+        habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),
       };
     });
 
@@ -369,6 +379,7 @@ export async function loadLobbyRatingPreview(
           ...newFlag,
           showHero: false,
           leagueGames: globalGames,
+          habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),
         };
       }
 
@@ -385,6 +396,7 @@ export async function loadLobbyRatingPreview(
         ...newFlag,
         showHero: true,
         leagueGames: globalGames,
+        habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),
       };
     });
 

@@ -109,11 +109,20 @@ describe('ratingPreviewFromStoredMatchPlayers', () => {
       ['P2', 4],
     ]);
 
-    const preview = ratingPreviewFromStoredMatchPlayers(storedMatchFixture(), leagueGamesByPlayer);
+    const displayStatsByPlayer = new Map([
+      ['P1', { games: 2, wins: 1, losses: 1, quits: 1 }],
+      ['P2', { games: 4, wins: 3, losses: 1, quits: 0 }],
+    ]);
+
+    const preview = ratingPreviewFromStoredMatchPlayers(
+      storedMatchFixture(),
+      leagueGamesByPlayer,
+      displayStatsByPlayer,
+    );
 
     expect(preview?.players).toEqual([
-      expect.objectContaining({ slot: 3, leagueGames: 2 }),
-      expect.objectContaining({ slot: 8, leagueGames: 4 }),
+      expect.objectContaining({ slot: 3, leagueGames: 2, habitualQuitter: true }),
+      expect.objectContaining({ slot: 8, leagueGames: 4, habitualQuitter: false }),
     ]);
   });
 });
