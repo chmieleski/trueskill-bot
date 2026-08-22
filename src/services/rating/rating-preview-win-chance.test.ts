@@ -38,4 +38,25 @@ describe('computeWinChanceFromRatings', () => {
     expect(winChance!.teamAPercent).toBeGreaterThan(50);
     expect(winChance!.teamAPercent + winChance!.teamBPercent).toBe(100);
   });
+
+  it('weights player skill over hero skill at 80/20 for win chance', () => {
+    const winChance = computeWinChanceFromRatings(
+      [
+        { playerId: 'strong', slot: 1, team: 1, heroId: 1 },
+        { playerId: 'weak', slot: 7, team: 2, heroId: 7 },
+      ],
+      new Map([
+        ['strong', { mu: 40, sigma: 3 }],
+        ['weak', { mu: 20, sigma: 3 }],
+      ]),
+      new Map([
+        ['strong:1', { mu: 20, sigma: 3 }],
+        ['weak:7', { mu: 40, sigma: 3 }],
+      ]),
+    );
+
+    expect(winChance).toBeDefined();
+    expect(winChance!.teamAPercent).toBeGreaterThan(50);
+    expect(winChance!.teamAPercent + winChance!.teamBPercent).toBe(100);
+  });
 });

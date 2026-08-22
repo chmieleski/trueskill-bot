@@ -20,15 +20,25 @@ Each filled human slot contributes **two** ratings to the team array:
 A full 6v6 is therefore up to **24** rating entities (12 players × 2), not 12. Team A slots 1–6, Team B slots 7–12. Unbalanced fills (e.g. 4v6) are valid if both teams have ≥1 player.
 
 ```text
-Team array = [Player1, Hero1, Player2, Hero2, ...]
+Team array (rate()) = [Player1, Hero1, Player2, Hero2, ...]
 ```
 
-## Team strength (for win probability)
+## Team strength (for win probability / balance hints)
 
-- Team μ: `Σ μᵢ`
+`predictWin` and lobby balance hints do **not** feed the dual-entity array. Each human with a hero becomes **one** blended Gaussian (80% league-global, 20% hero). ACA (`heroId` null) stays global-only.
+
+```text
+μ_eff = 0.8 × μ_player + 0.2 × μ_hero
+σ_eff = √((0.8 × σ_player)² + (0.2 × σ_hero)²)
+Team array (predictWin) = [Blend1, Blend2, ...]
+```
+
+- Team μ: `Σ μᵢ` of that `predictWin` array
 - Team variance: `Σ σᵢ²`
 
-Compare Team A vs Team B to get P(win). After the match, OpenSkill updates μ/σ from actual vs expected outcome.
+Public roster ki is unchanged (still two numbers). `rate()` / quitter synthetics stay equal dual entities. Spec: `docs/superpowers/specs/2026-08-22-player-hero-balance-weight-design.md`
+
+Compare Team A vs Team B to get P(win). After the match, OpenSkill updates μ/σ from actual vs expected outcome on the **unblended** dual-entity arrays.
 
 ## Update dynamics (do not reinvent)
 
@@ -87,7 +97,8 @@ Cold start (0 games, z=3) ≈ 1000; after 5+ games the board is slightly less ha
 
 ## Agent constraints
 
-- Keep league-global vs hero ratings in separate tables/services (SRP); do not merge into one μ
+- Keep league-global vs hero ratings in separate tables/services (SRP); do not merge into one persisted μ
+- Lobby win% / balance hints may blend μ/σ at 80/20 for `predictWin` only (`ratingEntitiesForBalance`); never persist the blend
 - Every `playerRating` / `playerHeroRating` query must filter by `leagueId`
 - Rating math belongs in a dedicated service (e.g. match report / rating update); commands and buttons only call it
 - `MatchResult.DRAW` exists in schema but game flow is WIN/LOSS only
