@@ -42,9 +42,9 @@ fi
 host_update_handle_leftover_prev "${APP_DIR}" "${UNIT_ACTIVE}"
 
 echo "==> Updating ${APP_DIR} from origin/${BRANCH}"
-sudo -u "${APP_USER}" git fetch --all
-sudo -u "${APP_USER}" git checkout "${BRANCH}"
-sudo -u "${APP_USER}" git pull --ff-only origin "${BRANCH}"
+sudo -u "${APP_USER}" git -C "${APP_DIR}" fetch --all
+sudo -u "${APP_USER}" git -C "${APP_DIR}" checkout "${BRANCH}"
+sudo -u "${APP_USER}" git -C "${APP_DIR}" pull --ff-only origin "${BRANCH}"
 
 if [[ -f "${APP_DIR}/deploy/aws/ensure-swap.sh" ]]; then
   bash "${APP_DIR}/deploy/aws/ensure-swap.sh"

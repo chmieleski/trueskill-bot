@@ -85,4 +85,11 @@ describe('host-update.sh cut-over order', () => {
       sh.indexOf('systemctl stop dbz-bot'),
     );
   });
+
+  it('pins live git fetch/checkout/pull to APP_DIR', () => {
+    const sh = readFileSync(join(repoRoot, 'deploy/aws/host-update.sh'), 'utf8');
+    expect(sh).toMatch(/git -C "\$\{APP_DIR\}" fetch --all/);
+    expect(sh).toMatch(/git -C "\$\{APP_DIR\}" checkout "\$\{BRANCH\}"/);
+    expect(sh).toMatch(/git -C "\$\{APP_DIR\}" pull --ff-only origin "\$\{BRANCH\}"/);
+  });
 });
