@@ -1,3 +1,10 @@
+## [1.10.1](https://github.com/chmieleski/trueskill-bot/compare/v1.10.0...v1.10.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **deploy:** typecheck team-rate gate without roster slots ([#69](https://github.com/chmieleski/trueskill-bot/issues/69)) ([0d84a6c](https://github.com/chmieleski/trueskill-bot/commit/0d84a6c3f06d05238071410a6f3d24340384a171))
+
 # [1.10.0](https://github.com/chmieleski/trueskill-bot/compare/v1.9.0...v1.10.0) (2026-08-22)
 
 
