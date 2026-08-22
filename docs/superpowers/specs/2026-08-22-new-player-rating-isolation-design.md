@@ -1,7 +1,7 @@
 # New-player rating isolation — Design
 
 **Date:** 2026-08-22  
-**Status:** Approved (Approach 1 — hard exclude + league flag)  
+**Status:** Implemented  
 **Scope:** `general` (OpenSkill apply path, lobby UX; keyed by `leagueId`)  
 **Related:** [`2026-08-17-calibrating-ki-display-design.md`](./2026-08-17-calibrating-ki-display-design.md), [`2026-08-18-lobby-relative-rating-scale-design.md`](./2026-08-18-lobby-relative-rating-scale-design.md), `.cursor/rules/openskill-rating.mdc`
 
