@@ -1,3 +1,11 @@
+# [1.11.0](https://github.com/chmieleski/trueskill-bot/compare/v1.10.1...v1.11.0) (2026-08-22)
+
+
+### Features
+
+* **deploy:** keep the bot up until the stage build is ready ([#71](https://github.com/chmieleski/trueskill-bot/issues/71)) ([f61d935](https://github.com/chmieleski/trueskill-bot/commit/f61d9351245a03066fbd9519647cb989a98c3bd6))
+* **rating:** rate overall and hero independently ([#70](https://github.com/chmieleski/trueskill-bot/issues/70)) ([fd8dae1](https://github.com/chmieleski/trueskill-bot/commit/fd8dae13583b0b77e43654e363051d248dd7f276))
+
 ## [1.10.1](https://github.com/chmieleski/trueskill-bot/compare/v1.10.0...v1.10.1) (2026-08-22)
 
 
