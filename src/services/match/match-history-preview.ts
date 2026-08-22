@@ -160,6 +160,7 @@ export async function rebuildCompletedRatingPreview(
     heroId: player.heroId,
     isQuitter: player.isQuitter,
     isGriffer: player.isGriffer,
+    wasNewPlayer: player.wasNewPlayer,
   }));
 
   const globalGames = await loadGlobalGamesBeforeMatch(

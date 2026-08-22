@@ -24,6 +24,10 @@ import {
   gamesByPlayerFromStats,
   loadMatchDisplayStatsByPlayer,
 } from '../rating/rank-reset-display.js';
+import {
+  loadIsNewPlayerByPlayerId,
+  playerIdsToClearNewFlag,
+} from '../rating/new-player.js';
 
 const log = createLogger('match-report');
 
@@ -103,6 +107,7 @@ function toRatingEntries(
   match: MatchWithPlayers,
   quitterSlots: Set<number>,
   grifferSlots: Set<number>,
+  wasNewByPlayerId?: Map<string, boolean>,
 ): RatingRosterEntry[] {
   return match.players.map((player) => ({
     playerId: player.playerId,
@@ -111,6 +116,7 @@ function toRatingEntries(
     heroId: player.heroId,
     isQuitter: quitterSlots.has(player.slot),
     isGriffer: grifferSlots.has(player.slot),
+    wasNewPlayer: wasNewByPlayerId?.get(player.playerId) === true,
   }));
 }
 
@@ -225,10 +231,6 @@ export async function completeMatch(
     assertKnownSlots(match, quitterSet, 'quitter');
     assertKnownSlots(match, grifferSet, 'griffer');
 
-    const entries = toRatingEntries(match, quitterSet, grifferSet);
-    const active = entries.filter((entry) => !entry.isQuitter);
-    assertBothTeamsHaveActivePlayers(active);
-
     const previewEntries = matchPlayersToRatingEntries(
       match.players.map((player) => ({
         ...player,
@@ -244,6 +246,12 @@ export async function completeMatch(
       match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
       tx,
     );
+    const playerIds = match.players.map((p) => p.playerId);
+    const isNewByPlayerId = await loadIsNewPlayerByPlayerId(match.leagueId, playerIds, tx);
+    const entries = toRatingEntries(match, quitterSet, grifferSet, isNewByPlayerId);
+    const active = entries.filter((entry) => !entry.isQuitter);
+    assertBothTeamsHaveActivePlayers(active);
+
     const winChance = await loadRosterWinChance(match.leagueId, previewEntries, tx);
     await writeMatchRatingSnapshots(
       match.leagueId,
@@ -262,6 +270,7 @@ export async function completeMatch(
           isQuitter,
           isGriffer: grifferSet.has(player.slot),
           result: won ? 'WIN' : 'LOSS',
+          wasNewPlayer: isNewByPlayerId.get(player.playerId) === true,
         },
       });
     }
@@ -275,17 +284,22 @@ export async function completeMatch(
       data: { status: 'COMPLETED', completedAt: new Date() },
     });
 
-    const displayStats = await loadMatchDisplayStatsByPlayer(
-      match.leagueId,
-      previewEntries.map((entry) => entry.playerId),
-      tx,
-    );
+    const displayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds, tx);
+    const gamesByPlayer = gamesByPlayerFromStats(displayStats);
+    const clearIds = playerIdsToClearNewFlag(playerIds, gamesByPlayer);
+    if (clearIds.length > 0) {
+      await tx.playerRating.updateMany({
+        where: { leagueId: match.leagueId, playerId: { in: clearIds }, isNewPlayer: true },
+        data: { isNewPlayer: false },
+      });
+    }
+
     const afterBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
     ratingPreview = buildCompletedRatingPreview(
       previewEntries,
       beforeBySlot,
       afterBySlot,
-      gamesByPlayerFromStats(displayStats),
+      gamesByPlayer,
       winChance,
     );
     await persistMatchRatingPreviewToPlayers(matchId, ratingPreview, match.players, tx);

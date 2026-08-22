@@ -3,6 +3,7 @@ import { KI_Z_BLEND_GAMES } from './rating-math.js';
 import {
   parseNewPlayerButtonCustomId,
   buildNewPlayerConfirmCustomId,
+  playerIdsToClearNewFlag,
   shouldClearNewPlayer,
   shouldSuggestNewPlayer,
 } from './new-player.js';
@@ -19,6 +20,21 @@ describe('shouldClearNewPlayer', () => {
   it('clears at the calibrating threshold', () => {
     expect(shouldClearNewPlayer(KI_Z_BLEND_GAMES - 1)).toBe(false);
     expect(shouldClearNewPlayer(KI_Z_BLEND_GAMES)).toBe(true);
+  });
+});
+
+describe('playerIdsToClearNewFlag', () => {
+  it('clears isNewPlayer when after-match games >= 5', () => {
+    const gamesByPlayer = new Map([
+      ['a', KI_Z_BLEND_GAMES - 1],
+      ['b', KI_Z_BLEND_GAMES],
+      ['c', KI_Z_BLEND_GAMES + 2],
+    ]);
+
+    expect(playerIdsToClearNewFlag(['a', 'b', 'c', 'missing'], gamesByPlayer)).toEqual([
+      'b',
+      'c',
+    ]);
   });
 });
 
