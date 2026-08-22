@@ -33,3 +33,14 @@ export {
   type MatchDisplayStatRow,
   type PlayerMatchDisplayStats,
 } from './rank-reset-display.js';
+export {
+  buildNewPlayerConfirmCustomId,
+  buildNewPlayerDeclineCustomId,
+  NEW_PLAYER_LABEL,
+  NEW_PLAYER_PROMPT_PREFIX,
+  parseNewPlayerButtonCustomId,
+  shouldClearNewPlayer,
+  shouldSuggestNewPlayer,
+  type NewPlayerButtonAction,
+  type ParsedNewPlayerButtonCustomId,
+} from './new-player.js';
