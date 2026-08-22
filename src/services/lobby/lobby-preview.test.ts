@@ -76,6 +76,51 @@ describe('formatTeamLinesFromPreview', () => {
     expect(secondLine).not.toContain('🚪');
   });
 
+  it('appends the habitual-quitter marker outside the code span before 🚪', () => {
+    const value = formatTeamLinesFromPreview([
+      {
+        slot: 1,
+        nick: 'goku',
+        globalOrdinal: 1100,
+        heroOrdinal: 2200,
+        habitualQuitter: true,
+        isQuitter: true,
+        leagueGames: 8,
+      },
+      {
+        slot: 2,
+        nick: 'vegeta',
+        globalOrdinal: 3300,
+        heroOrdinal: 4400,
+        habitualQuitter: true,
+        isGriffer: true,
+        leagueGames: 8,
+      },
+      { slot: 3, nick: 'piccolo', globalOrdinal: 2100, heroOrdinal: 1800, leagueGames: 8 },
+    ]);
+    const [first, second, third] = value.split('\n');
+
+    expect(first).toMatch(/`\s*1\s+goku\s+1100 \/ 2200`\s+⚠️ 🚪$/);
+    expect(second).toMatch(/`\s*2\s+vegeta\s+3300 \/ 4400`\s+⚠️ 🐛$/);
+    expect(third).not.toContain('⚠️');
+    expect(third).not.toContain('🚪');
+  });
+
+  it('keeps ⚠️ next to Calibrating', () => {
+    const value = formatTeamLinesFromPreview([
+      {
+        slot: 1,
+        nick: 'goku',
+        globalOrdinal: 1186,
+        heroOrdinal: 1200,
+        habitualQuitter: true,
+        leagueGames: 4,
+      },
+    ]);
+    expect(value).toContain('Calibrating');
+    expect(value).toMatch(/`[^`]+`\s+⚠️$/);
+  });
+
   it('shows signed ki deltas inline on completed roster lines', () => {
     const value = formatTeamLinesFromPreview([
       {
@@ -660,6 +705,42 @@ describe('buildMatchCompletedEmbed', () => {
     expect(json.fields?.[1]?.value).not.toContain('🚪');
     expect(json.footer?.text).toBe('Per player: slot  nick  global / hero (ki)');
     expect(json.color).toBe(0xf1c40f);
+  });
+
+  it('adds the ⚠️ footer legend only when a line is flagged', () => {
+    const withFlag = buildMatchCompletedEmbed(
+      'match-123',
+      [
+        { slot: 1, nick: 'goku' },
+        { slot: 7, nick: 'vegeta' },
+      ],
+      {
+        winningTeam: 1,
+        ratingPreview: {
+          players: [
+            {
+              slot: 1,
+              nick: 'goku',
+              globalOrdinal: 1186,
+              heroOrdinal: 1200,
+              habitualQuitter: true,
+              leagueGames: 8,
+            },
+            {
+              slot: 7,
+              nick: 'vegeta',
+              globalOrdinal: 3300,
+              heroOrdinal: 4400,
+              leagueGames: 8,
+            },
+          ],
+        },
+      },
+    );
+    expect(withFlag.toJSON().footer?.text).toBe(
+      'Per player: slot  nick  global / hero (ki) · ⚠️ quit 50%+',
+    );
+    expect(withFlag.toJSON().fields?.[0]?.value).toContain('⚠️');
   });
 
   it('shows pre-match win chance when provided', () => {

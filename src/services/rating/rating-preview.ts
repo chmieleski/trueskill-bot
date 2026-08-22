@@ -51,6 +51,8 @@ export interface LobbyRatingPlayerLine {
   showHero?: boolean;
   /** League completed WIN/LOSS count used for the Calibrating gate. */
   leagueGames: number;
+  /** League `/rank` quit rate is 50%+ (post–rank-reset). */
+  habitualQuitter?: boolean;
 }
 
 export interface LobbyRatingPreview {
