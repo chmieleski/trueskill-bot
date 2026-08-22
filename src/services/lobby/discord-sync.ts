@@ -20,6 +20,7 @@ import {
   matchPlayersToRatingEntries,
   type LobbyRatingPreview,
 } from '../rating/rating-preview.js';
+import { collectNewPlayerSuggestions, type NewPlayerSuggestion } from '../rating/new-player.js';
 import { prisma } from '../../lib/prisma.js';
 import { isLeagueWc3statsImportReady } from '../league/league-wc3stats.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
@@ -31,6 +32,25 @@ export type LobbySyncMode = 'pending' | 'started' | 'cancelled' | 'completed';
 export interface LobbyActionResult {
   match: MatchWithPlayers;
   players: LobbyPlayer[];
+  /** First-timers newly seated on this sync (host/mod may confirm New). */
+  newPlayerSuggestions?: NewPlayerSuggestion[];
+}
+
+/** Attach New-player suggest payloads for players seated since `previousPlayerIds`. */
+export async function withNewPlayerSuggestions(
+  result: LobbyActionResult,
+  previousPlayerIds: Set<string>,
+): Promise<LobbyActionResult> {
+  const newPlayerSuggestions = await collectNewPlayerSuggestions({
+    leagueId: result.match.leagueId,
+    matchId: result.match.id,
+    previousPlayerIds,
+    nextPlayers: result.match.players.map((player) => ({
+      playerId: player.playerId,
+      username: player.player.username,
+    })),
+  });
+  return { ...result, newPlayerSuggestions };
 }
 
 /** Extract the guildId string from a Discord channel object. */

@@ -36,11 +36,15 @@ export {
 export {
   buildNewPlayerConfirmCustomId,
   buildNewPlayerDeclineCustomId,
+  collectNewPlayerSuggestions,
+  loadIsNewPlayerByPlayerId,
   NEW_PLAYER_LABEL,
   NEW_PLAYER_PROMPT_PREFIX,
   parseNewPlayerButtonCustomId,
+  playerIdsToClearNewFlag,
   shouldClearNewPlayer,
   shouldSuggestNewPlayer,
   type NewPlayerButtonAction,
+  type NewPlayerSuggestion,
   type ParsedNewPlayerButtonCustomId,
 } from './new-player.js';

@@ -13,13 +13,21 @@ import {
   swapPlayers,
 } from './roster.js';
 import { applyRemapPairs } from './remap.js';
-import { applyRosterAndSync, type LobbyActionResult } from './discord-sync.js';
+import {
+  applyRosterAndSync,
+  withNewPlayerSuggestions,
+  type LobbyActionResult,
+} from './discord-sync.js';
 import { resolveHostPendingMatch, resolvePendingMatchByMessageId } from './resolve.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
 
 export type { LobbyActionResult };
 
 const PLAYER_CLAIM_DISABLED_MESSAGE = 'Player slot claim is disabled on this server.';
+
+function previousPlayerIdsFromMatch(match: { players: Array<{ playerId: string }> }): Set<string> {
+  return new Set(match.players.map((player) => player.playerId));
+}
 
 async function profileForLeague(leagueId: string) {
   try {
@@ -59,7 +67,9 @@ export async function addLobbyPlayer(input: {
   });
   const profile = await profileForLeague(match.leagueId);
   const next = addPlayer(players, input.nick, input.slot, profile);
-  return applyRosterAndSync(input.client, match.id, next);
+  const beforeIds = previousPlayerIdsFromMatch(match);
+  const result = await applyRosterAndSync(input.client, match.id, next);
+  return withNewPlayerSuggestions(result, beforeIds);
 }
 
 /**
@@ -79,7 +89,9 @@ export async function addLobbyPlayerFromDiscord(input: {
   const profile = await profileForLeague(match.leagueId);
   const nick = await nickForDiscordId(input.discordId, profile.gameId);
   const next = addPlayer(players, nick, input.slot, profile);
-  return applyRosterAndSync(input.client, match.id, next);
+  const beforeIds = previousPlayerIdsFromMatch(match);
+  const result = await applyRosterAndSync(input.client, match.id, next);
+  return withNewPlayerSuggestions(result, beforeIds);
 }
 
 /**
@@ -99,7 +111,9 @@ export async function claimLobbySlot(input: {
   const profile = await profileForLeague(match.leagueId);
   const nick = await nickForDiscordId(input.discordId, profile.gameId);
   const next = rosterAfterClaim(players, nick, input.slot, profile);
-  return applyRosterAndSync(input.client, match.id, next);
+  const beforeIds = previousPlayerIdsFromMatch(match);
+  const result = await applyRosterAndSync(input.client, match.id, next);
+  return withNewPlayerSuggestions(result, beforeIds);
 }
 
 /**

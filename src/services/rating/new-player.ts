@@ -1,8 +1,17 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { gamesByPlayerFromStats, loadMatchDisplayStatsByPlayer } from './rank-reset-display.js';
 import { KI_Z_BLEND_GAMES } from './rating-math.js';
 
 type Db = Prisma.TransactionClient | typeof prisma;
+
+/** Payload for host/mod New-player confirm prompts after a roster add. */
+export type NewPlayerSuggestion = {
+  playerId: string;
+  username: string;
+  leagueId: string;
+  matchId: string;
+};
 
 /** Roster suffix rendered as ` · New`. */
 export const NEW_PLAYER_LABEL = 'New';
@@ -69,6 +78,58 @@ export async function loadIsNewPlayerByPlayerId(
   return map;
 }
 
+/**
+ * Newly seated players eligible for a New-player suggest (0 completed games, not already New).
+ * One entry per playerId; undefined when none qualify.
+ */
+export async function collectNewPlayerSuggestions(input: {
+  leagueId: string;
+  matchId: string;
+  previousPlayerIds: Set<string>;
+  nextPlayers: Array<{ playerId: string; username: string }>;
+  db?: Db;
+}): Promise<NewPlayerSuggestion[] | undefined> {
+  const db = input.db ?? prisma;
+  const newcomers: Array<{ playerId: string; username: string }> = [];
+  const seen = new Set<string>();
+
+  for (const player of input.nextPlayers) {
+    if (input.previousPlayerIds.has(player.playerId) || seen.has(player.playerId)) {
+      continue;
+    }
+    seen.add(player.playerId);
+    newcomers.push(player);
+  }
+
+  if (newcomers.length === 0) {
+    return undefined;
+  }
+
+  const playerIds = newcomers.map((player) => player.playerId);
+  const [displayStats, isNewByPlayer] = await Promise.all([
+    loadMatchDisplayStatsByPlayer(input.leagueId, playerIds, db),
+    loadIsNewPlayerByPlayerId(input.leagueId, playerIds, db),
+  ]);
+  const gamesByPlayer = gamesByPlayerFromStats(displayStats);
+
+  const suggestions: NewPlayerSuggestion[] = [];
+  for (const player of newcomers) {
+    const games = gamesByPlayer.get(player.playerId) ?? 0;
+    const isAlreadyNew = isNewByPlayer.get(player.playerId) ?? false;
+    if (!shouldSuggestNewPlayer(games, isAlreadyNew)) {
+      continue;
+    }
+    suggestions.push({
+      playerId: player.playerId,
+      username: player.username,
+      leagueId: input.leagueId,
+      matchId: input.matchId,
+    });
+  }
+
+  return suggestions.length > 0 ? suggestions : undefined;
+}
+
 function parseNewPlayerActionCode(actionCode: string): NewPlayerButtonAction | null {
   if (actionCode === NEW_PLAYER_CONFIRM_ACTION) {
     return 'confirm';
@@ -86,14 +147,9 @@ function buildNewPlayerButtonCustomId(
   playerId: string,
   actorDiscordId: string,
 ): string {
-  return [
-    NEW_PLAYER_CUSTOM_ID_PREFIX,
-    action,
-    matchId,
-    leagueId,
-    playerId,
-    actorDiscordId,
-  ].join(':');
+  return [NEW_PLAYER_CUSTOM_ID_PREFIX, action, matchId, leagueId, playerId, actorDiscordId].join(
+    ':',
+  );
 }
 
 /** Bind a confirmation button to its match, league, player, and initiating actor. */
@@ -103,13 +159,7 @@ export function buildNewPlayerConfirmCustomId(
   playerId: string,
   actorDiscordId: string,
 ): string {
-  return buildNewPlayerButtonCustomId(
-    'confirm',
-    matchId,
-    leagueId,
-    playerId,
-    actorDiscordId,
-  );
+  return buildNewPlayerButtonCustomId('confirm', matchId, leagueId, playerId, actorDiscordId);
 }
 
 /** Bind a decline button to its match, league, player, and initiating actor. */
@@ -119,13 +169,7 @@ export function buildNewPlayerDeclineCustomId(
   playerId: string,
   actorDiscordId: string,
 ): string {
-  return buildNewPlayerButtonCustomId(
-    'decline',
-    matchId,
-    leagueId,
-    playerId,
-    actorDiscordId,
-  );
+  return buildNewPlayerButtonCustomId('decline', matchId, leagueId, playerId, actorDiscordId);
 }
 
 /** Parse a new-player button ID, returning null for malformed or unrelated IDs. */

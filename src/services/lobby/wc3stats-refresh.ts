@@ -25,7 +25,11 @@ import {
   wc3statsStaleRefreshMessage,
 } from '../wc3stats/wc3stats-freshness.js';
 import { loadLeagueWc3statsHeroSlotMap } from '../wc3stats/wc3stats-slot-map.js';
-import { syncLobbyDiscordMessage, type LobbyActionResult } from './discord-sync.js';
+import {
+  syncLobbyDiscordMessage,
+  withNewPlayerSuggestions,
+  type LobbyActionResult,
+} from './discord-sync.js';
 import { nickForDiscordId } from './lobby-identity.js';
 import { assertLeagueAllowsWc3statsImport } from './register-lobby-source.js';
 
@@ -262,9 +266,12 @@ export async function refreshLobbyFromWc3stats(input: {
 
   const updated = await replaceMatchRoster(linked.id, applied.players);
   await syncLobbyDiscordMessage(input.client, updated, 'pending');
+  const result = await withNewPlayerSuggestions(
+    { match: updated, players: matchToLobbyPlayers(updated) },
+    new Set(linked.players.map((player) => player.playerId)),
+  );
   return {
-    match: updated,
-    players: matchToLobbyPlayers(updated),
+    ...result,
     keptExisting: false,
     boundNow,
     message: refreshResultMessage({ boundNow, gameId: updated.wc3statsGameId }),
