@@ -173,7 +173,7 @@ const LOBBY_CHANNEL_ALLOWED_MATCH_SUBCOMMANDS = new Set([
   'complete',
   'cancel',
   'quitters',
-  'abusers',
+  'griefers',
 ]);
 
 /** User-facing copy when a non-allowlisted slash command is used in a ready lobby channel. */

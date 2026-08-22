@@ -71,7 +71,7 @@ On `PlayerRating`, after `sigma`:
   isNewPlayer Boolean  @default(false)
 ```
 
-On `MatchPlayer`, after `isGriffer`:
+On `MatchPlayer`, after `isGriefer`:
 
 ```prisma
   wasNewPlayer Boolean @default(false) // Snapshot of PlayerRating.isNewPlayer at rating apply
@@ -515,7 +515,7 @@ EOF
 **Files:**
 
 - Modify: `src/services/rating/rating-preview.ts` — add `isNewPlayer?: boolean` on lobby lines; load from `PlayerRating`
-- Modify: `src/services/lobby/lobby-preview.ts` — append ` NEW_PLAYER_MARKER` (or ` · New`) beside quit/griffer marks when `player.isNewPlayer || player.wasNewPlayer`
+- Modify: `src/services/lobby/lobby-preview.ts` — append ` NEW_PLAYER_MARKER` (or ` · New`) beside quit/griefer marks when `player.isNewPlayer || player.wasNewPlayer`
 - Modify: completed embed path to pass `wasNewPlayer` from `MatchPlayer`
 - Tests: `lobby-preview.test.ts`
 

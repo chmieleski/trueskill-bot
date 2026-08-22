@@ -11,7 +11,7 @@ Players should see who has a high quit rate **on the match roster**, without loo
 
 ## Non-goals
 
-- Changing OpenSkill `rate()`, quitter synthetics, or griffer penalties
+- Changing OpenSkill `rate()`, quitter synthetics, or griefer penalties
 - `/rank`, overall/hero boards, match history, or `/leaderboard quitters`
 - Denormalized `quitCount` / `completedCount` columns
 - Guild-wide stats (quitter leaderboard stays guild-wide; this flag does not)
@@ -31,7 +31,7 @@ Players should see who has a high quit rate **on the match roster**, without loo
 | Cancelled-only  | `games = 0` and `quits ≥ 1` → flag                                                      |
 | Marker          | ⚠️ outside the code span                                                                |
 | This-match quit | 🚪 unchanged                                                                            |
-| Griffer         | 🐛 unchanged (still omitted when they quit this match)                                  |
+| Griefer         | 🐛 unchanged (still omitted when they quit this match)                                  |
 | Marker order    | ⚠️ then 🚪 then 🐛                                                                      |
 | Legend          | Footer suffix ` · ⚠️ quit 50%+` only when at least one line is flagged                  |
 | Unlinked nick   | No flag                                                                                 |
@@ -112,7 +112,7 @@ Commands and buttons stay thin.
 | Unlinked / no `playerId`                | No flag                                                               |
 | This-match quitter, historically clean  | 🚪 only until complete; then stats include this quit                  |
 | Habitual + this-match quit              | `⚠️ 🚪`                                                               |
-| Habitual + griffer, not this-match quit | `⚠️ 🐛`                                                               |
+| Habitual + griefer, not this-match quit | `⚠️ 🐛`                                                               |
 | Rating preview failed / omitted         | Nick-only fallback: no flag                                           |
 
 ## Testing (acceptance)

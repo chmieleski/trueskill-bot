@@ -32,7 +32,7 @@ export const LOBBY_CUSTOM_IDS = {
   cancel: 'lobby:cancel',
   reportWinner: 'match:report',
   quitters: 'match:quitters',
-  griffers: 'match:griffers',
+  griefers: 'match:griefers',
   cancelInProgress: 'match:cancel',
 } as const;
 
@@ -101,7 +101,7 @@ function formatKiCell(ki: number, leagueGames: number, delta: number | undefined
  * by number. Uses monospace padding so rating columns align. When deltas are
  * present (completed match), appends signed change inline. Habitual 50%+ quit
  * lines get trailing ⚠️ outside the code span (before 🚪 / 🐛). Quitter lines
- * get a trailing 🚪 marker outside the code span; griffer lines get 🐛. New
+ * get a trailing 🚪 marker outside the code span; griefer lines get 🐛. New
  * players get ` · New` beside those marks.
  */
 export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): string {
@@ -129,9 +129,9 @@ export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): st
       const global = cells[index]!.global.padStart(ratingWidth, ' ');
       const habitualMark = player.habitualQuitter ? ' ⚠️' : '';
       const quitterMark = player.isQuitter ? ' 🚪' : '';
-      const grifferMark = !player.isQuitter && player.isGriffer ? ' 🐛' : '';
+      const grieferMark = !player.isQuitter && player.isGriefer ? ' 🐛' : '';
       const newMark = player.isNewPlayer || player.wasNewPlayer ? NEW_PLAYER_ROSTER_MARKER : '';
-      const flagMark = `${habitualMark}${quitterMark}${grifferMark}${newMark}`;
+      const flagMark = `${habitualMark}${quitterMark}${grieferMark}${newMark}`;
       if (player.showHero === false) {
         return `\`${slotLabel}  ${nick}   ${global}\`${flagMark}`;
       }
@@ -429,8 +429,8 @@ export function buildMatchReportButtons(): ActionRowBuilder<ButtonBuilder>[] {
         .setEmoji('🚪')
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
-        .setCustomId(LOBBY_CUSTOM_IDS.griffers)
-        .setLabel('Abuser')
+        .setCustomId(LOBBY_CUSTOM_IDS.griefers)
+        .setLabel('Griefer')
         .setEmoji('🐛')
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()

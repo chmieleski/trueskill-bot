@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveGrifferSlots, resolveQuitterSlots } from './match-report.js';
+import { resolveGrieferSlots, resolveQuitterSlots } from './match-report.js';
 
 describe('resolveQuitterSlots', () => {
   const persistedFlags = [
@@ -26,19 +26,19 @@ describe('resolveQuitterSlots', () => {
   });
 });
 
-describe('resolveGrifferSlots', () => {
+describe('resolveGrieferSlots', () => {
   const persistedFlags = [
-    { slot: 5, isGriffer: true },
-    { slot: 1, isGriffer: false },
-    { slot: 9, isGriffer: true },
-    { slot: 3, isGriffer: true },
+    { slot: 5, isGriefer: true },
+    { slot: 1, isGriefer: false },
+    { slot: 9, isGriefer: true },
+    { slot: 3, isGriefer: true },
   ];
 
-  it('uses persisted griffer flags when slots are omitted', () => {
-    expect(resolveGrifferSlots(persistedFlags)).toEqual([3, 5, 9]);
+  it('uses persisted griefer flags when slots are omitted', () => {
+    expect(resolveGrieferSlots(persistedFlags)).toEqual([3, 5, 9]);
   });
 
-  it('clears griffers when an explicit empty list is provided', () => {
-    expect(resolveGrifferSlots(persistedFlags, [])).toEqual([]);
+  it('clears griefers when an explicit empty list is provided', () => {
+    expect(resolveGrieferSlots(persistedFlags, [])).toEqual([]);
   });
 });

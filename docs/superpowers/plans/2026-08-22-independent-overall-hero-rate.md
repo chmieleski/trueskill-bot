@@ -20,7 +20,7 @@
 - Do not change display-ki formula, roster ki numbers, New isolation, or lobby-relative **rules** (still apply the same global-ki offset to both ladders after both `rate()` calls)
 - Empty `activeRateable` side: skip **both** team `rate()` calls (no throw)
 - Empty hero side: skip **hero** `rate()` only; overall still runs; do not write hero μ/σ or increment `matchesPlayed` when hero `rate()` is skipped
-- Quit/griffer synthetics: two N=1 peer losses (overall vs overall, hero vs hero when `heroId` set); still not lobby-scaled
+- Quit/griefer synthetics: two N=1 peer losses (overall vs overall, hero vs hero when `heroId` set); still not lobby-scaled
 - No ladder backfill; history/flip replay current math
 - ESM imports use `.js` extension; named exports
 - Conventional Commits on this branch
@@ -219,7 +219,7 @@ EOF
 
 ---
 
-### Task 3: Independent quit / griffer synthetics
+### Task 3: Independent quit / griefer synthetics
 
 **Files:**
 
@@ -352,7 +352,7 @@ await db.playerHeroRating.update({
 
 Still do **not** increment `matchesPlayed` here.
 
-4. In `simulatePostMatchRatings`, replace **both** quitter and griffer loops with:
+4. In `simulatePostMatchRatings`, replace **both** quitter and griefer loops with:
 
 ```ts
 const updated = applyIndependentSyntheticLosses(global, hero, entry.heroId);
@@ -369,7 +369,7 @@ if (entry.heroId != null && updated.hero) {
 
 Run: `npx vitest run src/services/rating/rating-update.test.ts src/services/rating/rating-update.simulate.test.ts`
 
-Expected: PASS (including existing 1-entity ACA griffer/quit tests).
+Expected: PASS (including existing 1-entity ACA griefer/quit tests).
 
 - [ ] **Step 5: Commit**
 
@@ -774,7 +774,7 @@ EOF
 | Skip hero `rate()` if empty hero side; overall still runs; no hero write | 2, 4                                                   |
 | ACA overall-only                                                         | 4 (existing ACA apply test + skip-hero test)           |
 | New / quitters excluded from both team `rate()`                          | unchanged partition                                    |
-| Independent quit/griffer synthetics                                      | 3                                                      |
+| Independent quit/griefer synthetics                                      | 3                                                      |
 | Lobby-relative scale after both `rate()`, global-ki offset, σ unchanged  | 4 (`rateActiveMatchTeams` still calls existing scaler) |
 | `matchesPlayed` not on quit; not when hero `rate()` skipped              | 3, 4                                                   |
 | Product claim: same overall Δμ cold vs main                              | 4                                                      |

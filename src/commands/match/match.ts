@@ -15,7 +15,7 @@ import {
 import {
   cancelInProgressMatch,
   completeMatch,
-  setGriffers,
+  setGriefers,
   setQuitters,
 } from '../../services/match/index.js';
 import {
@@ -117,11 +117,7 @@ export function parseQuitterSlots(slotsRaw: string | null | undefined): number[]
   return [...slots].sort((a, b) => a - b);
 }
 
-export function parseAbuserSlots(slotsRaw: string | null | undefined): number[] {
-  return parseGrifferSlots(slotsRaw);
-}
-
-export function parseGrifferSlots(slotsRaw: string | null | undefined): number[] {
+export function parseGrieferSlots(slotsRaw: string | null | undefined): number[] {
   const trimmed = slotsRaw?.trim();
 
   if (!trimmed) {
@@ -141,7 +137,7 @@ export function parseGrifferSlots(slotsRaw: string | null | undefined): number[]
 
     if (!Number.isInteger(slot) || slot < MIN_SLOT || slot > MAX_SLOT) {
       throw new MatchServiceError(
-        `Invalid abuser slot "${value}". Slots must be between ${MIN_SLOT} and ${MAX_SLOT}.`,
+        `Invalid griefer slot "${value}". Slots must be between ${MIN_SLOT} and ${MAX_SLOT}.`,
       );
     }
 
@@ -347,7 +343,7 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand((subcommand) =>
     subcommand
-      .setName('abusers')
+      .setName('griefers')
       .setDescription('Mark players who abused a bug (host or mod)')
       .addStringOption((option) =>
         option
@@ -395,8 +391,8 @@ export const data = new SlashCommandBuilder()
       .setDescription('Cancel an in-progress match')
       .addStringOption((option) =>
         option
-          .setName('abusers')
-          .setDescription('Comma-separated abuser slots like "2,8" (bug abuse penalty)')
+          .setName('griefers')
+          .setDescription('Comma-separated griefer slots like "2,8" (bug abuse penalty)')
           .setRequired(false),
       )
       .addStringOption((option) =>
@@ -659,15 +655,15 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
 
-    if (subcommand === 'abusers') {
-      const abuserSlots = parseAbuserSlots(interaction.options.getString('slots'));
-      await interaction.editReply({ content: 'Saving abusers…' });
-      const updated = await setGriffers(match.id, abuserSlots);
+    if (subcommand === 'griefers') {
+      const grieferSlots = parseGrieferSlots(interaction.options.getString('slots'));
+      await interaction.editReply({ content: 'Saving griefers…' });
+      const updated = await setGriefers(match.id, grieferSlots);
       await applyMatchMutation(
         interaction,
         updated,
         'started',
-        `Abusers updated in match \`${updated.id}\`.`,
+        `Griefers updated in match \`${updated.id}\`.`,
       );
       return;
     }
@@ -693,12 +689,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     if (subcommand === 'cancel') {
-      const abusersRaw = interaction.options.getString('abusers');
-      const abuserSlots = abusersRaw === null ? undefined : parseAbuserSlots(abusersRaw);
+      const griefersRaw = interaction.options.getString('griefers');
+      const grieferSlots = griefersRaw === null ? undefined : parseGrieferSlots(griefersRaw);
       await interaction.editReply({
-        content: 'Cancelling the match… Applying quitter or abuser penalties if any are marked.',
+        content: 'Cancelling the match… Applying quitter or griefer penalties if any are marked.',
       });
-      const cancelled = await cancelInProgressMatch(match.id, abuserSlots);
+      const cancelled = await cancelInProgressMatch(match.id, grieferSlots);
       await applyMatchMutation(
         interaction,
         cancelled,

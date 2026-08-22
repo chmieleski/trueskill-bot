@@ -52,7 +52,7 @@ export interface LobbyRatingPlayerLine {
   /** Completed-match only: ki change for hero (after − before). */
   heroDelta?: number;
   isQuitter?: boolean;
-  isGriffer?: boolean;
+  isGriefer?: boolean;
   /** Live PENDING/in-progress: from PlayerRating.isNewPlayer. */
   isNewPlayer?: boolean;
   /** Completed/history: from MatchPlayer.wasNewPlayer snapshot. */
@@ -79,7 +79,7 @@ export type RatingPreviewRosterEntry = {
   heroId: number | null;
   nick: string;
   isQuitter?: boolean;
-  isGriffer?: boolean;
+  isGriefer?: boolean;
   wasNewPlayer?: boolean;
 };
 
@@ -297,7 +297,7 @@ export function buildCompletedRatingPreview(
         globalDelta: after.global - before.global,
         heroDelta: after.hero - before.hero,
         isQuitter: entry.isQuitter,
-        isGriffer: entry.isGriffer,
+        isGriefer: entry.isGriefer,
         ...(entry.wasNewPlayer === true ? { wasNewPlayer: true as const } : {}),
         showHero: entry.heroId != null,
         leagueGames: leagueGamesByPlayer.get(entry.playerId) ?? 0,
@@ -375,7 +375,7 @@ export async function loadLobbyRatingPreview(
           globalOrdinal,
           heroOrdinal: globalOrdinal,
           isQuitter: entry.isQuitter,
-          isGriffer: entry.isGriffer,
+          isGriefer: entry.isGriefer,
           ...newFlag,
           showHero: false,
           leagueGames: globalGames,
@@ -392,7 +392,7 @@ export async function loadLobbyRatingPreview(
         globalOrdinal,
         heroOrdinal: displayOrdinal(hero.mu, hero.sigma, heroGames),
         isQuitter: entry.isQuitter,
-        isGriffer: entry.isGriffer,
+        isGriefer: entry.isGriefer,
         ...newFlag,
         showHero: true,
         leagueGames: globalGames,
@@ -477,7 +477,7 @@ export function matchPlayersToRatingEntries(
     team: number;
     heroId: number | null;
     isQuitter?: boolean;
-    isGriffer?: boolean;
+    isGriefer?: boolean;
     wasNewPlayer?: boolean;
     player: { username: string };
   }[],
@@ -489,7 +489,7 @@ export function matchPlayersToRatingEntries(
     heroId: entry.heroId,
     nick: entry.player.username,
     isQuitter: entry.isQuitter,
-    isGriffer: entry.isGriffer,
+    isGriefer: entry.isGriefer,
     wasNewPlayer: entry.wasNewPlayer,
   }));
 }

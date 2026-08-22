@@ -202,7 +202,7 @@ it('appends the habitual-quitter marker outside the code span before 🚪', () =
       globalOrdinal: 3300,
       heroOrdinal: 4400,
       habitualQuitter: true,
-      isGriffer: true,
+      isGriefer: true,
       leagueGames: 8,
     },
     { slot: 3, nick: 'piccolo', globalOrdinal: 2100, heroOrdinal: 1800, leagueGames: 8 },
@@ -330,8 +330,8 @@ return ordinalFooterText(
 ```typescript
 const habitualMark = player.habitualQuitter ? ' ⚠️' : '';
 const quitterMark = player.isQuitter ? ' 🚪' : '';
-const grifferMark = !player.isQuitter && player.isGriffer ? ' 🐛' : '';
-const flagMark = `${habitualMark}${quitterMark}${grifferMark}`;
+const grieferMark = !player.isQuitter && player.isGriefer ? ' 🐛' : '';
+const flagMark = `${habitualMark}${quitterMark}${grieferMark}`;
 ```
 
 5. Extend the function JSDoc: habitual 50%+ lines get trailing ⚠️ outside the code span (before 🚪 / 🐛).
@@ -515,7 +515,7 @@ export function buildCompletedRatingPreview(
         globalDelta: after.global - before.global,
         heroDelta: after.hero - before.hero,
         isQuitter: entry.isQuitter,
-        isGriffer: entry.isGriffer,
+        isGriefer: entry.isGriefer,
         showHero: entry.heroId != null,
         leagueGames: leagueGamesByPlayer.get(entry.playerId) ?? 0,
         habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),

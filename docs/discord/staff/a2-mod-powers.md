@@ -9,6 +9,7 @@ People with the **mod role** can help when the host is gone or stuck.
 **Matches in progress**
 • `/match complete` — report winner (pass `match_id` if needed)
 • `/match quitters` — mark leavers
+• `/match griefers` — mark bug-abuse griefers
 • `/match cancel` — cancel the match
 
 **Correcting a finished match** (within 24 hours)

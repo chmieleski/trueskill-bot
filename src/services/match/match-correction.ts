@@ -12,7 +12,7 @@ import {
 } from '../rating/rating-preview.js';
 import { assertTeam } from '../../domain/game-profile.js';
 import {
-  applyGrifferPenalties,
+  applyGrieferPenalties,
   applyMatchRatings,
   applyQuitterPenalties,
   assertBothTeamsHaveActivePlayers,
@@ -453,7 +453,7 @@ function toRatingEntries(match: MatchWithPlayers, quitterSet: Set<number>): Rati
     team: assertTeam(player.team),
     heroId: player.heroId,
     isQuitter: quitterSet.has(player.slot),
-    isGriffer: player.isGriffer,
+    isGriefer: player.isGriefer,
     wasNewPlayer: player.wasNewPlayer,
   }));
 }
@@ -531,7 +531,7 @@ export async function flipCompletedMatch(
       match.players.map((p) => ({
         ...p,
         isQuitter: quitterSet.has(p.slot),
-        isGriffer: p.isGriffer,
+        isGriefer: p.isGriefer,
         wasNewPlayer: p.wasNewPlayer,
       })),
     );
@@ -550,14 +550,14 @@ export async function flipCompletedMatch(
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
         data: {
           isQuitter,
-          isGriffer: player.isGriffer,
+          isGriefer: player.isGriefer,
           result: won ? 'WIN' : 'LOSS',
         },
       });
     }
 
     await applyQuitterPenalties(match.leagueId, entries, tx);
-    await applyGrifferPenalties(match.leagueId, entries, tx);
+    await applyGrieferPenalties(match.leagueId, entries, tx);
     await applyMatchRatings(match.leagueId, entries, winningTeam, tx);
 
     const playerIds = previewEntries.map((entry) => entry.playerId);
@@ -607,7 +607,7 @@ export async function voidCompletedMatch(matchId: string): Promise<MatchWithPlay
     for (const player of match.players) {
       await tx.matchPlayer.update({
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
-        data: { result: null, isQuitter: false, isGriffer: false },
+        data: { result: null, isQuitter: false, isGriefer: false },
       });
     }
 
