@@ -5,7 +5,9 @@ import {
   aggregateMatchDisplayStats,
   countCompletedGamesThrough,
   gamesByPlayerFromStats,
+  habitualQuitterFromStats,
   heroStatsFor,
+  isHabitualQuitter,
   isMatchCountedAfterRankReset,
   winRatePercent,
 } from './rank-reset-display.js';
@@ -321,5 +323,42 @@ describe('aggregateHeroMatchDisplayStats', () => {
 describe('heroStatsFor', () => {
   it('returns zeros when the bucket is missing', () => {
     expect(heroStatsFor(new Map(), 'p1', 1)).toEqual({ wins: 0, losses: 0 });
+  });
+});
+
+describe('isHabitualQuitter', () => {
+  it('is false when there are no quits', () => {
+    expect(isHabitualQuitter(0, 0)).toBe(false);
+    expect(isHabitualQuitter(0, 10)).toBe(false);
+  });
+
+  it('is true when there is at least one quit and zero completed games', () => {
+    expect(isHabitualQuitter(1, 0)).toBe(true);
+  });
+
+  it('flags at 50% inclusive and above', () => {
+    expect(isHabitualQuitter(1, 1)).toBe(true);
+    expect(isHabitualQuitter(1, 2)).toBe(true);
+    expect(isHabitualQuitter(3, 5)).toBe(true);
+  });
+
+  it('does not flag below 50%', () => {
+    expect(isHabitualQuitter(1, 3)).toBe(false);
+    expect(isHabitualQuitter(2, 5)).toBe(false);
+  });
+});
+
+describe('habitualQuitterFromStats', () => {
+  it('uses zeros when the player has no stats row', () => {
+    expect(habitualQuitterFromStats(new Map(), 'p1')).toBe(false);
+  });
+
+  it('reads quits and games from the stats map', () => {
+    const stats = new Map([
+      ['p1', { games: 2, wins: 1, losses: 1, quits: 1 }],
+      ['p2', { games: 3, wins: 2, losses: 1, quits: 1 }],
+    ]);
+    expect(habitualQuitterFromStats(stats, 'p1')).toBe(true);
+    expect(habitualQuitterFromStats(stats, 'p2')).toBe(false);
   });
 });
