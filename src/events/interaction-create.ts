@@ -9,6 +9,7 @@ import { handleMatchInteraction } from '../discord/interactions/match-interactio
 import { handleMatchCorrectionInteraction } from '../discord/interactions/match-correction-interactions.js';
 import { handleLeagueRolloverInteraction } from '../discord/interactions/league-rollover-interactions.js';
 import { handleRankResetInteraction } from '../discord/interactions/rank-reset-interactions.js';
+import { handleNewPlayerInteraction } from '../discord/interactions/new-player-interactions.js';
 import { handleWc3statsHostPromptInteraction } from '../discord/interactions/wc3stats-host-prompt-interactions.js';
 import { createLogger } from '../lib/logger.js';
 import { getLobbyChannelSlashDenial } from '../services/league/index.js';
@@ -41,6 +42,11 @@ export async function execute(interaction: Interaction): Promise<void> {
 
     if (await handleRankResetInteraction(interaction)) {
       log.debug({ userId: interaction.user.id }, 'Rank reset interaction handled');
+      return;
+    }
+
+    if (await handleNewPlayerInteraction(interaction)) {
+      log.debug({ userId: interaction.user.id }, 'New-player interaction handled');
       return;
     }
 

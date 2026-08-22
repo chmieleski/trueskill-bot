@@ -1,0 +1,297 @@
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  GuildMember,
+  MessageFlags,
+} from 'discord.js';
+import type {
+  ButtonInteraction,
+  ChatInputCommandInteraction,
+  Interaction,
+  MessageComponentInteraction,
+  ModalSubmitInteraction,
+} from 'discord.js';
+import { prisma } from '../../lib/prisma.js';
+import { resolveGuildConfig } from '../../services/guild/index.js';
+import {
+  assertCanManageMatch,
+  getMatchById,
+  MatchServiceError,
+} from '../../services/match/index.js';
+import { canManageMatch } from '../../services/match/match-auth.js';
+import {
+  buildNewPlayerConfirmCustomId,
+  buildNewPlayerDeclineCustomId,
+  NEW_PLAYER_PROMPT_PREFIX,
+  parseNewPlayerButtonCustomId,
+  type NewPlayerSuggestion,
+} from '../../services/rating/index.js';
+import { ensurePlayerRatings } from '../../services/rating/rating-preview.js';
+
+const NOT_YOUR_PROMPT = 'Only the match host or a match moderator can use these buttons.';
+const INVALID_PROMPT = 'That New-player prompt is no longer valid.';
+
+export type BuildNewPlayerSuggestComponentsInput = {
+  matchId: string;
+  leagueId: string;
+  playerId: string;
+  actorDiscordId: string;
+};
+
+export type SendNewPlayerSuggestPromptsInput = {
+  interaction:
+    | MessageComponentInteraction
+    | ModalSubmitInteraction
+    | ChatInputCommandInteraction;
+  match: { id: string; hostDiscordId: string; leagueId: string };
+  suggestions: NewPlayerSuggestion[];
+  matchModRoleId?: string;
+};
+
+function memberRoleIds(interaction: { member: unknown }): string[] {
+  const member = interaction.member;
+  if (member instanceof GuildMember) {
+    return [...member.roles.cache.keys()];
+  }
+  if (member && typeof member === 'object' && 'roles' in member) {
+    const roles = (member as { roles: unknown }).roles;
+    if (Array.isArray(roles)) {
+      return roles;
+    }
+    if (roles && typeof roles === 'object' && 'cache' in roles) {
+      const cache = (roles as { cache?: Map<string, unknown> }).cache;
+      if (cache instanceof Map) {
+        return [...cache.keys()];
+      }
+    }
+  }
+  return [];
+}
+
+/** Build host-bound Confirm / Decline buttons for a New-player suggest prompt. */
+export function buildNewPlayerSuggestComponents(
+  input: BuildNewPlayerSuggestComponentsInput,
+): ActionRowBuilder<ButtonBuilder>[] {
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(
+          buildNewPlayerConfirmCustomId(
+            input.matchId,
+            input.leagueId,
+            input.playerId,
+            input.actorDiscordId,
+          ),
+        )
+        .setLabel('Confirm')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(
+          buildNewPlayerDeclineCustomId(
+            input.matchId,
+            input.leagueId,
+            input.playerId,
+            input.actorDiscordId,
+          ),
+        )
+        .setLabel('Decline')
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  ];
+}
+
+/** English prompt copy for a New-player suggest. */
+export function buildNewPlayerSuggestContent(username: string): string {
+  return `Mark **${username}** as New? (host/mod)`;
+}
+
+/**
+ * After claim/add, show New-player confirm buttons.
+ * Ephemeral when the actor can manage the match; otherwise a public follow-up.
+ * Custom ids bind `actorDiscordId` to the match host (mods still authorized on click).
+ */
+export async function sendNewPlayerSuggestPrompts(
+  input: SendNewPlayerSuggestPromptsInput,
+): Promise<void> {
+  const { interaction, match, suggestions, matchModRoleId } = input;
+  if (suggestions.length === 0) {
+    return;
+  }
+
+  const actorCanManage = canManageMatch({
+    hostDiscordId: match.hostDiscordId,
+    actorDiscordId: interaction.user.id,
+    memberRoleIds: memberRoleIds(interaction),
+    matchModRoleId,
+  });
+
+  for (const suggestion of suggestions) {
+    const content = buildNewPlayerSuggestContent(suggestion.username);
+    const components = buildNewPlayerSuggestComponents({
+      matchId: suggestion.matchId,
+      leagueId: suggestion.leagueId,
+      playerId: suggestion.playerId,
+      actorDiscordId: match.hostDiscordId,
+    });
+
+    if (actorCanManage) {
+      await interaction.followUp({
+        content,
+        components,
+        flags: MessageFlags.Ephemeral,
+      });
+    } else {
+      await interaction.followUp({ content, components });
+    }
+  }
+}
+
+async function loadPlayerUsername(playerId: string): Promise<string | null> {
+  const player = await prisma.player.findUnique({
+    where: { id: playerId },
+    select: { username: true },
+  });
+  return player?.username ?? null;
+}
+
+async function authorizeNewPlayerClick(
+  interaction: ButtonInteraction,
+  matchId: string,
+  leagueId: string,
+): Promise<void> {
+  if (!interaction.guildId) {
+    throw new MatchServiceError('This action can only be used in a server.');
+  }
+
+  const match = await getMatchById(matchId);
+  if (!match || match.leagueId !== leagueId) {
+    throw new MatchServiceError(INVALID_PROMPT);
+  }
+
+  const config = await resolveGuildConfig(interaction.guildId);
+  assertCanManageMatch({
+    hostDiscordId: match.hostDiscordId,
+    actorDiscordId: interaction.user.id,
+    memberRoleIds: memberRoleIds(interaction),
+    matchModRoleId: config.matchModRoleId,
+  });
+}
+
+async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
+  const parsed = parseNewPlayerButtonCustomId(interaction.customId);
+  if (!parsed || parsed.action !== 'confirm') {
+    return;
+  }
+
+  await interaction.deferUpdate();
+
+  try {
+    await authorizeNewPlayerClick(interaction, parsed.matchId, parsed.leagueId);
+
+    const username = await loadPlayerUsername(parsed.playerId);
+    if (!username) {
+      await interaction.editReply({
+        content: INVALID_PROMPT,
+        components: [],
+      });
+      return;
+    }
+
+    await ensurePlayerRatings(parsed.leagueId, [{ playerId: parsed.playerId, heroId: null }]);
+    await prisma.playerRating.update({
+      where: {
+        leagueId_playerId: { leagueId: parsed.leagueId, playerId: parsed.playerId },
+      },
+      data: { isNewPlayer: true },
+    });
+
+    await interaction.editReply({
+      content: `Marked **${username}** as New. They will not affect team ratings until 5 games.`,
+      components: [],
+    });
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await interaction.editReply({ content: error.message, components: [] });
+      return;
+    }
+    throw error;
+  }
+}
+
+async function handleDecline(interaction: ButtonInteraction): Promise<void> {
+  const parsed = parseNewPlayerButtonCustomId(interaction.customId);
+  if (!parsed || parsed.action !== 'decline') {
+    return;
+  }
+
+  await interaction.deferUpdate();
+
+  try {
+    await authorizeNewPlayerClick(interaction, parsed.matchId, parsed.leagueId);
+
+    const username = await loadPlayerUsername(parsed.playerId);
+    if (!username) {
+      await interaction.editReply({
+        content: INVALID_PROMPT,
+        components: [],
+      });
+      return;
+    }
+
+    await interaction.editReply({
+      content: `Kept normal rating for **${username}**.`,
+      components: [],
+    });
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await interaction.editReply({ content: error.message, components: [] });
+      return;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Consume New-player Confirm/Decline buttons.
+ * Host or match-mod may click (authorize on click via `assertCanManageMatch`).
+ */
+export async function handleNewPlayerInteraction(interaction: Interaction): Promise<boolean> {
+  if (!interaction.isButton() || !interaction.customId.startsWith(NEW_PLAYER_PROMPT_PREFIX)) {
+    return false;
+  }
+
+  const parsed = parseNewPlayerButtonCustomId(interaction.customId);
+  if (!parsed) {
+    return true;
+  }
+
+  // Spam control: deny non-host/non-mod early without deferring the prompt.
+  if (interaction.guildId) {
+    const match = await getMatchById(parsed.matchId);
+    if (match) {
+      const config = await resolveGuildConfig(interaction.guildId);
+      const allowed = canManageMatch({
+        hostDiscordId: match.hostDiscordId,
+        actorDiscordId: interaction.user.id,
+        memberRoleIds: memberRoleIds(interaction),
+        matchModRoleId: config.matchModRoleId,
+      });
+      if (!allowed) {
+        await interaction.reply({
+          content: NOT_YOUR_PROMPT,
+          flags: MessageFlags.Ephemeral,
+        });
+        return true;
+      }
+    }
+  }
+
+  if (parsed.action === 'decline') {
+    await handleDecline(interaction);
+    return true;
+  }
+
+  await handleConfirm(interaction);
+  return true;
+}

@@ -226,5 +226,7 @@ export async function applyRosterUpdateForMessage(input: {
   const { match } = await resolvePendingMatchByMessageId({
     messageId: input.messageId,
   });
-  return applyRosterAndSync(input.client, match.id, input.nextPlayers);
+  const beforeIds = previousPlayerIdsFromMatch(match);
+  const result = await applyRosterAndSync(input.client, match.id, input.nextPlayers);
+  return withNewPlayerSuggestions(result, beforeIds);
 }
