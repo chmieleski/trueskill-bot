@@ -1,5 +1,9 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import {
+  compactUuidForCustomId,
+  expandUuidFromCustomId,
+} from '../match/compact-custom-id.js';
 import { gamesByPlayerFromStats, loadMatchDisplayStatsByPlayer } from './rank-reset-display.js';
 import { KI_Z_BLEND_GAMES } from './rating-math.js';
 
@@ -20,15 +24,15 @@ export const NEW_PLAYER_LABEL = 'New';
 export const NEW_PLAYER_PROMPT_PREFIX = 'np:';
 
 const NEW_PLAYER_CUSTOM_ID_PREFIX = 'np';
-const NEW_PLAYER_CONFIRM_ACTION = 'confirm';
-const NEW_PLAYER_DECLINE_ACTION = 'decline';
+/** Short action codes so Discord customIds stay ≤ 100 chars. */
+const NEW_PLAYER_CONFIRM_ACTION = 'c';
+const NEW_PLAYER_DECLINE_ACTION = 'd';
 
 export type NewPlayerButtonAction = 'confirm' | 'decline';
 
 export type ParsedNewPlayerButtonCustomId = {
   action: NewPlayerButtonAction;
   matchId: string;
-  leagueId: string;
   playerId: string;
   actorDiscordId: string;
 };
@@ -130,6 +134,10 @@ export async function collectNewPlayerSuggestions(input: {
   return suggestions.length > 0 ? suggestions : undefined;
 }
 
+function newPlayerActionCode(action: NewPlayerButtonAction): string {
+  return action === 'confirm' ? NEW_PLAYER_CONFIRM_ACTION : NEW_PLAYER_DECLINE_ACTION;
+}
+
 function parseNewPlayerActionCode(actionCode: string): NewPlayerButtonAction | null {
   if (actionCode === NEW_PLAYER_CONFIRM_ACTION) {
     return 'confirm';
@@ -140,55 +148,63 @@ function parseNewPlayerActionCode(actionCode: string): NewPlayerButtonAction | n
   return null;
 }
 
+/**
+ * Shape: `np:c|d:<matchId>:<compactPlayerId>:<actorDiscordId>`.
+ * Omits leagueId (load from match on click) so realistic ids stay ≤ Discord's 100-char limit.
+ */
 function buildNewPlayerButtonCustomId(
   action: NewPlayerButtonAction,
   matchId: string,
-  leagueId: string,
   playerId: string,
   actorDiscordId: string,
 ): string {
-  return [NEW_PLAYER_CUSTOM_ID_PREFIX, action, matchId, leagueId, playerId, actorDiscordId].join(
-    ':',
-  );
+  return [
+    NEW_PLAYER_CUSTOM_ID_PREFIX,
+    newPlayerActionCode(action),
+    matchId,
+    compactUuidForCustomId(playerId),
+    actorDiscordId,
+  ].join(':');
 }
 
-/** Bind a confirmation button to its match, league, player, and initiating actor. */
+/** Bind a confirmation button to its match, player, and initiating actor. */
 export function buildNewPlayerConfirmCustomId(
   matchId: string,
-  leagueId: string,
   playerId: string,
   actorDiscordId: string,
 ): string {
-  return buildNewPlayerButtonCustomId('confirm', matchId, leagueId, playerId, actorDiscordId);
+  return buildNewPlayerButtonCustomId('confirm', matchId, playerId, actorDiscordId);
 }
 
-/** Bind a decline button to its match, league, player, and initiating actor. */
+/** Bind a decline button to its match, player, and initiating actor. */
 export function buildNewPlayerDeclineCustomId(
   matchId: string,
-  leagueId: string,
   playerId: string,
   actorDiscordId: string,
 ): string {
-  return buildNewPlayerButtonCustomId('decline', matchId, leagueId, playerId, actorDiscordId);
+  return buildNewPlayerButtonCustomId('decline', matchId, playerId, actorDiscordId);
 }
 
 /** Parse a new-player button ID, returning null for malformed or unrelated IDs. */
 export function parseNewPlayerButtonCustomId(
   customId: string,
 ): ParsedNewPlayerButtonCustomId | null {
-  const [prefix, actionCode, matchId, leagueId, playerId, actorDiscordId, extra] =
-    customId.split(':');
+  const [prefix, actionCode, matchId, compactPlayerId, actorDiscordId, extra] = customId.split(':');
   const action = parseNewPlayerActionCode(actionCode ?? '');
   if (
     prefix !== NEW_PLAYER_CUSTOM_ID_PREFIX ||
     action === null ||
     !matchId ||
-    !leagueId ||
-    !playerId ||
+    !compactPlayerId ||
     !actorDiscordId ||
     extra !== undefined
   ) {
     return null;
   }
-  return { action, matchId, leagueId, playerId, actorDiscordId };
+  return {
+    action,
+    matchId,
+    playerId: expandUuidFromCustomId(compactPlayerId),
+    actorDiscordId,
+  };
 }

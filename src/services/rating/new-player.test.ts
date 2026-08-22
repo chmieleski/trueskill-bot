@@ -3,6 +3,7 @@ import { KI_Z_BLEND_GAMES } from './rating-math.js';
 import {
   parseNewPlayerButtonCustomId,
   buildNewPlayerConfirmCustomId,
+  buildNewPlayerDeclineCustomId,
   playerIdsToClearNewFlag,
   shouldClearNewPlayer,
   shouldSuggestNewPlayer,
@@ -39,14 +40,46 @@ describe('playerIdsToClearNewFlag', () => {
 });
 
 describe('new player button custom ids', () => {
-  it('round-trips confirm', () => {
-    const id = buildNewPlayerConfirmCustomId('m1', 'l1', 'p1', 'd1');
+  // Realistic Discord id budget: 25-char cuid + 32-char compact uuid + 19-digit snowflake.
+  const matchId = 'clxxxxxxxxxxxxxxxxxxxxxxx'; // 25
+  const playerId = '550e8400-e29b-41d4-a716-446655440000';
+  const compactPlayerId = '550e8400e29b41d4a716446655440000';
+  const actorDiscordId = '1234567890123456789'; // 19
+
+  it('round-trips confirm with compacted player UUID and no leagueId', () => {
+    const id = buildNewPlayerConfirmCustomId(matchId, playerId, actorDiscordId);
+    expect(id).toBe(`np:c:${matchId}:${compactPlayerId}:${actorDiscordId}`);
     expect(parseNewPlayerButtonCustomId(id)).toEqual({
       action: 'confirm',
-      matchId: 'm1',
-      leagueId: 'l1',
-      playerId: 'p1',
-      actorDiscordId: 'd1',
+      matchId,
+      playerId,
+      actorDiscordId,
     });
+  });
+
+  it('round-trips decline', () => {
+    const id = buildNewPlayerDeclineCustomId(matchId, playerId, actorDiscordId);
+    expect(id).toBe(`np:d:${matchId}:${compactPlayerId}:${actorDiscordId}`);
+    expect(parseNewPlayerButtonCustomId(id)).toEqual({
+      action: 'decline',
+      matchId,
+      playerId,
+      actorDiscordId,
+    });
+  });
+
+  it('keeps realistic confirm/decline customIds under Discord 100-char limit', () => {
+    const confirmId = buildNewPlayerConfirmCustomId(matchId, playerId, actorDiscordId);
+    const declineId = buildNewPlayerDeclineCustomId(matchId, playerId, actorDiscordId);
+    expect(confirmId.length).toBeLessThanOrEqual(100);
+    expect(declineId.length).toBeLessThanOrEqual(100);
+  });
+
+  it('rejects malformed ids', () => {
+    expect(parseNewPlayerButtonCustomId('np:invalid')).toBeNull();
+    expect(parseNewPlayerButtonCustomId(`np:c:${matchId}:${compactPlayerId}`)).toBeNull();
+    expect(
+      parseNewPlayerButtonCustomId(`np:confirm:${matchId}:${compactPlayerId}:${actorDiscordId}`),
+    ).toBeNull();
   });
 });

@@ -12,6 +12,7 @@ import type {
   MessageComponentInteraction,
   ModalSubmitInteraction,
 } from 'discord.js';
+import { createLogger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
 import { resolveGuildConfig } from '../../services/guild/index.js';
 import {
@@ -29,12 +30,13 @@ import {
 } from '../../services/rating/index.js';
 import { ensurePlayerRatings } from '../../services/rating/rating-preview.js';
 
+const log = createLogger('new-player-interactions');
+
 const NOT_YOUR_PROMPT = 'Only the match host or a match moderator can use these buttons.';
 const INVALID_PROMPT = 'That New-player prompt is no longer valid.';
 
 export type BuildNewPlayerSuggestComponentsInput = {
   matchId: string;
-  leagueId: string;
   playerId: string;
   actorDiscordId: string;
 };
@@ -77,23 +79,13 @@ export function buildNewPlayerSuggestComponents(
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId(
-          buildNewPlayerConfirmCustomId(
-            input.matchId,
-            input.leagueId,
-            input.playerId,
-            input.actorDiscordId,
-          ),
+          buildNewPlayerConfirmCustomId(input.matchId, input.playerId, input.actorDiscordId),
         )
         .setLabel('Confirm')
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId(
-          buildNewPlayerDeclineCustomId(
-            input.matchId,
-            input.leagueId,
-            input.playerId,
-            input.actorDiscordId,
-          ),
+          buildNewPlayerDeclineCustomId(input.matchId, input.playerId, input.actorDiscordId),
         )
         .setLabel('Decline')
         .setStyle(ButtonStyle.Secondary),
@@ -110,6 +102,7 @@ export function buildNewPlayerSuggestContent(username: string): string {
  * After claim/add, show New-player confirm buttons.
  * Ephemeral when the actor can manage the match; otherwise a public follow-up.
  * Custom ids bind `actorDiscordId` to the match host (mods still authorized on click).
+ * Discord API failures are logged and do not fail the successful roster claim/add.
  */
 export async function sendNewPlayerSuggestPrompts(
   input: SendNewPlayerSuggestPromptsInput,
@@ -130,19 +123,30 @@ export async function sendNewPlayerSuggestPrompts(
     const content = buildNewPlayerSuggestContent(suggestion.username);
     const components = buildNewPlayerSuggestComponents({
       matchId: suggestion.matchId,
-      leagueId: suggestion.leagueId,
       playerId: suggestion.playerId,
       actorDiscordId: match.hostDiscordId,
     });
 
-    if (actorCanManage) {
-      await interaction.followUp({
-        content,
-        components,
-        flags: MessageFlags.Ephemeral,
-      });
-    } else {
-      await interaction.followUp({ content, components });
+    try {
+      if (actorCanManage) {
+        await interaction.followUp({
+          content,
+          components,
+          flags: MessageFlags.Ephemeral,
+        });
+      } else {
+        await interaction.followUp({ content, components });
+      }
+    } catch (error) {
+      log.error(
+        {
+          err: error,
+          matchId: match.id,
+          playerId: suggestion.playerId,
+          actorCanManage,
+        },
+        'Failed to send New-player suggest prompt',
+      );
     }
   }
 }
@@ -155,17 +159,19 @@ async function loadPlayerUsername(playerId: string): Promise<string | null> {
   return player?.username ?? null;
 }
 
+/**
+ * Authorize host/mod and return the match (leagueId comes from DB, not the custom id).
+ */
 async function authorizeNewPlayerClick(
   interaction: ButtonInteraction,
   matchId: string,
-  leagueId: string,
-): Promise<void> {
+): Promise<{ id: string; leagueId: string; hostDiscordId: string }> {
   if (!interaction.guildId) {
     throw new MatchServiceError('This action can only be used in a server.');
   }
 
   const match = await getMatchById(matchId);
-  if (!match || match.leagueId !== leagueId) {
+  if (!match) {
     throw new MatchServiceError(INVALID_PROMPT);
   }
 
@@ -176,6 +182,8 @@ async function authorizeNewPlayerClick(
     memberRoleIds: memberRoleIds(interaction),
     matchModRoleId: config.matchModRoleId,
   });
+
+  return match;
 }
 
 async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
@@ -187,7 +195,7 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
   await interaction.deferUpdate();
 
   try {
-    await authorizeNewPlayerClick(interaction, parsed.matchId, parsed.leagueId);
+    const match = await authorizeNewPlayerClick(interaction, parsed.matchId);
 
     const username = await loadPlayerUsername(parsed.playerId);
     if (!username) {
@@ -198,10 +206,10 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
       return;
     }
 
-    await ensurePlayerRatings(parsed.leagueId, [{ playerId: parsed.playerId, heroId: null }]);
+    await ensurePlayerRatings(match.leagueId, [{ playerId: parsed.playerId, heroId: null }]);
     await prisma.playerRating.update({
       where: {
-        leagueId_playerId: { leagueId: parsed.leagueId, playerId: parsed.playerId },
+        leagueId_playerId: { leagueId: match.leagueId, playerId: parsed.playerId },
       },
       data: { isNewPlayer: true },
     });
@@ -228,7 +236,7 @@ async function handleDecline(interaction: ButtonInteraction): Promise<void> {
   await interaction.deferUpdate();
 
   try {
-    await authorizeNewPlayerClick(interaction, parsed.matchId, parsed.leagueId);
+    await authorizeNewPlayerClick(interaction, parsed.matchId);
 
     const username = await loadPlayerUsername(parsed.playerId);
     if (!username) {
