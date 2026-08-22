@@ -19,21 +19,21 @@ Every **push or merge to `main`** runs unit tests, then updates the existing AWS
 
 ## Decisions (locked)
 
-| Topic                         | Choice                                                                                 |
-| ----------------------------- | -------------------------------------------------------------------------------------- |
-| Trigger                       | `pull_request` → tests only; `push` to `main` → tests then deploy                      |
-| CI runner                     | GitHub-hosted `ubuntu-latest`, Node **22** (matches EC2)                               |
-| Test command                  | `npm ci` then `npm test` (Vitest). No `DATABASE_URL` — Prisma is mocked in tests       |
-| Deploy mechanism              | AWS SSM `SendCommand` (`AWS-RunShellScript`) to the tagged EC2 instance                |
-| AWS auth                      | GitHub Actions **OIDC** → IAM role. No long-lived access keys                          |
-| IAM trust                     | Only `repo:chmieleski/trueskill-bot:ref:refs/heads/main`                               |
-| Instance lookup               | SSM target `tag:Name` = `${project_name}-${environment}` (default `dbz-bot-prod`)      |
-| Update script source of truth | `deploy/aws/host-update.sh` in git (not the cloud-init-baked copy)                     |
-| Slash commands                | `npm run deploy-commands` runs on every successful host update                         |
-| Restart                       | Only after pull, env refresh, `npm ci`, migrate, build, and command deploy all succeed |
-| Concurrency                   | Deploy group `deploy-prod`; in-progress deploys are **not** cancelled                  |
-| SSM timeout                   | 600 seconds                                                                            |
-| Infra apply                   | Operator runs `tofu apply` locally once to create the OIDC role                        |
+| Topic                         | Choice                                                                                                                                                                             |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Trigger                       | `pull_request` → tests only; `push` to `main` → tests then deploy                                                                                                                  |
+| CI runner                     | GitHub-hosted `ubuntu-latest`, Node **22** (matches EC2)                                                                                                                           |
+| Test command                  | `npm ci` then `npm test` (Vitest). No `DATABASE_URL` — Prisma is mocked in tests                                                                                                   |
+| Deploy mechanism              | AWS SSM `SendCommand` (`AWS-RunShellScript`) to the tagged EC2 instance                                                                                                            |
+| AWS auth                      | GitHub Actions **OIDC** → IAM role. No long-lived access keys                                                                                                                      |
+| IAM trust                     | Only `repo:chmieleski/trueskill-bot:ref:refs/heads/main`                                                                                                                           |
+| Instance lookup               | SSM target `tag:Name` = `${project_name}-${environment}` (default `dbz-bot-prod`)                                                                                                  |
+| Update script source of truth | `deploy/aws/host-update.sh` in git (not the cloud-init-baked copy)                                                                                                                 |
+| Slash commands                | `npm run deploy-commands` runs on every successful host update                                                                                                                     |
+| Restart                       | Stop only after stage `npm ci` / build / `deploy-commands` succeed; then migrate, swap `bot.next` into `/home/ubuntu/bot`, start. See `2026-08-22-zero-downtime-deploy-design.md`. |
+| Concurrency                   | Deploy group `deploy-prod`; in-progress deploys are **not** cancelled                                                                                                              |
+| SSM timeout                   | 600 seconds                                                                                                                                                                        |
+| Infra apply                   | Operator runs `tofu apply` locally once to create the OIDC role                                                                                                                    |
 
 ## Architecture
 
@@ -75,6 +75,8 @@ Must be run as **root**. Responsibilities, in order, `set -euo pipefail`:
 6. `systemctl --no-pager --full status dbz-bot` (informational; restart already happened)
 
 If any step before restart fails, systemd keeps serving the previous `dist/` (migrate may already have applied — same risk as today’s manual updater; no automatic rollback).
+
+As of the zero-downtime deploy, the live unit is not stopped until after stage `npm ci` / build / `deploy-commands`; see `2026-08-22-zero-downtime-deploy-design.md` for the stop → migrate → swap → start sequence (this numbered list is the pre-cut-over shape).
 
 `deploy/aws/update-bot.sh` becomes a thin local helper that execs `host-update.sh` (path relative to repo root).
 
