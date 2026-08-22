@@ -81,8 +81,9 @@ export function partitionRosterForRating<T extends { isQuitter: boolean; wasNewP
 
 /** True when both teams have ≥1 player eligible for team OpenSkill rate(). */
 export function canRunTeamRate(activeRateable: { team: 1 | 2 }[]): boolean {
-  const { teamA, teamB } = splitRosterByTeam(activeRateable);
-  return teamA.length >= 1 && teamB.length >= 1;
+  const hasTeamA = activeRateable.some((entry) => entry.team === 1);
+  const hasTeamB = activeRateable.some((entry) => entry.team === 2);
+  return hasTeamA && hasTeamB;
 }
 
 function grifferPenaltyEntries(entries: RatingRosterEntry[]): RatingRosterEntry[] {

@@ -9,6 +9,7 @@ alwaysApply: true
 |--------|---------|
 | `npm run dev` | tsx watch, auto-restart, auto-deploy commands |
 | `npm run build` | Prisma generate + TypeScript compile |
+| `npm run typecheck` | `tsc --noEmit` (CI Test job; same gate as host `npm run build`) |
 | `npm start` | Production from `dist/` |
 | `npm run deploy-commands` | Manual slash command deploy (guild if `GUILD_ID` set, else global) |
 | `npm run db:migrate` | Create/apply Prisma migration |
