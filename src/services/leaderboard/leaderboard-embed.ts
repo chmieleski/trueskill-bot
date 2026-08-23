@@ -11,7 +11,7 @@ import { chunkLeaderboardEntries } from './leaderboard.js';
 const RANK_GOLD = 0xf0b232;
 
 export const PRIZE_LOCK_FOOTNOTE =
-  'Medals require a completed game in the last 7 days of the season.';
+  'Medals require a completed game on each day of the season crunch week.';
 export const CRUNCH_BANNER = 'Season crunch — play this week to keep your medal spot.';
 
 export function formatRankPrefix(rank: number | null): string {
