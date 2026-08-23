@@ -4,6 +4,11 @@ import { getLeagueById } from '../league/league.js';
 import { compactUuidForCustomId, expandUuidFromCustomId } from './compact-custom-id.js';
 import { clampMatchHistoryPage, winningTeamFromPlayers } from './match-history.js';
 import { MatchServiceError } from './match-service.js';
+import {
+  aggregateLeagueSideWindows,
+  formatLeagueSideWinRateLine,
+  type LeagueSideWinRate,
+} from './side-win-rate.js';
 
 export const MATCH_LIST_PAGE_SIZE = 10;
 
@@ -89,6 +94,7 @@ export type MatchListPage = {
   totalPages: number;
   totalMatches: number;
   rows: MatchListRow[];
+  sideWinRate: LeagueSideWinRate;
 };
 
 export async function loadMatchListPage(input: {
@@ -132,12 +138,22 @@ export async function loadMatchListPage(input: {
     };
   });
 
+  const sideMatches = await prisma.match.findMany({
+    where,
+    orderBy: [{ completedAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
+    select: {
+      players: { select: { team: true, result: true } },
+    },
+  });
+  const sideWinRate = aggregateLeagueSideWindows(sideMatches);
+
   return {
     leagueName: league.name,
     page,
     totalPages,
     totalMatches,
     rows,
+    sideWinRate,
   };
 }
 
@@ -145,13 +161,15 @@ export function buildMatchListEmbed(
   page: MatchListPage,
   teamLabelFor: (team: 1 | 2) => string,
 ): EmbedBuilder {
+  const pageLine = `Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`;
+  const sideLine = formatLeagueSideWinRateLine(page.sideWinRate, teamLabelFor);
+  const description = sideLine ? `${sideLine}\n${pageLine}` : pageLine;
+
   const embed = new EmbedBuilder()
     .setColor(0xf0b232)
     .setAuthor({ name: page.leagueName })
     .setTitle('Match list')
-    .setDescription(
-      `Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`,
-    );
+    .setDescription(description);
 
   if (page.rows.length === 0) {
     embed.addFields({

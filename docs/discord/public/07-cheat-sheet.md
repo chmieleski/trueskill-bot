@@ -13,7 +13,7 @@
 
 **Match (anyone)**
 • `/match history` — your completed matches (optional user/nick/page)
-• `/match list` — completed matches in this league (optional page)
+• `/match list` — completed matches in this league + side win rate (optional page)
 • `/match show` — open a completed match by id
 
 **Match (host or mod)**
