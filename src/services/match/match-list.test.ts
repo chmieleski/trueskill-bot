@@ -40,6 +40,17 @@ import {
   parseMatchListPageCustomId,
 } from './match-list.js';
 import { MatchServiceError } from './match-service.js';
+import type { LeagueSideWinRate } from './side-win-rate.js';
+
+const emptySide: LeagueSideWinRate = {
+  season: { team1Wins: 0, team2Wins: 0, windowSize: 0 },
+  lastN: { team1Wins: 0, team2Wins: 0, windowSize: 0 },
+};
+
+const sampleSide: LeagueSideWinRate = {
+  season: { team1Wins: 34, team2Wins: 25, windowSize: 59 },
+  lastN: { team1Wins: 9, team2Wins: 11, windowSize: 20 },
+};
 
 describe('formatMatchListFormat', () => {
   it('prints team-1 vs team-2 counts', () => {
@@ -153,30 +164,40 @@ describe('loadMatchListPage', () => {
     expect(page.rows).toEqual([]);
     expect(page.page).toBe(1);
     expect(page.leagueName).toBe('UDBR');
+    expect(page.sideWinRate).toEqual(emptySide);
   });
 
   it('clamps page and maps winner plus 4v6 format', async () => {
     matchCount.mockResolvedValue(11);
-    matchFindMany.mockResolvedValue([
-      {
-        id: 'm2',
-        leagueId: 'L1',
-        completedAt: new Date('2026-08-10T00:00:00.000Z'),
-        createdAt: new Date('2026-08-09T00:00:00.000Z'),
-        players: [
-          { team: 1, result: 'LOSS' },
-          { team: 1, result: 'LOSS' },
-          { team: 1, result: 'LOSS' },
-          { team: 1, result: 'LOSS' },
-          { team: 2, result: 'WIN' },
-          { team: 2, result: 'WIN' },
-          { team: 2, result: 'WIN' },
-          { team: 2, result: 'WIN' },
-          { team: 2, result: 'WIN' },
-          { team: 2, result: 'WIN' },
-        ],
-      },
-    ]);
+    matchFindMany
+      .mockResolvedValueOnce([
+        {
+          id: 'm2',
+          leagueId: 'L1',
+          completedAt: new Date('2026-08-10T00:00:00.000Z'),
+          createdAt: new Date('2026-08-09T00:00:00.000Z'),
+          players: [
+            { team: 1, result: 'LOSS' },
+            { team: 1, result: 'LOSS' },
+            { team: 1, result: 'LOSS' },
+            { team: 1, result: 'LOSS' },
+            { team: 2, result: 'WIN' },
+            { team: 2, result: 'WIN' },
+            { team: 2, result: 'WIN' },
+            { team: 2, result: 'WIN' },
+            { team: 2, result: 'WIN' },
+            { team: 2, result: 'WIN' },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          players: [
+            { team: 2, result: 'WIN' },
+            { team: 1, result: 'LOSS' },
+          ],
+        },
+      ]);
     const page = await loadMatchListPage({ leagueId: 'L1', page: 99 });
     expect(page.page).toBe(2);
     expect(page.totalPages).toBe(2);
@@ -188,11 +209,18 @@ describe('loadMatchListPage', () => {
         format: '4v6',
       },
     ]);
+    expect(page.sideWinRate.season.team2Wins).toBe(1);
     expect(matchFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { leagueId: 'L1', status: 'COMPLETED' },
         skip: 10,
         take: 10,
+      }),
+    );
+    expect(matchFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { leagueId: 'L1', status: 'COMPLETED' },
+        select: { players: { select: { team: true, result: true } } },
       }),
     );
   });
@@ -216,12 +244,16 @@ describe('buildMatchListEmbed', () => {
         totalPages: 1,
         totalMatches: 0,
         rows: [],
+        sideWinRate: emptySide,
       },
       (team) => (team === 1 ? 'Z Fighters' : 'Evil'),
     );
     expect(embed.data.author?.name).toBe('UDBR');
     expect(embed.data.title).toBe('Match list');
     expect(embed.data.description).toContain('Page **1** of **1**');
+    expect(embed.data.description).not.toContain('Tied');
+    expect(embed.data.description).not.toContain('Z Fighters');
+    expect(embed.data.description).not.toContain('Last');
     expect(embed.data.fields?.[0]?.value).toMatch(/No completed matches yet/i);
   });
 
@@ -240,6 +272,7 @@ describe('buildMatchListEmbed', () => {
             format: '6v6',
           },
         ],
+        sideWinRate: emptySide,
       },
       (team) => (team === 1 ? 'Z Fighters' : 'Evil'),
     );
@@ -247,6 +280,23 @@ describe('buildMatchListEmbed', () => {
     expect(embed.data.fields?.[0]?.name).toBe('Z Fighters · 6v6');
     expect(embed.data.fields?.[0]?.value).toContain('`mid1`');
     expect(embed.data.footer?.text).toMatch(/match show/i);
+  });
+
+  it('prepends the side win-rate line above the page line', () => {
+    const embed = buildMatchListEmbed(
+      {
+        leagueName: 'UDBR',
+        page: 1,
+        totalPages: 4,
+        totalMatches: 39,
+        rows: [],
+        sideWinRate: sampleSide,
+      },
+      (team) => (team === 1 ? 'Z Fighters' : 'Evil'),
+    );
+    expect(embed.data.description).toBe(
+      'Z Fighters 34–25 (57.6%) · Last 20: Evil 11–9 (55%)\nPage **1** of **4** · 39 matches',
+    );
   });
 });
 

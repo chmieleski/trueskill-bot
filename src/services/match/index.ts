@@ -52,6 +52,10 @@ export {
   type MatchListRow,
 } from './match-list.js';
 export {
+  formatLeagueSideWinRateLine,
+  type LeagueSideWinRate,
+} from './side-win-rate.js';
+export {
   loadPlayerGlobalDeltaForMatch,
   persistMatchRatingPreviewToPlayers,
   ratingPreviewFromStoredMatchPlayers,
