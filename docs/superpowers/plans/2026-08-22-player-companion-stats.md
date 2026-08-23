@@ -27,21 +27,21 @@
 
 ## File map
 
-| File | Role |
-| ---- | ---- |
-| `src/services/player/teammate-stats.ts` | Pair aggregate, `pickTopTeammates`, `formatTeammateTable`, `loadTeammateStats` |
-| `src/services/player/teammate-stats.test.ts` | Sort/ties, aggregation, table, loader |
-| `src/services/player/rank-embed.ts` | 0–3 fields after Heroes |
-| `src/services/player/rank-embed.test.ts` | Field presence/order |
-| `src/services/player/index.ts` | Re-export load + types |
-| `src/commands/player/rank.ts` | Load teammates; pass into embed |
-| `src/services/match/side-win-rate.ts` | Season + last-N aggregate + description line |
-| `src/services/match/side-win-rate.test.ts` | Leader/tie/`Last N`; skip no-WIN |
-| `src/services/match/match-list.ts` | Side WR on page DTO; prepend description |
-| `src/services/match/match-list.test.ts` | Description; empty league |
-| `src/services/match/index.ts` | Re-export side WR types if needed |
-| `docs/discord/public/06-rank-and-boards.md` | One English line |
-| `docs/discord/public/07-cheat-sheet.md` | `/match list` mentions side WR |
+| File                                         | Role                                                                           |
+| -------------------------------------------- | ------------------------------------------------------------------------------ |
+| `src/services/player/teammate-stats.ts`      | Pair aggregate, `pickTopTeammates`, `formatTeammateTable`, `loadTeammateStats` |
+| `src/services/player/teammate-stats.test.ts` | Sort/ties, aggregation, table, loader                                          |
+| `src/services/player/rank-embed.ts`          | 0–3 fields after Heroes                                                        |
+| `src/services/player/rank-embed.test.ts`     | Field presence/order                                                           |
+| `src/services/player/index.ts`               | Re-export load + types                                                         |
+| `src/commands/player/rank.ts`                | Load teammates; pass into embed                                                |
+| `src/services/match/side-win-rate.ts`        | Season + last-N aggregate + description line                                   |
+| `src/services/match/side-win-rate.test.ts`   | Leader/tie/`Last N`; skip no-WIN                                               |
+| `src/services/match/match-list.ts`           | Side WR on page DTO; prepend description                                       |
+| `src/services/match/match-list.test.ts`      | Description; empty league                                                      |
+| `src/services/match/index.ts`                | Re-export side WR types if needed                                              |
+| `docs/discord/public/06-rank-and-boards.md`  | One English line                                                               |
+| `docs/discord/public/07-cheat-sheet.md`      | `/match list` mentions side WR                                                 |
 
 ---
 
@@ -68,7 +68,7 @@
 
 Create `src/services/player/teammate-stats.test.ts`:
 
-```typescript
+````typescript
 import { describe, expect, it } from 'vitest';
 import {
   aggregateTeammatePairs,
@@ -243,7 +243,7 @@ describe('buildTeammateStatsFromPairs', () => {
     expect(stats.loseWith.map((p) => p.username)).toEqual(['Ghost', 'Krillin', 'Yamcha']);
   });
 });
-```
+````
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -685,30 +685,30 @@ const sampleTeammates: TeammateStats = {
 };
 
 // inside describe('buildRankEmbed'):
-  it('adds teammate fields after Heroes and omits empty lists', () => {
-    const data = buildRankEmbed(baseProfile, { teammates: sampleTeammates }).toJSON();
-    const names = (data.fields ?? []).map((f) => f.name);
-    expect(names).toEqual(['Heroes', 'Played with', 'Win with']);
-    expect(data.fields?.[1]?.value).toContain('Ghost');
-    expect(data.fields?.[1]?.value).toContain('14G');
-    expect(names).not.toContain('Lose with');
-  });
+it('adds teammate fields after Heroes and omits empty lists', () => {
+  const data = buildRankEmbed(baseProfile, { teammates: sampleTeammates }).toJSON();
+  const names = (data.fields ?? []).map((f) => f.name);
+  expect(names).toEqual(['Heroes', 'Played with', 'Win with']);
+  expect(data.fields?.[1]?.value).toContain('Ghost');
+  expect(data.fields?.[1]?.value).toContain('14G');
+  expect(names).not.toContain('Lose with');
+});
 
-  it('still shows teammate fields when Heroes are hidden', () => {
-    const data = buildRankEmbed(baseProfile, {
-      showHeroes: false,
-      teammates: sampleTeammates,
-    }).toJSON();
-    const names = (data.fields ?? []).map((f) => f.name);
-    expect(names).toEqual(['Played with', 'Win with']);
-  });
+it('still shows teammate fields when Heroes are hidden', () => {
+  const data = buildRankEmbed(baseProfile, {
+    showHeroes: false,
+    teammates: sampleTeammates,
+  }).toJSON();
+  const names = (data.fields ?? []).map((f) => f.name);
+  expect(names).toEqual(['Played with', 'Win with']);
+});
 
-  it('omits all teammate fields when every list is empty', () => {
-    const data = buildRankEmbed(baseProfile, {
-      teammates: { playedWith: [], winWith: [], loseWith: [] },
-    }).toJSON();
-    expect((data.fields ?? []).map((f) => f.name)).toEqual(['Heroes']);
-  });
+it('omits all teammate fields when every list is empty', () => {
+  const data = buildRankEmbed(baseProfile, {
+    teammates: { playedWith: [], winWith: [], loseWith: [] },
+  }).toJSON();
+  expect((data.fields ?? []).map((f) => f.name)).toEqual(['Heroes']);
+});
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -735,46 +735,42 @@ Extend options:
 After the Heroes field block, add:
 
 ```typescript
-  if (options?.teammates) {
-    const { playedWith, winWith, loseWith } = options.teammates;
-    if (playedWith.length > 0) {
-      embed.addFields({ name: 'Played with', value: formatTeammateTable(playedWith) });
-    }
-    if (winWith.length > 0) {
-      embed.addFields({ name: 'Win with', value: formatTeammateTable(winWith) });
-    }
-    if (loseWith.length > 0) {
-      embed.addFields({ name: 'Lose with', value: formatTeammateTable(loseWith) });
-    }
+if (options?.teammates) {
+  const { playedWith, winWith, loseWith } = options.teammates;
+  if (playedWith.length > 0) {
+    embed.addFields({ name: 'Played with', value: formatTeammateTable(playedWith) });
   }
+  if (winWith.length > 0) {
+    embed.addFields({ name: 'Win with', value: formatTeammateTable(winWith) });
+  }
+  if (loseWith.length > 0) {
+    embed.addFields({ name: 'Lose with', value: formatTeammateTable(loseWith) });
+  }
+}
 ```
 
 In `src/services/player/index.ts` add:
 
 ```typescript
-export {
-  loadTeammateStats,
-  type TeammatePairStats,
-  type TeammateStats,
-} from './teammate-stats.js';
+export { loadTeammateStats, type TeammatePairStats, type TeammateStats } from './teammate-stats.js';
 ```
 
 In `src/commands/player/rank.ts`, import `loadTeammateStats` from the player index and after `loadPlayerProfile`:
 
 ```typescript
-    const [profile, gameProfile, teammates] = await Promise.all([
-      // keep existing profile load if already awaited — prefer:
-    ]);
+const [profile, gameProfile, teammates] = await Promise.all([
+  // keep existing profile load if already awaited — prefer:
+]);
 ```
 
 Prefer clear sequential/parallel:
 
 ```typescript
-    const profile = await loadPlayerProfile(resolved.leagueId, lookup);
-    const [gameProfile, teammates] = await Promise.all([
-      getGameProfileForLeague(resolved.leagueId),
-      loadTeammateStats(resolved.leagueId, profile.playerId),
-    ]);
+const profile = await loadPlayerProfile(resolved.leagueId, lookup);
+const [gameProfile, teammates] = await Promise.all([
+  getGameProfileForLeague(resolved.leagueId),
+  loadTeammateStats(resolved.leagueId, profile.playerId),
+]);
 ```
 
 Pass into embed:
@@ -862,9 +858,24 @@ describe('winningTeamIfPresent', () => {
 describe('aggregateLeagueSideWindows', () => {
   it('counts season and last-N winners and skips no-WIN rows in W–L', () => {
     const matches = [
-      { players: [{ team: 1, result: 'WIN' as const }, { team: 2, result: 'LOSS' as const }] },
-      { players: [{ team: 1, result: 'LOSS' as const }, { team: 2, result: 'WIN' as const }] },
-      { players: [{ team: 1, result: null }, { team: 2, result: null }] },
+      {
+        players: [
+          { team: 1, result: 'WIN' as const },
+          { team: 2, result: 'LOSS' as const },
+        ],
+      },
+      {
+        players: [
+          { team: 1, result: 'LOSS' as const },
+          { team: 2, result: 'WIN' as const },
+        ],
+      },
+      {
+        players: [
+          { team: 1, result: null },
+          { team: 2, result: null },
+        ],
+      },
     ];
     const stats = aggregateLeagueSideWindows(matches, 20);
     expect(stats.season).toEqual({ team1Wins: 1, team2Wins: 1, windowSize: 3 });
@@ -983,10 +994,7 @@ export function aggregateLeagueSideWindows(
   return { season, lastN: countWindow(lastSlice) };
 }
 
-function formatSideWindow(
-  window: LeagueSideWindow,
-  teamLabelFor: (team: 1 | 2) => string,
-): string {
+function formatSideWindow(window: LeagueSideWindow, teamLabelFor: (team: 1 | 2) => string): string {
   const { team1Wins, team2Wins } = window;
   if (team1Wins === team2Wins) {
     const wr = winRatePercent(team1Wins, team2Wins);
@@ -1068,7 +1076,7 @@ const sampleSide: LeagueSideWinRate = {
 In `returns empty page 1 when no matches`, assert:
 
 ```typescript
-    expect(page.sideWinRate).toEqual(emptySide);
+expect(page.sideWinRate).toEqual(emptySide);
 ```
 
 In `clamps page and maps winner…`, mock a second `matchFindMany` call for the side-WR query (or one call that returns all matches if the implementation loads winners separately). Prefer **two** `findMany` calls: page rows (skip/take) then side WR (take 20 is not enough for season — season needs all winners). Spec: season = all completed; last N = newest 20.
@@ -1081,16 +1089,14 @@ Implementation should:
 Mock both calls in the clamp test:
 
 ```typescript
-    matchFindMany
-      .mockResolvedValueOnce([/* page row as today */])
-      .mockResolvedValueOnce([
-        {
-          players: [
-            { team: 2, result: 'WIN' },
-            { team: 1, result: 'LOSS' },
-          ],
-        },
-      ]);
+matchFindMany.mockResolvedValueOnce([/* page row as today */]).mockResolvedValueOnce([
+  {
+    players: [
+      { team: 2, result: 'WIN' },
+      { team: 1, result: 'LOSS' },
+    ],
+  },
+]);
 ```
 
 And assert `page.sideWinRate.season.team2Wins === 1`.
@@ -1100,22 +1106,22 @@ Update `buildMatchListEmbed` empty fixture to include `sideWinRate: emptySide` a
 Add:
 
 ```typescript
-  it('prepends the side win-rate line above the page line', () => {
-    const embed = buildMatchListEmbed(
-      {
-        leagueName: 'UDBR',
-        page: 1,
-        totalPages: 4,
-        totalMatches: 39,
-        rows: [],
-        sideWinRate: sampleSide,
-      },
-      (team) => (team === 1 ? 'Z Fighters' : 'Evil'),
-    );
-    expect(embed.data.description).toBe(
-      'Z Fighters 34–25 (57.6%) · Last 20: Evil 11–9 (55%)\nPage **1** of **4** · 39 matches',
-    );
-  });
+it('prepends the side win-rate line above the page line', () => {
+  const embed = buildMatchListEmbed(
+    {
+      leagueName: 'UDBR',
+      page: 1,
+      totalPages: 4,
+      totalMatches: 39,
+      rows: [],
+      sideWinRate: sampleSide,
+    },
+    (team) => (team === 1 ? 'Z Fighters' : 'Evil'),
+  );
+  expect(embed.data.description).toBe(
+    'Z Fighters 34–25 (57.6%) · Last 20: Evil 11–9 (55%)\nPage **1** of **4** · 39 matches',
+  );
+});
 ```
 
 Update the other embed fixtures to pass `sideWinRate: emptySide` or `sampleSide` so TypeScript compiles.
@@ -1141,20 +1147,20 @@ import {
 Extend `MatchListPage`:
 
 ```typescript
-  sideWinRate: LeagueSideWinRate;
+sideWinRate: LeagueSideWinRate;
 ```
 
 In `loadMatchListPage`, after building `rows`, load side WR:
 
 ```typescript
-  const sideMatches = await prisma.match.findMany({
-    where,
-    orderBy: [{ completedAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
-    select: {
-      players: { select: { team: true, result: true } },
-    },
-  });
-  const sideWinRate = aggregateLeagueSideWindows(sideMatches);
+const sideMatches = await prisma.match.findMany({
+  where,
+  orderBy: [{ completedAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
+  select: {
+    players: { select: { team: true, result: true } },
+  },
+});
+const sideWinRate = aggregateLeagueSideWindows(sideMatches);
 ```
 
 Include `sideWinRate` in the return object. When `totalMatches === 0`, still set `sideWinRate` from `aggregateLeagueSideWindows([])`.
@@ -1162,9 +1168,9 @@ Include `sideWinRate` in the return object. When `totalMatches === 0`, still set
 In `buildMatchListEmbed`:
 
 ```typescript
-  const pageLine = `Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`;
-  const sideLine = formatLeagueSideWinRateLine(page.sideWinRate, teamLabelFor);
-  const description = sideLine ? `${sideLine}\n${pageLine}` : pageLine;
+const pageLine = `Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`;
+const sideLine = formatLeagueSideWinRateLine(page.sideWinRate, teamLabelFor);
+const description = sideLine ? `${sideLine}\n${pageLine}` : pageLine;
 ```
 
 Use `description` in `.setDescription(description)`.
@@ -1172,10 +1178,7 @@ Use `description` in `.setDescription(description)`.
 Optionally re-export from `match/index.ts`:
 
 ```typescript
-export {
-  formatLeagueSideWinRateLine,
-  type LeagueSideWinRate,
-} from './side-win-rate.js';
+export { formatLeagueSideWinRateLine, type LeagueSideWinRate } from './side-win-rate.js';
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**

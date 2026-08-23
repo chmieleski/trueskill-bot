@@ -59,11 +59,7 @@ describe('pickTopTeammates', () => {
       pair({ playerId: 'c', username: 'Bob', games: 10, wins: 8, losses: 2 }),
       pair({ playerId: 'd', username: 'Cy', games: 9, wins: 9, losses: 0 }),
     ];
-    expect(pickTopTeammates(pairs, 'games').map((p) => p.username)).toEqual([
-      'Ann',
-      'Bob',
-      'Zed',
-    ]);
+    expect(pickTopTeammates(pairs, 'games').map((p) => p.username)).toEqual(['Ann', 'Bob', 'Zed']);
   });
 
   it('sorts winWith by wins and loseWith by losses', () => {
@@ -72,11 +68,7 @@ describe('pickTopTeammates', () => {
       pair({ playerId: 'b', username: 'High', games: 5, wins: 5, losses: 0 }),
       pair({ playerId: 'c', username: 'Mid', games: 6, wins: 3, losses: 3 }),
     ];
-    expect(pickTopTeammates(pairs, 'wins').map((p) => p.username)).toEqual([
-      'High',
-      'Mid',
-      'Low',
-    ]);
+    expect(pickTopTeammates(pairs, 'wins').map((p) => p.username)).toEqual(['High', 'Mid', 'Low']);
     expect(pickTopTeammates(pairs, 'losses').map((p) => p.username)).toEqual([
       'Low',
       'Mid',
@@ -96,10 +88,7 @@ describe('pickTopTeammates', () => {
       }),
       pair({ playerId: 'b', username: 'Zero', games: 5, wins: 0, losses: 5 }),
     ];
-    expect(pickTopTeammates(pairs, 'games').map((p) => p.username)).toEqual([
-      'Zero',
-      'Null',
-    ]);
+    expect(pickTopTeammates(pairs, 'games').map((p) => p.username)).toEqual(['Zero', 'Null']);
   });
 });
 

@@ -27,9 +27,24 @@ describe('winningTeamIfPresent', () => {
 describe('aggregateLeagueSideWindows', () => {
   it('counts season and last-N winners and skips no-WIN rows in W–L', () => {
     const matches = [
-      { players: [{ team: 1, result: 'WIN' as const }, { team: 2, result: 'LOSS' as const }] },
-      { players: [{ team: 1, result: 'LOSS' as const }, { team: 2, result: 'WIN' as const }] },
-      { players: [{ team: 1, result: null }, { team: 2, result: null }] },
+      {
+        players: [
+          { team: 1, result: 'WIN' as const },
+          { team: 2, result: 'LOSS' as const },
+        ],
+      },
+      {
+        players: [
+          { team: 1, result: 'LOSS' as const },
+          { team: 2, result: 'WIN' as const },
+        ],
+      },
+      {
+        players: [
+          { team: 1, result: null },
+          { team: 2, result: null },
+        ],
+      },
     ];
     const stats = aggregateLeagueSideWindows(matches, 20);
     expect(stats.season).toEqual({ team1Wins: 1, team2Wins: 1, windowSize: 3 });

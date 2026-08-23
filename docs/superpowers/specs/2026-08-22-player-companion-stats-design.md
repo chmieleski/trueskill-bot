@@ -23,28 +23,28 @@ Anyone viewing a `/rank` profile can see that player’s **top 3 teammates**: mo
 
 ## Locked decisions
 
-| Topic              | Choice                                                                                          |
-| ------------------ | ----------------------------------------------------------------------------------------------- |
-| Approach           | On-read aggregates from `MatchPlayer` / `Match`. No schema                                      |
-| Teammate lists     | Same-team only. Three fields: Played with / Win with / Lose with                                |
-| Played with sort   | `games` desc → `WR%` desc → nick A–Z. Max 3                                                     |
-| Win with sort      | `wins` desc → same tie-breaks. Max 3                                                            |
-| Lose with sort     | `losses` desc → same tie-breaks. Max 3                                                          |
-| What counts        | `COMPLETED` matches where the **viewed player** has `WIN` or `LOSS`                             |
-| Rank reset         | Teammate lists use that player’s latest `PlayerRankReset` cutoff (same as `/rank` W/L)          |
-| Quit (viewed)      | Match ignored for all three lists                                                               |
-| Quit (partner)     | Partner still counts if the viewed player has WIN/LOSS                                          |
-| Empty fields       | Omit a `/rank` field with 0 partners. Show 1–2 if that is all                                   |
-| Row copy           | Same columns on all three lists: `Nick  14G · 9W 5L · 64.3%`                                    |
-| Mentions           | Nicks only                                                                                      |
-| Side WR surface    | `/match list` description, **every page** (slash + Prev/Next)                                   |
-| Side WR window     | Season = all `COMPLETED` in the resolved league. Last N = newest 20 in list order               |
-| Side WR rank reset | **Does not apply** (league-wide, not per-player)                                                |
-| Side WR labels     | `teamDisplayName` / `GameProfile.teamNames` (UDBR: Z Fighters / Evil; ACA: Team A / Team B)     |
-| Side WR 0 matches  | No side line (keep `_No completed matches yet._`)                                               |
-| Last N < 20        | Label `Last N` (not “Last 20”)                                                                  |
-| Computation        | On-read. `/rank` loads only the viewed player’s matches. Side WR is a dedicated winner query    |
-| Language           | English user-facing strings                                                                     |
+| Topic              | Choice                                                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------- |
+| Approach           | On-read aggregates from `MatchPlayer` / `Match`. No schema                                   |
+| Teammate lists     | Same-team only. Three fields: Played with / Win with / Lose with                             |
+| Played with sort   | `games` desc → `WR%` desc → nick A–Z. Max 3                                                  |
+| Win with sort      | `wins` desc → same tie-breaks. Max 3                                                         |
+| Lose with sort     | `losses` desc → same tie-breaks. Max 3                                                       |
+| What counts        | `COMPLETED` matches where the **viewed player** has `WIN` or `LOSS`                          |
+| Rank reset         | Teammate lists use that player’s latest `PlayerRankReset` cutoff (same as `/rank` W/L)       |
+| Quit (viewed)      | Match ignored for all three lists                                                            |
+| Quit (partner)     | Partner still counts if the viewed player has WIN/LOSS                                       |
+| Empty fields       | Omit a `/rank` field with 0 partners. Show 1–2 if that is all                                |
+| Row copy           | Same columns on all three lists: `Nick  14G · 9W 5L · 64.3%`                                 |
+| Mentions           | Nicks only                                                                                   |
+| Side WR surface    | `/match list` description, **every page** (slash + Prev/Next)                                |
+| Side WR window     | Season = all `COMPLETED` in the resolved league. Last N = newest 20 in list order            |
+| Side WR rank reset | **Does not apply** (league-wide, not per-player)                                             |
+| Side WR labels     | `teamDisplayName` / `GameProfile.teamNames` (UDBR: Z Fighters / Evil; ACA: Team A / Team B)  |
+| Side WR 0 matches  | No side line (keep `_No completed matches yet._`)                                            |
+| Last N < 20        | Label `Last N` (not “Last 20”)                                                               |
+| Computation        | On-read. `/rank` loads only the viewed player’s matches. Side WR is a dedicated winner query |
+| Language           | English user-facing strings                                                                  |
 
 ## Approach
 
@@ -196,34 +196,34 @@ Page 1 of 4 · 39 matches
 
 Each window shows the **leader**: `{name} {wins}–{otherWins} ({wr}%)`.
 
-| Window | Copy |
-| ------ | ---- |
-| Team 1 leads | `Z Fighters 34–25 (57.6%)` |
-| Team 2 leads | `Evil 11–9 (55%)` |
-| Tie | `Tied 10–10 (50%)` (W–L is team1–team2) |
-| Last N, N = 20 | prefix `Last 20: ` |
-| Last N, N < 20 | prefix `Last N: ` (e.g. `Last 12: `) |
-| `season.windowSize === 0` | omit the whole side line |
+| Window                    | Copy                                    |
+| ------------------------- | --------------------------------------- |
+| Team 1 leads              | `Z Fighters 34–25 (57.6%)`              |
+| Team 2 leads              | `Evil 11–9 (55%)`                       |
+| Tie                       | `Tied 10–10 (50%)` (W–L is team1–team2) |
+| Last N, N = 20            | prefix `Last 20: `                      |
+| Last N, N < 20            | prefix `Last N: ` (e.g. `Last 12: `)    |
+| `season.windowSize === 0` | omit the whole side line                |
 
 Use an en dash in W–L (`34–25`). `teamLabelFor` is the existing `teamDisplayName(team, profile)` callback. List rows, pagination, and empty-state field are unchanged.
 
 ## Modules
 
-| Path | Responsibility |
-| ---- | -------------- |
-| `src/services/player/teammate-stats.ts` | Load pairs, `pickTopTeammates`, `formatTeammateTable` |
-| `src/services/player/teammate-stats.test.ts` | Aggregation, sort/ties, table |
-| `src/services/player/rank-embed.ts` | 0–3 fields after Heroes |
-| `src/services/player/rank-embed.test.ts` | Field presence/order; Heroes unchanged |
-| `src/services/player/index.ts` | Re-export load + types |
-| `src/commands/player/rank.ts` | `loadTeammateStats` after profile; pass into embed |
-| `src/services/match/side-win-rate.ts` | Season + last-N aggregate + description line |
-| `src/services/match/side-win-rate.test.ts` | Leader/tie/`Last N`; skip no-WIN |
-| `src/services/match/match-list.ts` | Load side WR on the page DTO; prepend description |
-| `src/services/match/match-list.test.ts` | Description; empty league has no side line |
-| `src/services/match/index.ts` | Re-export if tests/adapters need the formatter |
-| `docs/discord/public/06-rank-and-boards.md` | One English line: `/rank` shows top teammates |
-| `docs/discord/public/07-cheat-sheet.md` | `/match list` mentions side WR |
+| Path                                         | Responsibility                                        |
+| -------------------------------------------- | ----------------------------------------------------- |
+| `src/services/player/teammate-stats.ts`      | Load pairs, `pickTopTeammates`, `formatTeammateTable` |
+| `src/services/player/teammate-stats.test.ts` | Aggregation, sort/ties, table                         |
+| `src/services/player/rank-embed.ts`          | 0–3 fields after Heroes                               |
+| `src/services/player/rank-embed.test.ts`     | Field presence/order; Heroes unchanged                |
+| `src/services/player/index.ts`               | Re-export load + types                                |
+| `src/commands/player/rank.ts`                | `loadTeammateStats` after profile; pass into embed    |
+| `src/services/match/side-win-rate.ts`        | Season + last-N aggregate + description line          |
+| `src/services/match/side-win-rate.test.ts`   | Leader/tie/`Last N`; skip no-WIN                      |
+| `src/services/match/match-list.ts`           | Load side WR on the page DTO; prepend description     |
+| `src/services/match/match-list.test.ts`      | Description; empty league has no side line            |
+| `src/services/match/index.ts`                | Re-export if tests/adapters need the formatter        |
+| `docs/discord/public/06-rank-and-boards.md`  | One English line: `/rank` shows top teammates         |
+| `docs/discord/public/07-cheat-sheet.md`      | `/match list` mentions side WR                        |
 
 `src/discord/interactions/match-list-interactions.ts` stays a thin `loadMatchListPage` + `buildMatchListEmbed` adapter — no second query there.
 
@@ -231,22 +231,22 @@ Reuse `loadLatestRankResetAtByPlayer(leagueId, [playerId])` and `isMatchCountedA
 
 ## Edge cases
 
-| Case | Result |
-| ---- | ------ |
-| Solo on a team | That match adds no partners |
-| Partner quit, viewed player WIN/LOSS | Partner still counts |
-| Viewed player quit | Match ignored |
-| Rank reset | Teammate lists restart; side WR unchanged |
-| Other / archived league | Ignored (always resolved `leagueId`) |
-| Four-way tie for 3rd | WR% then nick A–Z; still 3 rows |
-| Same nick on two lists | Allowed |
-| Side WR 50–50 | `Tied 10–10 (50%)` |
-| 1–19 completed | `Last N:` with that N |
-| 0 completed | No side line |
-| ACA | `Team A` / `Team B` |
-| Corrupt match (no WIN) | Skip for side WR |
-| Calibrating `/rank` | Teammate fields still show (same as hero WR) |
-| Unlinked nick | Teammate nicks still shown; no mentions |
+| Case                                 | Result                                       |
+| ------------------------------------ | -------------------------------------------- |
+| Solo on a team                       | That match adds no partners                  |
+| Partner quit, viewed player WIN/LOSS | Partner still counts                         |
+| Viewed player quit                   | Match ignored                                |
+| Rank reset                           | Teammate lists restart; side WR unchanged    |
+| Other / archived league              | Ignored (always resolved `leagueId`)         |
+| Four-way tie for 3rd                 | WR% then nick A–Z; still 3 rows              |
+| Same nick on two lists               | Allowed                                      |
+| Side WR 50–50                        | `Tied 10–10 (50%)`                           |
+| 1–19 completed                       | `Last N:` with that N                        |
+| 0 completed                          | No side line                                 |
+| ACA                                  | `Team A` / `Team B`                          |
+| Corrupt match (no WIN)               | Skip for side WR                             |
+| Calibrating `/rank`                  | Teammate fields still show (same as hero WR) |
+| Unlinked nick                        | Teammate nicks still shown; no mentions      |
 
 No new user-facing error strings. `/rank` and `/match list` keep today’s failures.
 

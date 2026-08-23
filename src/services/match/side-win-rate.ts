@@ -48,10 +48,7 @@ export function aggregateLeagueSideWindows(
   return { season, lastN: countWindow(lastSlice) };
 }
 
-function formatSideWindow(
-  window: LeagueSideWindow,
-  teamLabelFor: (team: 1 | 2) => string,
-): string {
+function formatSideWindow(window: LeagueSideWindow, teamLabelFor: (team: 1 | 2) => string): string {
   const { team1Wins, team2Wins } = window;
   if (team1Wins === team2Wins) {
     const wr = winRatePercent(team1Wins, team2Wins);
