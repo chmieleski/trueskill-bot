@@ -12,6 +12,7 @@ import {
   assertLiveLeaderboardSize,
 } from '../leaderboard/leaderboard.js';
 import { assertRankResetCooldownDays } from '../rating/rank-reset.js';
+import { isLeagueInCrunch } from '../rating/rating-decay.js';
 import { assertLeagueAllowsWc3stats } from '../lobby/register-lobby-source.js';
 import { assertLobbyHostPromptChannelsCompatible } from './league-lobby-channel.js';
 
@@ -35,6 +36,9 @@ export interface ResolvedLeagueConfig {
   rankResetCooldownDays: number;
   lobbyChannelEnabled: boolean;
   lobbyChannelId: string | undefined;
+  decayEnabled: boolean;
+  seasonEndsAt: Date | undefined;
+  decayInCrunch: boolean;
 }
 
 /**
@@ -43,6 +47,20 @@ export interface ResolvedLeagueConfig {
  */
 export async function resolveLeagueConfig(leagueId: string): Promise<ResolvedLeagueConfig> {
   const row = await prisma.league.findUnique({ where: { id: leagueId } });
+  const decayEnabled = row?.decayEnabled !== false;
+  const seasonEndsAt = row?.seasonEndsAt ?? undefined;
+  const decayInCrunch = row
+    ? isLeagueInCrunch(
+        {
+          status: row.status,
+          decayEnabled,
+          seasonEndsAt: row.seasonEndsAt,
+          crunchStartedAt: row.crunchStartedAt,
+        },
+        new Date(),
+      )
+    : false;
+
   return {
     wc3statsEnabled: row?.wc3statsEnabled === true,
     wc3statsMapPattern: row?.wc3statsMapPattern?.trim() || undefined,
@@ -58,6 +76,9 @@ export async function resolveLeagueConfig(leagueId: string): Promise<ResolvedLea
     rankResetCooldownDays: row?.rankResetCooldownDays != null ? row.rankResetCooldownDays : 30,
     lobbyChannelEnabled: row?.lobbyChannelEnabled === true,
     lobbyChannelId: row?.lobbyChannelId?.trim() || undefined,
+    decayEnabled,
+    seasonEndsAt,
+    decayInCrunch,
   };
 }
 

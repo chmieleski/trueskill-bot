@@ -1,5 +1,11 @@
 import { loadHeroCatalog } from '../guild/hero-catalog.js';
 import { prisma } from '../../lib/prisma.js';
+import {
+  applyPendingDecayForPlayers,
+  isLeagueInCrunch,
+  isPrizeEligible,
+  type DecayLeagueContext,
+} from '../rating/rating-decay.js';
 import { displayOrdinal, isCalibrating } from '../rating/rating-math.js';
 import {
   gamesByPlayerFromStats,
@@ -63,6 +69,10 @@ export type OverallLeaderboardEntry = {
   leagueGames: number;
   discordId: string | null;
   winRatePercent: number | null;
+  /** Set only while season crunch prize lock is active. */
+  prizeEligible?: boolean;
+  /** Medal slot among prize-eligible players (1–3); null when ineligible during crunch. */
+  medalRank?: 1 | 2 | 3 | null;
 };
 
 export type HeroLeaderboardEntry = {
@@ -80,6 +90,8 @@ export type OverallLeaderboardPage = {
   page: number;
   totalPages: number;
   totalPlayers: number;
+  /** When true, overall medals follow prize eligibility instead of board rank. */
+  prizeLockActive?: boolean;
 };
 
 export type HeroBoardSlice = {
@@ -131,6 +143,7 @@ export function rankLeaderboardRows<T extends { ki: number; username: string }>(
 export function paginateOverall(
   rows: OverallLeaderboardEntry[],
   page: number,
+  prizeLockActive = false,
 ): OverallLeaderboardPage {
   const totalPlayers = rows.length;
   const totalPages = Math.max(1, Math.ceil(totalPlayers / LEADERBOARD_PAGE_SIZE));
@@ -141,11 +154,42 @@ export function paginateOverall(
     page: safePage,
     totalPages,
     totalPlayers,
+    prizeLockActive,
   };
 }
 
-async function loadEligibleOverallRows(leagueId: string): Promise<OverallLeaderboardEntry[]> {
-  const [ratings, displayStatsByPlayer] = await Promise.all([
+/**
+ * Assign 🥇🥈🥉 to the first three prize-eligible entries in board order.
+ * Ineligible / remaining rows get `medalRank: null`.
+ */
+export function assignPrizeMedalRanks<T extends { prizeEligible?: boolean }>(
+  entries: T[],
+): (T & { medalRank: 1 | 2 | 3 | null })[] {
+  let nextMedal = 1;
+  return entries.map((entry) => {
+    if (entry.prizeEligible === true && nextMedal <= 3) {
+      const medalRank = nextMedal as 1 | 2 | 3;
+      nextMedal += 1;
+      return { ...entry, medalRank };
+    }
+    return { ...entry, medalRank: null };
+  });
+}
+
+async function loadEligibleOverallRows(leagueId: string): Promise<{
+  entries: OverallLeaderboardEntry[];
+  prizeLockActive: boolean;
+}> {
+  const ratingIds = await prisma.playerRating.findMany({
+    where: { leagueId },
+    select: { playerId: true },
+  });
+  await applyPendingDecayForPlayers(
+    leagueId,
+    ratingIds.map((row) => row.playerId),
+  );
+
+  const [ratings, displayStatsByPlayer, league] = await Promise.all([
     prisma.playerRating.findMany({
       where: { leagueId },
       include: {
@@ -153,7 +197,29 @@ async function loadEligibleOverallRows(leagueId: string): Promise<OverallLeaderb
       },
     }),
     loadMatchDisplayStatsByPlayer(leagueId),
+    prisma.league.findUnique({
+      where: { id: leagueId },
+      select: {
+        status: true,
+        decayEnabled: true,
+        seasonEndsAt: true,
+        crunchStartedAt: true,
+        archivedAt: true,
+      },
+    }),
   ]);
+
+  const now = new Date();
+  const leagueCtx: DecayLeagueContext | null = league
+    ? {
+        status: league.status,
+        decayEnabled: league.decayEnabled,
+        seasonEndsAt: league.seasonEndsAt,
+        crunchStartedAt: league.crunchStartedAt,
+        archivedAt: league.archivedAt,
+      }
+    : null;
+  const prizeLockActive = leagueCtx != null && isLeagueInCrunch(leagueCtx, now);
 
   const gamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
 
@@ -169,36 +235,51 @@ async function loadEligibleOverallRows(leagueId: string): Promise<OverallLeaderb
         games,
         leagueGames: games,
         winRatePercent: winRatePercent(stats?.wins ?? 0, stats?.losses ?? 0),
+        lastQualifyingActivityAt: row.lastQualifyingActivityAt,
       };
     })
     .filter((row) => row.games >= 1);
 
-  return rankLeaderboardRows(mapped, (row) => row.leagueGames).map((row) => ({
-    rank: row.rank,
-    playerId: row.playerId,
-    username: row.username,
-    ki: row.ki,
-    games: row.games,
-    leagueGames: row.leagueGames,
-    discordId: row.discordId,
-    winRatePercent: row.winRatePercent,
-  }));
+  const ranked = rankLeaderboardRows(mapped, (row) => row.leagueGames).map((row) => {
+    const base: OverallLeaderboardEntry = {
+      rank: row.rank,
+      playerId: row.playerId,
+      username: row.username,
+      ki: row.ki,
+      games: row.games,
+      leagueGames: row.leagueGames,
+      discordId: row.discordId,
+      winRatePercent: row.winRatePercent,
+    };
+
+    if (!prizeLockActive || !leagueCtx) {
+      return base;
+    }
+
+    const activityAt = row.lastQualifyingActivityAt;
+    const prizeEligible = activityAt != null && isPrizeEligible(activityAt, leagueCtx, now);
+    return { ...base, prizeEligible };
+  });
+
+  const entries = prizeLockActive ? assignPrizeMedalRanks(ranked) : ranked;
+
+  return { entries, prizeLockActive };
 }
 
 export async function loadOverallLeaderboardPage(
   leagueId: string,
   page: number,
 ): Promise<OverallLeaderboardPage> {
-  const rows = await loadEligibleOverallRows(leagueId);
-  return paginateOverall(rows, page);
+  const { entries, prizeLockActive } = await loadEligibleOverallRows(leagueId);
+  return paginateOverall(entries, page, prizeLockActive);
 }
 
 export async function loadOverallLeaderboardTop(
   leagueId: string,
   limit: number,
-): Promise<OverallLeaderboardEntry[]> {
-  const rows = await loadEligibleOverallRows(leagueId);
-  return rows.slice(0, limit);
+): Promise<{ entries: OverallLeaderboardEntry[]; prizeLockActive: boolean }> {
+  const { entries, prizeLockActive } = await loadEligibleOverallRows(leagueId);
+  return { entries: entries.slice(0, limit), prizeLockActive };
 }
 
 function mapHeroRatings(

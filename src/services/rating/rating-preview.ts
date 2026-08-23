@@ -27,6 +27,7 @@ import {
   type BalanceRatingLookup,
   type BalanceSuggestion,
 } from '../lobby/lobby-balance.js';
+import { applyPendingDecayForPlayers } from './rating-decay.js';
 
 export type { BalanceSuggestion };
 
@@ -116,6 +117,26 @@ export async function ensurePlayerRatings(
   }
 }
 
+/**
+ * Cold-start missing ratings, then catch up idle decay before any μ read.
+ * Callers must re-read PlayerRating rows after this returns.
+ */
+async function ensurePlayerRatingsWithDecayCatchUp(
+  leagueId: string,
+  entries: Pick<RatingPreviewRosterEntry, 'playerId' | 'heroId'>[],
+  db: Db = prisma,
+): Promise<void> {
+  await ensurePlayerRatings(leagueId, entries, db);
+  if (entries.length === 0) {
+    return;
+  }
+  await applyPendingDecayForPlayers(
+    leagueId,
+    entries.map((entry) => entry.playerId),
+    db,
+  );
+}
+
 function defaultMuSigma(): MuSigma {
   return { mu: DEFAULT_MU, sigma: DEFAULT_SIGMA };
 }
@@ -165,7 +186,7 @@ export async function loadRosterWinChance(
     return undefined;
   }
 
-  await ensurePlayerRatings(leagueId, entries, db);
+  await ensurePlayerRatingsWithDecayCatchUp(leagueId, entries, db);
 
   const playerIds = entries.map((entry) => entry.playerId);
   const withHero = entries.filter(
@@ -218,7 +239,7 @@ export async function loadPlayerKiBySlot(
     return result;
   }
 
-  await ensurePlayerRatings(leagueId, sorted, db);
+  await ensurePlayerRatingsWithDecayCatchUp(leagueId, sorted, db);
 
   const playerIds = sorted.map((entry) => entry.playerId);
   const withHero = sorted.filter(
@@ -324,7 +345,7 @@ export async function loadLobbyRatingPreview(
   }
 
   try {
-    await ensurePlayerRatings(leagueId, sorted);
+    await ensurePlayerRatingsWithDecayCatchUp(leagueId, sorted);
 
     if (sorted.some((entry) => entry.heroId != null)) {
       const catalogHeroIds = await listCatalogHeroIds();

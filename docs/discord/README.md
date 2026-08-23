@@ -21,6 +21,7 @@ Post in order. Pin the first post in each channel if you want.
 4. `staff/a4-wc3stats-mapping.md`
 5. `staff/a5-admin-cheat-sheet.md`
 6. `staff/a6-league-rollover.md`
+7. `staff/a7-rating-decay.md`
 
 ## Tips
 

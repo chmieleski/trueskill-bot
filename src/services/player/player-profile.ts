@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { normalizeNick } from './player-nick.js';
+import { applyPendingDecayForPlayers, resolveRankDecayFooter } from '../rating/rating-decay.js';
 import { displayOrdinal, isCalibrating } from '../rating/rating-math.js';
 import {
   gamesByPlayerFromStats,
@@ -44,6 +45,8 @@ export type PlayerProfile = {
   quits: number;
   winRatePercent: number | null;
   heroes: PlayerProfileHero[];
+  /** Idle/crunch decay hint for linked players; null when not shown. */
+  decayFooter: string | null;
 };
 
 export type RankLookup =
@@ -148,7 +151,20 @@ export async function loadPlayerProfile(
 
   const includeHeroes = gameProfile.heroBinding === 'slot_bound';
 
-  const [rating, allRatings, heroRatings, displayStats] = await Promise.all([
+  // Catch up idle decay for the looked-up player before μ → ki / rank.
+  await applyPendingDecayForPlayers(leagueId, [player.id]);
+
+  const [league, rating, allRatings, heroRatings, displayStats] = await Promise.all([
+    prisma.league.findUnique({
+      where: { id: leagueId },
+      select: {
+        status: true,
+        decayEnabled: true,
+        seasonEndsAt: true,
+        crunchStartedAt: true,
+        archivedAt: true,
+      },
+    }),
     prisma.playerRating.findUnique({
       where: { leagueId_playerId: { leagueId, playerId: player.id } },
     }),
@@ -186,6 +202,22 @@ export async function loadPlayerProfile(
   }
 
   const rankPosition = isCalibrating(games) ? null : competitionRank(globalKi, calibratedKis);
+  const decayFooter =
+    league && rating
+      ? resolveRankDecayFooter({
+          decayEnabled: league.decayEnabled,
+          leagueGames: games,
+          isNewPlayer: rating.isNewPlayer,
+          lastQualifyingActivityAt: rating.lastQualifyingActivityAt,
+          league: {
+            status: league.status,
+            decayEnabled: league.decayEnabled,
+            seasonEndsAt: league.seasonEndsAt,
+            crunchStartedAt: league.crunchStartedAt,
+            archivedAt: league.archivedAt,
+          },
+        })
+      : null;
   const winRatePercentValue = winRatePercent(wins, losses);
   const heroes: PlayerProfileHero[] = heroRatings
     .map((row) => {
@@ -213,5 +245,6 @@ export async function loadPlayerProfile(
     quits,
     winRatePercent: winRatePercentValue,
     heroes,
+    decayFooter,
   };
 }

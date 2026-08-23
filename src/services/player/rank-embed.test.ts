@@ -33,6 +33,7 @@ const baseProfile: PlayerProfile = {
       winRatePercent: 50,
     },
   ],
+  decayFooter: null,
 };
 
 const sampleTeammates: TeammateStats = {
@@ -206,5 +207,32 @@ describe('buildRankEmbed', () => {
       teammates: { playedWith: [], winWith: [], loseWith: [] },
     }).toJSON();
     expect((data.fields ?? []).map((f) => f.name)).toEqual(['Heroes']);
+  });
+
+  it('shows idle decay footer for linked players when set', () => {
+    const data = buildRankEmbed({
+      ...baseProfile,
+      decayFooter:
+        'Inactive 11+ days: league ki decays −50/day (−100/day after 20 days) until you finish a game.',
+    }).toJSON();
+    expect(data.footer?.text).toContain('Inactive 11+ days');
+  });
+
+  it('shows crunch decay footer for linked players when set', () => {
+    const data = buildRankEmbed({
+      ...baseProfile,
+      decayFooter: 'Crunch week: −100 ki/day after 2 idle days (−200/day after 10).',
+    }).toJSON();
+    expect(data.footer?.text).toContain('Crunch week');
+  });
+
+  it('prefers not-linked footer over decay hint', () => {
+    const data = buildRankEmbed({
+      ...baseProfile,
+      discordId: null,
+      decayFooter:
+        'Inactive 11+ days: league ki decays −50/day (−100/day after 20 days) until you finish a game.',
+    }).toJSON();
+    expect(data.footer?.text).toBe('Not linked to Discord');
   });
 });

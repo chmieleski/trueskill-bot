@@ -8,11 +8,20 @@ import type { LeagueRolloverPreview } from '../../services/league/index.js';
 import { buildRolloverPreviewMessage, data } from './league.js';
 
 describe('league command data', () => {
-  it('exposes create, list, bind, unbind, and rollover subcommands', () => {
+  it('exposes create, list, bind, unbind, rollover, set, clear, and crunch subcommands', () => {
     const json = data.toJSON();
     const names = json.options?.map((option) => option.name) ?? [];
 
-    expect(names).toEqual(['create', 'list', 'bind', 'unbind', 'rollover']);
+    expect(names).toEqual([
+      'create',
+      'list',
+      'bind',
+      'unbind',
+      'rollover',
+      'set',
+      'clear',
+      'crunch',
+    ]);
   });
 
   it('create requires UDBR game choice and name', () => {

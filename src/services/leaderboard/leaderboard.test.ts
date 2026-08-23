@@ -3,6 +3,7 @@ import {
   LeaderboardServiceError,
   LIVE_LEADERBOARD_CHUNK_SIZE,
   assertLiveLeaderboardSize,
+  assignPrizeMedalRanks,
   assignSortedRanks,
   chunkLeaderboardEntries,
   clampPage,
@@ -128,5 +129,25 @@ describe('paginateOverall', () => {
     expect(page.totalPlayers).toBe(25);
     expect(page.entries).toHaveLength(10);
     expect(page.entries[0]?.username).toBe('user10');
+    expect(page.prizeLockActive).toBe(false);
+  });
+
+  it('forwards prizeLockActive', () => {
+    const page = paginateOverall(base, 1, true);
+    expect(page.prizeLockActive).toBe(true);
+  });
+});
+
+describe('assignPrizeMedalRanks', () => {
+  it('skips ineligible players when assigning medals', () => {
+    const ranked = assignPrizeMedalRanks([
+      { prizeEligible: false },
+      { prizeEligible: true },
+      { prizeEligible: true },
+      { prizeEligible: false },
+      { prizeEligible: true },
+      { prizeEligible: true },
+    ]);
+    expect(ranked.map((row) => row.medalRank)).toEqual([null, 1, 2, null, 3, null]);
   });
 });

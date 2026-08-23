@@ -37,6 +37,9 @@ model League {
   status                        LeagueStatus @default(ACTIVE)
   predecessorLeagueId           String?
   archivedAt                    DateTime?
+  decayEnabled                  Boolean  @default(true)
+  seasonEndsAt                  DateTime?
+  crunchStartedAt               DateTime?
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt
 
@@ -134,8 +137,11 @@ model PlayerRating {
   playerId  String
   mu          Float    @default(25.0)
   sigma       Float    @default(8.333)
-  isNewPlayer Boolean  @default(false)
-  updatedAt   DateTime @updatedAt
+  isNewPlayer              Boolean   @default(false)
+  lastQualifyingActivityAt DateTime?
+  idleDecayKiApplied       Int       @default(0)
+  lastDecayAppliedAt       DateTime?
+  updatedAt                DateTime  @updatedAt
 
   league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)

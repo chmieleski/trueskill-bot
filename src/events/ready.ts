@@ -3,6 +3,7 @@ import { Events } from 'discord.js';
 import { env } from '../config/env.js';
 import { createLogger } from '../lib/logger.js';
 import { startMatchCleanupScheduler } from '../services/match/index.js';
+import { startRatingDecayScheduler } from '../services/rating/index.js';
 import {
   refreshAllLeaderboardChannels,
   scheduleLeaderboardRefresh,
@@ -18,6 +19,7 @@ export const once = true;
 export async function execute(client: Client<true>): Promise<void> {
   log.info({ tag: client.user.tag, userId: client.user.id }, 'Bot online');
   startMatchCleanupScheduler(client);
+  startRatingDecayScheduler();
 
   void refreshAllLeaderboardChannels(client).catch((error) => {
     log.warn({ err: error }, 'Initial leaderboard refresh failed');

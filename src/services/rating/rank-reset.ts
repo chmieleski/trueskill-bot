@@ -246,8 +246,15 @@ export async function applyRankReset(input: ApplyRankResetInput): Promise<RankRe
         playerId: preview.playerId,
         mu: 25,
         sigma: 8.333,
+        idleDecayKiApplied: 0,
+        lastDecayAppliedAt: null,
       },
-      update: { mu: 25, sigma: 8.333 },
+      update: {
+        mu: 25,
+        sigma: 8.333,
+        idleDecayKiApplied: 0,
+        lastDecayAppliedAt: null,
+      },
     });
     await tx.playerHeroRating.deleteMany({
       where: { leagueId: preview.leagueId, playerId: preview.playerId },

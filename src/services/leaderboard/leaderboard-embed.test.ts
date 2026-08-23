@@ -106,6 +106,59 @@ describe('formatOverallTable', () => {
     expect(table).toMatch(/WR/);
     expect(table).toContain('—');
   });
+
+  it('gives gold to first eligible when #1 is locked out', () => {
+    const entries = [
+      { ...fakeEntry(1), prizeEligible: false, medalRank: null },
+      { ...fakeEntry(2), prizeEligible: true, medalRank: 1 },
+      { ...fakeEntry(3), prizeEligible: true, medalRank: 2 },
+    ];
+    const table = formatOverallTable(entries, 'ki', { prizeLockActive: true });
+    expect(table).toContain('#1');
+    expect(table).toContain('🥇');
+    expect(table.indexOf('#1')).toBeLessThan(table.indexOf('🥇'));
+  });
+
+  it('keeps board-rank medals when prize lock is inactive', () => {
+    const table = formatOverallTable([fakeEntry(1), fakeEntry(2), fakeEntry(3)], 'ki', {
+      prizeLockActive: false,
+    });
+    expect(table).toContain('🥇');
+    expect(table).toContain('🥈');
+    expect(table).toContain('🥉');
+    expect(table).not.toContain('#1');
+  });
+});
+
+describe('prize lock embed copy', () => {
+  it('adds footnote on command embed when prize lock is active', () => {
+    const embed = buildOverallLeaderboardEmbed({
+      entries: [{ ...fakeEntry(1), prizeEligible: true, medalRank: 1 }],
+      page: 1,
+      totalPages: 1,
+      totalPlayers: 1,
+      prizeLockActive: true,
+    });
+    expect(embed.data.description).toContain(
+      'Medals require a completed game in the last 7 days of the season.',
+    );
+  });
+
+  it('adds crunch banner and footnote on live embeds when prize lock is active', () => {
+    const updatedAt = new Date('2026-08-15T12:00:00Z');
+    const embeds = buildOverallLiveLeaderboardEmbeds(
+      [{ ...fakeEntry(1), prizeEligible: true, medalRank: 1 }],
+      updatedAt,
+      'ki',
+      { prizeLockActive: true },
+    );
+    expect(embeds[0]!.data.description).toContain(
+      'Season crunch — play this week to keep your medal spot.',
+    );
+    expect(embeds[0]!.data.description).toContain(
+      'Medals require a completed game in the last 7 days of the season.',
+    );
+  });
 });
 
 describe('buildOverallLeaderboardEmbed', () => {

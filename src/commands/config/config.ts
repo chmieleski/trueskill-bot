@@ -35,10 +35,12 @@ import {
   getLeagueOption,
   isLeagueWritable,
   LEAGUE_ARCHIVED_MESSAGE,
+  LEAGUE_DECAY_ARCHIVED_MESSAGE,
   leagueResolveFailureMessage,
   LOBBY_CHANNEL_SET_NEEDS_OPTION,
   resolveLeagueFromInteraction,
   respondLeagueAutocomplete,
+  setDecayEnabled,
   setLeagueLobbyChannel,
   withSubcommandLeagueOption,
 } from '../../services/league/index.js';
@@ -103,6 +105,26 @@ function formatPlayerClaimLine(enabled: boolean): string {
 
 function formatRankResetLine(enabled: boolean, cooldownDays: number): string {
   return `**Rank reset:** \`${enabled ? 'on' : 'off'}\` · cooldown \`${cooldownDays}d\``;
+}
+
+function formatDecayLine(
+  decayEnabled: boolean,
+  seasonEndsAt: Date | undefined,
+  decayInCrunch: boolean,
+): string {
+  if (!decayEnabled) {
+    return '**Rating decay:** `off`';
+  }
+
+  const parts = ['**Rating decay:** `on`'];
+  if (seasonEndsAt) {
+    const unix = Math.floor(seasonEndsAt.getTime() / 1000);
+    parts.push(`season ends <t:${unix}:F>`);
+  }
+  if (decayInCrunch) {
+    parts.push('crunch active');
+  }
+  return parts.join(' · ');
 }
 
 function formatWc3statsHostPromptLine(enabled: boolean, channelId: string | undefined): string {
@@ -374,6 +396,19 @@ export const data = new SlashCommandBuilder()
       .addSubcommand((subcommand) =>
         withSubcommandLeagueOption(
           subcommand
+            .setName('decay')
+            .setDescription('Enable or disable idle rating decay for this league')
+            .addBooleanOption((option) =>
+              option
+                .setName('enabled')
+                .setDescription('On: idle players lose ki over time. Off: no decay.')
+                .setRequired(true),
+            ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
             .setName('wc3stats_slot')
             .setDescription('Map one wc3stats slot index to a hero/lobby slot')
             .addIntegerOption((option) =>
@@ -554,6 +589,28 @@ async function requireLeagueId(interaction: ChatInputCommandInteraction): Promis
   return resolved.league.id;
 }
 
+/** Resolve a writable league for decay config; uses decay-specific archived copy. */
+async function requireWritableLeagueForDecay(
+  interaction: ChatInputCommandInteraction,
+): Promise<string | null> {
+  const resolved = await resolveLeagueFromInteraction(interaction, getLeagueOption(interaction));
+  if (!resolved.ok) {
+    await interaction.reply({
+      content: leagueResolveFailureMessage(resolved.reason),
+      flags: MessageFlags.Ephemeral,
+    });
+    return null;
+  }
+  if (!isLeagueWritable(resolved.league)) {
+    await interaction.reply({
+      content: LEAGUE_DECAY_ARCHIVED_MESSAGE,
+      flags: MessageFlags.Ephemeral,
+    });
+    return null;
+  }
+  return resolved.league.id;
+}
+
 async function requireWc3statsLeague(
   interaction: ChatInputCommandInteraction,
 ): Promise<string | null> {
@@ -655,6 +712,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
             leagueConfig.lobbyChannelId,
           ),
           formatRankResetLine(leagueConfig.rankResetEnabled, leagueConfig.rankResetCooldownDays),
+          formatDecayLine(
+            leagueConfig.decayEnabled,
+            leagueConfig.seasonEndsAt,
+            leagueConfig.decayInCrunch,
+          ),
           formatWc3statsEnabledLine(leagueConfig.wc3statsEnabled),
           ...formatWc3statsFilterLines(
             leagueConfig.wc3statsMapPattern,
@@ -980,6 +1042,23 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         );
         await interaction.reply({
           content: `Rank reset cooldown set to \`${days}\` days.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'decay') {
+        const leagueId = await requireWritableLeagueForDecay(interaction);
+        if (!leagueId) return;
+
+        const enabled = interaction.options.getBoolean('enabled', true);
+        await setDecayEnabled(leagueId, enabled);
+        log.info(
+          { guildId: interaction.guildId, leagueId, enabled, userId: interaction.user.id },
+          'Rating decay setting updated',
+        );
+        await interaction.reply({
+          content: enabled ? 'Rating decay enabled.' : 'Rating decay disabled.',
           flags: MessageFlags.Ephemeral,
         });
         return;

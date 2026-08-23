@@ -24,7 +24,7 @@ vi.mock('../league/league-profile.js', () => ({
 }));
 
 vi.mock('./leaderboard.js', () => ({
-  loadOverallLeaderboardTop: vi.fn().mockResolvedValue([]),
+  loadOverallLeaderboardTop: vi.fn().mockResolvedValue({ entries: [], prizeLockActive: false }),
   LIVE_LEADERBOARD_DEFAULT_SIZE: 10,
 }));
 
@@ -74,7 +74,9 @@ describe('refreshLeagueLeaderboard', () => {
     await refreshLeagueLeaderboard(client, 'league-1');
 
     expect(loadOverallLeaderboardTop).toHaveBeenCalledWith('league-1', 50);
-    expect(buildOverallLiveLeaderboardEmbeds).toHaveBeenCalledWith([], expect.any(Date), 'ki');
+    expect(buildOverallLiveLeaderboardEmbeds).toHaveBeenCalledWith([], expect.any(Date), 'ki', {
+      prizeLockActive: false,
+    });
     expect(edit).toHaveBeenCalledWith('msg-1', {
       embeds: [{ fake: true }],
     });
