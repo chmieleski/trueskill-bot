@@ -1,4 +1,10 @@
-import { winRatePercent } from '../rating/rank-reset-display.js';
+import { MatchResult, MatchStatus } from '@prisma/client';
+import { prisma } from '../../lib/prisma.js';
+import {
+  isMatchCountedAfterRankReset,
+  loadLatestRankResetAtByPlayer,
+  winRatePercent,
+} from '../rating/rank-reset-display.js';
 
 export type TeammatePairStats = {
   playerId: string;
@@ -113,4 +119,63 @@ export function buildTeammateStatsFromPairs(pairs: TeammatePairStats[]): Teammat
     winWith: pickTopTeammates(pairs, 'wins'),
     loseWith: pickTopTeammates(pairs, 'losses'),
   };
+}
+
+/** Load top-3 teammate lists for a player in a league (post–rank-reset WIN/LOSS only). */
+export async function loadTeammateStats(
+  leagueId: string,
+  playerId: string,
+): Promise<TeammateStats> {
+  const [resetAtByPlayer, myRows] = await Promise.all([
+    loadLatestRankResetAtByPlayer(leagueId, [playerId]),
+    prisma.matchPlayer.findMany({
+      where: {
+        playerId,
+        result: { in: [MatchResult.WIN, MatchResult.LOSS] },
+        match: { leagueId, status: MatchStatus.COMPLETED },
+      },
+      select: {
+        matchId: true,
+        team: true,
+        result: true,
+        match: {
+          select: {
+            id: true,
+            completedAt: true,
+            players: {
+              select: {
+                playerId: true,
+                team: true,
+                result: true,
+                player: { select: { username: true } },
+              },
+            },
+          },
+        },
+      },
+    }),
+  ]);
+
+  const resetAt = resetAtByPlayer.get(playerId);
+  const rows: TeammateMatchRow[] = [];
+
+  for (const row of myRows) {
+    if (row.result !== MatchResult.WIN && row.result !== MatchResult.LOSS) continue;
+    if (!isMatchCountedAfterRankReset(row.match.completedAt, resetAt)) continue;
+
+    const partners = row.match.players
+      .filter((p) => p.playerId !== playerId && p.team === row.team)
+      .map((p) => ({ playerId: p.playerId, username: p.player.username }));
+
+    rows.push({
+      matchId: row.match.id,
+      completedAt: row.match.completedAt,
+      viewedPlayerId: playerId,
+      viewedTeam: row.team,
+      viewedResult: row.result,
+      partners,
+    });
+  }
+
+  return buildTeammateStatsFromPairs(aggregateTeammatePairs(rows));
 }

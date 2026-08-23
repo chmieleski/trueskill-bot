@@ -1,8 +1,31 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { matchPlayerFindMany, loadLatestRankResetAtByPlayer } = vi.hoisted(() => ({
+  matchPlayerFindMany: vi.fn(),
+  loadLatestRankResetAtByPlayer: vi.fn(),
+}));
+
+vi.mock('../../lib/prisma.js', () => ({
+  prisma: {
+    matchPlayer: {
+      findMany: matchPlayerFindMany,
+    },
+  },
+}));
+
+vi.mock('../rating/rank-reset-display.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../rating/rank-reset-display.js')>();
+  return {
+    ...actual,
+    loadLatestRankResetAtByPlayer,
+  };
+});
+
 import {
   aggregateTeammatePairs,
   buildTeammateStatsFromPairs,
   formatTeammateTable,
+  loadTeammateStats,
   pickTopTeammates,
   type TeammatePairStats,
 } from './teammate-stats.js';
@@ -170,5 +193,83 @@ describe('buildTeammateStatsFromPairs', () => {
     expect(stats.playedWith.map((p) => p.username)).toEqual(['Ghost', 'Krillin', 'Piccolo']);
     expect(stats.winWith.map((p) => p.username)).toEqual(['Ghost', 'Krillin', 'Piccolo']);
     expect(stats.loseWith.map((p) => p.username)).toEqual(['Ghost', 'Krillin', 'Piccolo']);
+  });
+});
+
+describe('loadTeammateStats', () => {
+  beforeEach(() => {
+    matchPlayerFindMany.mockReset();
+    loadLatestRankResetAtByPlayer.mockReset();
+    loadLatestRankResetAtByPlayer.mockResolvedValue(new Map());
+  });
+
+  it('aggregates same-team partners after rank reset and ignores viewed quit matches', async () => {
+    const resetAt = new Date('2026-08-10T00:00:00.000Z');
+    loadLatestRankResetAtByPlayer.mockResolvedValue(new Map([['p1', resetAt]]));
+    matchPlayerFindMany.mockResolvedValue([
+      {
+        matchId: 'old',
+        team: 1,
+        result: 'WIN',
+        match: {
+          id: 'old',
+          completedAt: new Date('2026-08-01T00:00:00.000Z'),
+          players: [
+            { playerId: 'p1', team: 1, result: 'WIN', player: { username: 'Me' } },
+            { playerId: 'p2', team: 1, result: 'WIN', player: { username: 'Ghost' } },
+          ],
+        },
+      },
+      {
+        matchId: 'm1',
+        team: 1,
+        result: 'WIN',
+        match: {
+          id: 'm1',
+          completedAt: new Date('2026-08-11T00:00:00.000Z'),
+          players: [
+            { playerId: 'p1', team: 1, result: 'WIN', player: { username: 'Me' } },
+            { playerId: 'p2', team: 1, result: 'WIN', player: { username: 'Ghost' } },
+            { playerId: 'p3', team: 2, result: 'LOSS', player: { username: 'EvilGuy' } },
+          ],
+        },
+      },
+      {
+        matchId: 'm2',
+        team: 1,
+        result: 'LOSS',
+        match: {
+          id: 'm2',
+          completedAt: new Date('2026-08-12T00:00:00.000Z'),
+          players: [
+            { playerId: 'p1', team: 1, result: 'LOSS', player: { username: 'Me' } },
+            {
+              playerId: 'p2',
+              team: 1,
+              result: null,
+              player: { username: 'Ghost' },
+            },
+          ],
+        },
+      },
+    ]);
+
+    const stats = await loadTeammateStats('L1', 'p1');
+    expect(stats.playedWith).toHaveLength(1);
+    expect(stats.playedWith[0]).toMatchObject({
+      playerId: 'p2',
+      username: 'Ghost',
+      games: 2,
+      wins: 1,
+      losses: 1,
+      winRatePercent: 50,
+    });
+    expect(stats.playedWith.some((p) => p.username === 'EvilGuy')).toBe(false);
+  });
+
+  it('returns empty lists when the player has no counted teammates', async () => {
+    matchPlayerFindMany.mockResolvedValue([]);
+    const stats = await loadTeammateStats('L1', 'p1');
+    expect(stats).toEqual({ playedWith: [], winWith: [], loseWith: [] });
   });
 });
