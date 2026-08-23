@@ -110,6 +110,7 @@ export {
   LEAGUE_DECAY_ARCHIVED_MESSAGE,
   clearLeagueCrunch,
   parseSeasonEndDate,
+  setDecayEnabled,
   setLeagueSeasonEndsAt,
   startLeagueCrunch,
   type StartLeagueCrunchResult,

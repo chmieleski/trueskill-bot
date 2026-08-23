@@ -16,7 +16,12 @@ vi.mock('../lobby/register-lobby-source.js', () => ({
   WC3STATS_CONFIG_UNSUPPORTED_MESSAGE: 'Warcraft lobby import is not available for this game.',
 }));
 
+vi.mock('../rating/rating-decay.js', () => ({
+  isLeagueInCrunch: vi.fn(() => false),
+}));
+
 import { resolveLeagueConfig, setLeagueWc3statsHostPrompt } from './league-wc3stats.js';
+import { isLeagueInCrunch } from '../rating/rating-decay.js';
 import { MatchServiceError } from '../match/match-service.js';
 import { assertLeagueAllowsWc3stats } from '../lobby/register-lobby-source.js';
 import { LOBBY_CHANNEL_HOST_PROMPT_MISMATCH } from './league-lobby-channel.js';
@@ -41,6 +46,47 @@ describe('resolveLeagueConfig lobby channel', () => {
     const resolved = await resolveLeagueConfig('league-1');
     expect(resolved.lobbyChannelEnabled).toBe(true);
     expect(resolved.lobbyChannelId).toBe('chan-1');
+  });
+});
+
+describe('resolveLeagueConfig decay', () => {
+  beforeEach(() => {
+    findUnique.mockReset();
+    vi.mocked(isLeagueInCrunch).mockReset();
+    vi.mocked(isLeagueInCrunch).mockReturnValue(false);
+  });
+
+  it('defaults decay to on when the league row is missing', async () => {
+    findUnique.mockResolvedValue(null);
+    const resolved = await resolveLeagueConfig('league-1');
+    expect(resolved.decayEnabled).toBe(true);
+    expect(resolved.seasonEndsAt).toBeUndefined();
+    expect(resolved.decayInCrunch).toBe(false);
+  });
+
+  it('reads decay fields and crunch state from the league row', async () => {
+    const seasonEndsAt = new Date('2026-12-31T23:59:59.999Z');
+    findUnique.mockResolvedValue({
+      status: 'ACTIVE',
+      decayEnabled: false,
+      seasonEndsAt,
+      crunchStartedAt: null,
+    });
+    vi.mocked(isLeagueInCrunch).mockReturnValue(true);
+
+    const resolved = await resolveLeagueConfig('league-1');
+    expect(resolved.decayEnabled).toBe(false);
+    expect(resolved.seasonEndsAt).toEqual(seasonEndsAt);
+    expect(resolved.decayInCrunch).toBe(true);
+    expect(isLeagueInCrunch).toHaveBeenCalledWith(
+      {
+        status: 'ACTIVE',
+        decayEnabled: false,
+        seasonEndsAt,
+        crunchStartedAt: null,
+      },
+      expect.any(Date),
+    );
   });
 });
 

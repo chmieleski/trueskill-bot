@@ -77,3 +77,11 @@ export async function clearLeagueCrunch(leagueId: string): Promise<void> {
     data: { crunchStartedAt: null },
   });
 }
+
+/** Enable or disable idle rating decay for a league. */
+export async function setDecayEnabled(leagueId: string, enabled: boolean): Promise<void> {
+  await prisma.league.update({
+    where: { id: leagueId },
+    data: { decayEnabled: enabled },
+  });
+}

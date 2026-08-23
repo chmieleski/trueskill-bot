@@ -1,5 +1,20 @@
-import { describe, expect, it } from 'vitest';
-import { LEAGUE_DECAY_ARCHIVED_MESSAGE, parseSeasonEndDate } from './league-decay.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { update } = vi.hoisted(() => ({
+  update: vi.fn(),
+}));
+
+vi.mock('../../lib/prisma.js', () => ({
+  prisma: {
+    league: { update },
+  },
+}));
+
+import {
+  LEAGUE_DECAY_ARCHIVED_MESSAGE,
+  parseSeasonEndDate,
+  setDecayEnabled,
+} from './league-decay.js';
 
 describe('parseSeasonEndDate', () => {
   const now = new Date('2026-08-24T12:00:00.000Z');
@@ -49,5 +64,19 @@ describe('LEAGUE_DECAY_ARCHIVED_MESSAGE', () => {
     expect(LEAGUE_DECAY_ARCHIVED_MESSAGE).toBe(
       'That league is archived. Pick an active league.',
     );
+  });
+});
+
+describe('setDecayEnabled', () => {
+  beforeEach(() => {
+    update.mockReset();
+  });
+
+  it('persists the decay toggle on the league row', async () => {
+    await setDecayEnabled('league-1', false);
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'league-1' },
+      data: { decayEnabled: false },
+    });
   });
 });
