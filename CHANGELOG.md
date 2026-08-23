@@ -1,3 +1,10 @@
+## [1.13.2](https://github.com/chmieleski/trueskill-bot/compare/v1.13.1...v1.13.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* **deploy:** quote SSM echo lines so ==> is not a redirect ([#78](https://github.com/chmieleski/trueskill-bot/issues/78)) ([4010449](https://github.com/chmieleski/trueskill-bot/commit/40104494b03f981fec353a708f14caae94dc8602))
+
 ## [1.13.1](https://github.com/chmieleski/trueskill-bot/compare/v1.13.0...v1.13.1) (2026-08-23)
 
 
