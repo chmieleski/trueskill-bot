@@ -31,6 +31,16 @@ export type SoftResetHeroEntity = SoftResetEntity & {
   matchesPlayed: number;
 };
 
+export type GlobalRatingSeedRow = {
+  playerId: string;
+  mu: number;
+  sigma: number;
+  lastQualifyingActivityAt: Date | null;
+  idleDecayKiApplied: number;
+  lastDecayAppliedAt: Date | null;
+  isNewPlayer: boolean;
+};
+
 export type PreviewLeagueRolloverInput = {
   guildId: string;
   sourceLeagueId: string;
@@ -106,16 +116,20 @@ function meanOf(values: number[], fallback = DEFAULT_MU): number {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-/** Compress each player's global μ toward the source league mean. */
+/** Compress each player's global μ toward the source league mean; copy decay fields. */
 export function seedSoftGlobalRatings(
-  rows: Array<{ playerId: string; mu: number; sigma: number }>,
+  rows: GlobalRatingSeedRow[],
   compression: number,
-): Array<{ playerId: string; mu: number; sigma: number }> {
+): GlobalRatingSeedRow[] {
   const meanMu = meanOf(rows.map((row) => row.mu));
   return rows.map((row) => ({
     playerId: row.playerId,
     mu: compressMu(row.mu, meanMu, compression),
     sigma: compressSigma(row.sigma),
+    lastQualifyingActivityAt: row.lastQualifyingActivityAt,
+    idleDecayKiApplied: row.idleDecayKiApplied,
+    lastDecayAppliedAt: row.lastDecayAppliedAt,
+    isNewPlayer: row.isNewPlayer,
   }));
 }
 
@@ -155,14 +169,16 @@ export function seedSoftHeroRatings(
   });
 }
 
-/** Copy global μ and σ onto the successor with no compression or σ bump. */
-export function seedContinueGlobalRatings(
-  rows: Array<{ playerId: string; mu: number; sigma: number }>,
-): Array<{ playerId: string; mu: number; sigma: number }> {
+/** Copy global μ, σ, and decay fields onto the successor with no compression or σ bump. */
+export function seedContinueGlobalRatings(rows: GlobalRatingSeedRow[]): GlobalRatingSeedRow[] {
   return rows.map((row) => ({
     playerId: row.playerId,
     mu: row.mu,
     sigma: row.sigma,
+    lastQualifyingActivityAt: row.lastQualifyingActivityAt,
+    idleDecayKiApplied: row.idleDecayKiApplied,
+    lastDecayAppliedAt: row.lastDecayAppliedAt,
+    isNewPlayer: row.isNewPlayer,
   }));
 }
 
@@ -300,7 +316,11 @@ async function countRolloverPlayers(leagueId: string): Promise<number> {
   return playerIds.size;
 }
 
-function successorLeagueCreateData(source: League, successorName: string) {
+function successorLeagueCreateData(
+  source: League,
+  successorName: string,
+  resetMode: LeagueResetMode,
+) {
   return {
     guildId: source.guildId,
     gameId: source.gameId,
@@ -318,6 +338,9 @@ function successorLeagueCreateData(source: League, successorName: string) {
     wc3statsHostPromptChannelId: source.wc3statsHostPromptChannelId,
     rankResetEnabled: source.rankResetEnabled,
     rankResetCooldownDays: source.rankResetCooldownDays,
+    seasonEndsAt: source.seasonEndsAt,
+    crunchStartedAt: source.crunchStartedAt,
+    decayEnabled: resetMode === 'continue' ? false : (source.decayEnabled ?? true),
   };
 }
 
@@ -455,7 +478,7 @@ export async function applyLeagueRollover(
     await assertNoActiveMatchesWithClient(tx, source.id);
 
     const successor = await tx.league.create({
-      data: successorLeagueCreateData(source, draft.successorName),
+      data: successorLeagueCreateData(source, draft.successorName, resetMode),
     });
 
     if (resetMode === 'hard') {
@@ -466,6 +489,9 @@ export async function applyLeagueRollover(
             playerId,
             mu: DEFAULT_MU,
             sigma: DEFAULT_SIGMA,
+            idleDecayKiApplied: 0,
+            lastQualifyingActivityAt: null,
+            lastDecayAppliedAt: null,
           })),
         });
       }
@@ -475,6 +501,10 @@ export async function applyLeagueRollover(
           playerId: row.playerId,
           mu: row.mu,
           sigma: row.sigma,
+          lastQualifyingActivityAt: row.lastQualifyingActivityAt,
+          idleDecayKiApplied: row.idleDecayKiApplied,
+          lastDecayAppliedAt: row.lastDecayAppliedAt,
+          isNewPlayer: row.isNewPlayer,
         })),
       );
 
@@ -485,6 +515,10 @@ export async function applyLeagueRollover(
             playerId: row.playerId,
             mu: row.mu,
             sigma: row.sigma,
+            lastQualifyingActivityAt: row.lastQualifyingActivityAt,
+            idleDecayKiApplied: row.idleDecayKiApplied,
+            lastDecayAppliedAt: row.lastDecayAppliedAt,
+            isNewPlayer: row.isNewPlayer,
           })),
         });
       }
@@ -517,6 +551,10 @@ export async function applyLeagueRollover(
           playerId: row.playerId,
           mu: row.mu,
           sigma: row.sigma,
+          lastQualifyingActivityAt: row.lastQualifyingActivityAt,
+          idleDecayKiApplied: row.idleDecayKiApplied,
+          lastDecayAppliedAt: row.lastDecayAppliedAt,
+          isNewPlayer: row.isNewPlayer,
         })),
         compression ?? ROLLOVER_COMPRESSION_DEFAULT,
       );
@@ -528,6 +566,10 @@ export async function applyLeagueRollover(
             playerId,
             mu: DEFAULT_MU,
             sigma: DEFAULT_SIGMA,
+            lastQualifyingActivityAt: null,
+            idleDecayKiApplied: 0,
+            lastDecayAppliedAt: null,
+            isNewPlayer: false,
           });
         }
       }
@@ -539,6 +581,10 @@ export async function applyLeagueRollover(
             playerId: row.playerId,
             mu: row.mu,
             sigma: row.sigma,
+            lastQualifyingActivityAt: row.lastQualifyingActivityAt,
+            idleDecayKiApplied: row.idleDecayKiApplied,
+            lastDecayAppliedAt: row.lastDecayAppliedAt,
+            isNewPlayer: row.isNewPlayer,
           })),
         });
       }

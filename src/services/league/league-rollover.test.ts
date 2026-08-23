@@ -98,6 +98,11 @@ import {
 const GUILD = 'guild-1';
 const ACTOR = 'discord-actor';
 
+const SEASON_ENDS_AT = new Date('2026-09-01T23:59:59.999Z');
+const CRUNCH_STARTED_AT = new Date('2026-08-25T12:00:00.000Z');
+const ACTIVITY_AT = new Date('2026-08-20T10:00:00.000Z');
+const DECAY_APPLIED_AT = new Date('2026-08-22T00:00:00.000Z');
+
 const ACTIVE_SOURCE = {
   id: 'league-1',
   guildId: GUILD,
@@ -117,6 +122,9 @@ const ACTIVE_SOURCE = {
   wc3statsHostPromptChannelId: null,
   rankResetEnabled: true,
   rankResetCooldownDays: 30,
+  decayEnabled: true,
+  seasonEndsAt: SEASON_ENDS_AT,
+  crunchStartedAt: CRUNCH_STARTED_AT,
 };
 
 function previewInput(overrides: Partial<Parameters<typeof previewLeagueRollover>[0]> = {}) {
@@ -155,17 +163,49 @@ describe('compressSigma', () => {
 });
 
 describe('seedSoftGlobalRatings', () => {
-  it('compresses each player toward league mean independently', () => {
+  it('compresses each player toward league mean and copies decay fields', () => {
     const out = seedSoftGlobalRatings(
       [
-        { playerId: 'a', mu: 30, sigma: 3 },
-        { playerId: 'b', mu: 20, sigma: 3 },
+        {
+          playerId: 'a',
+          mu: 30,
+          sigma: 3,
+          lastQualifyingActivityAt: ACTIVITY_AT,
+          idleDecayKiApplied: 4,
+          lastDecayAppliedAt: DECAY_APPLIED_AT,
+          isNewPlayer: false,
+        },
+        {
+          playerId: 'b',
+          mu: 20,
+          sigma: 3,
+          lastQualifyingActivityAt: null,
+          idleDecayKiApplied: 0,
+          lastDecayAppliedAt: null,
+          isNewPlayer: true,
+        },
       ],
       0.5,
     );
     expect(out).toEqual([
-      { playerId: 'a', mu: 27.5, sigma: 6 },
-      { playerId: 'b', mu: 22.5, sigma: 6 },
+      {
+        playerId: 'a',
+        mu: 27.5,
+        sigma: 6,
+        lastQualifyingActivityAt: ACTIVITY_AT,
+        idleDecayKiApplied: 4,
+        lastDecayAppliedAt: DECAY_APPLIED_AT,
+        isNewPlayer: false,
+      },
+      {
+        playerId: 'b',
+        mu: 22.5,
+        sigma: 6,
+        lastQualifyingActivityAt: null,
+        idleDecayKiApplied: 0,
+        lastDecayAppliedAt: null,
+        isNewPlayer: true,
+      },
     ]);
   });
 });
@@ -191,8 +231,18 @@ describe('assertRolloverCompression', () => {
 });
 
 describe('seedContinueGlobalRatings', () => {
-  it('copies mu and sigma unchanged', () => {
-    const rows = [{ playerId: 'a', mu: 30, sigma: 3 }];
+  it('copies mu, sigma, and decay fields unchanged', () => {
+    const rows = [
+      {
+        playerId: 'a',
+        mu: 30,
+        sigma: 3,
+        lastQualifyingActivityAt: ACTIVITY_AT,
+        idleDecayKiApplied: 4,
+        lastDecayAppliedAt: DECAY_APPLIED_AT,
+        isNewPlayer: true,
+      },
+    ];
     expect(seedContinueGlobalRatings(rows)).toEqual(rows);
   });
 });
@@ -325,8 +375,24 @@ describe('applyLeagueRollover', () => {
       sourceLeague: ACTIVE_SOURCE,
     });
     playerRatingFindMany.mockResolvedValue([
-      { playerId: 'p1', mu: 30, sigma: 3 },
-      { playerId: 'p2', mu: 20, sigma: 3 },
+      {
+        playerId: 'p1',
+        mu: 30,
+        sigma: 3,
+        lastQualifyingActivityAt: ACTIVITY_AT,
+        idleDecayKiApplied: 4,
+        lastDecayAppliedAt: DECAY_APPLIED_AT,
+        isNewPlayer: false,
+      },
+      {
+        playerId: 'p2',
+        mu: 20,
+        sigma: 3,
+        lastQualifyingActivityAt: ACTIVITY_AT,
+        idleDecayKiApplied: 2,
+        lastDecayAppliedAt: DECAY_APPLIED_AT,
+        isNewPlayer: true,
+      },
     ]);
     playerHeroRatingFindMany.mockResolvedValue([
       { playerId: 'p2', heroId: 1, mu: 28, sigma: 2.5, matchesPlayed: 5 },
@@ -375,7 +441,7 @@ describe('applyLeagueRollover', () => {
     expect(leagueUpdate).not.toHaveBeenCalled();
   });
 
-  it('hard reset seeds global defaults only', async () => {
+  it('hard reset seeds global defaults with zeroed decay counters', async () => {
     await expect(
       applyLeagueRollover({ draftId: 'draft-1', actorDiscordId: ACTOR }),
     ).resolves.toMatchObject({
@@ -386,10 +452,33 @@ describe('applyLeagueRollover', () => {
       bindingsMoved: 2,
     });
 
+    expect(leagueCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        decayEnabled: true,
+        seasonEndsAt: SEASON_ENDS_AT,
+        crunchStartedAt: CRUNCH_STARTED_AT,
+      }),
+    });
     expect(playerRatingCreateMany).toHaveBeenCalledWith({
       data: [
-        { leagueId: 'league-2', playerId: 'p1', mu: 25, sigma: 8.333 },
-        { leagueId: 'league-2', playerId: 'p2', mu: 25, sigma: 8.333 },
+        {
+          leagueId: 'league-2',
+          playerId: 'p1',
+          mu: 25,
+          sigma: 8.333,
+          idleDecayKiApplied: 0,
+          lastQualifyingActivityAt: null,
+          lastDecayAppliedAt: null,
+        },
+        {
+          leagueId: 'league-2',
+          playerId: 'p2',
+          mu: 25,
+          sigma: 8.333,
+          idleDecayKiApplied: 0,
+          lastQualifyingActivityAt: null,
+          lastDecayAppliedAt: null,
+        },
       ],
     });
     expect(playerHeroRatingCreateMany).not.toHaveBeenCalled();
@@ -407,7 +496,7 @@ describe('applyLeagueRollover', () => {
     });
   });
 
-  it('soft reset copies compressed hero rows', async () => {
+  it('soft reset copies compressed hero rows and decay fields', async () => {
     leagueRolloverDraftFindUnique.mockResolvedValue({
       id: 'draft-soft',
       sourceLeagueId: 'league-1',
@@ -421,10 +510,35 @@ describe('applyLeagueRollover', () => {
 
     await applyLeagueRollover({ draftId: 'draft-soft', actorDiscordId: ACTOR });
 
+    expect(leagueCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        decayEnabled: true,
+        seasonEndsAt: SEASON_ENDS_AT,
+        crunchStartedAt: CRUNCH_STARTED_AT,
+      }),
+    });
     expect(playerRatingCreateMany).toHaveBeenCalledWith({
       data: [
-        { leagueId: 'league-3', playerId: 'p1', mu: 27.5, sigma: 6 },
-        { leagueId: 'league-3', playerId: 'p2', mu: 22.5, sigma: 6 },
+        {
+          leagueId: 'league-3',
+          playerId: 'p1',
+          mu: 27.5,
+          sigma: 6,
+          lastQualifyingActivityAt: ACTIVITY_AT,
+          idleDecayKiApplied: 4,
+          lastDecayAppliedAt: DECAY_APPLIED_AT,
+          isNewPlayer: false,
+        },
+        {
+          leagueId: 'league-3',
+          playerId: 'p2',
+          mu: 22.5,
+          sigma: 6,
+          lastQualifyingActivityAt: ACTIVITY_AT,
+          idleDecayKiApplied: 2,
+          lastDecayAppliedAt: DECAY_APPLIED_AT,
+          isNewPlayer: true,
+        },
       ],
     });
     expect(playerHeroRatingCreateMany).toHaveBeenCalledWith({
@@ -441,7 +555,7 @@ describe('applyLeagueRollover', () => {
     });
   });
 
-  it('continue copies mu, sigma, matchesPlayed onto a new leagueId', async () => {
+  it('continue sets decayEnabled false and copies decay fields', async () => {
     leagueRolloverDraftFindUnique.mockResolvedValue({
       id: 'draft-1',
       sourceLeagueId: 'league-1',
@@ -451,7 +565,17 @@ describe('applyLeagueRollover', () => {
       actorDiscordId: ACTOR,
       sourceLeague: ACTIVE_SOURCE,
     });
-    playerRatingFindMany.mockResolvedValue([{ playerId: 'p1', mu: 30, sigma: 3 }]);
+    playerRatingFindMany.mockResolvedValue([
+      {
+        playerId: 'p1',
+        mu: 30,
+        sigma: 3,
+        lastQualifyingActivityAt: ACTIVITY_AT,
+        idleDecayKiApplied: 4,
+        lastDecayAppliedAt: DECAY_APPLIED_AT,
+        isNewPlayer: true,
+      },
+    ]);
     playerHeroRatingFindMany.mockResolvedValue([
       { playerId: 'p1', heroId: 1, mu: 28, sigma: 4, matchesPlayed: 12 },
     ]);
@@ -464,8 +588,26 @@ describe('applyLeagueRollover', () => {
 
     expect(result.resetMode).toBe('continue');
     expect(result.compression).toBeNull();
+    expect(leagueCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        decayEnabled: false,
+        seasonEndsAt: SEASON_ENDS_AT,
+        crunchStartedAt: CRUNCH_STARTED_AT,
+      }),
+    });
     expect(playerRatingCreateMany).toHaveBeenCalledWith({
-      data: [{ leagueId: result.successorLeagueId, playerId: 'p1', mu: 30, sigma: 3 }],
+      data: [
+        {
+          leagueId: result.successorLeagueId,
+          playerId: 'p1',
+          mu: 30,
+          sigma: 3,
+          lastQualifyingActivityAt: ACTIVITY_AT,
+          idleDecayKiApplied: 4,
+          lastDecayAppliedAt: DECAY_APPLIED_AT,
+          isNewPlayer: true,
+        },
+      ],
     });
     expect(playerHeroRatingCreateMany).toHaveBeenCalledWith({
       data: [
@@ -486,6 +628,29 @@ describe('applyLeagueRollover', () => {
       }),
     );
     expect(playerRatingUpdate).not.toHaveBeenCalled();
+  });
+
+  it('soft/hard default decayEnabled to true when source flag is missing', async () => {
+    const sourceWithoutDecay = {
+      ...ACTIVE_SOURCE,
+      decayEnabled: undefined,
+    };
+    leagueRolloverDraftFindUnique.mockResolvedValue({
+      id: 'draft-soft',
+      sourceLeagueId: 'league-1',
+      successorName: 'Season 2',
+      resetMode: 'soft',
+      compression: 0.5,
+      actorDiscordId: ACTOR,
+      sourceLeague: sourceWithoutDecay,
+    });
+    leagueCreate.mockResolvedValue({ id: 'league-3', name: 'Season 2' });
+
+    await applyLeagueRollover({ draftId: 'draft-soft', actorDiscordId: ACTOR });
+
+    expect(leagueCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ decayEnabled: true }),
+    });
   });
 
   it('continue does not invent a global row for a hero-only player', async () => {
