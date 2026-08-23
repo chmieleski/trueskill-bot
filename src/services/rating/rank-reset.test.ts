@@ -317,8 +317,15 @@ describe('applyRankReset', () => {
         playerId: PLAYER.id,
         mu: 25,
         sigma: 8.333,
+        idleDecayKiApplied: 0,
+        lastDecayAppliedAt: null,
       },
-      update: { mu: 25, sigma: 8.333 },
+      update: {
+        mu: 25,
+        sigma: 8.333,
+        idleDecayKiApplied: 0,
+        lastDecayAppliedAt: null,
+      },
     });
     expect(playerHeroRatingDeleteMany).toHaveBeenCalledWith({
       where: { leagueId: 'league-1', playerId: PLAYER.id },
