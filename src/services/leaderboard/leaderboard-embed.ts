@@ -10,6 +10,10 @@ import { chunkLeaderboardEntries } from './leaderboard.js';
 
 const RANK_GOLD = 0xf0b232;
 
+export const PRIZE_LOCK_FOOTNOTE =
+  'Medals require a completed game in the last 7 days of the season.';
+export const CRUNCH_BANNER = 'Season crunch — play this week to keep your medal spot.';
+
 export function formatRankPrefix(rank: number | null): string {
   if (rank == null) {
     return '—';
@@ -26,15 +30,34 @@ export function formatRankPrefix(rank: number | null): string {
   return `#${rank}`;
 }
 
+/** Rank/medal cell for overall boards; prize lock uses medalRank instead of board rank. */
+export function formatOverallPrefix(
+  entry: OverallLeaderboardEntry,
+  prizeLockActive: boolean,
+): string {
+  if (!prizeLockActive) {
+    return formatRankPrefix(entry.rank);
+  }
+  if (entry.medalRank === 1) return '🥇';
+  if (entry.medalRank === 2) return '🥈';
+  if (entry.medalRank === 3) return '🥉';
+  return entry.rank == null ? '—' : `#${entry.rank}`;
+}
+
 function formatWinRateCell(percent: number | null): string {
   return percent === null ? '—' : `${percent}%`;
 }
 
-export function formatOverallTable(entries: OverallLeaderboardEntry[], ratingLabel = 'ki'): string {
+export function formatOverallTable(
+  entries: OverallLeaderboardEntry[],
+  ratingLabel = 'ki',
+  options?: { prizeLockActive?: boolean },
+): string {
   if (entries.length === 0) {
     return '_No ranked players yet._';
   }
 
+  const prizeLockActive = options?.prizeLockActive ?? false;
   const labelHeader =
     ratingLabel.length === 0 ? 'Ki' : ratingLabel.charAt(0).toUpperCase() + ratingLabel.slice(1);
   const nameWidth = Math.max(...entries.map((entry) => entry.username.length), 'Player'.length);
@@ -49,7 +72,7 @@ export function formatOverallTable(entries: OverallLeaderboardEntry[], ratingLab
   const gamesWidth = Math.max(...entries.map((entry) => String(entry.games).length), 'G'.length);
   const header = `${'#'.padEnd(3)} ${'Player'.padEnd(nameWidth)}  ${labelHeader.padStart(kiWidth)} ${'G'.padStart(gamesWidth)}  ${'WR'.padStart(wrWidth)}`;
   const lines = entries.map((entry) => {
-    const prefix = formatRankPrefix(entry.rank).padEnd(3);
+    const prefix = formatOverallPrefix(entry, prizeLockActive).padEnd(3);
     const name = entry.username.padEnd(nameWidth, ' ');
     const ki = formatPublicKi(entry.ki, entry.leagueGames).padStart(kiWidth, ' ');
     const games = String(entry.games).padStart(gamesWidth, ' ');
@@ -82,20 +105,27 @@ export function buildOverallLeaderboardEmbed(
   options?: { live?: boolean; updatedAt?: Date; ratingLabel?: string },
 ): EmbedBuilder {
   const ratingLabel = options?.ratingLabel ?? 'ki';
+  const prizeLockActive = page.prizeLockActive ?? false;
+  const table = formatOverallTable(page.entries, ratingLabel, { prizeLockActive });
   const embed = new EmbedBuilder().setColor(RANK_GOLD).setTitle('Global Leaderboard');
 
   if (options?.live) {
     // Discord parses <t:…> only in description/fields — footers are plain text.
-    let description = formatOverallTable(page.entries, ratingLabel);
+    let description = table;
+    if (prizeLockActive) {
+      description = `${CRUNCH_BANNER}\n\n${description}\n\n${PRIZE_LOCK_FOOTNOTE}`;
+    }
     if (options.updatedAt) {
       const unix = Math.floor(options.updatedAt.getTime() / 1000);
       description += `\n\nUpdated <t:${unix}:R>`;
     }
     embed.setDescription(description);
   } else {
-    embed.setDescription(
-      `Page ${page.page} of ${page.totalPages} · ${page.totalPlayers} players\n\n${formatOverallTable(page.entries, ratingLabel)}`,
-    );
+    let description = `Page ${page.page} of ${page.totalPages} · ${page.totalPlayers} players\n\n${table}`;
+    if (prizeLockActive) {
+      description += `\n\n${PRIZE_LOCK_FOOTNOTE}`;
+    }
+    embed.setDescription(description);
     if (page.totalPages > 1) {
       embed.setFooter({
         text: 'Use /leaderboard show page:N to jump · Only you can use the buttons',
@@ -112,15 +142,24 @@ export function buildOverallLiveLeaderboardEmbeds(
   entries: OverallLeaderboardEntry[],
   updatedAt: Date,
   ratingLabel = 'ki',
+  options?: { prizeLockActive?: boolean },
 ): EmbedBuilder[] {
   const unix = Math.floor(updatedAt.getTime() / 1000);
   const stamp = `\n\nUpdated <t:${unix}:R>`;
+  const prizeLockActive = options?.prizeLockActive ?? false;
   const chunks = entries.length === 0 ? [[]] : chunkLeaderboardEntries(entries);
 
   return chunks.map((chunk, index) => {
+    const isFirst = index === 0;
     const isLast = index === chunks.length - 1;
-    const title = index === 0 ? 'Global Leaderboard' : 'Global Leaderboard (continued)';
-    let description = formatOverallTable(chunk, ratingLabel);
+    const title = isFirst ? 'Global Leaderboard' : 'Global Leaderboard (continued)';
+    let description = formatOverallTable(chunk, ratingLabel, { prizeLockActive });
+    if (prizeLockActive && isFirst) {
+      description = `${CRUNCH_BANNER}\n\n${description}`;
+    }
+    if (prizeLockActive && isLast) {
+      description += `\n\n${PRIZE_LOCK_FOOTNOTE}`;
+    }
     if (isLast) {
       description += stamp;
     }

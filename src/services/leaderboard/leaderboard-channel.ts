@@ -46,9 +46,11 @@ async function buildLiveOverallEmbeds(leagueId: string, size?: number): Promise<
     });
     resolvedSize = row?.leaderboardSize ?? LIVE_LEADERBOARD_DEFAULT_SIZE;
   }
-  const entries = await loadOverallLeaderboardTop(leagueId, resolvedSize);
+  const { entries, prizeLockActive } = await loadOverallLeaderboardTop(leagueId, resolvedSize);
   const gameProfile = await getGameProfileForLeague(leagueId);
-  return buildOverallLiveLeaderboardEmbeds(entries, new Date(), gameProfile.ratingLabel);
+  return buildOverallLiveLeaderboardEmbeds(entries, new Date(), gameProfile.ratingLabel, {
+    prizeLockActive,
+  });
 }
 
 export async function setupLiveLeaderboard(
