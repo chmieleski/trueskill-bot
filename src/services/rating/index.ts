@@ -62,6 +62,11 @@ export {
   type DecayLeagueContext,
 } from './rating-decay.js';
 export {
+  runRatingDecayTick,
+  startRatingDecayScheduler,
+  stopRatingDecayScheduler,
+} from './rating-decay-scheduler.js';
+export {
   buildNewPlayerConfirmCustomId,
   buildNewPlayerDeclineCustomId,
   collectNewPlayerSuggestions,
