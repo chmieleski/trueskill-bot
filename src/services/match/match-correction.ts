@@ -558,7 +558,8 @@ export async function flipCompletedMatch(
 
     await applyQuitterPenalties(match.leagueId, entries, tx);
     await applyGrieferPenalties(match.leagueId, entries, tx);
-    await applyMatchRatings(match.leagueId, entries, winningTeam, tx);
+    const completedAt = match.completedAt ?? new Date();
+    await applyMatchRatings(match.leagueId, entries, winningTeam, completedAt, tx);
 
     const playerIds = previewEntries.map((entry) => entry.playerId);
     const displayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds, tx);

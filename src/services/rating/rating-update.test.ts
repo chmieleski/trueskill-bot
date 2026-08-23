@@ -229,11 +229,19 @@ const heroNullOneVOne: RatingRosterEntry[] = [
   { playerId: 'p2', slot: 6, team: 2, heroId: null, isQuitter: false },
 ];
 
+const COMPLETED_AT = new Date('2026-08-23T12:00:00.000Z');
+
+const activityResetData = {
+  lastQualifyingActivityAt: COMPLETED_AT,
+  idleDecayKiApplied: 0,
+  lastDecayAppliedAt: null,
+};
+
 describe('applyMatchRatings', () => {
   it('updates global ratings only when heroId is null', async () => {
     const db = heroNullDb();
 
-    await applyMatchRatings('league-1', heroNullOneVOne, 1, db as never);
+    await applyMatchRatings('league-1', heroNullOneVOne, 1, COMPLETED_AT, db as never);
 
     expect(db.playerHeroRating.findMany).not.toHaveBeenCalled();
     expect(db.playerHeroRating.update).not.toHaveBeenCalled();
@@ -241,15 +249,59 @@ describe('applyMatchRatings', () => {
     expect(db.playerRating.update).toHaveBeenCalled();
   });
 
-  it('skips team rate without throwing when only New remain on a side', async () => {
+  it('resets idle decay streak on non-quit PlayerRating updates', async () => {
+    const db = heroNullDb();
+
+    await applyMatchRatings('league-1', heroNullOneVOne, 1, COMPLETED_AT, db as never);
+
+    expect(db.playerRating.update).toHaveBeenCalledTimes(2);
+    for (const call of db.playerRating.update.mock.calls) {
+      expect(call[0].data).toMatchObject(activityResetData);
+      expect(call[0].data).toHaveProperty('mu');
+      expect(call[0].data).toHaveProperty('sigma');
+    }
+  });
+
+  it('does not reset idle decay streak for quitters', async () => {
+    const db = heroNullDb();
+    db.playerRating.findMany.mockResolvedValue([
+      { playerId: 'p1', mu: 25, sigma: 8.333 },
+      { playerId: 'p2', mu: 25, sigma: 8.333 },
+      { playerId: 'p3', mu: 25, sigma: 8.333 },
+    ]);
+    const roster: RatingRosterEntry[] = [
+      { playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: false },
+      { playerId: 'p2', slot: 6, team: 2, heroId: null, isQuitter: false },
+      { playerId: 'p3', slot: 7, team: 2, heroId: null, isQuitter: true },
+    ];
+
+    await applyMatchRatings('league-1', roster, 1, COMPLETED_AT, db as never);
+
+    const updatedPlayerIds = db.playerRating.update.mock.calls.map(
+      (call) => call[0].where.leagueId_playerId.playerId as string,
+    );
+    expect(updatedPlayerIds).toEqual(expect.arrayContaining(['p1', 'p2']));
+    expect(updatedPlayerIds).not.toContain('p3');
+    for (const call of db.playerRating.update.mock.calls) {
+      expect(call[0].data).toMatchObject(activityResetData);
+    }
+  });
+
+  it('resets idle decay streak even when New freeze skips team rate', async () => {
     const db = heroNullDb();
     const roster: RatingRosterEntry[] = [
       { playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: false, wasNewPlayer: true },
       { playerId: 'p2', slot: 6, team: 2, heroId: null, isQuitter: false, wasNewPlayer: false },
     ];
 
-    await expect(applyMatchRatings('league-1', roster, 1, db as never)).resolves.toBeUndefined();
-    expect(db.playerRating.update).not.toHaveBeenCalled();
+    await expect(
+      applyMatchRatings('league-1', roster, 1, COMPLETED_AT, db as never),
+    ).resolves.toBeUndefined();
+
+    expect(db.playerRating.update).toHaveBeenCalledTimes(2);
+    for (const call of db.playerRating.update.mock.calls) {
+      expect(call[0].data).toEqual(activityResetData);
+    }
   });
 
   it('does not write hero ratings when one team has no hero seats', async () => {

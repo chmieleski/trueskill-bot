@@ -278,11 +278,12 @@ export async function completeMatch(
 
     await applyQuitterPenalties(match.leagueId, entries, tx);
     await applyGrieferPenalties(match.leagueId, entries, tx);
-    await applyMatchRatings(match.leagueId, entries, winningTeam, tx);
+    const completedAt = new Date();
+    await applyMatchRatings(match.leagueId, entries, winningTeam, completedAt, tx);
 
     await tx.match.update({
       where: { id: matchId },
-      data: { status: 'COMPLETED', completedAt: new Date() },
+      data: { status: 'COMPLETED', completedAt },
     });
 
     const displayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds, tx);

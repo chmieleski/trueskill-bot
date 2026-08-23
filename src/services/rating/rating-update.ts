@@ -417,16 +417,49 @@ function rateActiveMatchTeams(
   return updatedByPlayer;
 }
 
+/** Idle-decay streak reset for a completed non-quit finish. */
+function idleDecayActivityReset(completedAt: Date) {
+  return {
+    lastQualifyingActivityAt: completedAt,
+    idleDecayKiApplied: 0,
+    lastDecayAppliedAt: null,
+  };
+}
+
+/**
+ * Persist idle-decay activity reset for non-quit participants.
+ * Runs even when team OpenSkill rate() was skipped (New freeze).
+ */
+async function resetIdleDecayStreakForNonQuit(
+  leagueId: string,
+  entries: RatingRosterEntry[],
+  completedAt: Date,
+  db: Db,
+): Promise<void> {
+  const data = idleDecayActivityReset(completedAt);
+  for (const entry of entries) {
+    if (entry.isQuitter) {
+      continue;
+    }
+    await db.playerRating.update({
+      where: { leagueId_playerId: { leagueId, playerId: entry.playerId } },
+      data,
+    });
+  }
+}
+
 export async function applyMatchRatings(
   leagueId: string,
   entries: RatingRosterEntry[],
   winningTeam: 1 | 2,
+  completedAt: Date,
   db: Db = prisma,
 ): Promise<void> {
   const sorted = [...entries].sort((left, right) => left.slot - right.slot);
   const { activeRateable } = partitionRosterForRating(sorted);
 
   if (!canRunTeamRate(activeRateable)) {
+    await resetIdleDecayStreakForNonQuit(leagueId, sorted, completedAt, db);
     return;
   }
 
@@ -473,10 +506,16 @@ export async function applyMatchRatings(
     globalGamesByPlayer,
   );
 
+  const activityReset = idleDecayActivityReset(completedAt);
+
   for (const entry of activeRateable) {
     const updated = updatedByPlayer.get(entry.playerId);
 
     if (!updated) {
+      await db.playerRating.update({
+        where: { leagueId_playerId: { leagueId, playerId: entry.playerId } },
+        data: activityReset,
+      });
       continue;
     }
 
@@ -485,6 +524,7 @@ export async function applyMatchRatings(
       data: {
         mu: updated.global.mu,
         sigma: updated.global.sigma,
+        ...activityReset,
       },
     });
 
@@ -507,6 +547,10 @@ export async function applyMatchRatings(
       },
     });
   }
+
+  // New non-quit finishers skip team rate but still reset idle streak.
+  const { newNonQuit } = partitionRosterForRating(sorted);
+  await resetIdleDecayStreakForNonQuit(leagueId, newNonQuit, completedAt, db);
 }
 
 export type MuSigma = { mu: number; sigma: number };
