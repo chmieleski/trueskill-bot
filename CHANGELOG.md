@@ -1,3 +1,10 @@
+## [1.12.1](https://github.com/chmieleski/trueskill-bot/compare/v1.12.0...v1.12.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* **deploy:** restore GitHub origin after local stage clone ([#74](https://github.com/chmieleski/trueskill-bot/issues/74)) ([83b3091](https://github.com/chmieleski/trueskill-bot/commit/83b309147c6458760db38885a669b4adadef1909))
+
 # [1.12.0](https://github.com/chmieleski/trueskill-bot/compare/v1.11.0...v1.12.0) (2026-08-22)
 
 
