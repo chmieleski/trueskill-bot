@@ -41,6 +41,9 @@ if systemctl is-active --quiet dbz-bot; then
 fi
 host_update_handle_leftover_prev "${APP_DIR}" "${UNIT_ACTIVE}"
 
+GITHUB_REMOTE="$(host_update_resolve_github_remote "${APP_DIR}" "${APP_USER}")"
+host_update_ensure_github_origin "${APP_DIR}" "${GITHUB_REMOTE}" "${APP_USER}"
+
 echo "==> Updating ${APP_DIR} from origin/${BRANCH}"
 sudo -u "${APP_USER}" git -C "${APP_DIR}" fetch --all
 sudo -u "${APP_USER}" git -C "${APP_DIR}" checkout "${BRANCH}"
@@ -53,6 +56,7 @@ fi
 echo "==> Preparing stage ${STAGE_DIR}"
 rm -rf "${STAGE_DIR}"
 sudo -u "${APP_USER}" git clone --local "${APP_DIR}" "${STAGE_DIR}"
+host_update_ensure_github_origin "${STAGE_DIR}" "${GITHUB_REMOTE}" "${APP_USER}"
 sudo -u "${APP_USER}" git -C "${STAGE_DIR}" fetch origin
 sudo -u "${APP_USER}" git -C "${STAGE_DIR}" checkout "${BRANCH}"
 sudo -u "${APP_USER}" git -C "${STAGE_DIR}" reset --hard "origin/${BRANCH}"

@@ -65,6 +65,47 @@ describe('host-update-lib', () => {
     const result = bash(`source '${lib}'; host_update_handle_leftover_prev '/no/such/bot' no`);
     expect(result.status).toBe(0);
   });
+
+  it('detects local filesystem git remotes', () => {
+    const result = bash(
+      `source '${lib}';
+       host_update_is_local_git_remote /home/ubuntu/bot && echo local || echo remote;
+       host_update_is_local_git_remote https://github.com/org/repo.git && echo local || echo remote`,
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim().split('\n')).toEqual(['local', 'remote']);
+  });
+
+  it('defaults to the public HTTPS repo when origin is local', () => {
+    const root = mkdtempSync(join(tmpdir(), 'host-update-remote-'));
+    const app = join(root, 'bot');
+    mkdirSync(app, { recursive: true });
+    bash(`git init '${app}' && git -C '${app}' remote add origin '${root}/upstream'`);
+    const result = bash(
+      `source '${lib}'; APP_USER="$(id -un)"; host_update_resolve_github_remote '${app}' "$APP_USER"`,
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe('https://github.com/chmieleski/trueskill-bot.git');
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('repairs a local origin after git clone --local', () => {
+    const root = mkdtempSync(join(tmpdir(), 'host-update-remote-'));
+    const live = join(root, 'bot');
+    const stage = join(root, 'bot.next');
+    const github = 'https://github.com/example/trueskill-bot.git';
+    bash(`git init '${live}' && git -C '${live}' remote add origin '${github}'`);
+    bash(`git clone --local '${live}' '${stage}'`);
+    const before = bash(`git -C '${stage}' remote get-url origin`).stdout.trim();
+    expect(before).toBe(live);
+
+    const repair = bash(
+      `source '${lib}'; APP_USER="$(id -un)"; host_update_ensure_github_origin '${stage}' '${github}' "$APP_USER"`,
+    );
+    expect(repair.status).toBe(0);
+    expect(bash(`git -C '${stage}' remote get-url origin`).stdout.trim()).toBe(github);
+    rmSync(root, { recursive: true, force: true });
+  });
 });
 
 describe('host-update.sh cut-over order', () => {
@@ -91,6 +132,16 @@ describe('host-update.sh cut-over order', () => {
     expect(sh).toMatch(/git -C "\$\{APP_DIR\}" fetch --all/);
     expect(sh).toMatch(/git -C "\$\{APP_DIR\}" checkout "\$\{BRANCH\}"/);
     expect(sh).toMatch(/git -C "\$\{APP_DIR\}" pull --ff-only origin "\$\{BRANCH\}"/);
+  });
+
+  it('repairs stage origin after git clone --local before fetch', () => {
+    const sh = readFileSync(join(repoRoot, 'deploy/aws/host-update.sh'), 'utf8');
+    const cloneIdx = sh.indexOf('git clone --local "${APP_DIR}" "${STAGE_DIR}"');
+    const ensureIdx = sh.indexOf('host_update_ensure_github_origin "${STAGE_DIR}"');
+    const fetchIdx = sh.indexOf('git -C "${STAGE_DIR}" fetch origin');
+    expect(cloneIdx).toBeGreaterThan(-1);
+    expect(ensureIdx).toBeGreaterThan(cloneIdx);
+    expect(fetchIdx).toBeGreaterThan(ensureIdx);
   });
 });
 
