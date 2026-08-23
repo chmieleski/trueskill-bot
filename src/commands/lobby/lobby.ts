@@ -5,9 +5,13 @@ import { resolveGuildConfig } from '../../services/guild/index.js';
 import {
   addLobbyPlayer,
   addLobbyPlayerFromDiscord,
+  attachRecreatedLobbyMessage,
+  buildLobbyButtons,
+  buildMatchLobbyEmbed,
   cancelLobbyMatch,
   isImageAttachment,
   parseRemapPairs,
+  recreateLobbyFromVoidedMatch,
   refreshLobbyFromScreenshot,
   refreshLobbyFromWc3stats,
   remapLobbyPlayers,
@@ -85,7 +89,7 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName('remove')
-      .setDescription('Remove a player from your lobby by nick and/or slot')
+      .setDescription('Remove a player from a pending lobby (host or match moderator)')
       .addStringOption((option) =>
         option.setName('nick').setDescription('In-game nick').setRequired(false),
       )
@@ -100,7 +104,7 @@ export const data = new SlashCommandBuilder()
       .addStringOption((option) =>
         option
           .setName('match_id')
-          .setDescription('Pending match id (required if you have more than one)')
+          .setDescription('Pending match id (required if several, or if you are not the host)')
           .setRequired(false),
       ),
   )
@@ -193,12 +197,27 @@ export const data = new SlashCommandBuilder()
           .setDescription('Pending match id (required if you have more than one)')
           .setRequired(false),
       ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('recreate')
+      .setDescription(
+        'Recreate a pending lobby from a voided match roster (mods only; use after /match void)',
+      )
+      .addStringOption((option) =>
+        option
+          .setName('match_id')
+          .setDescription('Voided completed match id to copy the roster from')
+          .setRequired(true),
+      ),
   );
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
   const subcommand = interaction.options.getSubcommand(true);
+  const isPublicLobbyPost = subcommand === 'recreate';
+  await interaction.deferReply(
+    isPublicLobbyPost ? {} : { flags: MessageFlags.Ephemeral },
+  );
   const matchId = interaction.options.getString('match_id');
   const hostDiscordId = interaction.user.id;
 
@@ -259,12 +278,17 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (subcommand === 'remove') {
       const nick = interaction.options.getString('nick');
       const slot = interaction.options.getInteger('slot');
+      const matchModRoleId = interaction.guildId
+        ? (await resolveGuildConfig(interaction.guildId)).matchModRoleId
+        : undefined;
       const result = await removeLobbyPlayer({
         client: interaction.client,
-        hostDiscordId,
+        actorDiscordId: hostDiscordId,
         matchId,
         nick,
         slot,
+        memberRoleIds: memberRoleIds(interaction),
+        matchModRoleId,
       });
       await interaction.editReply({
         content: `Player removed from match \`${result.match.id}\`.`,
@@ -394,6 +418,71 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         suggestions: result.newPlayerSuggestions ?? [],
         matchModRoleId: syncModRoleId,
       });
+      return;
+    }
+
+    if (subcommand === 'recreate') {
+      if (!interaction.guildId || !interaction.channelId) {
+        throw new MatchServiceError('This command can only be used in a server channel.');
+      }
+
+      const sourceMatchId = interaction.options.getString('match_id', true);
+      const matchModRoleId = (await resolveGuildConfig(interaction.guildId)).matchModRoleId;
+      const result = await recreateLobbyFromVoidedMatch({
+        actorDiscordId: hostDiscordId,
+        memberRoleIds: memberRoleIds(interaction),
+        matchModRoleId,
+        sourceMatchId,
+        discordChannelId: interaction.channelId,
+      });
+
+      await interaction.editReply({
+        embeds: [
+          buildMatchLobbyEmbed(result.matchId, result.players, {
+            canStart: result.canStart,
+            createdAt: result.createdAt,
+            ratingPreview: result.ratingPreview,
+            wc3statsGameId: result.wc3statsGameId,
+            wc3statsLinkAvailable: result.wc3statsReady && !result.wc3statsGameId,
+            profile: result.profile,
+          }),
+        ],
+        components: buildLobbyButtons({
+          canStart: result.canStart,
+          playerCount: result.players.length,
+          playerClaimEnabled: result.playerClaimEnabled,
+          wc3statsGameId: result.wc3statsGameId,
+          wc3statsEnabled: result.wc3statsReady,
+          profile: result.profile,
+        }),
+      });
+
+      const previewMessage = await interaction.fetchReply();
+      await attachRecreatedLobbyMessage(
+        result.matchId,
+        previewMessage.id,
+        interaction.channelId,
+      );
+
+      await sendNewPlayerSuggestPrompts({
+        interaction,
+        match: {
+          id: result.matchId,
+          hostDiscordId: result.hostDiscordId,
+          leagueId: result.leagueId,
+        },
+        suggestions: result.newPlayerSuggestions,
+        matchModRoleId,
+      });
+
+      log.info(
+        {
+          sourceMatchId: result.sourceMatchId,
+          matchId: result.matchId,
+          actorDiscordId: hostDiscordId,
+        },
+        'Lobby recreated from voided match',
+      );
       return;
     }
 

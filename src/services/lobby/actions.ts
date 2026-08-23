@@ -18,7 +18,11 @@ import {
   withNewPlayerSuggestions,
   type LobbyActionResult,
 } from './discord-sync.js';
-import { resolveHostPendingMatch, resolvePendingMatchByMessageId } from './resolve.js';
+import {
+  resolveHostPendingMatch,
+  resolvePendingMatchByMessageId,
+  resolvePendingMatchForManage,
+} from './resolve.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
 
 export type { LobbyActionResult };
@@ -137,14 +141,18 @@ export async function leaveLobbySlot(input: {
 
 export async function removeLobbyPlayer(input: {
   client: Client;
-  hostDiscordId: string;
+  actorDiscordId: string;
   matchId?: string | null;
   nick?: string | null;
   slot?: number | null;
+  memberRoleIds: string[];
+  matchModRoleId?: string;
 }): Promise<LobbyActionResult> {
-  const { match, players } = await resolveHostPendingMatch({
-    hostDiscordId: input.hostDiscordId,
+  const { match, players } = await resolvePendingMatchForManage({
+    actorDiscordId: input.actorDiscordId,
     matchId: input.matchId,
+    memberRoleIds: input.memberRoleIds,
+    matchModRoleId: input.matchModRoleId,
   });
   const profile = await profileForLeague(match.leagueId);
   const next = removePlayer(players, { nick: input.nick, slot: input.slot }, profile);

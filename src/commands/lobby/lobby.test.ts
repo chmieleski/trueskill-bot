@@ -76,4 +76,27 @@ describe('lobby command data', () => {
     );
     expect(matchId && 'description' in matchId ? matchId.description : '').toMatch(/not the host/i);
   });
+
+  it('describes remove as host or match moderator', () => {
+    const json = data.toJSON();
+    const remove = json.options?.find((option) => option.name === 'remove');
+    const options = remove && 'options' in remove ? (remove.options ?? []) : [];
+    const matchId = options.find((option) => option.name === 'match_id');
+
+    expect(remove).toBeDefined();
+    expect(remove && 'description' in remove ? remove.description : '').toMatch(/moderator/i);
+    expect(matchId && 'description' in matchId ? matchId.description : '').toMatch(/not the host/i);
+  });
+
+  it('exposes recreate with required voided match_id (mods only)', () => {
+    const json = data.toJSON();
+    const recreate = json.options?.find((option) => option.name === 'recreate');
+    const options = recreate && 'options' in recreate ? (recreate.options ?? []) : [];
+    const matchId = options.find((option) => option.name === 'match_id');
+
+    expect(recreate).toBeDefined();
+    expect(recreate && 'description' in recreate ? recreate.description : '').toMatch(/void/i);
+    expect(recreate && 'description' in recreate ? recreate.description : '').toMatch(/mods only/i);
+    expect(matchId?.required).toBe(true);
+  });
 });
