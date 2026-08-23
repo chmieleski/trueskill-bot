@@ -140,7 +140,7 @@ describe('prize lock embed copy', () => {
       prizeLockActive: true,
     });
     expect(embed.data.description).toContain(
-      'Medals require a completed game in the last 7 days of the season.',
+      'Medals require a completed game on each day of the season crunch week.',
     );
   });
 
@@ -156,7 +156,7 @@ describe('prize lock embed copy', () => {
       'Season crunch — play this week to keep your medal spot.',
     );
     expect(embeds[0]!.data.description).toContain(
-      'Medals require a completed game in the last 7 days of the season.',
+      'Medals require a completed game on each day of the season crunch week.',
     );
   });
 });

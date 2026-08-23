@@ -3,7 +3,9 @@ import { prisma } from '../../lib/prisma.js';
 import {
   applyPendingDecayForPlayers,
   isLeagueInCrunch,
-  isPrizeEligible,
+  isPrizeEligibleFromActivityDays,
+  loadQualifyingActivityUtcDaysByPlayer,
+  resolvePrizeLockWindowDays,
   type DecayLeagueContext,
 } from '../rating/rating-decay.js';
 import { displayOrdinal, isCalibrating } from '../rating/rating-math.js';
@@ -220,6 +222,17 @@ async function loadEligibleOverallRows(leagueId: string): Promise<{
       }
     : null;
   const prizeLockActive = leagueCtx != null && isLeagueInCrunch(leagueCtx, now);
+  const prizeLockWindow =
+    prizeLockActive && leagueCtx ? resolvePrizeLockWindowDays(leagueCtx, now) : null;
+  const activityDaysByPlayer =
+    prizeLockWindow != null
+      ? await loadQualifyingActivityUtcDaysByPlayer(
+          leagueId,
+          ratings.map((row) => row.playerId),
+          prizeLockWindow.startDay,
+          prizeLockWindow.endDay,
+        )
+      : null;
 
   const gamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
 
@@ -256,8 +269,8 @@ async function loadEligibleOverallRows(leagueId: string): Promise<{
       return base;
     }
 
-    const activityAt = row.lastQualifyingActivityAt;
-    const prizeEligible = activityAt != null && isPrizeEligible(activityAt, leagueCtx, now);
+    const activeUtcDays = activityDaysByPlayer?.get(row.playerId) ?? new Set<number>();
+    const prizeEligible = isPrizeEligibleFromActivityDays(activeUtcDays, leagueCtx, now);
     return { ...base, prizeEligible };
   });
 
