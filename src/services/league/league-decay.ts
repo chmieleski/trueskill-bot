@@ -1,8 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
 
 /** Archived-league rejection for season end / crunch staff commands. */
-export const LEAGUE_DECAY_ARCHIVED_MESSAGE =
-  'That league is archived. Pick an active league.';
+export const LEAGUE_DECAY_ARCHIVED_MESSAGE = 'That league is archived. Pick an active league.';
 
 /**
  * Parse a staff-provided season end string.

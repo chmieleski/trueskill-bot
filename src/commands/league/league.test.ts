@@ -12,7 +12,16 @@ describe('league command data', () => {
     const json = data.toJSON();
     const names = json.options?.map((option) => option.name) ?? [];
 
-    expect(names).toEqual(['create', 'list', 'bind', 'unbind', 'rollover', 'set', 'clear', 'crunch']);
+    expect(names).toEqual([
+      'create',
+      'list',
+      'bind',
+      'unbind',
+      'rollover',
+      'set',
+      'clear',
+      'crunch',
+    ]);
   });
 
   it('create requires UDBR game choice and name', () => {

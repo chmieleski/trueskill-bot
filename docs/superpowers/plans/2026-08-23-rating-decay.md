@@ -25,26 +25,26 @@
 
 ## File map
 
-| File | Role |
-| ---- | ---- |
-| `prisma/schema.prisma` | League + PlayerRating decay/crunch columns |
-| `prisma/migrations/<ts>_rating_decay/` | SQL + activity backfill |
-| `src/services/rating/rating-decay.ts` | Pure math, crunch/prize helpers, apply + batch |
-| `src/services/rating/rating-decay.test.ts` | Unit tests |
-| `src/services/rating/rating-decay-scheduler.ts` | Daily UTC tick |
-| `src/services/rating/index.ts` | Re-exports |
-| `src/services/rating/rating-update.ts` | Streak reset on non-quit complete |
-| `src/services/rating/rank-reset.ts` | Clear streak counters on wipe |
-| `src/services/rating/rating-preview.ts` | Catch-up before μ reads |
-| `src/services/leaderboard/leaderboard.ts` | Catch-up + prizeEligible on entries |
-| `src/services/leaderboard/leaderboard-embed.ts` | Medal assignment + crunch footer |
-| `src/services/league/league-rollover.ts` | continue → decay off; copy fields |
-| `src/services/league/league-wc3stats.ts` | `setDecayEnabled` + config view fields |
-| `src/commands/league/league.ts` | season_end + crunch subcommands |
-| `src/commands/config/config.ts` | `/config set decay` + view |
-| `src/commands/player/rank.ts` | Idle / crunch footers |
-| `src/events/ready.ts` | Start decay scheduler |
-| Docs + `.cursor/rules/openskill-rating.mdc` | Staff/player guides + agent rules |
+| File                                            | Role                                           |
+| ----------------------------------------------- | ---------------------------------------------- |
+| `prisma/schema.prisma`                          | League + PlayerRating decay/crunch columns     |
+| `prisma/migrations/<ts>_rating_decay/`          | SQL + activity backfill                        |
+| `src/services/rating/rating-decay.ts`           | Pure math, crunch/prize helpers, apply + batch |
+| `src/services/rating/rating-decay.test.ts`      | Unit tests                                     |
+| `src/services/rating/rating-decay-scheduler.ts` | Daily UTC tick                                 |
+| `src/services/rating/index.ts`                  | Re-exports                                     |
+| `src/services/rating/rating-update.ts`          | Streak reset on non-quit complete              |
+| `src/services/rating/rank-reset.ts`             | Clear streak counters on wipe                  |
+| `src/services/rating/rating-preview.ts`         | Catch-up before μ reads                        |
+| `src/services/leaderboard/leaderboard.ts`       | Catch-up + prizeEligible on entries            |
+| `src/services/leaderboard/leaderboard-embed.ts` | Medal assignment + crunch footer               |
+| `src/services/league/league-rollover.ts`        | continue → decay off; copy fields              |
+| `src/services/league/league-wc3stats.ts`        | `setDecayEnabled` + config view fields         |
+| `src/commands/league/league.ts`                 | season_end + crunch subcommands                |
+| `src/commands/config/config.ts`                 | `/config set decay` + view                     |
+| `src/commands/player/rank.ts`                   | Idle / crunch footers                          |
+| `src/events/ready.ts`                           | Start decay scheduler                          |
+| Docs + `.cursor/rules/openskill-rating.mdc`     | Staff/player guides + agent rules              |
 
 ---
 
@@ -844,8 +844,13 @@ Note: `successorLeagueCreateData` today does not receive `resetMode` — either 
 
 ```typescript
 {
-  playerId, mu, sigma,
-  lastQualifyingActivityAt, idleDecayKiApplied, lastDecayAppliedAt, isNewPlayer
+  (playerId,
+    mu,
+    sigma,
+    lastQualifyingActivityAt,
+    idleDecayKiApplied,
+    lastDecayAppliedAt,
+    isNewPlayer);
 }
 ```
 
@@ -881,12 +886,12 @@ EOF
 
 Subcommands (same auth as rollover — `assertCanConfigureBot`):
 
-| Subcommand | Options | Behavior |
-| ---------- | ------- | -------- |
-| `set season_end` | `date` string, optional `league` | Parse `YYYY-MM-DD` as UTC end of that calendar day (`T23:59:59.999Z`) or full ISO; reject past; set `seasonEndsAt` |
-| `clear season_end` | optional `league` | `seasonEndsAt = null` |
-| `crunch start` | optional `league` | `crunchStartedAt = now` (idempotent message if already set) |
-| `crunch clear` | optional `league` | `crunchStartedAt = null` |
+| Subcommand         | Options                          | Behavior                                                                                                           |
+| ------------------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `set season_end`   | `date` string, optional `league` | Parse `YYYY-MM-DD` as UTC end of that calendar day (`T23:59:59.999Z`) or full ISO; reject past; set `seasonEndsAt` |
+| `clear season_end` | optional `league`                | `seasonEndsAt = null`                                                                                              |
+| `crunch start`     | optional `league`                | `crunchStartedAt = now` (idempotent message if already set)                                                        |
+| `crunch clear`     | optional `league`                | `crunchStartedAt = null`                                                                                           |
 
 Errors (exact):
 
@@ -1051,19 +1056,19 @@ Confirm implemented: mid-season tiers, crunch tiers, floor, streak cap, catch-up
 
 ## Spec coverage checklist
 
-| Spec requirement | Task |
-| ---------------- | ---- |
-| Schema + activity backfill | 1 |
-| Pure μ decay math / tiers / floor / cap | 2 |
-| applyPendingDecay + batch | 3 |
-| Daily UTC scheduler | 4 |
-| Non-quit streak reset | 5 |
-| Rank reset counters | 6 |
-| Catch-up on reads | 7 |
-| Prize lock medals | 8 |
-| Continue `decayEnabled=false` + seed fields | 9 |
-| season_end + crunch commands | 10 |
-| `/config set decay` | 11 |
-| `/rank` copy | 12 |
-| Staff/player docs + openskill rule | 13 |
-| Full verify | 14 |
+| Spec requirement                            | Task |
+| ------------------------------------------- | ---- |
+| Schema + activity backfill                  | 1    |
+| Pure μ decay math / tiers / floor / cap     | 2    |
+| applyPendingDecay + batch                   | 3    |
+| Daily UTC scheduler                         | 4    |
+| Non-quit streak reset                       | 5    |
+| Rank reset counters                         | 6    |
+| Catch-up on reads                           | 7    |
+| Prize lock medals                           | 8    |
+| Continue `decayEnabled=false` + seed fields | 9    |
+| season_end + crunch commands                | 10   |
+| `/config set decay`                         | 11   |
+| `/rank` copy                                | 12   |
+| Staff/player docs + openskill rule          | 13   |
+| Full verify                                 | 14   |

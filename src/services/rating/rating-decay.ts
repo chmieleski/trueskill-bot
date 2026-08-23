@@ -163,9 +163,7 @@ export function resolveCrunchStart(league: DecayLeagueContext): Date | null {
   const candidates: Date[] = [];
 
   if (league.seasonEndsAt) {
-    candidates.push(
-      new Date(league.seasonEndsAt.getTime() - CRUNCH_WINDOW_DAYS * MS_PER_UTC_DAY),
-    );
+    candidates.push(new Date(league.seasonEndsAt.getTime() - CRUNCH_WINDOW_DAYS * MS_PER_UTC_DAY));
   }
 
   if (league.crunchStartedAt) {
@@ -192,9 +190,7 @@ export function isLeagueInCrunch(league: DecayLeagueContext, now: Date): boolean
   }
 
   if (league.seasonEndsAt) {
-    const start = new Date(
-      league.seasonEndsAt.getTime() - CRUNCH_WINDOW_DAYS * MS_PER_UTC_DAY,
-    );
+    const start = new Date(league.seasonEndsAt.getTime() - CRUNCH_WINDOW_DAYS * MS_PER_UTC_DAY);
     return now >= start && now < league.seasonEndsAt;
   }
 
@@ -235,19 +231,13 @@ export function resolveRankDecayFooter(input: {
 }
 
 /** Prize medal eligibility during crunch (leaderboard only). */
-export function isPrizeEligible(
-  activityAt: Date,
-  league: DecayLeagueContext,
-  now: Date,
-): boolean {
+export function isPrizeEligible(activityAt: Date, league: DecayLeagueContext, now: Date): boolean {
   if (!isLeagueInCrunch(league, now)) {
     return false;
   }
 
   if (league.seasonEndsAt) {
-    const cutoff = new Date(
-      league.seasonEndsAt.getTime() - PRIZE_LOCK_DAYS * MS_PER_UTC_DAY,
-    );
+    const cutoff = new Date(league.seasonEndsAt.getTime() - PRIZE_LOCK_DAYS * MS_PER_UTC_DAY);
     return activityAt >= cutoff;
   }
 
@@ -302,11 +292,7 @@ export async function applyPendingDecay(
     return { applied: false };
   }
 
-  if (
-    !rating ||
-    rating.isNewPlayer ||
-    rating.lastQualifyingActivityAt == null
-  ) {
+  if (!rating || rating.isNewPlayer || rating.lastQualifyingActivityAt == null) {
     return { applied: false };
   }
 
@@ -317,17 +303,12 @@ export async function applyPendingDecay(
   }
 
   const activityAt = rating.lastQualifyingActivityAt;
-  const utcDaysToApply = pendingUtcDaysToApply(
-    rating.lastDecayAppliedAt,
-    activityAt,
-    now,
-  );
+  const utcDaysToApply = pendingUtcDaysToApply(rating.lastDecayAppliedAt, activityAt, now);
   if (utcDaysToApply <= 0) {
     return { applied: false };
   }
 
-  const idleDays =
-    idleDaysSince(activityAt, now) - utcDaysToApply + 1;
+  const idleDays = idleDaysSince(activityAt, now) - utcDaysToApply + 1;
   const inCrunch = isLeagueInCrunch(
     {
       status: league.status,

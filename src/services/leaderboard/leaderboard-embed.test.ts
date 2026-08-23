@@ -120,11 +120,9 @@ describe('formatOverallTable', () => {
   });
 
   it('keeps board-rank medals when prize lock is inactive', () => {
-    const table = formatOverallTable(
-      [fakeEntry(1), fakeEntry(2), fakeEntry(3)],
-      'ki',
-      { prizeLockActive: false },
-    );
+    const table = formatOverallTable([fakeEntry(1), fakeEntry(2), fakeEntry(3)], 'ki', {
+      prizeLockActive: false,
+    });
     expect(table).toContain('🥇');
     expect(table).toContain('🥈');
     expect(table).toContain('🥉');

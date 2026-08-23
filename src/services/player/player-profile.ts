@@ -1,9 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { normalizeNick } from './player-nick.js';
-import {
-  applyPendingDecayForPlayers,
-  resolveRankDecayFooter,
-} from '../rating/rating-decay.js';
+import { applyPendingDecayForPlayers, resolveRankDecayFooter } from '../rating/rating-decay.js';
 import { displayOrdinal, isCalibrating } from '../rating/rating-math.js';
 import {
   gamesByPlayerFromStats,

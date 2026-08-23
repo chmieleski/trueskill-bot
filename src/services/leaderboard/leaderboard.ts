@@ -257,8 +257,7 @@ async function loadEligibleOverallRows(leagueId: string): Promise<{
     }
 
     const activityAt = row.lastQualifyingActivityAt;
-    const prizeEligible =
-      activityAt != null && isPrizeEligible(activityAt, leagueCtx, now);
+    const prizeEligible = activityAt != null && isPrizeEligible(activityAt, leagueCtx, now);
     return { ...base, prizeEligible };
   });
 

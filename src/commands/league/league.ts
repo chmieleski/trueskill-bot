@@ -99,10 +99,7 @@ function discordTimestamp(date: Date, style: 'F' | 'D' = 'F'): string {
 async function resolveWritableLeagueForDecay(
   interaction: ChatInputCommandInteraction,
 ): Promise<{ ok: true; league: League } | { ok: false; message: string }> {
-  const resolved = await resolveLeagueIdFromInteraction(
-    interaction,
-    getLeagueOption(interaction),
-  );
+  const resolved = await resolveLeagueIdFromInteraction(interaction, getLeagueOption(interaction));
   if (!resolved.ok) {
     return resolved;
   }

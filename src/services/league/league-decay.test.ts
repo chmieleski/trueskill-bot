@@ -61,9 +61,7 @@ describe('parseSeasonEndDate', () => {
 
 describe('LEAGUE_DECAY_ARCHIVED_MESSAGE', () => {
   it('matches the staff-command archived copy', () => {
-    expect(LEAGUE_DECAY_ARCHIVED_MESSAGE).toBe(
-      'That league is archived. Pick an active league.',
-    );
+    expect(LEAGUE_DECAY_ARCHIVED_MESSAGE).toBe('That league is archived. Pick an active league.');
   });
 });
 
