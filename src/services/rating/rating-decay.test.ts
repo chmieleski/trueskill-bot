@@ -7,6 +7,7 @@ import {
   isPrizeEligible,
   kiLossToMuDelta,
   muFloor,
+  pendingUtcDaysToApply,
 } from './rating-decay.js';
 import { KI_SCALE } from './rating-math.js';
 
@@ -187,5 +188,22 @@ describe('idleDaysSince', () => {
     const a = new Date('2026-08-01T23:00:00.000Z');
     const b = new Date('2026-08-11T01:00:00.000Z');
     expect(idleDaysSince(a, b)).toBe(10);
+  });
+});
+
+describe('pendingUtcDaysToApply', () => {
+  it('is 0 on the same UTC day', () => {
+    const d = new Date('2026-08-20T10:00:00.000Z');
+    expect(pendingUtcDaysToApply(d, new Date('2026-08-01T00:00:00.000Z'), d)).toBe(0);
+  });
+
+  it('counts days since last apply', () => {
+    expect(
+      pendingUtcDaysToApply(
+        new Date('2026-08-18T00:00:00.000Z'),
+        new Date('2026-08-01T00:00:00.000Z'),
+        new Date('2026-08-20T12:00:00.000Z'),
+      ),
+    ).toBe(2);
   });
 });

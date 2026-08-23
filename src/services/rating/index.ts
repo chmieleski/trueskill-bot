@@ -34,6 +34,8 @@ export {
   type PlayerMatchDisplayStats,
 } from './rank-reset-display.js';
 export {
+  applyPendingDecay,
+  applyPendingDecayForPlayers,
   computeDecayDelta,
   CRUNCH_GRACE_DAYS,
   CRUNCH_TIER1_KI,
@@ -49,9 +51,12 @@ export {
   MID_TIER1_KI,
   MID_TIER2_KI,
   muFloor,
+  pendingUtcDaysToApply,
   PRIZE_LOCK_DAYS,
   resolveCrunchStart,
+  runDecayBatchForAllLeagues,
   utcDayIndex,
+  type ApplyPendingDecayResult,
   type ComputeDecayDeltaInput,
   type ComputeDecayDeltaResult,
   type DecayLeagueContext,

@@ -1,4 +1,9 @@
-import { displayConservatismZ, KI_SCALE } from './rating-math.js';
+import type { Prisma } from '@prisma/client';
+import { prisma } from '../../lib/prisma.js';
+import { gamesByPlayerFromStats, loadMatchDisplayStatsByPlayer } from './rank-reset-display.js';
+import { displayConservatismZ, isCalibrating, KI_SCALE } from './rating-math.js';
+
+type Db = Prisma.TransactionClient | typeof prisma;
 
 export const MID_GRACE_DAYS = 10;
 export const MID_TIER1_KI = 50;
@@ -45,6 +50,19 @@ export function utcDayIndex(date: Date): number {
 /** Whole UTC days elapsed from activity to now. */
 export function idleDaysSince(activityAt: Date, now: Date): number {
   return utcDayIndex(now) - utcDayIndex(activityAt);
+}
+
+/**
+ * Pending whole UTC days of decay since last apply (or activity when never applied).
+ * Zero when last apply shares the same UTC day as `now` (idempotent same-day guard).
+ */
+export function pendingUtcDaysToApply(
+  lastDecayAppliedAt: Date | null,
+  lastQualifyingActivityAt: Date,
+  now: Date,
+): number {
+  const from = lastDecayAppliedAt ?? lastQualifyingActivityAt;
+  return Math.max(0, utcDayIndex(now) - utcDayIndex(from));
 }
 
 /** Daily ki loss for a given idle streak day count and crunch mode. */
@@ -201,4 +219,154 @@ export function isPrizeEligible(
   }
 
   return activityAt >= crunchStart;
+}
+
+export type ApplyPendingDecayResult = {
+  applied: boolean;
+  mu?: number;
+};
+
+/**
+ * Catch-up idle decay for one player. No-op when exempt, already applied today, or no pending days.
+ * When pending UTC days exist, always advances `lastDecayAppliedAt` (even if grace yields Δμ = 0).
+ */
+export async function applyPendingDecay(
+  leagueId: string,
+  playerId: string,
+  db: Db = prisma,
+  now: Date = new Date(),
+): Promise<ApplyPendingDecayResult> {
+  const [league, rating] = await Promise.all([
+    db.league.findUnique({
+      where: { id: leagueId },
+      select: {
+        status: true,
+        decayEnabled: true,
+        seasonEndsAt: true,
+        crunchStartedAt: true,
+        archivedAt: true,
+      },
+    }),
+    db.playerRating.findUnique({
+      where: { leagueId_playerId: { leagueId, playerId } },
+      select: {
+        mu: true,
+        sigma: true,
+        isNewPlayer: true,
+        lastQualifyingActivityAt: true,
+        idleDecayKiApplied: true,
+        lastDecayAppliedAt: true,
+      },
+    }),
+  ]);
+
+  if (!league || league.status !== 'ACTIVE' || !league.decayEnabled) {
+    return { applied: false };
+  }
+
+  if (
+    !rating ||
+    rating.isNewPlayer ||
+    rating.lastQualifyingActivityAt == null
+  ) {
+    return { applied: false };
+  }
+
+  const displayStats = await loadMatchDisplayStatsByPlayer(leagueId, [playerId], db);
+  const leagueGames = gamesByPlayerFromStats(displayStats).get(playerId) ?? 0;
+  if (isCalibrating(leagueGames)) {
+    return { applied: false };
+  }
+
+  const activityAt = rating.lastQualifyingActivityAt;
+  const utcDaysToApply = pendingUtcDaysToApply(
+    rating.lastDecayAppliedAt,
+    activityAt,
+    now,
+  );
+  if (utcDaysToApply <= 0) {
+    return { applied: false };
+  }
+
+  const idleDays =
+    idleDaysSince(activityAt, now) - utcDaysToApply + 1;
+  const inCrunch = isLeagueInCrunch(
+    {
+      status: league.status,
+      decayEnabled: league.decayEnabled,
+      seasonEndsAt: league.seasonEndsAt,
+      crunchStartedAt: league.crunchStartedAt,
+      archivedAt: league.archivedAt,
+    },
+    now,
+  );
+
+  const delta = computeDecayDelta({
+    idleDays,
+    inCrunch,
+    streakKiApplied: rating.idleDecayKiApplied,
+    mu: rating.mu,
+    sigma: rating.sigma,
+    leagueGames,
+    utcDaysToApply,
+  });
+
+  const nextMu = rating.mu + delta.muDelta;
+  await db.playerRating.update({
+    where: { leagueId_playerId: { leagueId, playerId } },
+    data: {
+      mu: nextMu,
+      idleDecayKiApplied: delta.streakKiApplied,
+      lastDecayAppliedAt: now,
+    },
+  });
+
+  return { applied: true, mu: nextMu };
+}
+
+/** Catch-up idle decay for many roster players in one league (read-path helper). */
+export async function applyPendingDecayForPlayers(
+  leagueId: string,
+  playerIds: string[],
+  db: Db = prisma,
+  now: Date = new Date(),
+): Promise<void> {
+  const unique = [...new Set(playerIds)];
+  for (const playerId of unique) {
+    await applyPendingDecay(leagueId, playerId, db, now);
+  }
+}
+
+/**
+ * Daily batch: ACTIVE leagues with decay enabled; ratings with non-null qualifying activity.
+ */
+export async function runDecayBatchForAllLeagues(
+  now: Date = new Date(),
+): Promise<{ leagues: number; playersUpdated: number }> {
+  const leagues = await prisma.league.findMany({
+    where: { status: 'ACTIVE', decayEnabled: true },
+    select: { id: true },
+  });
+
+  let playersUpdated = 0;
+
+  for (const league of leagues) {
+    const ratings = await prisma.playerRating.findMany({
+      where: {
+        leagueId: league.id,
+        lastQualifyingActivityAt: { not: null },
+        isNewPlayer: false,
+      },
+      select: { playerId: true },
+    });
+
+    for (const row of ratings) {
+      const result = await applyPendingDecay(league.id, row.playerId, prisma, now);
+      if (result.applied) {
+        playersUpdated += 1;
+      }
+    }
+  }
+
+  return { leagues: leagues.length, playersUpdated };
 }
