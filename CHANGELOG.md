@@ -1,3 +1,10 @@
+# [1.15.0](https://github.com/chmieleski/trueskill-bot/compare/v1.14.1...v1.15.0) (2026-08-23)
+
+
+### Features
+
+* **player:** add /player_new set and clear commands ([#81](https://github.com/chmieleski/trueskill-bot/issues/81)) ([54f6b6a](https://github.com/chmieleski/trueskill-bot/commit/54f6b6a460f603cb8ff92b066fd0e894d2513570))
+
 ## [1.14.1](https://github.com/chmieleski/trueskill-bot/compare/v1.14.0...v1.14.1) (2026-08-23)
 
 
