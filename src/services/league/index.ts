@@ -105,3 +105,12 @@ export {
   lobbyCreationLimitedMessage,
   setLeagueLobbyChannel,
 } from './league-lobby-channel.js';
+
+export {
+  LEAGUE_DECAY_ARCHIVED_MESSAGE,
+  clearLeagueCrunch,
+  parseSeasonEndDate,
+  setLeagueSeasonEndsAt,
+  startLeagueCrunch,
+  type StartLeagueCrunchResult,
+} from './league-decay.js';

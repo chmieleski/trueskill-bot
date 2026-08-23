@@ -11,18 +11,25 @@ import { buildRolloverConfirmComponents } from '../../discord/interactions/leagu
 import {
   autocompleteActiveGuildLeagues,
   bindDiscordToLeague,
+  clearLeagueCrunch,
   createLeague,
   getLeagueById,
   getLeagueOption,
   isLeagueWritable,
   LEAGUE_ARCHIVED_MESSAGE,
+  LEAGUE_DECAY_ARCHIVED_MESSAGE,
   LeagueRolloverError,
   listActiveLeaguesForGuild,
   listArchivedLeaguesForGuild,
   listLeaguesForGuild,
+  parseSeasonEndDate,
   previewLeagueRollover,
   resolveLeagueIdFromInteraction,
+  setLeagueSeasonEndsAt,
+  startLeagueCrunch,
   unbindDiscord,
+  withSubcommandLeagueOption,
+  type League,
   type LeagueBindingKind,
   type LeagueRolloverPreview,
   type LeagueResetMode,
@@ -80,6 +87,32 @@ function formatArchivedLeagueListLine(league: {
       ? 'unknown date'
       : `<t:${Math.floor(league.archivedAt.getTime() / 1000)}:D>`;
   return `• **${league.name}** (\`${league.id}\`) — game \`${league.gameId}\` (archived ${archivedLabel})`;
+}
+
+function discordTimestamp(date: Date, style: 'F' | 'D' = 'F'): string {
+  return `<t:${Math.floor(date.getTime() / 1000)}:${style}>`;
+}
+
+/**
+ * Resolve an active (writable) league for season end / crunch staff commands.
+ */
+async function resolveWritableLeagueForDecay(
+  interaction: ChatInputCommandInteraction,
+): Promise<{ ok: true; league: League } | { ok: false; message: string }> {
+  const resolved = await resolveLeagueIdFromInteraction(
+    interaction,
+    getLeagueOption(interaction),
+  );
+  if (!resolved.ok) {
+    return resolved;
+  }
+
+  const league = await getLeagueById(resolved.leagueId);
+  if (!league || !isLeagueWritable(league)) {
+    return { ok: false, message: LEAGUE_DECAY_ARCHIVED_MESSAGE };
+  }
+
+  return { ok: true, league };
 }
 
 /** Build the ephemeral Confirm/Cancel preview copy for a league rollover. */
@@ -207,6 +240,53 @@ export const data = new SlashCommandBuilder()
           .setRequired(false)
           .setAutocomplete(true),
       ),
+  )
+  .addSubcommandGroup((group) =>
+    group
+      .setName('set')
+      .setDescription('Set league season settings')
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('season_end')
+            .setDescription('Set the season end date (auto crunch starts 7 days before)')
+            .addStringOption((option) =>
+              option
+                .setName('date')
+                .setDescription('YYYY-MM-DD (UTC end of day) or full date/time')
+                .setRequired(true),
+            ),
+        ),
+      ),
+  )
+  .addSubcommandGroup((group) =>
+    group
+      .setName('clear')
+      .setDescription('Clear league season settings')
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('season_end')
+            .setDescription('Clear the season end date (removes auto crunch from that date)'),
+        ),
+      ),
+  )
+  .addSubcommandGroup((group) =>
+    group
+      .setName('crunch')
+      .setDescription('Start or clear manual end-of-season crunch')
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand.setName('start').setDescription('Start manual crunch now'),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('clear')
+            .setDescription('Clear manual crunch (auto crunch from season end unchanged)'),
+        ),
+      ),
   );
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
@@ -250,9 +330,156 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     throw error;
   }
 
+  const subcommandGroup = interaction.options.getSubcommandGroup(false);
   const subcommand = interaction.options.getSubcommand(true);
 
   try {
+    if (subcommandGroup === 'set' && subcommand === 'season_end') {
+      const dateRaw = interaction.options.getString('date', true);
+      let seasonEndsAt: Date;
+      try {
+        seasonEndsAt = parseSeasonEndDate(dateRaw);
+      } catch (error) {
+        await interaction.reply({
+          content: error instanceof Error ? error.message : String(error),
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const resolved = await resolveWritableLeagueForDecay(interaction);
+      if (!resolved.ok) {
+        await interaction.reply({
+          content: resolved.message,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      await setLeagueSeasonEndsAt(resolved.league.id, seasonEndsAt);
+
+      log.info(
+        {
+          guildId: interaction.guildId,
+          leagueId: resolved.league.id,
+          seasonEndsAt: seasonEndsAt.toISOString(),
+          userId: interaction.user.id,
+        },
+        'League season end set',
+      );
+
+      await interaction.reply({
+        content: [
+          `Season end for **${resolved.league.name}** set to ${discordTimestamp(seasonEndsAt)}.`,
+          'Auto crunch starts 7 days before that time.',
+        ].join('\n'),
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (subcommandGroup === 'clear' && subcommand === 'season_end') {
+      const resolved = await resolveWritableLeagueForDecay(interaction);
+      if (!resolved.ok) {
+        await interaction.reply({
+          content: resolved.message,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      await setLeagueSeasonEndsAt(resolved.league.id, null);
+
+      log.info(
+        {
+          guildId: interaction.guildId,
+          leagueId: resolved.league.id,
+          userId: interaction.user.id,
+        },
+        'League season end cleared',
+      );
+
+      await interaction.reply({
+        content: `Cleared season end for **${resolved.league.name}**. Auto crunch from that date is removed; manual crunch is unchanged.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (subcommandGroup === 'crunch' && subcommand === 'start') {
+      const resolved = await resolveWritableLeagueForDecay(interaction);
+      if (!resolved.ok) {
+        await interaction.reply({
+          content: resolved.message,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const result = await startLeagueCrunch(resolved.league.id);
+
+      log.info(
+        {
+          guildId: interaction.guildId,
+          leagueId: resolved.league.id,
+          alreadyStarted: result.alreadyStarted,
+          crunchStartedAt: result.crunchStartedAt.toISOString(),
+          userId: interaction.user.id,
+        },
+        'League crunch start',
+      );
+
+      if (result.alreadyStarted) {
+        await interaction.reply({
+          content: `**${resolved.league.name}** is already in crunch (started ${discordTimestamp(result.crunchStartedAt)}).`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      await interaction.reply({
+        content: `Crunch started for **${resolved.league.name}** at ${discordTimestamp(result.crunchStartedAt)}.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (subcommandGroup === 'crunch' && subcommand === 'clear') {
+      const resolved = await resolveWritableLeagueForDecay(interaction);
+      if (!resolved.ok) {
+        await interaction.reply({
+          content: resolved.message,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      await clearLeagueCrunch(resolved.league.id);
+
+      log.info(
+        {
+          guildId: interaction.guildId,
+          leagueId: resolved.league.id,
+          userId: interaction.user.id,
+        },
+        'League crunch cleared',
+      );
+
+      await interaction.reply({
+        content: `Cleared manual crunch for **${resolved.league.name}**. If a season end is still set, auto crunch may remain active from that date.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (subcommandGroup) {
+      await interaction.reply({
+        content: 'Unknown league subcommand.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     if (subcommand === 'create') {
       const gameId = interaction.options.getString('game', true);
       const name = interaction.options.getString('name', true).trim();
