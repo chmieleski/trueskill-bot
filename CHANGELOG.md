@@ -1,3 +1,10 @@
+## [1.13.1](https://github.com/chmieleski/trueskill-bot/compare/v1.13.0...v1.13.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* **deploy:** persist credentialed git remote for private pulls ([#77](https://github.com/chmieleski/trueskill-bot/issues/77)) ([9058534](https://github.com/chmieleski/trueskill-bot/commit/905853445d11aab02e8c27398e9449a52a0386e2))
+
 # [1.13.0](https://github.com/chmieleski/trueskill-bot/compare/v1.12.1...v1.13.0) (2026-08-23)
 
 
