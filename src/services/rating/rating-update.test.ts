@@ -329,7 +329,7 @@ describe('applyMatchRatings', () => {
       { playerId: 'p2', slot: 7, team: 2, heroId: 7, isQuitter: false },
     ];
 
-    await applyMatchRatings('league-1', roster, 1, db as never);
+    await applyMatchRatings('league-1', roster, 1, COMPLETED_AT, db as never);
 
     expect(playerRating.update).toHaveBeenCalled();
     expect(playerHeroRating.update).not.toHaveBeenCalled();
