@@ -90,6 +90,8 @@ export function buildRankEmbed(
 
   if (!profile.discordId) {
     embed.setFooter({ text: 'Not linked to Discord' });
+  } else if (profile.decayFooter) {
+    embed.setFooter({ text: profile.decayFooter });
   }
 
   return embed;

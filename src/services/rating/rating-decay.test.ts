@@ -8,6 +8,9 @@ import {
   kiLossToMuDelta,
   muFloor,
   pendingUtcDaysToApply,
+  resolveRankDecayFooter,
+  RANK_CRUNCH_DECAY_FOOTER,
+  RANK_IDLE_DECAY_FOOTER,
 } from './rating-decay.js';
 import { KI_SCALE } from './rating-math.js';
 
@@ -180,6 +183,91 @@ describe('isPrizeEligible', () => {
     const now = new Date('2026-08-20T12:00:00.000Z');
     expect(isPrizeEligible(new Date('2026-08-18T12:00:00.000Z'), league, now)).toBe(true);
     expect(isPrizeEligible(new Date('2026-08-17T00:00:00.000Z'), league, now)).toBe(false);
+  });
+});
+
+describe('resolveRankDecayFooter', () => {
+  const activeLeague = {
+    status: 'ACTIVE',
+    decayEnabled: true,
+    seasonEndsAt: null,
+    crunchStartedAt: null,
+  };
+
+  it('returns null when decay disabled, calibrating, or new', () => {
+    expect(
+      resolveRankDecayFooter({
+        decayEnabled: false,
+        leagueGames: 10,
+        isNewPlayer: false,
+        lastQualifyingActivityAt: new Date('2026-08-01T00:00:00.000Z'),
+        league: activeLeague,
+        now: new Date('2026-08-20T00:00:00.000Z'),
+      }),
+    ).toBeNull();
+    expect(
+      resolveRankDecayFooter({
+        decayEnabled: true,
+        leagueGames: 3,
+        isNewPlayer: false,
+        lastQualifyingActivityAt: new Date('2026-08-01T00:00:00.000Z'),
+        league: activeLeague,
+        now: new Date('2026-08-20T00:00:00.000Z'),
+      }),
+    ).toBeNull();
+    expect(
+      resolveRankDecayFooter({
+        decayEnabled: true,
+        leagueGames: 10,
+        isNewPlayer: true,
+        lastQualifyingActivityAt: new Date('2026-08-01T00:00:00.000Z'),
+        league: activeLeague,
+        now: new Date('2026-08-20T00:00:00.000Z'),
+      }),
+    ).toBeNull();
+  });
+
+  it('returns crunch footer when in crunch', () => {
+    const now = new Date('2026-08-20T12:00:00.000Z');
+    expect(
+      resolveRankDecayFooter({
+        decayEnabled: true,
+        leagueGames: 10,
+        isNewPlayer: false,
+        lastQualifyingActivityAt: new Date('2026-08-19T00:00:00.000Z'),
+        league: {
+          ...activeLeague,
+          crunchStartedAt: new Date('2026-08-18T00:00:00.000Z'),
+        },
+        now,
+      }),
+    ).toBe(RANK_CRUNCH_DECAY_FOOTER);
+  });
+
+  it('returns idle footer when idle > 10 days and not in crunch', () => {
+    expect(
+      resolveRankDecayFooter({
+        decayEnabled: true,
+        leagueGames: 10,
+        isNewPlayer: false,
+        lastQualifyingActivityAt: new Date('2026-08-01T00:00:00.000Z'),
+        league: activeLeague,
+        now: new Date('2026-08-20T00:00:00.000Z'),
+      }),
+    ).toBe(RANK_IDLE_DECAY_FOOTER);
+  });
+
+  it('returns null when idle within grace and not in crunch', () => {
+    expect(
+      resolveRankDecayFooter({
+        decayEnabled: true,
+        leagueGames: 10,
+        isNewPlayer: false,
+        lastQualifyingActivityAt: new Date('2026-08-15T00:00:00.000Z'),
+        league: activeLeague,
+        now: new Date('2026-08-20T00:00:00.000Z'),
+      }),
+    ).toBeNull();
   });
 });
 

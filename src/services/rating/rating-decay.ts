@@ -15,6 +15,11 @@ export const CRUNCH_TIER2_KI = 200;
 export const CRUNCH_WINDOW_DAYS = 7;
 export const PRIZE_LOCK_DAYS = 7;
 
+export const RANK_CRUNCH_DECAY_FOOTER =
+  'Crunch week: −100 ki/day after 2 idle days (−200/day after 10).';
+export const RANK_IDLE_DECAY_FOOTER =
+  'Inactive 11+ days: league ki decays −50/day (−100/day after 20 days) until you finish a game.';
+
 const MS_PER_UTC_DAY = 86_400_000;
 
 export type DecayLeagueContext = {
@@ -194,6 +199,39 @@ export function isLeagueInCrunch(league: DecayLeagueContext, now: Date): boolean
   }
 
   return false;
+}
+
+/** Player-facing `/rank` footer when decay applies; null when hidden. */
+export function resolveRankDecayFooter(input: {
+  decayEnabled: boolean;
+  leagueGames: number;
+  isNewPlayer: boolean;
+  lastQualifyingActivityAt: Date | null;
+  league: DecayLeagueContext;
+  now?: Date;
+}): string | null {
+  const now = input.now ?? new Date();
+  if (
+    input.league.status !== 'ACTIVE' ||
+    !input.decayEnabled ||
+    input.isNewPlayer ||
+    input.lastQualifyingActivityAt == null ||
+    isCalibrating(input.leagueGames)
+  ) {
+    return null;
+  }
+
+  const inCrunch = isLeagueInCrunch(input.league, now);
+  if (inCrunch) {
+    return RANK_CRUNCH_DECAY_FOOTER;
+  }
+
+  const idleDays = idleDaysSince(input.lastQualifyingActivityAt, now);
+  if (idleDays > MID_GRACE_DAYS) {
+    return RANK_IDLE_DECAY_FOOTER;
+  }
+
+  return null;
 }
 
 /** Prize medal eligibility during crunch (leaderboard only). */
