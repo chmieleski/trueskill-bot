@@ -75,6 +75,7 @@ export {
 export {
   buildNewPlayerConfirmCustomId,
   buildNewPlayerDeclineCustomId,
+  clearPlayerNewFlag,
   collectNewPlayerSuggestions,
   collectNewPlayerSuggestionsForPendingCreate,
   loadIsNewPlayerByPlayerId,
@@ -83,9 +84,11 @@ export {
   NEW_PLAYER_ROSTER_MARKER,
   parseNewPlayerButtonCustomId,
   playerIdsToClearNewFlag,
+  setPlayerNewFlag,
   shouldClearNewPlayer,
   shouldSuggestNewPlayer,
   type NewPlayerButtonAction,
   type NewPlayerSuggestion,
   type ParsedNewPlayerButtonCustomId,
+  type PlayerNewFlagResult,
 } from './new-player.js';

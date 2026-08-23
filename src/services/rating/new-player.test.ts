@@ -1,5 +1,32 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { KI_Z_BLEND_GAMES } from './rating-math.js';
+
+const {
+  leagueFindUnique,
+  playerRatingFindUnique,
+  playerRatingUpdate,
+  playerRatingCreateMany,
+  playerHeroRatingCreateMany,
+} = vi.hoisted(() => ({
+  leagueFindUnique: vi.fn(),
+  playerRatingFindUnique: vi.fn(),
+  playerRatingUpdate: vi.fn(),
+  playerRatingCreateMany: vi.fn(),
+  playerHeroRatingCreateMany: vi.fn(),
+}));
+
+vi.mock('../../lib/prisma.js', () => ({
+  prisma: {
+    league: { findUnique: leagueFindUnique },
+    playerRating: {
+      findUnique: playerRatingFindUnique,
+      update: playerRatingUpdate,
+      createMany: playerRatingCreateMany,
+    },
+    playerHeroRating: { createMany: playerHeroRatingCreateMany },
+  },
+}));
+
 import {
   parseNewPlayerButtonCustomId,
   buildNewPlayerConfirmCustomId,
@@ -7,6 +34,8 @@ import {
   playerIdsToClearNewFlag,
   shouldClearNewPlayer,
   shouldSuggestNewPlayer,
+  setPlayerNewFlag,
+  clearPlayerNewFlag,
 } from './new-player.js';
 
 describe('shouldSuggestNewPlayer', () => {
@@ -78,5 +107,61 @@ describe('new player button custom ids', () => {
     expect(
       parseNewPlayerButtonCustomId(`np:confirm:${matchId}:${compactPlayerId}:${actorDiscordId}`),
     ).toBeNull();
+  });
+});
+
+describe('setPlayerNewFlag', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    leagueFindUnique.mockResolvedValue({ status: 'ACTIVE' });
+    playerRatingCreateMany.mockResolvedValue({ count: 1 });
+    playerHeroRatingCreateMany.mockResolvedValue({ count: 0 });
+    playerRatingUpdate.mockResolvedValue({});
+  });
+
+  it('sets isNewPlayer when currently false', async () => {
+    playerRatingFindUnique.mockResolvedValue({ isNewPlayer: false });
+    await expect(
+      setPlayerNewFlag({ leagueId: 'L', playerId: 'P', username: 'rookie' }),
+    ).resolves.toEqual({ status: 'set', username: 'rookie' });
+    expect(playerRatingUpdate).toHaveBeenCalledWith({
+      where: { leagueId_playerId: { leagueId: 'L', playerId: 'P' } },
+      data: { isNewPlayer: true },
+    });
+  });
+
+  it('returns already_new when flag is true', async () => {
+    playerRatingFindUnique.mockResolvedValue({ isNewPlayer: true });
+    await expect(
+      setPlayerNewFlag({ leagueId: 'L', playerId: 'P', username: 'rookie' }),
+    ).resolves.toEqual({ status: 'already_new', username: 'rookie' });
+    expect(playerRatingUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('clearPlayerNewFlag', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    leagueFindUnique.mockResolvedValue({ status: 'ACTIVE' });
+    playerRatingUpdate.mockResolvedValue({});
+  });
+
+  it('clears when currently true', async () => {
+    playerRatingFindUnique.mockResolvedValue({ isNewPlayer: true });
+    await expect(
+      clearPlayerNewFlag({ leagueId: 'L', playerId: 'P', username: 'rookie' }),
+    ).resolves.toEqual({ status: 'cleared', username: 'rookie' });
+    expect(playerRatingUpdate).toHaveBeenCalledWith({
+      where: { leagueId_playerId: { leagueId: 'L', playerId: 'P' } },
+      data: { isNewPlayer: false },
+    });
+  });
+
+  it('returns not_new when missing row or false', async () => {
+    playerRatingFindUnique.mockResolvedValue(null);
+    await expect(
+      clearPlayerNewFlag({ leagueId: 'L', playerId: 'P', username: 'rookie' }),
+    ).resolves.toEqual({ status: 'not_new', username: 'rookie' });
+    expect(playerRatingUpdate).not.toHaveBeenCalled();
   });
 });
