@@ -29,6 +29,12 @@ export {
 } from './resolve.js';
 export { syncLobbyDiscordMessage } from './discord-sync.js';
 export { startLobbyMatch, startLobbyMatchByMessageId, cancelLobbyMatch } from './lifecycle.js';
+export {
+  attachRecreatedLobbyMessage,
+  recreateLobbyFromVoidedMatch,
+  type RecreateLobbyFromMatchInput,
+  type RecreateLobbyFromMatchResult,
+} from './recreate-lobby-from-match.js';
 export { refreshLobbyFromWc3stats } from './wc3stats-refresh.js';
 export {
   isImageAttachment,
