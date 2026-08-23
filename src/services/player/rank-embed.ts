@@ -1,5 +1,7 @@
 import { EmbedBuilder } from 'discord.js';
 import type { PlayerProfile, PlayerProfileHero } from './player-profile.js';
+import type { TeammateStats } from './teammate-stats.js';
+import { formatTeammateTable } from './teammate-stats.js';
 import { CALIBRATING_LABEL, formatPublicKi, isCalibrating } from '../rating/rating-math.js';
 
 const RANK_GOLD = 0xf0b232;
@@ -38,6 +40,7 @@ export function buildRankEmbed(
     ratingLabel?: string;
     /** When false, never show the Heroes field (ACA / optional_in_game). Default true. */
     showHeroes?: boolean;
+    teammates?: TeammateStats;
   },
 ): EmbedBuilder {
   const ratingLabel = options?.ratingLabel ?? 'ki';
@@ -66,6 +69,19 @@ export function buildRankEmbed(
       name: 'Heroes',
       value: formatHeroTable(profile.heroes, leagueGames),
     });
+  }
+
+  if (options?.teammates) {
+    const { playedWith, winWith, loseWith } = options.teammates;
+    if (playedWith.length > 0) {
+      embed.addFields({ name: 'Played with', value: formatTeammateTable(playedWith) });
+    }
+    if (winWith.length > 0) {
+      embed.addFields({ name: 'Win with', value: formatTeammateTable(winWith) });
+    }
+    if (loseWith.length > 0) {
+      embed.addFields({ name: 'Lose with', value: formatTeammateTable(loseWith) });
+    }
   }
 
   if (options?.avatarUrl) {

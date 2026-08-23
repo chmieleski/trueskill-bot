@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildRankEmbed, formatHeroTable } from './rank-embed.js';
 import type { PlayerProfile } from './player-profile.js';
+import type { TeammateStats } from './teammate-stats.js';
 
 const baseProfile: PlayerProfile = {
   playerId: 'p1',
@@ -32,6 +33,30 @@ const baseProfile: PlayerProfile = {
       winRatePercent: 50,
     },
   ],
+};
+
+const sampleTeammates: TeammateStats = {
+  playedWith: [
+    {
+      playerId: 'p2',
+      username: 'Ghost',
+      games: 14,
+      wins: 9,
+      losses: 5,
+      winRatePercent: 64.3,
+    },
+  ],
+  winWith: [
+    {
+      playerId: 'p2',
+      username: 'Ghost',
+      games: 14,
+      wins: 9,
+      losses: 5,
+      winRatePercent: 64.3,
+    },
+  ],
+  loseWith: [],
 };
 
 describe('formatHeroTable', () => {
@@ -156,5 +181,30 @@ describe('buildRankEmbed', () => {
     expect(data.fields?.[0]?.value).toContain('Calibrating');
     expect(data.fields?.[0]?.value).not.toContain('4200');
     expect(data.fields?.[0]?.value).toContain('2W 1L · 66.7%');
+  });
+
+  it('adds teammate fields after Heroes and omits empty lists', () => {
+    const data = buildRankEmbed(baseProfile, { teammates: sampleTeammates }).toJSON();
+    const names = (data.fields ?? []).map((f) => f.name);
+    expect(names).toEqual(['Heroes', 'Played with', 'Win with']);
+    expect(data.fields?.[1]?.value).toContain('Ghost');
+    expect(data.fields?.[1]?.value).toContain('14G');
+    expect(names).not.toContain('Lose with');
+  });
+
+  it('still shows teammate fields when Heroes are hidden', () => {
+    const data = buildRankEmbed(baseProfile, {
+      showHeroes: false,
+      teammates: sampleTeammates,
+    }).toJSON();
+    const names = (data.fields ?? []).map((f) => f.name);
+    expect(names).toEqual(['Played with', 'Win with']);
+  });
+
+  it('omits all teammate fields when every list is empty', () => {
+    const data = buildRankEmbed(baseProfile, {
+      teammates: { playedWith: [], winWith: [], loseWith: [] },
+    }).toJSON();
+    expect((data.fields ?? []).map((f) => f.name)).toEqual(['Heroes']);
   });
 });
