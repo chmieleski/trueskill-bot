@@ -1,3 +1,10 @@
+## [1.14.1](https://github.com/chmieleski/trueskill-bot/compare/v1.14.0...v1.14.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* **rating:** require daily games for crunch medal eligibility ([#80](https://github.com/chmieleski/trueskill-bot/issues/80)) ([b2e9c9a](https://github.com/chmieleski/trueskill-bot/commit/b2e9c9ac85c208aa15113182082326b5a79af19f))
+
 # [1.14.0](https://github.com/chmieleski/trueskill-bot/compare/v1.13.2...v1.14.0) (2026-08-23)
 
 
