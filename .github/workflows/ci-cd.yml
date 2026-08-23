@@ -139,6 +139,7 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION || 'eu-central-1' }}
       EC2_NAME_TAG: ${{ vars.EC2_NAME_TAG || 'punch-machine-prod' }}
       APP_DIR: /home/ubuntu/bot
+      GIT_REMOTE_URL: https://github.com/${{ github.repository }}.git
     steps:
       - name: Verify AWS_ROLE_ARN secret
         env:
@@ -283,12 +284,15 @@ jobs:
             --parameters commands="$(jq -cn \
               --arg app "$APP_DIR" \
               --arg sha "$GITHUB_SHA" \
+              --arg remote "$GIT_REMOTE_URL" \
               '
                 [
                   (
                     [
                       "set -euo pipefail",
                       "echo ==> deploy \($sha)",
+                      "ORIGIN=$(sudo -u ubuntu git -C \($app) remote get-url origin 2>/dev/null || true)",
+                      "if [[ \"${ORIGIN}\" == /* || \"${ORIGIN}\" == file://* ]]; then echo \"==> Repairing local origin before pull\"; sudo -u ubuntu git -C \($app) remote set-url origin \($remote); fi",
                       "sudo -u ubuntu git -C \($app) fetch --all",
                       "sudo -u ubuntu git -C \($app) checkout main",
                       "sudo -u ubuntu git -C \($app) pull --ff-only origin main",
