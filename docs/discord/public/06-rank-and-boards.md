@@ -15,6 +15,8 @@ Your strength is shown as **ki**.
 /rank nick:SomeNick
 ```
 
+Profiles also show your **top teammates** (most games / wins / losses together) when you have shared completed matches.
+
 **Leaderboards**
 
 ```
