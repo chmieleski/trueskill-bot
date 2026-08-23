@@ -1,10 +1,76 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { isLeagueWritable, LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
 import { compactUuidForCustomId, expandUuidFromCustomId } from '../match/compact-custom-id.js';
+import { MatchServiceError } from '../match/match-service.js';
 import { gamesByPlayerFromStats, loadMatchDisplayStatsByPlayer } from './rank-reset-display.js';
+import { ensurePlayerRatings } from './rating-preview.js';
 import { KI_Z_BLEND_GAMES } from './rating-math.js';
 
 type Db = Prisma.TransactionClient | typeof prisma;
+
+export type PlayerNewFlagResult =
+  | { status: 'set'; username: string }
+  | { status: 'already_new'; username: string }
+  | { status: 'cleared'; username: string }
+  | { status: 'not_new'; username: string };
+
+async function assertLeagueWritable(leagueId: string, db: Db): Promise<void> {
+  const league = await db.league.findUnique({
+    where: { id: leagueId },
+    select: { status: true },
+  });
+  if (league && !isLeagueWritable(league)) {
+    throw new MatchServiceError(LEAGUE_ARCHIVED_MESSAGE);
+  }
+}
+
+/** Mark a player as New in the league (mod command / manual override). */
+export async function setPlayerNewFlag(input: {
+  leagueId: string;
+  playerId: string;
+  username: string;
+  db?: Db;
+}): Promise<Extract<PlayerNewFlagResult, { status: 'set' | 'already_new' }>> {
+  const db = input.db ?? prisma;
+  await assertLeagueWritable(input.leagueId, db);
+  await ensurePlayerRatings(input.leagueId, [{ playerId: input.playerId, heroId: null }], db);
+  const row = await db.playerRating.findUnique({
+    where: { leagueId_playerId: { leagueId: input.leagueId, playerId: input.playerId } },
+    select: { isNewPlayer: true },
+  });
+  if (row?.isNewPlayer) {
+    return { status: 'already_new', username: input.username };
+  }
+  await db.playerRating.update({
+    where: { leagueId_playerId: { leagueId: input.leagueId, playerId: input.playerId } },
+    data: { isNewPlayer: true },
+  });
+  return { status: 'set', username: input.username };
+}
+
+/** Clear the New flag for a player in the league (mod command). */
+export async function clearPlayerNewFlag(input: {
+  leagueId: string;
+  playerId: string;
+  username: string;
+  db?: Db;
+}): Promise<Extract<PlayerNewFlagResult, { status: 'cleared' | 'not_new' }>> {
+  const db = input.db ?? prisma;
+  await assertLeagueWritable(input.leagueId, db);
+  const row = await db.playerRating.findUnique({
+    where: { leagueId_playerId: { leagueId: input.leagueId, playerId: input.playerId } },
+    select: { isNewPlayer: true },
+  });
+  if (!row?.isNewPlayer) {
+    return { status: 'not_new', username: input.username };
+  }
+  await db.playerRating.update({
+    where: { leagueId_playerId: { leagueId: input.leagueId, playerId: input.playerId } },
+    data: { isNewPlayer: false },
+  });
+  return { status: 'cleared', username: input.username };
+}
 
 /** Payload for host/mod New-player confirm prompts after a roster add or PENDING create. */
 export type NewPlayerSuggestion = {
