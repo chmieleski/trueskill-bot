@@ -76,16 +76,42 @@ describe('host-update-lib', () => {
     expect(result.stdout.trim().split('\n')).toEqual(['local', 'remote']);
   });
 
+  it('detects HTTPS remotes with userinfo', () => {
+    const result = bash(
+      `source '${lib}';
+       host_update_remote_has_userinfo 'https://ghp_x@github.com/org/repo.git' && echo yes || echo no;
+       host_update_remote_has_userinfo 'https://github.com/org/repo.git' && echo yes || echo no`,
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim().split('\n')).toEqual(['yes', 'no']);
+  });
+
   it('defaults to the public HTTPS repo when origin is local', () => {
     const root = mkdtempSync(join(tmpdir(), 'host-update-remote-'));
     const app = join(root, 'bot');
     mkdirSync(app, { recursive: true });
     bash(`git init '${app}' && git -C '${app}' remote add origin '${root}/upstream'`);
     const result = bash(
-      `source '${lib}'; APP_USER="$(id -un)"; host_update_resolve_github_remote '${app}' "$APP_USER"`,
+      `source '${lib}'; APP_USER="$(id -un)"; unset GIT_REMOTE_URL; host_update_resolve_github_remote '${app}' "$APP_USER"`,
     );
     expect(result.status).toBe(0);
     expect(result.stdout.trim()).toBe('https://github.com/chmieleski/trueskill-bot.git');
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('prefers the stored git-remote.url over a local origin', () => {
+    const root = mkdtempSync(join(tmpdir(), 'host-update-remote-'));
+    const app = join(root, 'bot');
+    const stored = join(root, 'git-remote.url');
+    const credentialed = 'https://ghp_test@github.com/chmieleski/trueskill-bot.git';
+    mkdirSync(app, { recursive: true });
+    bash(`git init '${app}' && git -C '${app}' remote add origin '${root}/upstream'`);
+    bash(`printf '%s\\n' '${credentialed}' >'${stored}'`);
+    const result = bash(
+      `source '${lib}'; APP_USER="$(id -un)"; GIT_REMOTE_FILE='${stored}'; host_update_resolve_github_remote '${app}' "$APP_USER"`,
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe(credentialed);
     rmSync(root, { recursive: true, force: true });
   });
 
@@ -93,7 +119,7 @@ describe('host-update-lib', () => {
     const root = mkdtempSync(join(tmpdir(), 'host-update-remote-'));
     const live = join(root, 'bot');
     const stage = join(root, 'bot.next');
-    const github = 'https://github.com/example/trueskill-bot.git';
+    const github = 'https://ghp_test@github.com/example/trueskill-bot.git';
     bash(`git init '${live}' && git -C '${live}' remote add origin '${github}'`);
     bash(`git clone --local '${live}' '${stage}'`);
     const before = bash(`git -C '${stage}' remote get-url origin`).stdout.trim();
@@ -104,6 +130,32 @@ describe('host-update-lib', () => {
     );
     expect(repair.status).toBe(0);
     expect(bash(`git -C '${stage}' remote get-url origin`).stdout.trim()).toBe(github);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('upgrades a bare HTTPS origin when the resolved URL has userinfo', () => {
+    const root = mkdtempSync(join(tmpdir(), 'host-update-remote-'));
+    const app = join(root, 'bot');
+    const bare = 'https://github.com/example/trueskill-bot.git';
+    const credentialed = 'https://ghp_test@github.com/example/trueskill-bot.git';
+    bash(`git init '${app}' && git -C '${app}' remote add origin '${bare}'`);
+    const repair = bash(
+      `source '${lib}'; APP_USER="$(id -un)"; host_update_ensure_github_origin '${app}' '${credentialed}' "$APP_USER"`,
+    );
+    expect(repair.status).toBe(0);
+    expect(bash(`git -C '${app}' remote get-url origin`).stdout.trim()).toBe(credentialed);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('persists credentialed remotes to GIT_REMOTE_FILE', () => {
+    const root = mkdtempSync(join(tmpdir(), 'host-update-remote-'));
+    const stored = join(root, 'git-remote.url');
+    const credentialed = 'https://ghp_test@github.com/example/trueskill-bot.git';
+    const result = bash(
+      `source '${lib}'; GIT_REMOTE_FILE='${stored}'; host_update_persist_github_remote '${credentialed}'`,
+    );
+    expect(result.status).toBe(0);
+    expect(readFileSync(stored, 'utf8').trim()).toBe(credentialed);
     rmSync(root, { recursive: true, force: true });
   });
 });
@@ -156,11 +208,12 @@ describe('CI deploy SSM command', () => {
     expect(chunk).not.toMatch(/systemctl stop dbz-bot/);
   });
 
-  it('repairs a local origin before git pull on the host', () => {
+  it('repairs a local origin from git-remote.url before git pull on the host', () => {
     const yml = readFileSync(join(repoRoot, '.github/workflows/ci-cd.yml'), 'utf8');
-    expect(yml).toContain('Repairing local origin before pull');
+    expect(yml).toContain('Repairing local origin from /etc/dbz-bot/git-remote.url');
     expect(yml).toContain('remote set-url origin');
-    const repairIdx = yml.indexOf('Repairing local origin before pull');
+    expect(yml).not.toContain('GIT_REMOTE_URL: https://github.com/${{ github.repository }}.git');
+    const repairIdx = yml.indexOf('Repairing local origin from /etc/dbz-bot/git-remote.url');
     const pullIdx = yml.indexOf('pull --ff-only origin main', repairIdx);
     expect(repairIdx).toBeGreaterThan(-1);
     expect(pullIdx).toBeGreaterThan(repairIdx);

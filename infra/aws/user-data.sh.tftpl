@@ -108,6 +108,11 @@ else
   sudo -u ubuntu git -C "$APP_DIR" pull --ff-only origin "$REPO_BRANCH"
 fi
 
+# Survive git clone --local (stage deploys) and CI origin repairs — private repos need the PAT here.
+mkdir -p /etc/dbz-bot
+printf '%s\n' "$REPO_URL" >/etc/dbz-bot/git-remote.url
+chmod 600 /etc/dbz-bot/git-remote.url
+
 # Canonical swap helper from the repo (idempotent; covers older inline path drift).
 if [[ -f "$APP_DIR/deploy/aws/ensure-swap.sh" ]]; then
   echo "==> Ensuring swap via deploy/aws/ensure-swap.sh"

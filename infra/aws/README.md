@@ -163,4 +163,11 @@ tofu destroy
 
 - Keep `terraform.tfvars` and `*.tfstate` out of git (see `.gitignore`).
 - Sensitive values live in SSM **and** in Terraform state.
-- Private GitHub repo: put a fine-scoped PAT in `repo_url` (`https://TOKEN@github.com/...`).
+- Private GitHub repo: put a fine-scoped PAT in `repo_url` (`https://TOKEN@github.com/...`). First boot also writes that URL to `/etc/dbz-bot/git-remote.url` (mode `600`) so stage `git clone --local` / CI can restore `origin` without dropping credentials.
+- If Deploy fails with `could not read Username for 'https://github.com'`, restore once via SSM Session Manager (use the same PAT as `repo_url`):
+
+  ```bash
+  sudo -u ubuntu git -C /home/ubuntu/bot remote set-url origin 'https://TOKEN@github.com/chmieleski/trueskill-bot.git'
+  printf '%s\n' 'https://TOKEN@github.com/chmieleski/trueskill-bot.git' | sudo tee /etc/dbz-bot/git-remote.url >/dev/null
+  sudo chmod 600 /etc/dbz-bot/git-remote.url
+  ```
