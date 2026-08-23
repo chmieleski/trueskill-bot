@@ -1,3 +1,11 @@
+# [1.13.0](https://github.com/chmieleski/trueskill-bot/compare/v1.12.1...v1.13.0) (2026-08-23)
+
+
+### Features
+
+* **lobby:** let mods remove players and recreate voided lobbies ([#75](https://github.com/chmieleski/trueskill-bot/issues/75)) ([38b3b20](https://github.com/chmieleski/trueskill-bot/commit/38b3b20fe5d9b1860292a7819a338c730df4033c))
+* **player:** add teammate stats and match list side win rate ([#76](https://github.com/chmieleski/trueskill-bot/issues/76)) ([837347d](https://github.com/chmieleski/trueskill-bot/commit/837347dd8579f2b0b35e692dd08cb89bd65bf29d))
+
 ## [1.12.1](https://github.com/chmieleski/trueskill-bot/compare/v1.12.0...v1.12.1) (2026-08-23)
 
 
