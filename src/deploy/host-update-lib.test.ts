@@ -200,12 +200,19 @@ describe('host-update.sh cut-over order', () => {
 describe('CI deploy SSM command', () => {
   it('does not stop dbz-bot before host-update.sh', () => {
     const yml = readFileSync(join(repoRoot, '.github/workflows/ci-cd.yml'), 'utf8');
-    const marker = '"echo ==> deploy \\($sha)"';
+    const marker = '"echo \\"==> deploy \\($sha)\\""';
     const from = yml.indexOf(marker);
     expect(from).toBeGreaterThan(-1);
     const chunk = yml.slice(from, yml.indexOf('echo "SSM command:"', from));
     expect(chunk).toContain('host-update.sh');
     expect(chunk).not.toMatch(/systemctl stop dbz-bot/);
+  });
+
+  it('quotes SSM echo lines so ==> is not a shell redirect', () => {
+    const yml = readFileSync(join(repoRoot, '.github/workflows/ci-cd.yml'), 'utf8');
+    expect(yml).toContain('"echo \\"==> deploy \\($sha)\\""');
+    expect(yml).toContain('"echo \\"==> origin=${MASKED}\\""');
+    expect(yml).not.toMatch(/"echo ==> /);
   });
 
   it('repairs a local origin from git-remote.url before git pull on the host', () => {

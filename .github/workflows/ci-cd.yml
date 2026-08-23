@@ -288,10 +288,10 @@ jobs:
                   (
                     [
                       "set -euo pipefail",
-                      "echo ==> deploy \($sha)",
+                      "echo \"==> deploy \($sha)\"",
                       "ORIGIN=$(sudo -u ubuntu git -C \($app) remote get-url origin 2>/dev/null || true)",
                       "MASKED=$(printf %s \"${ORIGIN}\" | sed -E \"s#https://[^@/]+@#https://***@#g\")",
-                      "echo ==> origin=${MASKED}",
+                      "echo \"==> origin=${MASKED}\"",
                       "if [[ \"${ORIGIN}\" == /* || \"${ORIGIN}\" == file://* || \"${ORIGIN}\" == ./* ]]; then if [[ -f /etc/dbz-bot/git-remote.url ]]; then echo \"==> Repairing local origin from /etc/dbz-bot/git-remote.url\"; sudo -u ubuntu git -C \($app) remote set-url origin \"$(head -n1 /etc/dbz-bot/git-remote.url)\"; else echo \"Local origin and missing /etc/dbz-bot/git-remote.url — restore a credentialed remote (PAT in URL) before deploy\" >&2; exit 1; fi; fi",
                       "sudo -u ubuntu git -C \($app) fetch --all",
                       "sudo -u ubuntu git -C \($app) checkout main",
