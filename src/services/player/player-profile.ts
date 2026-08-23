@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { normalizeNick } from './player-nick.js';
+import { applyPendingDecayForPlayers } from '../rating/rating-decay.js';
 import { displayOrdinal, isCalibrating } from '../rating/rating-math.js';
 import {
   gamesByPlayerFromStats,
@@ -147,6 +148,9 @@ export async function loadPlayerProfile(
   }
 
   const includeHeroes = gameProfile.heroBinding === 'slot_bound';
+
+  // Catch up idle decay for the looked-up player before μ → ki / rank.
+  await applyPendingDecayForPlayers(leagueId, [player.id]);
 
   const [rating, allRatings, heroRatings, displayStats] = await Promise.all([
     prisma.playerRating.findUnique({

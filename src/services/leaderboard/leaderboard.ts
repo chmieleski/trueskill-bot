@@ -1,5 +1,6 @@
 import { loadHeroCatalog } from '../guild/hero-catalog.js';
 import { prisma } from '../../lib/prisma.js';
+import { applyPendingDecayForPlayers } from '../rating/rating-decay.js';
 import { displayOrdinal, isCalibrating } from '../rating/rating-math.js';
 import {
   gamesByPlayerFromStats,
@@ -145,6 +146,15 @@ export function paginateOverall(
 }
 
 async function loadEligibleOverallRows(leagueId: string): Promise<OverallLeaderboardEntry[]> {
+  const ratingIds = await prisma.playerRating.findMany({
+    where: { leagueId },
+    select: { playerId: true },
+  });
+  await applyPendingDecayForPlayers(
+    leagueId,
+    ratingIds.map((row) => row.playerId),
+  );
+
   const [ratings, displayStatsByPlayer] = await Promise.all([
     prisma.playerRating.findMany({
       where: { leagueId },
