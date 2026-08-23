@@ -155,4 +155,14 @@ describe('CI deploy SSM command', () => {
     expect(chunk).toContain('host-update.sh');
     expect(chunk).not.toMatch(/systemctl stop dbz-bot/);
   });
+
+  it('repairs a local origin before git pull on the host', () => {
+    const yml = readFileSync(join(repoRoot, '.github/workflows/ci-cd.yml'), 'utf8');
+    expect(yml).toContain('Repairing local origin before pull');
+    expect(yml).toContain('remote set-url origin');
+    const repairIdx = yml.indexOf('Repairing local origin before pull');
+    const pullIdx = yml.indexOf('pull --ff-only origin main', repairIdx);
+    expect(repairIdx).toBeGreaterThan(-1);
+    expect(pullIdx).toBeGreaterThan(repairIdx);
+  });
 });
