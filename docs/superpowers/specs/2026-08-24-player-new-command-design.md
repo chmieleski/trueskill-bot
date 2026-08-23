@@ -1,7 +1,7 @@
 # Manual New-player flag command — Design
 
 **Date:** 2026-08-24  
-**Status:** Approved  
+**Status:** Implemented  
 **Scope:** `general` (league-scoped `PlayerRating.isNewPlayer`; slash command)  
 **Related:** [`2026-08-22-new-player-rating-isolation-design.md`](./2026-08-22-new-player-rating-isolation-design.md)
 
