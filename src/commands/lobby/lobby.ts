@@ -215,9 +215,7 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const subcommand = interaction.options.getSubcommand(true);
   const isPublicLobbyPost = subcommand === 'recreate';
-  await interaction.deferReply(
-    isPublicLobbyPost ? {} : { flags: MessageFlags.Ephemeral },
-  );
+  await interaction.deferReply(isPublicLobbyPost ? {} : { flags: MessageFlags.Ephemeral });
   const matchId = interaction.options.getString('match_id');
   const hostDiscordId = interaction.user.id;
 
@@ -458,11 +456,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       });
 
       const previewMessage = await interaction.fetchReply();
-      await attachRecreatedLobbyMessage(
-        result.matchId,
-        previewMessage.id,
-        interaction.channelId,
-      );
+      await attachRecreatedLobbyMessage(result.matchId, previewMessage.id, interaction.channelId);
 
       await sendNewPlayerSuggestPrompts({
         interaction,

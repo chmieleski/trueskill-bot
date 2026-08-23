@@ -123,14 +123,12 @@ describe('recreateLobbyFromVoidedMatch', () => {
   });
 
   it('creates a pending lobby from a voided roster', async () => {
-    getMatchById
-      .mockResolvedValueOnce(VOIDED_MATCH)
-      .mockResolvedValueOnce({
-        ...VOIDED_MATCH,
-        id: 'new-1',
-        status: 'PENDING',
-        completedAt: null,
-      });
+    getMatchById.mockResolvedValueOnce(VOIDED_MATCH).mockResolvedValueOnce({
+      ...VOIDED_MATCH,
+      id: 'new-1',
+      status: 'PENDING',
+      completedAt: null,
+    });
     createPendingMatch.mockResolvedValue({
       matchId: 'new-1',
       createdAt: new Date('2026-08-23T11:00:00Z'),
