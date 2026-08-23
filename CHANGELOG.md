@@ -1,3 +1,10 @@
+# [1.14.0](https://github.com/chmieleski/trueskill-bot/compare/v1.13.2...v1.14.0) (2026-08-23)
+
+
+### Features
+
+* **rating:** idle decay, season crunch, and prize lock ([#79](https://github.com/chmieleski/trueskill-bot/issues/79)) ([51a8bb2](https://github.com/chmieleski/trueskill-bot/commit/51a8bb22b61ccd3bbebf30080b146ac5af2ba480))
+
 ## [1.13.2](https://github.com/chmieleski/trueskill-bot/compare/v1.13.1...v1.13.2) (2026-08-23)
 
 
