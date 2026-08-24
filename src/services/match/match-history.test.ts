@@ -111,6 +111,10 @@ describe('formatMatchHistoryResult', () => {
     expect(formatMatchHistoryResult({ result: 'WIN', isQuitter: true })).toBe('WQ');
     expect(formatMatchHistoryResult({ result: 'LOSS', isQuitter: false })).toBe('L');
   });
+
+  it('uses X for cancelled matches', () => {
+    expect(formatMatchHistoryResult({ result: 'CANCELLED', isQuitter: false })).toBe('X');
+  });
 });
 
 describe('formatMatchHistoryField', () => {
@@ -123,6 +127,8 @@ describe('formatMatchHistoryField', () => {
         team: 1,
         heroName: 'Goku',
         isQuitter: true,
+        isGriefer: false,
+        grieferKiAccrued: null,
         globalDelta: 186,
         leagueGames: 8,
       },
@@ -145,6 +151,8 @@ describe('formatMatchHistoryField', () => {
         team: 2,
         heroName: null,
         isQuitter: false,
+        isGriefer: false,
+        grieferKiAccrued: null,
         leagueGames: 8,
       },
       'Evil',
@@ -164,6 +172,8 @@ describe('formatMatchHistoryField', () => {
         team: 1,
         heroName: 'Goku',
         isQuitter: false,
+        isGriefer: false,
+        grieferKiAccrued: null,
         globalDelta: 186,
         leagueGames: 3,
       },
@@ -172,6 +182,26 @@ describe('formatMatchHistoryField', () => {
     expect(field.name).toBe('Goku · ✅ Calibrating');
     expect(field.name).not.toContain('186');
     expect(field.name).not.toContain(' ki');
+  });
+
+  it('formats cancelled griefer rows', () => {
+    const field = formatMatchHistoryField(
+      {
+        matchId: 'm-cancel',
+        completedAt: new Date('2026-08-16T12:00:00.000Z'),
+        result: 'CANCELLED',
+        team: 2,
+        heroName: 'Vegeta',
+        isQuitter: false,
+        isGriefer: true,
+        grieferKiAccrued: 80,
+        leagueGames: 10,
+      },
+      'Evil',
+    );
+
+    expect(field.name).toBe('Vegeta · 🚫 cancelled');
+    expect(field.value).toContain('Cancelled · Griefer (−80 ki pool)');
   });
 });
 
@@ -206,6 +236,7 @@ describe('match history page custom ids', () => {
       playerId,
       leagueId,
       page: 3,
+      griefersOnly: false,
     });
     const prev = buildMatchHistoryPageCustomId(invokerId, playerId, leagueId, 'prev', 2);
     expect(parseMatchHistoryPageCustomId(prev)).toEqual({
@@ -213,6 +244,22 @@ describe('match history page custom ids', () => {
       playerId,
       leagueId,
       page: 1,
+      griefersOnly: false,
+    });
+  });
+
+  it('round-trips griefers-only pagination', () => {
+    const invokerId = '123456789012345678';
+    const playerId = 'clplayeridxxxxxxxxxxxx';
+    const leagueId = 'clleagueidxxxxxxxxxxxx';
+    const id = buildMatchHistoryPageCustomId(invokerId, playerId, leagueId, 'next', 1, true);
+    expect(id.endsWith(':g')).toBe(true);
+    expect(parseMatchHistoryPageCustomId(id)).toEqual({
+      invokerId,
+      playerId,
+      leagueId,
+      page: 2,
+      griefersOnly: true,
     });
   });
 
@@ -229,12 +276,14 @@ describe('match history page custom ids', () => {
       playerId,
       leagueId,
       page: 13,
+      griefersOnly: false,
     });
     expect(parseMatchHistoryPageCustomId(prev)).toEqual({
       invokerId,
       playerId,
       leagueId,
       page: 11,
+      griefersOnly: false,
     });
   });
 
@@ -246,6 +295,7 @@ describe('match history page custom ids', () => {
       playerId: '1f21c92e-925a-4aef-b27f-9c4385b252fb',
       leagueId: 'e5863052-d453-48db-b67a-14d1175c298b',
       page: 2,
+      griefersOnly: false,
     });
   });
 
@@ -331,6 +381,71 @@ describe('loadMatchHistoryPage', () => {
     expect(page.totalPages).toBe(1);
     expect(page.rows).toEqual([]);
     expect(page.page).toBe(1);
+    expect(page.griefersOnly).toBe(false);
+  });
+
+  it('filters to griefer matches when griefersOnly is set', async () => {
+    matchCount.mockResolvedValue(0);
+    matchFindMany.mockResolvedValue([]);
+    await loadMatchHistoryPage({
+      leagueId: 'L1',
+      playerId: 'P1',
+      username: 'alice',
+      page: 1,
+      griefersOnly: true,
+    });
+    expect(matchCount).toHaveBeenCalledWith({
+      where: {
+        leagueId: 'L1',
+        status: { in: ['COMPLETED', 'CANCELLED'] },
+        players: { some: { playerId: 'P1', isGriefer: true } },
+      },
+    });
+  });
+
+  it('maps cancelled griefer matches when griefersOnly is set', async () => {
+    const endedAt = new Date('2026-08-11T00:00:00.000Z');
+    matchCount.mockResolvedValue(1);
+    matchFindMany.mockResolvedValue([
+      {
+        id: 'm-cancel',
+        leagueId: 'L1',
+        status: 'CANCELLED',
+        completedAt: null,
+        updatedAt: endedAt,
+        createdAt: endedAt,
+        players: [
+          {
+            playerId: 'P1',
+            team: 2,
+            result: null,
+            heroId: 2,
+            isQuitter: false,
+            isGriefer: true,
+            grieferKiAccrued: 80,
+            slot: 2,
+            player: { username: 'alice' },
+          },
+        ],
+      },
+    ]);
+
+    const page = await loadMatchHistoryPage({
+      leagueId: 'L1',
+      playerId: 'P1',
+      username: 'alice',
+      page: 1,
+      griefersOnly: true,
+    });
+
+    expect(page.rows).toEqual([
+      expect.objectContaining({
+        matchId: 'm-cancel',
+        result: 'CANCELLED',
+        isGriefer: true,
+        grieferKiAccrued: 80,
+      }),
+    ]);
   });
 
   it('clamps page and maps rows', async () => {
@@ -339,7 +454,9 @@ describe('loadMatchHistoryPage', () => {
       {
         id: 'm2',
         leagueId: 'L1',
+        status: 'COMPLETED',
         completedAt: new Date('2026-08-10T00:00:00.000Z'),
+        updatedAt: new Date('2026-08-10T00:00:00.000Z'),
         createdAt: new Date('2026-08-10T00:00:00.000Z'),
         players: [
           {
@@ -348,6 +465,8 @@ describe('loadMatchHistoryPage', () => {
             result: 'WIN',
             heroId: 1,
             isQuitter: false,
+            isGriefer: false,
+            grieferKiAccrued: null,
             slot: 1,
             player: { username: 'alice' },
           },
@@ -379,7 +498,9 @@ describe('loadMatchHistoryPage', () => {
       {
         id: 'm-post-reset',
         leagueId: 'L1',
+        status: 'COMPLETED',
         completedAt: matchCompletedAt,
+        updatedAt: matchCompletedAt,
         createdAt: matchCompletedAt,
         players: [
           {
@@ -388,6 +509,8 @@ describe('loadMatchHistoryPage', () => {
             result: 'WIN',
             heroId: 1,
             isQuitter: false,
+            isGriefer: false,
+            grieferKiAccrued: null,
             slot: 1,
             globalKiDelta: 186,
             player: { username: 'alice' },
@@ -444,6 +567,7 @@ describe('buildMatchHistoryEmbed', () => {
         page: 1,
         totalPages: 1,
         totalMatches: 0,
+        griefersOnly: false,
         rows: [],
       },
       'L1',
@@ -470,18 +594,24 @@ describe('buildMatchHistoryEmbed', () => {
             team: 1,
             heroName: 'Goku',
             isQuitter: false,
+            isGriefer: true,
+            grieferKiAccrued: 120,
             globalDelta: 42,
             leagueGames: 8,
           },
         ],
+        griefersOnly: true,
       },
       'L1',
       (t) => (t === 1 ? 'Z Fighters' : 'Evil'),
     );
     expect(embed.data.fields).toHaveLength(1);
+    expect(embed.data.title).toBe('Match history · griefers');
     expect(embed.data.fields?.[0]?.name).toBe('Goku · ✅ +42 ki');
+    expect(embed.data.fields?.[0]?.value).toContain('Griefer (−120 ki pool)');
     expect(embed.data.fields?.[0]?.value).toContain('`mid1`');
-    expect(embed.data.fields?.[0]?.value).toContain('Win · Z Fighters');
+    expect(embed.data.fields?.[0]?.value).toContain('Win · Griefer');
+    expect(embed.data.fields?.[0]?.value).toContain('Z Fighters');
   });
 });
 

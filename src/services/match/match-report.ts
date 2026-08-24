@@ -200,6 +200,7 @@ export async function setGriefers(
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
         data: {
           isGriefer,
+          grieferKiAccrued: isGriefer ? undefined : null,
           ...(isGriefer ? { isQuitter: false } : {}),
         },
       });
@@ -386,4 +387,77 @@ export async function cancelInProgressMatch(
     'In-progress match cancelled',
   );
   return updated!;
+}
+
+export type ClearedMatchGriefer = {
+  slot: number;
+  playerId: string;
+  kiTaxRemoved: number;
+};
+
+/**
+ * Clear griefer flags and deferred ki accrual on a finished match (mods).
+ * When `slots` is omitted or empty, clears every griefer on the match.
+ */
+export async function clearMatchGriefers(
+  matchId: string,
+  slots?: number[],
+): Promise<{ match: MatchWithPlayers; cleared: ClearedMatchGriefer[] }> {
+  const match = await getMatchById(matchId);
+
+  if (!match) {
+    throw new MatchServiceError('This match was not found.');
+  }
+
+  if (match.status !== 'COMPLETED' && match.status !== 'CANCELLED') {
+    throw new MatchServiceError(
+      'Griefer flags can only be cleared on completed or cancelled matches.',
+    );
+  }
+
+  const targetSlots =
+    slots !== undefined && slots.length > 0
+      ? new Set(slots)
+      : new Set(match.players.filter((player) => player.isGriefer).map((player) => player.slot));
+
+  if (targetSlots.size === 0) {
+    throw new MatchServiceError('This match has no griefers to clear.');
+  }
+
+  if (slots !== undefined && slots.length > 0) {
+    assertKnownSlots(match, targetSlots, 'griefer');
+  }
+
+  const cleared: ClearedMatchGriefer[] = [];
+
+  await prisma.$transaction(async (tx) => {
+    for (const player of match.players) {
+      if (!targetSlots.has(player.slot)) {
+        continue;
+      }
+
+      if (!player.isGriefer && player.grieferKiAccrued == null) {
+        continue;
+      }
+
+      cleared.push({
+        slot: player.slot,
+        playerId: player.playerId,
+        kiTaxRemoved: player.grieferKiAccrued ?? 0,
+      });
+
+      await tx.matchPlayer.update({
+        where: { matchId_playerId: { matchId, playerId: player.playerId } },
+        data: { isGriefer: false, grieferKiAccrued: null },
+      });
+    }
+  });
+
+  if (cleared.length === 0) {
+    throw new MatchServiceError('The selected slots are not marked as griefers.');
+  }
+
+  const updated = await getMatchById(matchId);
+  log.info({ matchId, cleared }, 'Griefers cleared from match');
+  return { match: updated!, cleared };
 }

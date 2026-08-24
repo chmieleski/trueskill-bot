@@ -38,6 +38,7 @@ describe('match command data', () => {
       'cancel',
       'flip',
       'void',
+      'ungrief',
     ]);
   });
 
@@ -48,6 +49,7 @@ describe('match command data', () => {
 
     expect(optionNames).toContain('user');
     expect(optionNames).toContain('nick');
+    expect(optionNames).toContain('griefers_only');
   });
 
   it('cancel subcommand takes griefers slots', () => {

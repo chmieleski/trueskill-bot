@@ -8,10 +8,12 @@ export {
 } from './match-service.js';
 export {
   cancelInProgressMatch,
+  clearMatchGriefers,
   completeMatch,
   setGriefers,
   setQuitters,
   resolveGrieferSlots,
+  type ClearedMatchGriefer,
   type CompleteMatchResult,
 } from './match-report.js';
 export {
