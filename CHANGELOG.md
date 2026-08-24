@@ -1,3 +1,11 @@
+# [1.21.0](https://github.com/chmieleski/trueskill-bot/compare/v1.20.0...v1.21.0) (2026-08-24)
+
+
+### Features
+
+* **rating:** add per-league static σ for lobby balance hints ([#89](https://github.com/chmieleski/trueskill-bot/issues/89)) ([9048692](https://github.com/chmieleski/trueskill-bot/commit/90486920db36a62f678314b1f6bd4defa9f8cb16))
+* **rating:** crunch min-games prize lock and strict_crunch preset ([#88](https://github.com/chmieleski/trueskill-bot/issues/88)) ([d0eb262](https://github.com/chmieleski/trueskill-bot/commit/d0eb262a5c5c16a97ee0a42c75fea042aad80c15))
+
 # [1.20.0](https://github.com/chmieleski/trueskill-bot/compare/v1.19.0...v1.20.0) (2026-08-24)
 
 
