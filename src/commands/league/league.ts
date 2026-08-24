@@ -35,6 +35,7 @@ import {
   type LeagueResetMode,
 } from '../../services/league/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
+import { resolveDecaySettings } from '../../services/rating/decay-settings.js';
 
 const log = createLogger('league_cmd');
 
@@ -252,7 +253,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('season_end')
-            .setDescription('Set the season end date (auto crunch starts 7 days before)')
+            .setDescription('Set the season end date (auto crunch starts N days before; default 7)')
             .addStringOption((option) =>
               option
                 .setName('date')
@@ -361,6 +362,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
       await setLeagueSeasonEndsAt(resolved.league.id, seasonEndsAt);
 
+      const crunchWindowDays = resolveDecaySettings(resolved.league).crunchWindowDays;
+
       log.info(
         {
           guildId: interaction.guildId,
@@ -374,7 +377,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       await interaction.reply({
         content: [
           `Season end for **${resolved.league.name}** set to ${discordTimestamp(seasonEndsAt)}.`,
-          'Auto crunch starts 7 days before that time.',
+          `Auto crunch starts ${crunchWindowDays} days before that time.`,
         ].join('\n'),
         flags: MessageFlags.Ephemeral,
       });

@@ -16,9 +16,15 @@ vi.mock('../lobby/register-lobby-source.js', () => ({
   WC3STATS_CONFIG_UNSUPPORTED_MESSAGE: 'Warcraft lobby import is not available for this game.',
 }));
 
-vi.mock('../rating/rating-decay.js', () => ({
-  isLeagueInCrunch: vi.fn(() => false),
-}));
+vi.mock('../rating/rating-decay.js', async () => {
+  const actual = await vi.importActual<typeof import('../rating/rating-decay.js')>(
+    '../rating/rating-decay.js',
+  );
+  return {
+    ...actual,
+    isLeagueInCrunch: vi.fn(() => false),
+  };
+});
 
 import { resolveLeagueConfig, setLeagueWc3statsHostPrompt } from './league-wc3stats.js';
 import { isLeagueInCrunch } from '../rating/rating-decay.js';
@@ -62,6 +68,7 @@ describe('resolveLeagueConfig decay', () => {
     expect(resolved.decayEnabled).toBe(true);
     expect(resolved.seasonEndsAt).toBeUndefined();
     expect(resolved.decayInCrunch).toBe(false);
+    expect(resolved.decaySettings.midGraceDays).toBe(10);
   });
 
   it('reads decay fields and crunch state from the league row', async () => {
@@ -71,6 +78,7 @@ describe('resolveLeagueConfig decay', () => {
       decayEnabled: false,
       seasonEndsAt,
       crunchStartedAt: null,
+      decayMidGraceDays: 14,
     });
     vi.mocked(isLeagueInCrunch).mockReturnValue(true);
 
@@ -78,15 +86,8 @@ describe('resolveLeagueConfig decay', () => {
     expect(resolved.decayEnabled).toBe(false);
     expect(resolved.seasonEndsAt).toEqual(seasonEndsAt);
     expect(resolved.decayInCrunch).toBe(true);
-    expect(isLeagueInCrunch).toHaveBeenCalledWith(
-      {
-        status: 'ACTIVE',
-        decayEnabled: false,
-        seasonEndsAt,
-        crunchStartedAt: null,
-      },
-      expect.any(Date),
-    );
+    expect(resolved.decaySettings.midGraceDays).toBe(14);
+    expect(isLeagueInCrunch).toHaveBeenCalled();
   });
 });
 

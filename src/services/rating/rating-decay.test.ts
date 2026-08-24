@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   computeDecayDelta,
   dailyKiLoss,
+  DEFAULT_DECAY_SETTINGS,
   hasQualifyingActivityEveryUtcDay,
   idleDaysSince,
   isLeagueInCrunch,
@@ -17,12 +18,50 @@ import {
 } from './rating-decay.js';
 import { KI_SCALE } from './rating-math.js';
 
-describe('dailyKiLoss mid-season', () => {
-  it('uses grace and tiers', () => {
-    expect(dailyKiLoss(10, false)).toBe(0);
-    expect(dailyKiLoss(11, false)).toBe(50);
-    expect(dailyKiLoss(19, false)).toBe(50);
-    expect(dailyKiLoss(20, false)).toBe(100);
+describe('dailyKiLoss with custom settings', () => {
+  it('uses overridden grace and rates', () => {
+    const settings = {
+      ...DEFAULT_DECAY_SETTINGS,
+      midGraceDays: 5,
+      midTier1Ki: 25,
+      midTier1SpanDays: 2,
+      midTier2Ki: 80,
+    };
+    expect(dailyKiLoss(5, false, settings)).toBe(0);
+    expect(dailyKiLoss(6, false, settings)).toBe(25);
+    expect(dailyKiLoss(7, false, settings)).toBe(25);
+    expect(dailyKiLoss(8, false, settings)).toBe(80);
+  });
+});
+
+describe('computeDecayDelta custom streak cap', () => {
+  it('skips mid-season cap when midStreakCapKi is 0', () => {
+    const r = computeDecayDelta({
+      idleDays: 30,
+      inCrunch: false,
+      streakKiApplied: 5000,
+      mu: 40,
+      sigma: 1.5,
+      leagueGames: 50,
+      utcDaysToApply: 1,
+      settings: { ...DEFAULT_DECAY_SETTINGS, midStreakCapKi: 0 },
+    });
+    expect(r.kiAppliedThisPass).toBe(100);
+  });
+});
+
+describe('prize lock disabled', () => {
+  it('returns null window when prizeLockEnabled is false', () => {
+    const league = {
+      status: 'ACTIVE' as const,
+      decayEnabled: true,
+      seasonEndsAt: new Date('2026-08-23T00:00:00.000Z'),
+      crunchStartedAt: null,
+      archivedAt: null,
+      settings: { ...DEFAULT_DECAY_SETTINGS, prizeLockEnabled: false },
+    };
+    const now = new Date('2026-08-20T12:00:00.000Z');
+    expect(resolvePrizeLockWindowDays(league, now)).toBeNull();
   });
 });
 

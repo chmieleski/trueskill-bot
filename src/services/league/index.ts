@@ -108,10 +108,20 @@ export {
 
 export {
   LEAGUE_DECAY_ARCHIVED_MESSAGE,
+  clearDecayCrunchWindow,
+  clearDecayModeSetting,
+  clearDecayPrizeLock,
+  clearDecayStreakCap,
   clearLeagueCrunch,
   parseSeasonEndDate,
+  setDecayCrunchWindow,
   setDecayEnabled,
+  setDecayModeSetting,
+  setDecayPrizeLock,
+  setDecayStreakCap,
   setLeagueSeasonEndsAt,
   startLeagueCrunch,
+  type DecayMode,
+  type DecayTunableKind,
   type StartLeagueCrunchResult,
 } from './league-decay.js';

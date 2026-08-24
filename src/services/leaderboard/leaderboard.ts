@@ -2,11 +2,14 @@ import { loadHeroCatalog } from '../guild/hero-catalog.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   applyPendingDecayForPlayers,
+  DECAY_SETTINGS_SELECT,
+  DEFAULT_DECAY_SETTINGS,
   isLeagueInCrunch,
   isPrizeEligibleFromActivityDays,
+  leagueDecaySettings,
   loadQualifyingActivityUtcDaysByPlayer,
   resolvePrizeLockWindowDays,
-  type DecayLeagueContext,
+  toDecayLeagueContext,
 } from '../rating/rating-decay.js';
 import { displayOrdinal, isCalibrating } from '../rating/rating-math.js';
 import {
@@ -94,6 +97,8 @@ export type OverallLeaderboardPage = {
   totalPlayers: number;
   /** When true, overall medals follow prize eligibility instead of board rank. */
   prizeLockActive?: boolean;
+  /** Effective crunch window days (for prize-lock copy). */
+  crunchWindowDays?: number;
 };
 
 export type HeroBoardSlice = {
@@ -146,6 +151,7 @@ export function paginateOverall(
   rows: OverallLeaderboardEntry[],
   page: number,
   prizeLockActive = false,
+  crunchWindowDays = DEFAULT_DECAY_SETTINGS.crunchWindowDays,
 ): OverallLeaderboardPage {
   const totalPlayers = rows.length;
   const totalPages = Math.max(1, Math.ceil(totalPlayers / LEADERBOARD_PAGE_SIZE));
@@ -157,6 +163,7 @@ export function paginateOverall(
     totalPages,
     totalPlayers,
     prizeLockActive,
+    crunchWindowDays,
   };
 }
 
@@ -181,6 +188,7 @@ export function assignPrizeMedalRanks<T extends { prizeEligible?: boolean }>(
 async function loadEligibleOverallRows(leagueId: string): Promise<{
   entries: OverallLeaderboardEntry[];
   prizeLockActive: boolean;
+  crunchWindowDays: number;
 }> {
   const ratingIds = await prisma.playerRating.findMany({
     where: { leagueId },
@@ -207,21 +215,17 @@ async function loadEligibleOverallRows(leagueId: string): Promise<{
         seasonEndsAt: true,
         crunchStartedAt: true,
         archivedAt: true,
+        ...DECAY_SETTINGS_SELECT,
       },
     }),
   ]);
 
   const now = new Date();
-  const leagueCtx: DecayLeagueContext | null = league
-    ? {
-        status: league.status,
-        decayEnabled: league.decayEnabled,
-        seasonEndsAt: league.seasonEndsAt,
-        crunchStartedAt: league.crunchStartedAt,
-        archivedAt: league.archivedAt,
-      }
-    : null;
-  const prizeLockActive = leagueCtx != null && isLeagueInCrunch(leagueCtx, now);
+  const leagueCtx = league ? toDecayLeagueContext(league) : null;
+  const prizeLockActive =
+    leagueCtx != null &&
+    isLeagueInCrunch(leagueCtx, now) &&
+    leagueDecaySettings(leagueCtx).prizeLockEnabled;
   const prizeLockWindow =
     prizeLockActive && leagueCtx ? resolvePrizeLockWindowDays(leagueCtx, now) : null;
   const activityDaysByPlayer =
@@ -275,24 +279,31 @@ async function loadEligibleOverallRows(leagueId: string): Promise<{
   });
 
   const entries = prizeLockActive ? assignPrizeMedalRanks(ranked) : ranked;
+  const crunchWindowDays = leagueCtx
+    ? leagueDecaySettings(leagueCtx).crunchWindowDays
+    : DEFAULT_DECAY_SETTINGS.crunchWindowDays;
 
-  return { entries, prizeLockActive };
+  return { entries, prizeLockActive, crunchWindowDays };
 }
 
 export async function loadOverallLeaderboardPage(
   leagueId: string,
   page: number,
 ): Promise<OverallLeaderboardPage> {
-  const { entries, prizeLockActive } = await loadEligibleOverallRows(leagueId);
-  return paginateOverall(entries, page, prizeLockActive);
+  const { entries, prizeLockActive, crunchWindowDays } = await loadEligibleOverallRows(leagueId);
+  return paginateOverall(entries, page, prizeLockActive, crunchWindowDays);
 }
 
 export async function loadOverallLeaderboardTop(
   leagueId: string,
   limit: number,
-): Promise<{ entries: OverallLeaderboardEntry[]; prizeLockActive: boolean }> {
-  const { entries, prizeLockActive } = await loadEligibleOverallRows(leagueId);
-  return { entries: entries.slice(0, limit), prizeLockActive };
+): Promise<{
+  entries: OverallLeaderboardEntry[];
+  prizeLockActive: boolean;
+  crunchWindowDays: number;
+}> {
+  const { entries, prizeLockActive, crunchWindowDays } = await loadEligibleOverallRows(leagueId);
+  return { entries: entries.slice(0, limit), prizeLockActive, crunchWindowDays };
 }
 
 function mapHeroRatings(

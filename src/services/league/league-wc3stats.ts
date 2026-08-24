@@ -12,7 +12,12 @@ import {
   assertLiveLeaderboardSize,
 } from '../leaderboard/leaderboard.js';
 import { assertRankResetCooldownDays } from '../rating/rank-reset.js';
-import { isLeagueInCrunch } from '../rating/rating-decay.js';
+import {
+  isLeagueInCrunch,
+  resolveDecaySettings,
+  toDecayLeagueContext,
+} from '../rating/rating-decay.js';
+import type { ResolvedDecaySettings } from '../rating/decay-settings.js';
 import { assertLeagueAllowsWc3stats } from '../lobby/register-lobby-source.js';
 import { assertLobbyHostPromptChannelsCompatible } from './league-lobby-channel.js';
 
@@ -39,6 +44,7 @@ export interface ResolvedLeagueConfig {
   decayEnabled: boolean;
   seasonEndsAt: Date | undefined;
   decayInCrunch: boolean;
+  decaySettings: ResolvedDecaySettings;
 }
 
 /**
@@ -49,16 +55,9 @@ export async function resolveLeagueConfig(leagueId: string): Promise<ResolvedLea
   const row = await prisma.league.findUnique({ where: { id: leagueId } });
   const decayEnabled = row?.decayEnabled !== false;
   const seasonEndsAt = row?.seasonEndsAt ?? undefined;
+  const decaySettings = resolveDecaySettings(row ?? undefined);
   const decayInCrunch = row
-    ? isLeagueInCrunch(
-        {
-          status: row.status,
-          decayEnabled,
-          seasonEndsAt: row.seasonEndsAt,
-          crunchStartedAt: row.crunchStartedAt,
-        },
-        new Date(),
-      )
+    ? isLeagueInCrunch(toDecayLeagueContext({ ...row, decayEnabled }), new Date())
     : false;
 
   return {
@@ -79,6 +78,7 @@ export async function resolveLeagueConfig(leagueId: string): Promise<ResolvedLea
     decayEnabled,
     seasonEndsAt,
     decayInCrunch,
+    decaySettings,
   };
 }
 

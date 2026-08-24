@@ -14,7 +14,10 @@ import {
   LEAGUE_DECAY_ARCHIVED_MESSAGE,
   parseSeasonEndDate,
   setDecayEnabled,
+  setDecayModeSetting,
+  setDecayStreakCap,
 } from './league-decay.js';
+import { assertDecaySettingBounds } from '../rating/decay-settings.js';
 
 describe('parseSeasonEndDate', () => {
   const now = new Date('2026-08-24T12:00:00.000Z');
@@ -76,5 +79,46 @@ describe('setDecayEnabled', () => {
       where: { id: 'league-1' },
       data: { decayEnabled: false },
     });
+  });
+});
+
+describe('setDecayModeSetting', () => {
+  beforeEach(() => {
+    update.mockReset();
+  });
+
+  it('persists mid grace days after bounds check', async () => {
+    await setDecayModeSetting('league-1', 'grace', 'mid', 14);
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'league-1' },
+      data: { decayMidGraceDays: 14 },
+    });
+  });
+
+  it('rejects invalid ki rates', async () => {
+    await expect(setDecayModeSetting('league-1', 'tier1_ki', 'crunch', 999)).rejects.toThrow(
+      'Ki per day must be between 0 and 500.',
+    );
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe('setDecayStreakCap', () => {
+  beforeEach(() => {
+    update.mockReset();
+  });
+
+  it('persists zero as no-cap', async () => {
+    await setDecayStreakCap('league-1', 0);
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'league-1' },
+      data: { decayMidStreakCapKi: 0 },
+    });
+  });
+});
+
+describe('assertDecaySettingBounds export used by setters', () => {
+  it('is the shared validator', () => {
+    expect(assertDecaySettingBounds('crunchWindowDays', 7)).toBe(7);
   });
 });

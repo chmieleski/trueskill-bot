@@ -139,6 +139,17 @@ const ACTIVE_SOURCE = {
   decayEnabled: true,
   seasonEndsAt: SEASON_ENDS_AT,
   crunchStartedAt: CRUNCH_STARTED_AT,
+  decayMidGraceDays: 14,
+  decayMidTier1Ki: null,
+  decayMidTier2Ki: null,
+  decayMidTier1SpanDays: null,
+  decayMidStreakCapKi: 800,
+  decayCrunchGraceDays: null,
+  decayCrunchTier1Ki: null,
+  decayCrunchTier2Ki: null,
+  decayCrunchTier1SpanDays: null,
+  decayCrunchWindowDays: 5,
+  decayPrizeLockEnabled: false,
 };
 
 function previewInput(overrides: Partial<Parameters<typeof previewLeagueRollover>[0]> = {}) {
@@ -715,6 +726,10 @@ describe('applyLeagueRollover', () => {
         decayEnabled: false,
         seasonEndsAt: SEASON_ENDS_AT,
         crunchStartedAt: CRUNCH_STARTED_AT,
+        decayMidGraceDays: 14,
+        decayMidStreakCapKi: 800,
+        decayCrunchWindowDays: 5,
+        decayPrizeLockEnabled: false,
       }),
     });
     expect(playerRatingCreateMany).toHaveBeenCalledWith({
