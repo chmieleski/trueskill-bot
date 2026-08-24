@@ -42,6 +42,7 @@ export interface ResolvedLeagueConfig {
   lobbyChannelEnabled: boolean;
   lobbyChannelId: string | undefined;
   decayEnabled: boolean;
+  balanceStaticSigmaEnabled: boolean;
   seasonEndsAt: Date | undefined;
   decayInCrunch: boolean;
   decaySettings: ResolvedDecaySettings;
@@ -76,6 +77,7 @@ export async function resolveLeagueConfig(leagueId: string): Promise<ResolvedLea
     lobbyChannelEnabled: row?.lobbyChannelEnabled === true,
     lobbyChannelId: row?.lobbyChannelId?.trim() || undefined,
     decayEnabled,
+    balanceStaticSigmaEnabled: row?.balanceStaticSigmaEnabled === true,
     seasonEndsAt,
     decayInCrunch,
     decaySettings,

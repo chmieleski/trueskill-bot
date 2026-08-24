@@ -59,4 +59,58 @@ describe('computeWinChanceFromRatings', () => {
     expect(winChance!.teamAPercent).toBeGreaterThan(50);
     expect(winChance!.teamAPercent + winChance!.teamBPercent).toBe(100);
   });
+
+  it('static σ is insensitive to persisted σ when μ is unchanged', () => {
+    const entries = [
+      { playerId: 'p1', slot: 1, team: 1 as const, heroId: 1 },
+      { playerId: 'p2', slot: 7, team: 2 as const, heroId: 7 },
+    ];
+    const mixedGlobals = new Map([
+      ['p1', { mu: 40, sigma: 3 }],
+      ['p2', { mu: 20, sigma: 8.333 }],
+    ]);
+    const swappedGlobals = new Map([
+      ['p1', { mu: 40, sigma: 8.333 }],
+      ['p2', { mu: 20, sigma: 3 }],
+    ]);
+    const mixedHeroes = new Map([
+      ['p1:1', { mu: 40, sigma: 3 }],
+      ['p2:7', { mu: 20, sigma: 8.333 }],
+    ]);
+    const swappedHeroes = new Map([
+      ['p1:1', { mu: 40, sigma: 8.333 }],
+      ['p2:7', { mu: 20, sigma: 3 }],
+    ]);
+
+    const staticMixed = computeWinChanceFromRatings(entries, mixedGlobals, mixedHeroes, {
+      staticSigma: true,
+    });
+    const staticSwapped = computeWinChanceFromRatings(entries, swappedGlobals, swappedHeroes, {
+      staticSigma: true,
+    });
+
+    expect(staticMixed).toEqual(staticSwapped);
+  });
+
+  it('static σ can produce a different win% than dynamic σ', () => {
+    const entries = [
+      { playerId: 'p1', slot: 1, team: 1 as const, heroId: 1 },
+      { playerId: 'p2', slot: 7, team: 2 as const, heroId: 7 },
+    ];
+    const globals = new Map([
+      ['p1', { mu: 28, sigma: 3 }],
+      ['p2', { mu: 25, sigma: 8.333 }],
+    ]);
+    const heroes = new Map([
+      ['p1:1', { mu: 28, sigma: 3 }],
+      ['p2:7', { mu: 25, sigma: 8.333 }],
+    ]);
+
+    const dynamic = computeWinChanceFromRatings(entries, globals, heroes);
+    const staticSigma = computeWinChanceFromRatings(entries, globals, heroes, {
+      staticSigma: true,
+    });
+
+    expect(dynamic!.teamAPercent).not.toBe(staticSigma!.teamAPercent);
+  });
 });

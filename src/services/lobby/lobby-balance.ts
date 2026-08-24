@@ -6,7 +6,10 @@ import {
   type GameProfile,
 } from '../../domain/game-profile.js';
 import { WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
-import { ratingEntitiesForBalance } from '../rating/rating-entities.js';
+import {
+  ratingEntitiesForBalance,
+  type BalancePredictWinOptions,
+} from '../rating/rating-entities.js';
 import { roundWinPercents, splitRosterByTeam, toOpenSkillRatings } from '../rating/rating-math.js';
 
 export type MuSigma = { mu: number; sigma: number };
@@ -56,9 +59,12 @@ function teamCountsOk(roster: BalanceRosterEntry[]): boolean {
   return teamA.length >= 1 && teamB.length >= 1;
 }
 
+export type { BalancePredictWinOptions } from '../rating/rating-entities.js';
+
 function winChanceForRoster(
   roster: BalanceRosterEntry[],
   lookup: BalanceRatingLookup,
+  options?: BalancePredictWinOptions,
 ): { teamAPercent: number; teamBPercent: number } | undefined {
   if (!teamCountsOk(roster)) {
     return undefined;
@@ -70,7 +76,7 @@ function winChanceForRoster(
     for (const entry of team) {
       const global = lookup.global(entry.playerId);
       const hero = entry.heroId == null ? global : lookup.hero(entry.playerId, entry.heroId);
-      list.push(...ratingEntitiesForBalance(global, hero, entry.heroId));
+      list.push(...ratingEntitiesForBalance(global, hero, entry.heroId, options));
     }
     return toOpenSkillRatings(list);
   };
@@ -178,6 +184,7 @@ export function suggestBalanceMoves(
   roster: BalanceRosterEntry[],
   lookup: BalanceRatingLookup,
   currentWinChance: { teamAPercent: number; teamBPercent: number },
+  options?: BalancePredictWinOptions,
   profile?: GameProfile,
 ): BalanceSuggestion[] {
   if (!teamCountsOk(roster)) {
@@ -195,7 +202,7 @@ export function suggestBalanceMoves(
   for (const a of teamA) {
     for (const b of teamB) {
       const next = applySwap(roster, a.slot, b.slot, resolved);
-      const wc = winChanceForRoster(next, lookup);
+      const wc = winChanceForRoster(next, lookup, options);
       if (!wc || imbalance(wc.teamAPercent) >= currentImbalance) {
         continue;
       }
@@ -216,7 +223,7 @@ export function suggestBalanceMoves(
       if (!teamCountsOk(next)) {
         continue;
       }
-      const wc = winChanceForRoster(next, lookup);
+      const wc = winChanceForRoster(next, lookup, options);
       if (!wc || imbalance(wc.teamAPercent) >= currentImbalance) {
         continue;
       }
@@ -244,9 +251,10 @@ export function suggestBalanceMove(
   roster: BalanceRosterEntry[],
   lookup: BalanceRatingLookup,
   currentWinChance: { teamAPercent: number; teamBPercent: number },
+  options?: BalancePredictWinOptions,
   profile?: GameProfile,
 ): BalanceSuggestion | undefined {
-  return suggestBalanceMoves(roster, lookup, currentWinChance, profile)[0];
+  return suggestBalanceMoves(roster, lookup, currentWinChance, options, profile)[0];
 }
 
 export function formatBalanceHint(suggestion: BalanceSuggestion): string {
