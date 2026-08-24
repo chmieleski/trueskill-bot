@@ -24,6 +24,8 @@ export const DEFAULT_CRUNCH_TIER1_SPAN_DAYS = 7;
 export const DEFAULT_CRUNCH_WINDOW_DAYS = 7;
 /** Whether prize-lock medals apply during crunch. */
 export const DEFAULT_PRIZE_LOCK_ENABLED = true;
+/** Minimum games played to qualify for prize-lock medals. */
+export const DEFAULT_PRIZE_LOCK_MIN_GAMES = 1;
 
 /** Legacy aliases used by callers that still import the old constant names. */
 export const MID_GRACE_DAYS = DEFAULT_MID_GRACE_DAYS;
@@ -48,6 +50,7 @@ export type DecaySettingsSource = {
   decayCrunchTier1SpanDays?: number | null;
   decayCrunchWindowDays?: number | null;
   decayPrizeLockEnabled?: boolean | null;
+  decayPrizeLockMinGames?: number | null;
 };
 
 export type ResolvedDecaySettings = {
@@ -63,6 +66,7 @@ export type ResolvedDecaySettings = {
   crunchTier1SpanDays: number;
   crunchWindowDays: number;
   prizeLockEnabled: boolean;
+  prizeLockMinGames: number;
 };
 
 /** Code defaults used when League override columns are null. */
@@ -78,6 +82,7 @@ export const DEFAULT_DECAY_SETTINGS: ResolvedDecaySettings = {
   crunchTier1SpanDays: DEFAULT_CRUNCH_TIER1_SPAN_DAYS,
   crunchWindowDays: DEFAULT_CRUNCH_WINDOW_DAYS,
   prizeLockEnabled: DEFAULT_PRIZE_LOCK_ENABLED,
+  prizeLockMinGames: DEFAULT_PRIZE_LOCK_MIN_GAMES,
 };
 
 function coalesceInt(value: number | null | undefined, fallback: number): number {
@@ -110,6 +115,10 @@ export function resolveDecaySettings(
       league.decayPrizeLockEnabled == null
         ? DEFAULT_PRIZE_LOCK_ENABLED
         : league.decayPrizeLockEnabled,
+    prizeLockMinGames: coalesceInt(
+      league.decayPrizeLockMinGames,
+      DEFAULT_PRIZE_LOCK_MIN_GAMES,
+    ),
   };
 }
 
@@ -123,7 +132,8 @@ export type DecaySettingField =
   | 'crunchTier1Ki'
   | 'crunchTier2Ki'
   | 'crunchTier1SpanDays'
-  | 'crunchWindowDays';
+  | 'crunchWindowDays'
+  | 'prizeLockMinGames';
 
 const DAYS_MIN = 0;
 const DAYS_MAX = 90;
@@ -132,6 +142,8 @@ const KI_RATE_MIN = 0;
 const KI_RATE_MAX = 500;
 const STREAK_CAP_MIN = 0;
 const STREAK_CAP_MAX = 5000;
+const PRIZE_LOCK_MIN_GAMES_MIN = 1;
+const PRIZE_LOCK_MIN_GAMES_MAX = 50;
 
 /** Validate a staff-provided numeric decay setting; returns the value or throws. */
 export function assertDecaySettingBounds(field: DecaySettingField, value: number): number {
@@ -168,6 +180,13 @@ export function assertDecaySettingBounds(field: DecaySettingField, value: number
         );
       }
       return value;
+    case 'prizeLockMinGames':
+      if (value < PRIZE_LOCK_MIN_GAMES_MIN || value > PRIZE_LOCK_MIN_GAMES_MAX) {
+        throw new Error(
+          `Prize-lock min games must be between ${PRIZE_LOCK_MIN_GAMES_MIN} and ${PRIZE_LOCK_MIN_GAMES_MAX}.`,
+        );
+      }
+      return value;
     default: {
       const _exhaustive: never = field;
       throw new Error(`Unknown decay setting: ${_exhaustive}`);
@@ -193,4 +212,5 @@ export const DECAY_SETTINGS_SELECT = {
   decayCrunchTier1SpanDays: true,
   decayCrunchWindowDays: true,
   decayPrizeLockEnabled: true,
+  decayPrizeLockMinGames: true,
 } as const;
