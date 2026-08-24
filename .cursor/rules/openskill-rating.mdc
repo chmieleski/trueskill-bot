@@ -34,14 +34,15 @@ Spec: `docs/superpowers/specs/2026-08-22-independent-overall-hero-rate-design.md
 
 ```text
 μ_eff = 0.8 × μ_player + 0.2 × μ_hero
-σ_eff = √((0.8 × σ_player)² + (0.2 × σ_hero)²)
+σ_eff = √((0.8 × σ_player)² + (0.2 × σ_hero)²)   // default
+σ_eff = 6.0 for every seat when League.balanceStaticSigmaEnabled   // predictWin only
 Team array (predictWin) = [Blend1, Blend2, ...]
 ```
 
 - Team μ: `Σ μᵢ` of that `predictWin` array
 - Team variance: `Σ σᵢ²`
 
-Public roster ki is unchanged (still two numbers). `rate()` is the independent ladders above, not this blend. Spec: `docs/superpowers/specs/2026-08-22-player-hero-balance-weight-design.md`
+Public roster ki is unchanged (still two numbers). `rate()` is the independent ladders above, not this blend. Specs: `docs/superpowers/specs/2026-08-22-player-hero-balance-weight-design.md`, `docs/superpowers/specs/2026-08-24-balance-static-sigma-design.md`. Staff: `/config set balance_static_sigma`.
 
 Compare Team A vs Team B to get P(win). After the match, OpenSkill updates overall then hero from the actual outcome on those separate arrays.
 
@@ -106,7 +107,7 @@ Cold start (0 games, z=3) ≈ 1000; after 5+ games the board is slightly less ha
 ## Agent constraints
 
 - Keep league-global vs hero ratings in separate tables/services (SRP); do not merge into one persisted μ
-- Lobby win% / balance hints may blend μ/σ at 80/20 for `predictWin` only (`ratingEntitiesForBalance`); never persist the blend
+- Lobby win% / balance hints may blend μ/σ at 80/20 for `predictWin` only (`ratingEntitiesForBalance`); optional per-league static σ=6 when `balanceStaticSigmaEnabled`; never persist the blend
 - Never feed `[global, hero]` as one `rate()` team
 - Every `playerRating` / `playerHeroRating` query must filter by `leagueId`
 - Rating math belongs in a dedicated service (e.g. match report / rating update); commands and buttons only call it

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BALANCE_STATIC_SIGMA,
   blendedRatingForBalance,
   ratingEntitiesForBalance,
   ratingEntitiesForHero,
@@ -29,6 +30,17 @@ describe('blendedRatingForBalance', () => {
     expect(blended.mu).toBeCloseTo(0.8 * 40 + 0.2 * 10);
     expect(blended.sigma).toBeCloseTo(Math.sqrt((0.8 * 4) ** 2 + (0.2 * 8) ** 2));
   });
+
+  it('uses fixed σ when staticSigma is enabled', () => {
+    const blended = blendedRatingForBalance(
+      { mu: 40, sigma: 4 },
+      { mu: 10, sigma: 8 },
+      { staticSigma: true },
+    );
+
+    expect(blended.mu).toBeCloseTo(0.8 * 40 + 0.2 * 10);
+    expect(blended.sigma).toBe(BALANCE_STATIC_SIGMA);
+  });
 });
 
 describe('ratingEntitiesForBalance', () => {
@@ -38,6 +50,12 @@ describe('ratingEntitiesForBalance', () => {
 
   it('returns global only when heroId is null', () => {
     expect(ratingEntitiesForBalance(G, H, null)).toEqual([G]);
+  });
+
+  it('uses global μ with fixed σ for ACA when staticSigma is enabled', () => {
+    expect(ratingEntitiesForBalance(G, H, null, { staticSigma: true })).toEqual([
+      { mu: G.mu, sigma: BALANCE_STATIC_SIGMA },
+    ]);
   });
 });
 

@@ -137,6 +137,7 @@ const ACTIVE_SOURCE = {
   rankResetEnabled: true,
   rankResetCooldownDays: 30,
   decayEnabled: true,
+  balanceStaticSigmaEnabled: true,
   seasonEndsAt: SEASON_ENDS_AT,
   crunchStartedAt: CRUNCH_STARTED_AT,
   decayMidGraceDays: 14,
@@ -488,6 +489,7 @@ describe('applyLeagueRollover', () => {
     expect(leagueCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         decayEnabled: true,
+        balanceStaticSigmaEnabled: true,
         seasonEndsAt: SEASON_ENDS_AT,
         crunchStartedAt: CRUNCH_STARTED_AT,
       }),
@@ -646,6 +648,7 @@ describe('applyLeagueRollover', () => {
     expect(leagueCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         decayEnabled: true,
+        balanceStaticSigmaEnabled: true,
         seasonEndsAt: SEASON_ENDS_AT,
         crunchStartedAt: CRUNCH_STARTED_AT,
       }),

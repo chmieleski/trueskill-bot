@@ -125,3 +125,5 @@ export {
   type DecayTunableKind,
   type StartLeagueCrunchResult,
 } from './league-decay.js';
+
+export { setBalanceStaticSigmaEnabled } from './league-balance-config.js';

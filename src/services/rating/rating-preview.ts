@@ -3,11 +3,13 @@ import { predictWin } from 'openskill';
 import { assertTeam } from '../../domain/game-profile.js';
 import { listCatalogHeroIds } from '../guild/hero-catalog.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
+import { resolveLeagueConfig } from '../league/league-wc3stats.js';
 import { prisma } from '../../lib/prisma.js';
 import { createLogger } from '../../lib/logger.js';
 import {
   ratingEntitiesForBalance,
   rosterEntriesWithHeroId,
+  type BalancePredictWinOptions,
   type MuSigma,
 } from './rating-entities.js';
 import {
@@ -150,6 +152,7 @@ export function computeWinChanceFromRatings(
   entries: Pick<RatingPreviewRosterEntry, 'playerId' | 'slot' | 'team' | 'heroId'>[],
   globalByPlayer: Map<string, MuSigma>,
   heroByKey: Map<string, MuSigma>,
+  options?: BalancePredictWinOptions,
 ): WinChancePercents | undefined {
   const { teamA, teamB } = splitRosterByTeam([...entries].sort((a, b) => a.slot - b.slot));
   if (teamA.length === 0 || teamB.length === 0) {
@@ -165,7 +168,7 @@ export function computeWinChanceFromRatings(
           entry.heroId == null
             ? defaultMuSigma()
             : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultMuSigma());
-        return ratingEntitiesForBalance(global, hero, entry.heroId);
+        return ratingEntitiesForBalance(global, hero, entry.heroId, options);
       }),
     );
 
@@ -187,6 +190,11 @@ export async function loadRosterWinChance(
   }
 
   await ensurePlayerRatingsWithDecayCatchUp(leagueId, entries, db);
+
+  const leagueConfig = await resolveLeagueConfig(leagueId);
+  const balanceOptions: BalancePredictWinOptions = {
+    staticSigma: leagueConfig.balanceStaticSigmaEnabled,
+  };
 
   const playerIds = entries.map((entry) => entry.playerId);
   const withHero = entries.filter(
@@ -216,7 +224,7 @@ export async function loadRosterWinChance(
     heroes.map((row) => [`${row.playerId}:${row.heroId}`, { mu: row.mu, sigma: row.sigma }]),
   );
 
-  return computeWinChanceFromRatings(entries, globalByPlayer, heroByKey);
+  return computeWinChanceFromRatings(entries, globalByPlayer, heroByKey, balanceOptions);
 }
 
 export type PlayerKiPair = {
@@ -367,7 +375,7 @@ export async function loadLobbyRatingPreview(
     }
 
     const playerIds = sorted.map((entry) => entry.playerId);
-    const [globals, heroes, displayStatsByPlayer] = await Promise.all([
+    const [globals, heroes, displayStatsByPlayer, leagueConfig] = await Promise.all([
       prisma.playerRating.findMany({
         where: { leagueId, playerId: { in: playerIds } },
       }),
@@ -375,7 +383,11 @@ export async function loadLobbyRatingPreview(
         where: { leagueId, playerId: { in: playerIds } },
       }),
       loadMatchDisplayStatsByPlayer(leagueId, playerIds),
+      resolveLeagueConfig(leagueId),
     ]);
+    const balanceOptions: BalancePredictWinOptions = {
+      staticSigma: leagueConfig.balanceStaticSigmaEnabled,
+    };
 
     const globalByPlayer = new Map(globals.map((row) => [row.playerId, row]));
     const gamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
@@ -435,7 +447,12 @@ export async function loadLobbyRatingPreview(
     const heroMuSigma = new Map(
       [...heroByKey.entries()].map(([key, row]) => [key, { mu: row.mu, sigma: row.sigma }]),
     );
-    const winChance = computeWinChanceFromRatings(sorted, globalMuSigma, heroMuSigma);
+    const winChance = computeWinChanceFromRatings(
+      sorted,
+      globalMuSigma,
+      heroMuSigma,
+      balanceOptions,
+    );
     if (!winChance) {
       return { players };
     }
@@ -462,7 +479,13 @@ export async function loadLobbyRatingPreview(
 
     let balanceSuggestions: BalanceSuggestion[] | undefined;
     try {
-      const suggestions = suggestBalanceMoves(balanceRoster, lookup, winChance, profile);
+      const suggestions = suggestBalanceMoves(
+        balanceRoster,
+        lookup,
+        winChance,
+        balanceOptions,
+        profile,
+      );
       if (suggestions.length > 0) {
         balanceSuggestions = suggestions;
       }

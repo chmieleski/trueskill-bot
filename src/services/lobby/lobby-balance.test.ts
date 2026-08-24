@@ -58,10 +58,15 @@ describe('suggestBalanceMove', () => {
       },
       {},
     );
-    const suggestion = suggestBalanceMove(roster, lookup, {
-      teamAPercent: 53,
-      teamBPercent: 47,
-    });
+    const suggestion = suggestBalanceMove(
+      roster,
+      lookup,
+      {
+        teamAPercent: 53,
+        teamBPercent: 47,
+      },
+      { staticSigma: true },
+    );
     expect(suggestion).toBeDefined();
     expect(suggestion!.kind).toBe('swap');
     expect(Math.abs(50 - suggestion!.resultingWinChance.teamAPercent)).toBeLessThan(3);
@@ -212,6 +217,7 @@ describe('suggestBalanceMove', () => {
       roster,
       lookup,
       { teamAPercent: 20, teamBPercent: 80 },
+      undefined,
       aca,
     );
     if (suggestion) {

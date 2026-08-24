@@ -76,6 +76,7 @@ describe('resolveLeagueConfig decay', () => {
     findUnique.mockResolvedValue({
       status: 'ACTIVE',
       decayEnabled: false,
+      balanceStaticSigmaEnabled: true,
       seasonEndsAt,
       crunchStartedAt: null,
       decayMidGraceDays: 14,
@@ -84,6 +85,7 @@ describe('resolveLeagueConfig decay', () => {
 
     const resolved = await resolveLeagueConfig('league-1');
     expect(resolved.decayEnabled).toBe(false);
+    expect(resolved.balanceStaticSigmaEnabled).toBe(true);
     expect(resolved.seasonEndsAt).toEqual(seasonEndsAt);
     expect(resolved.decayInCrunch).toBe(true);
     expect(resolved.decaySettings.midGraceDays).toBe(14);
