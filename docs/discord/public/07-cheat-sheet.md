@@ -23,6 +23,7 @@
 • `/match cancel` — cancel in-progress (+ optional `griefers`)
 
 **Boards**
+• Same ki ≠ same points — who was in the lobby matters
 • `/leaderboard show` — overall
 • `/leaderboard heroes` / `hero` — heroes
 • `/leaderboard quitters` / `griefers` — if the server set them up

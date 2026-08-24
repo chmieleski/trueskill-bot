@@ -1,10 +1,6 @@
 ⏳ **Rating decay & season crunch** _(Manage Server)_
 
-Keeps boards honest when players go idle. **Overall ki only** — hero ratings unchanged. This is **live**.
-
-Defaults match a fresh league. Override per league with `/decay_config …`.
-
----
+Keeps boards honest when players go idle. **Overall ki only** — hero ratings unchanged. This is **live**. Defaults match a fresh league. Override with `/decay_config …`.
 
 **Mid-season** (default: on for new leagues)
 
@@ -14,51 +10,23 @@ Defaults match a fresh league. Override per league with `/decay_config …`.
 • Joining a lobby does **not** reset the timer
 • Calibrating & New players are exempt
 
----
-
 **Season crunch** (last ~7 days by default)
 
-```
-/league set season_end date:2026-03-31 league:YourLeague
-/league crunch start league:YourLeague
-/league crunch clear league:YourLeague
-```
+`/league set season_end` · `/league crunch start|clear`
 
 Crunch: **2-day** grace, then **−100** / **−200 ki/day**. **No streak cap** — floor ~1000 ki.
 
 **Prize lock:** 🥇🥈🥉 need at least **N** finished non-quit games in the **crunch window** (default **N = 1**). Rank `#n` stays. Off: `/decay_config prize_lock enabled:false`.
 
-```
-/decay_config prize_lock_min_games games:7 league:YourLeague
-/decay_config clear_prize_lock_min_games
-/decay_config preset name:strict_crunch league:YourLeague
-```
+`/decay_config prize_lock_min_games games:7` · `clear_prize_lock_min_games` · `preset name:strict_crunch`
 
 **`strict_crunch`:** grace **3**, flat **−100/−100 ki/day**, window **7**, min games **7**.
 
----
+**Toggle:** `/league_config set decay enabled:true|false`
 
-**Toggle**
+**Tune (optional):** `/decay_config grace` / `tier1_ki` / `streak_cap` / `crunch_window` (`clear_*` resets defaults). `/config view` shows rates + crunch.
 
-```
-/league_config set decay enabled:true league:YourLeague
-/league_config set decay enabled:false league:YourLeague
-```
-
-**Tune rates** (optional)
-
-```
-/decay_config grace mode:mid days:14 league:YourLeague
-/decay_config tier1_ki mode:mid ki:40
-/decay_config streak_cap ki:1500
-/decay_config crunch_window days:10
-/decay_config prize_lock enabled:true
-/decay_config clear_grace mode:mid
-```
-
-`/config view` shows effective rates, season end, and crunch. **Rollover:** `reset:continue` copies overrides; decay **off** until re-enabled with `/league_config set decay enabled:true`.
-
----
+**Rollover:** `reset:continue` copies overrides; decay **off** until re-enabled.
 
 **Player paste**
 
