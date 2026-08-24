@@ -150,6 +150,7 @@ const ACTIVE_SOURCE = {
   decayCrunchTier1SpanDays: null,
   decayCrunchWindowDays: 5,
   decayPrizeLockEnabled: false,
+  decayPrizeLockMinGames: 7,
 };
 
 function previewInput(overrides: Partial<Parameters<typeof previewLeagueRollover>[0]> = {}) {
@@ -730,6 +731,7 @@ describe('applyLeagueRollover', () => {
         decayMidStreakCapKi: 800,
         decayCrunchWindowDays: 5,
         decayPrizeLockEnabled: false,
+        decayPrizeLockMinGames: 7,
       }),
     });
     expect(playerRatingCreateMany).toHaveBeenCalledWith({
