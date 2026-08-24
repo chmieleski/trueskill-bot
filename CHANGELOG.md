@@ -1,3 +1,10 @@
+## [1.21.1](https://github.com/chmieleski/trueskill-bot/compare/v1.21.0...v1.21.1) (2026-08-24)
+
+
+### Bug Fixes
+
+* **commands:** split oversized /config for Discord 8000-byte limit ([#90](https://github.com/chmieleski/trueskill-bot/issues/90)) ([0d714d4](https://github.com/chmieleski/trueskill-bot/commit/0d714d47dd1f4414d1cf2138cf00690fff1650ad))
+
 # [1.21.0](https://github.com/chmieleski/trueskill-bot/compare/v1.20.0...v1.21.0) (2026-08-24)
 
 
