@@ -39,9 +39,11 @@ import {
 } from '../../services/league/league-wc3stats.js';
 import {
   clearLeagueLobbyChannel,
+  applyDecayPreset,
   clearDecayCrunchWindow,
   clearDecayModeSetting,
   clearDecayPrizeLock,
+  clearDecayPrizeLockMinGames,
   clearDecayStreakCap,
   formatLobbyChannelConfigLine,
   getLeagueOption,
@@ -56,6 +58,7 @@ import {
   setDecayEnabled,
   setDecayModeSetting,
   setDecayPrizeLock,
+  setDecayPrizeLockMinGames,
   setDecayStreakCap,
   setLeagueLobbyChannel,
   withSubcommandLeagueOption,
@@ -149,6 +152,7 @@ function formatDecayLine(
     `crunch −${settings.crunchTier1Ki}/−${settings.crunchTier2Ki} ki`,
     `crunch window \`${settings.crunchWindowDays}d\``,
     `prize lock \`${settings.prizeLockEnabled ? 'on' : 'off'}\``,
+    `prize min games \`${settings.prizeLockMinGames}\``,
   ];
   if (seasonEndsAt) {
     const unix = Math.floor(seasonEndsAt.getTime() / 1000);
@@ -823,8 +827,44 @@ export const data = new SlashCommandBuilder()
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
-                .setDescription('On: medals require daily games during crunch')
+                .setDescription('On: medals require a finished-game minimum during crunch')
                 .setRequired(true),
+            ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('prize_lock_min_games')
+            .setDescription('Set finished games required for crunch medals')
+            .addIntegerOption((option) =>
+              option
+                .setName('games')
+                .setDescription('Minimum finished non-quit games in the crunch window (1–50)')
+                .setRequired(true)
+                .setMinValue(1)
+                .setMaxValue(50),
+            ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('clear_prize_lock_min_games')
+            .setDescription('Reset prize-lock min games to the code default (1)'),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('preset')
+            .setDescription('Apply a named decay/crunch preset')
+            .addStringOption((option) =>
+              option
+                .setName('name')
+                .setDescription('Preset to apply')
+                .setRequired(true)
+                .addChoices({ name: 'Strict crunch (3d/−100ki / 7 games)', value: 'strict_crunch' }),
             ),
         ),
       )
@@ -2069,6 +2109,70 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           content: enabled
             ? 'Prize-lock medals enabled during crunch.'
             : 'Prize-lock medals disabled during crunch.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'prize_lock_min_games') {
+        const games = interaction.options.getInteger('games', true);
+        try {
+          await setDecayPrizeLockMinGames(leagueId, games);
+        } catch (error) {
+          if (error instanceof Error) {
+            await interaction.reply({
+              content: error.message,
+              flags: MessageFlags.Ephemeral,
+            });
+            return;
+          }
+          throw error;
+        }
+        log.info(
+          { guildId: interaction.guildId, leagueId, games, userId: interaction.user.id },
+          'Rating decay prize lock min games updated',
+        );
+        await interaction.reply({
+          content: `Prize-lock minimum set to \`${games}\` finished games.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'clear_prize_lock_min_games') {
+        await clearDecayPrizeLockMinGames(leagueId);
+        log.info(
+          { guildId: interaction.guildId, leagueId, userId: interaction.user.id },
+          'Rating decay prize lock min games cleared',
+        );
+        await interaction.reply({
+          content: 'Prize-lock minimum reset to the code default (1).',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'preset') {
+        const name = interaction.options.getString('name', true);
+        try {
+          await applyDecayPreset(leagueId, name);
+        } catch (error) {
+          if (error instanceof Error) {
+            await interaction.reply({
+              content: error.message,
+              flags: MessageFlags.Ephemeral,
+            });
+            return;
+          }
+          throw error;
+        }
+        log.info(
+          { guildId: interaction.guildId, leagueId, preset: name, userId: interaction.user.id },
+          'Rating decay preset applied',
+        );
+        await interaction.reply({
+          content:
+            'Applied decay preset `strict_crunch` (crunch grace 3d, −100/−100 ki/day, window 7d, medals need 7 games).',
           flags: MessageFlags.Ephemeral,
         });
         return;
