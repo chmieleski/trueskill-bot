@@ -11,6 +11,7 @@ const {
   voidCompletedMatch,
   refreshLeagueLeaderboard,
   refreshGuildQuitterLeaderboard,
+  refreshGuildGrieferLeaderboard,
   resolveGuildConfig,
   syncLobbyDiscordMessage,
 } = vi.hoisted(() => ({
@@ -22,6 +23,7 @@ const {
   voidCompletedMatch: vi.fn(),
   refreshLeagueLeaderboard: vi.fn(),
   refreshGuildQuitterLeaderboard: vi.fn(),
+  refreshGuildGrieferLeaderboard: vi.fn(),
   resolveGuildConfig: vi.fn(),
   syncLobbyDiscordMessage: vi.fn(),
 }));
@@ -63,6 +65,7 @@ vi.mock('../../services/match/index.js', () => {
 vi.mock('../../services/leaderboard/index.js', () => ({
   refreshLeagueLeaderboard,
   refreshGuildQuitterLeaderboard,
+  refreshGuildGrieferLeaderboard,
 }));
 
 vi.mock('../../services/guild/index.js', () => ({
@@ -235,6 +238,7 @@ describe('handleMatchCorrectionInteraction', () => {
     );
     expect(refreshLeagueLeaderboard).toHaveBeenCalledWith(interaction.client, 'league-1');
     expect(refreshGuildQuitterLeaderboard).toHaveBeenCalledWith(interaction.client, 'guild-1');
+    expect(refreshGuildGrieferLeaderboard).toHaveBeenCalledWith(interaction.client, 'guild-1');
     expect(interaction.editReply).toHaveBeenCalledWith({
       content: 'Match `match-1` corrected.',
       components: [],
@@ -261,6 +265,7 @@ describe('handleMatchCorrectionInteraction', () => {
     );
     expect(refreshLeagueLeaderboard).toHaveBeenCalledWith(interaction.client, 'league-1');
     expect(refreshGuildQuitterLeaderboard).toHaveBeenCalledWith(interaction.client, 'guild-1');
+    expect(refreshGuildGrieferLeaderboard).toHaveBeenCalledWith(interaction.client, 'guild-1');
     expect(interaction.editReply).toHaveBeenCalledWith({
       content: 'Match `match-1` voided and ratings restored.',
       components: [],
@@ -279,5 +284,6 @@ describe('handleMatchCorrectionInteraction', () => {
     });
     expect(refreshLeagueLeaderboard).not.toHaveBeenCalled();
     expect(refreshGuildQuitterLeaderboard).not.toHaveBeenCalled();
+    expect(refreshGuildGrieferLeaderboard).not.toHaveBeenCalled();
   });
 });

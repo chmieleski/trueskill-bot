@@ -135,6 +135,7 @@ describe('aggregateMatchDisplayStats', () => {
       wins: 1,
       losses: 1,
       quits: 1,
+      griefs: 0,
     });
   });
 
@@ -168,6 +169,7 @@ describe('aggregateMatchDisplayStats', () => {
       wins: 1,
       losses: 0,
       quits: 0,
+      griefs: 0,
     });
   });
 
@@ -189,6 +191,7 @@ describe('aggregateMatchDisplayStats', () => {
       wins: 0,
       losses: 0,
       quits: 0,
+      griefs: 0,
     });
   });
 
@@ -217,6 +220,7 @@ describe('aggregateMatchDisplayStats', () => {
       wins: 0,
       losses: 1,
       quits: 0,
+      griefs: 0,
     });
   });
 });
@@ -225,8 +229,8 @@ describe('gamesByPlayerFromStats', () => {
   it('maps games for displayOrdinal callers', () => {
     const games = gamesByPlayerFromStats(
       new Map([
-        ['p1', { games: 5, wins: 3, losses: 2, quits: 0 }],
-        ['p2', { games: 0, wins: 0, losses: 0, quits: 1 }],
+        ['p1', { games: 5, wins: 3, losses: 2, quits: 0, griefs: 0 }],
+        ['p2', { games: 0, wins: 0, losses: 0, quits: 1, griefs: 0 }],
       ]),
     );
     expect(games.get('p1')).toBe(5);

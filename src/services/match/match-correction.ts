@@ -12,10 +12,11 @@ import {
 } from '../rating/rating-preview.js';
 import { assertTeam } from '../../domain/game-profile.js';
 import {
-  applyGrieferPenalties,
+  accrueGrieferPenalties,
   applyMatchRatings,
   applyQuitterPenalties,
   assertBothTeamsHaveActivePlayers,
+  loadPreMatchGlobalByPlayer,
   type RatingRosterEntry,
 } from '../rating/rating-update.js';
 import { resolveQuitterSlots } from './match-report.js';
@@ -557,11 +558,14 @@ export async function flipCompletedMatch(
     }
 
     await applyQuitterPenalties(match.leagueId, entries, tx);
-    await applyGrieferPenalties(match.leagueId, entries, tx);
+    const preMatchGlobal = await loadPreMatchGlobalByPlayer(matchId, tx);
+    const playerIds = previewEntries.map((entry) => entry.playerId);
+    const preMatchDisplayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds, tx);
+    const preMatchGamesByPlayer = gamesByPlayerFromStats(preMatchDisplayStats);
+    await accrueGrieferPenalties(matchId, entries, preMatchGlobal, preMatchGamesByPlayer, tx);
     const completedAt = match.completedAt ?? new Date();
     await applyMatchRatings(match.leagueId, entries, winningTeam, completedAt, tx);
 
-    const playerIds = previewEntries.map((entry) => entry.playerId);
     const displayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds, tx);
     const gamesByPlayer = gamesByPlayerFromStats(displayStats);
     const clearIds = playerIdsToClearNewFlag(playerIds, gamesByPlayer);
@@ -608,7 +612,7 @@ export async function voidCompletedMatch(matchId: string): Promise<MatchWithPlay
     for (const player of match.players) {
       await tx.matchPlayer.update({
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
-        data: { result: null, isQuitter: false, isGriefer: false },
+        data: { result: null, isQuitter: false, isGriefer: false, grieferKiAccrued: null },
       });
     }
 

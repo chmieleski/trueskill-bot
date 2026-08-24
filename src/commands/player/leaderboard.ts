@@ -4,6 +4,7 @@ import { createLogger } from '../../lib/logger.js';
 import { assertCanConfigureBot } from '../../services/guild/index.js';
 import {
   setupLiveLeaderboard,
+  setupGrieferLiveLeaderboard,
   setupQuitterLiveLeaderboard,
 } from '../../services/leaderboard/index.js';
 import { HeroCatalogError, listHeroNames, resolveHeroByName } from '../../services/guild/index.js';
@@ -13,10 +14,13 @@ import {
   loadAllHeroLeaderboards,
   loadHeroLeaderboard,
   loadOverallLeaderboardPage,
+  loadGrieferLeaderboardPage,
   loadQuitterLeaderboardPage,
 } from '../../services/leaderboard/index.js';
 import {
   buildAllHeroLeaderboardsEmbed,
+  buildGrieferLeaderboardEmbed,
+  buildGrieferPageButtons,
   buildHeroLeaderboardEmbed,
   buildLeaderboardPageButtons,
   buildOverallLeaderboardEmbed,
@@ -103,9 +107,22 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('setup_quitters')
       .setDescription('Post a live quitter leaderboard message in this channel'),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('griefers')
+      .setDescription('Guild griefer leaderboard (top 10 per page)')
+      .addIntegerOption((option) =>
+        option.setName('page').setDescription('Page number').setRequired(false).setMinValue(1),
+      ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('setup_griefers')
+      .setDescription('Post a live griefer leaderboard message in this channel'),
   );
 
-const LEADERBOARD_HISTORY_SUBCOMMANDS = new Set(['show', 'heroes', 'hero', 'quitters']);
+const LEADERBOARD_HISTORY_SUBCOMMANDS = new Set(['show', 'heroes', 'hero', 'quitters', 'griefers']);
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
   const subcommand = interaction.options.getSubcommand(false);
@@ -173,6 +190,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
+  if (subcommand === 'setup_griefers') {
+    await handleSetupGriefers(interaction);
+    return;
+  }
+
   await interaction.deferReply();
 
   if (subcommand === 'show') {
@@ -192,6 +214,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   if (subcommand === 'quitters') {
     await handleShowQuitters(interaction);
+    return;
+  }
+
+  if (subcommand === 'griefers') {
+    await handleShowGriefers(interaction);
     return;
   }
 
@@ -287,6 +314,48 @@ async function handleSetupQuitters(interaction: ChatInputCommandInteraction): Pr
     log.error({ err: error, guildId: interaction.guildId }, 'leaderboard setup_quitters failed');
     await interaction.reply({
       content: 'Something went wrong setting up the live quitter leaderboard.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+}
+
+/** Post a guild-wide live griefer leaderboard in the current channel. */
+async function handleSetupGriefers(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!interaction.guildId || !interaction.channelId) {
+    await interaction.reply({
+      content: 'This command can only be used in a server.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  try {
+    assertCanConfigureBot({
+      userId: interaction.user.id,
+      memberPermissions: memberPermissions(interaction),
+    });
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await interaction.reply({ content: error.message, flags: MessageFlags.Ephemeral });
+      return;
+    }
+    throw error;
+  }
+
+  try {
+    await setupGrieferLiveLeaderboard(
+      interaction.client,
+      interaction.guildId,
+      interaction.channelId,
+    );
+    await interaction.reply({
+      content: 'Live griefer leaderboard set in this channel. Keep only this message here.',
+      flags: MessageFlags.Ephemeral,
+    });
+  } catch (error) {
+    log.error({ err: error, guildId: interaction.guildId }, 'leaderboard setup_griefers failed');
+    await interaction.reply({
+      content: 'Something went wrong setting up the live griefer leaderboard.',
       flags: MessageFlags.Ephemeral,
     });
   }
@@ -441,6 +510,44 @@ async function handleShowQuitters(interaction: ChatInputCommandInteraction): Pro
     log.error({ err: error }, 'leaderboard quitters failed');
     await interaction.editReply({
       content: 'Something went wrong loading the quitter leaderboard.',
+    });
+  }
+}
+
+/** Paginated guild-wide griefer leaderboard (no league option). */
+async function handleShowGriefers(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!interaction.guildId) {
+    await interaction.editReply({ content: 'This command can only be used in a server.' });
+    return;
+  }
+
+  const requestedPage = interaction.options.getInteger('page') ?? 1;
+
+  try {
+    const firstPage = await loadGrieferLeaderboardPage(interaction.guildId, 1);
+    if (requestedPage > firstPage.totalPages) {
+      await interaction.editReply({
+        content: `Page must be between 1 and ${firstPage.totalPages}.`,
+      });
+      return;
+    }
+
+    const pageData =
+      requestedPage === 1
+        ? firstPage
+        : await loadGrieferLeaderboardPage(interaction.guildId, requestedPage);
+    const embed = buildGrieferLeaderboardEmbed(pageData);
+    const components = buildGrieferPageButtons({
+      invokerId: interaction.user.id,
+      page: pageData.page,
+      totalPages: pageData.totalPages,
+    });
+
+    await interaction.editReply({ embeds: [embed], components });
+  } catch (error) {
+    log.error({ err: error }, 'leaderboard griefers failed');
+    await interaction.editReply({
+      content: 'Something went wrong loading the griefer leaderboard.',
     });
   }
 }

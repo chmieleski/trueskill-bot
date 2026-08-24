@@ -6,6 +6,7 @@ import {
   gamesByPlayerFromStats,
   heroStatsFor,
   loadMatchDisplayStats,
+  loadPendingGrieferKiTaxByPlayer,
   winRatePercent,
 } from '../rating/rank-reset-display.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
@@ -43,6 +44,10 @@ export type PlayerProfile = {
   losses: number;
   /** Completed or cancelled matches where this player was marked a quitter. */
   quits: number;
+  /** Completed or cancelled matches where this player was marked a griefer (not quitter). */
+  griefs: number;
+  /** Summed deferred ki tax pending until season rollover. */
+  pendingGrieferKiTax: number;
   winRatePercent: number | null;
   heroes: PlayerProfileHero[];
   /** Idle/crunch decay hint for linked players; null when not shown. */
@@ -154,33 +159,35 @@ export async function loadPlayerProfile(
   // Catch up idle decay for the looked-up player before μ → ki / rank.
   await applyPendingDecayForPlayers(leagueId, [player.id]);
 
-  const [league, rating, allRatings, heroRatings, displayStats] = await Promise.all([
-    prisma.league.findUnique({
-      where: { id: leagueId },
-      select: {
-        status: true,
-        decayEnabled: true,
-        seasonEndsAt: true,
-        crunchStartedAt: true,
-        archivedAt: true,
-      },
-    }),
-    prisma.playerRating.findUnique({
-      where: { leagueId_playerId: { leagueId, playerId: player.id } },
-    }),
-    prisma.playerRating.findMany({
-      where: { leagueId },
-      select: { playerId: true, mu: true, sigma: true },
-    }),
-    includeHeroes
-      ? prisma.playerHeroRating.findMany({
-          where: { leagueId, playerId: player.id, matchesPlayed: { gt: 0 } },
-          include: { hero: true },
-        })
-      : Promise.resolve([]),
-    // W/L/games/quits and soft-ki z restart after the player's latest rank reset.
-    loadMatchDisplayStats(leagueId),
-  ]);
+  const [league, rating, allRatings, heroRatings, displayStats, pendingTaxByPlayer] =
+    await Promise.all([
+      prisma.league.findUnique({
+        where: { id: leagueId },
+        select: {
+          status: true,
+          decayEnabled: true,
+          seasonEndsAt: true,
+          crunchStartedAt: true,
+          archivedAt: true,
+        },
+      }),
+      prisma.playerRating.findUnique({
+        where: { leagueId_playerId: { leagueId, playerId: player.id } },
+      }),
+      prisma.playerRating.findMany({
+        where: { leagueId },
+        select: { playerId: true, mu: true, sigma: true },
+      }),
+      includeHeroes
+        ? prisma.playerHeroRating.findMany({
+            where: { leagueId, playerId: player.id, matchesPlayed: { gt: 0 } },
+            include: { hero: true },
+          })
+        : Promise.resolve([]),
+      // W/L/games/quits and soft-ki z restart after the player's latest rank reset.
+      loadMatchDisplayStats(leagueId),
+      loadPendingGrieferKiTaxByPlayer(leagueId, [player.id]),
+    ]);
 
   const displayStatsByPlayer = displayStats.byPlayer;
   const gamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
@@ -189,8 +196,10 @@ export async function loadPlayerProfile(
     wins: 0,
     losses: 0,
     quits: 0,
+    griefs: 0,
   };
-  const { games, wins, losses, quits } = mine;
+  const { games, wins, losses, quits, griefs } = mine;
+  const pendingGrieferKiTax = pendingTaxByPlayer.get(player.id) ?? 0;
 
   const globalKi = rating ? displayOrdinal(rating.mu, rating.sigma, games) : coldStartKi();
 
@@ -243,6 +252,8 @@ export async function loadPlayerProfile(
     wins,
     losses,
     quits,
+    griefs,
+    pendingGrieferKiTax,
     winRatePercent: winRatePercentValue,
     heroes,
     decayFooter,

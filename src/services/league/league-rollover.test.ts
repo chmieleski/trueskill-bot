@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { applyKiTaxToMu } from '../rating/griefer-tax.js';
 
 const {
   leagueFindUnique,
@@ -19,6 +20,9 @@ const {
   leagueRolloverDraftCreate,
   leagueRolloverDraftFindUnique,
   leagueRolloverDraftDelete,
+  matchPlayerFindMany,
+  matchPlayerUpdateMany,
+  playerRankResetFindMany,
   transaction,
 } = vi.hoisted(() => ({
   leagueFindUnique: vi.fn(),
@@ -39,6 +43,9 @@ const {
   leagueRolloverDraftCreate: vi.fn(),
   leagueRolloverDraftFindUnique: vi.fn(),
   leagueRolloverDraftDelete: vi.fn(),
+  matchPlayerFindMany: vi.fn(),
+  matchPlayerUpdateMany: vi.fn(),
+  playerRankResetFindMany: vi.fn(),
   transaction: vi.fn(),
 }));
 
@@ -52,6 +59,13 @@ vi.mock('../../lib/prisma.js', () => ({
     match: {
       count: matchCount,
       findMany: matchFindMany,
+    },
+    matchPlayer: {
+      findMany: matchPlayerFindMany,
+      updateMany: matchPlayerUpdateMany,
+    },
+    playerRankReset: {
+      findMany: playerRankResetFindMany,
     },
     playerRating: {
       findMany: playerRatingFindMany,
@@ -284,6 +298,7 @@ describe('previewLeagueRollover', () => {
     playerHeroRatingFindMany.mockResolvedValue([{ playerId: 'p2' }]);
     leagueChannelBindingCount.mockResolvedValue(2);
     leagueRolloverDraftDeleteMany.mockResolvedValue({ count: 0 });
+    matchPlayerFindMany.mockResolvedValue([]);
     leagueRolloverDraftCreate.mockResolvedValue({
       id: 'draft-1',
       sourceLeagueId: 'league-1',
@@ -322,6 +337,7 @@ describe('previewLeagueRollover', () => {
       compression: null,
       playerCount: 2,
       bindingCount: 2,
+      grieferSeasonTax: { playerCount: 0, totalKiTax: 0 },
     });
 
     expect(leagueRolloverDraftCreate).toHaveBeenCalledWith({
@@ -365,6 +381,9 @@ describe('applyLeagueRollover', () => {
     vi.resetAllMocks();
     matchCount.mockResolvedValue(0);
     matchFindMany.mockResolvedValue([]);
+    matchPlayerFindMany.mockResolvedValue([]);
+    matchPlayerUpdateMany.mockResolvedValue({ count: 0 });
+    playerRankResetFindMany.mockResolvedValue([]);
     leagueRolloverDraftFindUnique.mockResolvedValue({
       id: 'draft-1',
       sourceLeagueId: 'league-1',
@@ -410,6 +429,9 @@ describe('applyLeagueRollover', () => {
         match: {
           count: matchCount,
           findMany: matchFindMany,
+        },
+        matchPlayer: {
+          updateMany: matchPlayerUpdateMany,
         },
         league: {
           create: leagueCreate,
@@ -494,6 +516,106 @@ describe('applyLeagueRollover', () => {
         leaderboardMessageId: null,
       },
     });
+  });
+
+  it('hard reset applies griefer tax to ending season and seeds successor at defaults', async () => {
+    matchPlayerFindMany.mockImplementation((args: { where?: { isGriefer?: boolean } }) => {
+      if (args?.where?.isGriefer) {
+        return Promise.resolve([{ playerId: 'p1', grieferKiAccrued: 200 }]);
+      }
+      return Promise.resolve([]);
+    });
+
+    const taxedMu = applyKiTaxToMu(30, 3, 0, 200);
+
+    await applyLeagueRollover({ draftId: 'draft-1', actorDiscordId: ACTOR });
+
+    expect(playerRatingUpdate).toHaveBeenCalledWith({
+      where: { leagueId_playerId: { leagueId: 'league-1', playerId: 'p1' } },
+      data: { mu: taxedMu },
+    });
+    expect(playerRatingCreateMany).toHaveBeenCalledWith({
+      data: [
+        {
+          leagueId: 'league-2',
+          playerId: 'p1',
+          mu: 25,
+          sigma: 8.333,
+          idleDecayKiApplied: 0,
+          lastQualifyingActivityAt: null,
+          lastDecayAppliedAt: null,
+        },
+        {
+          leagueId: 'league-2',
+          playerId: 'p2',
+          mu: 25,
+          sigma: 8.333,
+          idleDecayKiApplied: 0,
+          lastQualifyingActivityAt: null,
+          lastDecayAppliedAt: null,
+        },
+      ],
+    });
+    expect(matchPlayerUpdateMany).toHaveBeenCalledWith({
+      where: {
+        grieferKiAccrued: { not: null },
+        match: { leagueId: 'league-1' },
+      },
+      data: { grieferKiAccrued: null },
+    });
+  });
+
+  it('continue applies griefer tax to ending season and copies post-tax ratings', async () => {
+    matchPlayerFindMany.mockImplementation((args: { where?: { isGriefer?: boolean } }) => {
+      if (args?.where?.isGriefer) {
+        return Promise.resolve([{ playerId: 'p1', grieferKiAccrued: 200 }]);
+      }
+      return Promise.resolve([]);
+    });
+    leagueRolloverDraftFindUnique.mockResolvedValue({
+      id: 'draft-continue',
+      sourceLeagueId: 'league-1',
+      successorName: 'Season 1.5',
+      resetMode: 'continue',
+      compression: null,
+      actorDiscordId: ACTOR,
+      sourceLeague: ACTIVE_SOURCE,
+    });
+    leagueCreate.mockResolvedValue({ id: 'league-15', name: 'Season 1.5' });
+
+    const taxedMu = applyKiTaxToMu(30, 3, 0, 200);
+
+    await applyLeagueRollover({ draftId: 'draft-continue', actorDiscordId: ACTOR });
+
+    expect(playerRatingUpdate).toHaveBeenCalledWith({
+      where: { leagueId_playerId: { leagueId: 'league-1', playerId: 'p1' } },
+      data: { mu: taxedMu },
+    });
+    expect(playerRatingCreateMany).toHaveBeenCalledWith({
+      data: [
+        {
+          leagueId: 'league-15',
+          playerId: 'p1',
+          mu: taxedMu,
+          sigma: 3,
+          lastQualifyingActivityAt: ACTIVITY_AT,
+          idleDecayKiApplied: 4,
+          lastDecayAppliedAt: DECAY_APPLIED_AT,
+          isNewPlayer: false,
+        },
+        {
+          leagueId: 'league-15',
+          playerId: 'p2',
+          mu: 20,
+          sigma: 3,
+          lastQualifyingActivityAt: ACTIVITY_AT,
+          idleDecayKiApplied: 2,
+          lastDecayAppliedAt: DECAY_APPLIED_AT,
+          isNewPlayer: true,
+        },
+      ],
+    });
+    expect(matchPlayerUpdateMany).toHaveBeenCalled();
   });
 
   it('soft reset copies compressed hero rows and decay fields', async () => {

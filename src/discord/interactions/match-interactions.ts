@@ -521,7 +521,7 @@ async function handleCancelGriefers(
       `Cancel match \`${matchId}\`?`,
       formatGrieferSummary(match, grieferSlots),
       '',
-      'Griefers get a ki penalty.',
+      'Griefers accrue season-end ki tax (25%, max 500 ki per incident).',
     ].join('\n'),
     [buildCancelConfirmRow(matchId, grieferSlots)],
   );
@@ -540,7 +540,7 @@ async function handleCancelGriefersKeep(
       `Cancel match \`${matchId}\`?`,
       formatGrieferSummary(match, grieferSlots),
       '',
-      'Griefers get a ki penalty.',
+      'Griefers accrue season-end ki tax (25%, max 500 ki per incident).',
     ].join('\n'),
     [buildCancelConfirmRow(matchId, grieferSlots)],
   );
@@ -717,7 +717,7 @@ async function handleCancelConfirm(
   await resolveById(interaction, matchId);
   await showWorking(
     interaction,
-    'Cancelling the match… Applying quitter or griefer penalties if any are marked.',
+    'Cancelling the match… Applying quitter penalties and recording griefer season tax if any are marked.',
   );
 
   const cancelled = await cancelInProgressMatch(matchId, grieferSlots);

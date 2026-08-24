@@ -1,10 +1,12 @@
 import { MatchResult, MatchStatus, type PrismaClient } from '@prisma/client';
 import { prisma as defaultPrisma } from '../../lib/prisma.js';
+import { sumGrieferKiTaxByPlayer } from './griefer-tax.js';
 
 export type MatchDisplayStatRow = {
   playerId: string;
   result: MatchResult | null;
   isQuitter: boolean;
+  isGriefer: boolean;
   completedAt: Date | null;
   heroId?: number | null;
 };
@@ -21,6 +23,7 @@ export type PlayerMatchDisplayStats = {
   wins: number;
   losses: number;
   quits: number;
+  griefs: number;
 };
 
 export type PlayerHeroMatchDisplayStats = {
@@ -97,7 +100,7 @@ export function aggregateMatchDisplayStats(
   const ensure = (playerId: string): PlayerMatchDisplayStats => {
     let row = stats.get(playerId);
     if (!row) {
-      row = { games: 0, wins: 0, losses: 0, quits: 0 };
+      row = { games: 0, wins: 0, losses: 0, quits: 0, griefs: 0 };
       stats.set(playerId, row);
     }
     return row;
@@ -121,6 +124,9 @@ export function aggregateMatchDisplayStats(
     }
     if (row.isQuitter) {
       bucket.quits += 1;
+    }
+    if (row.isGriefer && !row.isQuitter) {
+      bucket.griefs += 1;
     }
   }
 
@@ -261,6 +267,14 @@ async function loadMatchDisplayRows(
               status: { in: [MatchStatus.COMPLETED, MatchStatus.CANCELLED] },
             },
           },
+          {
+            isGriefer: true,
+            isQuitter: false,
+            match: {
+              leagueId,
+              status: { in: [MatchStatus.COMPLETED, MatchStatus.CANCELLED] },
+            },
+          },
         ],
       },
       select: {
@@ -268,6 +282,7 @@ async function loadMatchDisplayRows(
         heroId: true,
         result: true,
         isQuitter: true,
+        isGriefer: true,
         match: { select: { completedAt: true } },
       },
     }),
@@ -278,6 +293,7 @@ async function loadMatchDisplayRows(
     heroId: row.heroId,
     result: row.result,
     isQuitter: row.isQuitter,
+    isGriefer: row.isGriefer,
     completedAt: row.match.completedAt,
   }));
 
@@ -303,4 +319,23 @@ export async function loadMatchDisplayStatsByPlayer(
 ): Promise<Map<string, PlayerMatchDisplayStats>> {
   const { resetAtByPlayer, rows } = await loadMatchDisplayRows(leagueId, playerIds, db);
   return aggregateMatchDisplayStats(rows, resetAtByPlayer);
+}
+
+/** Sum deferred griefer ki tax per player in one league (active season accruals). */
+export async function loadPendingGrieferKiTaxByPlayer(
+  leagueId: string,
+  playerIds?: string[],
+  db: Db = defaultPrisma,
+): Promise<Map<string, number>> {
+  const rows = await db.matchPlayer.findMany({
+    where: {
+      isGriefer: true,
+      isQuitter: false,
+      grieferKiAccrued: { not: null },
+      match: { leagueId },
+      ...(playerIds ? { playerId: { in: playerIds } } : {}),
+    },
+    select: { playerId: true, grieferKiAccrued: true },
+  });
+  return sumGrieferKiTaxByPlayer(rows);
 }

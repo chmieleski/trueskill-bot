@@ -692,7 +692,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const griefersRaw = interaction.options.getString('griefers');
       const grieferSlots = griefersRaw === null ? undefined : parseGrieferSlots(griefersRaw);
       await interaction.editReply({
-        content: 'Cancelling the match… Applying quitter or griefer penalties if any are marked.',
+        content:
+          'Cancelling the match… Applying quitter penalties and recording griefer season tax if any are marked.',
       });
       const cancelled = await cancelInProgressMatch(match.id, grieferSlots);
       await applyMatchMutation(

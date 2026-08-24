@@ -12,10 +12,12 @@ import {
 } from '../rating/rating-preview.js';
 import { assertTeam } from '../../domain/game-profile.js';
 import {
-  applyGrieferPenalties,
+  accrueGrieferPenalties,
   applyMatchRatings,
   applyQuitterPenalties,
   assertBothTeamsHaveActivePlayers,
+  loadLiveGlobalByPlayer,
+  loadPreMatchGlobalByPlayer,
   type RatingRosterEntry,
 } from '../rating/rating-update.js';
 import { writeMatchRatingSnapshots } from './match-correction.js';
@@ -277,7 +279,10 @@ export async function completeMatch(
     }
 
     await applyQuitterPenalties(match.leagueId, entries, tx);
-    await applyGrieferPenalties(match.leagueId, entries, tx);
+    const preMatchGlobal = await loadPreMatchGlobalByPlayer(matchId, tx);
+    const preMatchDisplayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds, tx);
+    const preMatchGamesByPlayer = gamesByPlayerFromStats(preMatchDisplayStats);
+    await accrueGrieferPenalties(matchId, entries, preMatchGlobal, preMatchGamesByPlayer, tx);
     const completedAt = new Date();
     await applyMatchRatings(match.leagueId, entries, winningTeam, completedAt, tx);
 
@@ -349,13 +354,24 @@ export async function cancelInProgressMatch(
     }
 
     const entries = toRatingEntries(match, new Set(quitterSlots), grieferSet);
+    const playerIds = match.players.map((p) => p.playerId);
 
     if (quitterSlots.length > 0) {
       await applyQuitterPenalties(match.leagueId, entries, tx);
     }
 
     if (resolvedGrieferSlots.length > 0) {
-      await applyGrieferPenalties(match.leagueId, entries, tx);
+      await ensurePlayerRatings(
+        match.leagueId,
+        match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
+        tx,
+      );
+      const liveGlobal = await loadLiveGlobalByPlayer(match.leagueId, playerIds, tx);
+      const displayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds, tx);
+      const gamesByPlayer = gamesByPlayerFromStats(displayStats);
+      await accrueGrieferPenalties(matchId, entries, liveGlobal, gamesByPlayer, tx);
+    } else {
+      await accrueGrieferPenalties(matchId, entries, new Map(), new Map(), tx);
     }
 
     await tx.match.update({

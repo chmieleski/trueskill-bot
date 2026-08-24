@@ -9,6 +9,7 @@ import {
 } from './rating-entities.js';
 import { computeLobbyAvgKi, kisForLobbyAverage, scaleAppliedMu } from './lobby-relative-scale.js';
 import { displayOrdinal, splitRosterByTeam, toOpenSkillRatings } from './rating-math.js';
+import { computeGrieferKiAccrual } from './griefer-tax.js';
 import { ensurePlayerRatings } from './rating-preview.js';
 import { gamesByPlayerFromStats, loadMatchDisplayStatsByPlayer } from './rank-reset-display.js';
 
@@ -118,6 +119,64 @@ function grieferPenaltyEntries(entries: RatingRosterEntry[]): RatingRosterEntry[
   return entries.filter((entry) => entry.isGriefer && !entry.isQuitter);
 }
 
+/** Pre-match global μ/σ from rating snapshots (before any match apply). */
+export async function loadPreMatchGlobalByPlayer(
+  matchId: string,
+  db: Db,
+): Promise<Map<string, MuSigma>> {
+  const rows = await db.matchRatingSnapshot.findMany({
+    where: { matchId, entityKind: 'GLOBAL', heroId: 0 },
+    select: { playerId: true, mu: true, sigma: true },
+  });
+  return new Map(rows.map((row) => [row.playerId, { mu: row.mu, sigma: row.sigma }]));
+}
+
+/** Load live league-global μ/σ for cancel-path griefer accrual. */
+export async function loadLiveGlobalByPlayer(
+  leagueId: string,
+  playerIds: string[],
+  db: Db,
+): Promise<Map<string, MuSigma>> {
+  if (playerIds.length === 0) {
+    return new Map();
+  }
+  const rows = await db.playerRating.findMany({
+    where: { leagueId, playerId: { in: playerIds } },
+    select: { playerId: true, mu: true, sigma: true },
+  });
+  return new Map(rows.map((row) => [row.playerId, { mu: row.mu, sigma: row.sigma }]));
+}
+
+/**
+ * Record deferred griefer ki tax on MatchPlayer rows (no PlayerRating mutation).
+ * Uses `globalByPlayer` ki basis: pre-match snapshots on complete/flip, live ratings on cancel.
+ */
+export async function accrueGrieferPenalties(
+  matchId: string,
+  entries: RatingRosterEntry[],
+  globalByPlayer: Map<string, MuSigma>,
+  globalGamesByPlayer: Map<string, number>,
+  db: Db = prisma,
+): Promise<void> {
+  const sorted = [...entries].sort((left, right) => left.slot - right.slot);
+
+  for (const entry of sorted) {
+    let grieferKiAccrued: number | null = null;
+
+    if (entry.isGriefer && !entry.isQuitter) {
+      const global = globalByPlayer.get(entry.playerId) ?? defaultRatingEntity();
+      const games = globalGamesByPlayer.get(entry.playerId) ?? 0;
+      const globalKi = displayOrdinal(global.mu, global.sigma, games);
+      grieferKiAccrued = computeGrieferKiAccrual(globalKi);
+    }
+
+    await db.matchPlayer.update({
+      where: { matchId_playerId: { matchId, playerId: entry.playerId } },
+      data: { grieferKiAccrued },
+    });
+  }
+}
+
 async function applySyntheticPenalties(
   leagueId: string,
   penaltyEntries: RatingRosterEntry[],
@@ -217,15 +276,6 @@ export async function applyQuitterPenalties(
   const sorted = [...entries].sort((left, right) => left.slot - right.slot);
   const { quitters } = partitionRosterForRating(sorted);
   await applySyntheticPenalties(leagueId, quitters, db);
-}
-
-export async function applyGrieferPenalties(
-  leagueId: string,
-  entries: RatingRosterEntry[],
-  db: Db = prisma,
-): Promise<void> {
-  const sorted = [...entries].sort((left, right) => left.slot - right.slot);
-  await applySyntheticPenalties(leagueId, grieferPenaltyEntries(sorted), db);
 }
 
 type UpdatedPlayerRating = {
@@ -572,22 +622,6 @@ export function simulatePostMatchRatings(
   const { quitters, activeRateable } = partitionRosterForRating(sorted);
 
   for (const entry of quitters) {
-    const global = globalByPlayer.get(entry.playerId) ?? defaultRatingEntity();
-    const hero =
-      entry.heroId == null
-        ? defaultRatingEntity()
-        : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity());
-    const updated = applyIndependentSyntheticLosses(global, hero, entry.heroId);
-    globalByPlayer.set(entry.playerId, { mu: updated.global.mu, sigma: updated.global.sigma });
-    if (entry.heroId != null && updated.hero) {
-      heroByKey.set(heroKey(entry.playerId, entry.heroId), {
-        mu: updated.hero.mu,
-        sigma: updated.hero.sigma,
-      });
-    }
-  }
-
-  for (const entry of grieferPenaltyEntries(sorted)) {
     const global = globalByPlayer.get(entry.playerId) ?? defaultRatingEntity();
     const hero =
       entry.heroId == null

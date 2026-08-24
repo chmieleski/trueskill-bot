@@ -106,6 +106,7 @@ function previewFixture(overrides: Partial<LeagueRolloverPreview> = {}): LeagueR
     compression: null,
     playerCount: 12,
     bindingCount: 3,
+    grieferSeasonTax: { playerCount: 0, totalKiTax: 0 },
     ...overrides,
   };
 }
@@ -171,5 +172,18 @@ describe('buildRolloverPreviewMessage', () => {
     );
     expect(message).not.toContain('copied unchanged');
     expect(message).not.toContain('compression');
+  });
+
+  it('includes pending griefer season tax for ending season rewards', () => {
+    const message = buildRolloverPreviewMessage(
+      previewFixture({
+        resetMode: 'continue',
+        grieferSeasonTax: { playerCount: 2, totalKiTax: 450 },
+      }),
+    );
+
+    expect(message).toContain(
+      '• Griefer season tax: **2** player(s), **450** ki (applied to ending season ratings for rewards)',
+    );
   });
 });

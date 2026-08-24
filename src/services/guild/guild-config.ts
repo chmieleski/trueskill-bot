@@ -1,5 +1,10 @@
 import { PermissionFlagsBits, PermissionsBitField, type PermissionsString } from 'discord.js';
-import { QuitterLeaderboardDisplay, QuitterLeaderboardSort } from '@prisma/client';
+import {
+  GrieferLeaderboardDisplay,
+  GrieferLeaderboardSort,
+  QuitterLeaderboardDisplay,
+  QuitterLeaderboardSort,
+} from '@prisma/client';
 import { env } from '../../config/env.js';
 import { prisma } from '../../lib/prisma.js';
 import { MatchServiceError } from '../match/match-service.js';
@@ -28,6 +33,13 @@ export const QUITTER_LEADERBOARD_DEFAULT_SORT = 'count' as const;
 
 export type RoleConfigSource = 'database' | 'env' | 'unset';
 
+export const GRIEFER_LEADERBOARD_DEFAULT_SIZE = 10;
+export const GRIEFER_LEADERBOARD_DEFAULT_DISPLAY = 'both' as const;
+export const GRIEFER_LEADERBOARD_DEFAULT_SORT = 'count' as const;
+
+export type GrieferLeaderboardDisplayValue = 'count' | 'rate' | 'both';
+export type GrieferLeaderboardSortValue = 'count' | 'rate';
+
 export type QuitterLeaderboardDisplayValue = 'count' | 'rate' | 'both';
 export type QuitterLeaderboardSortValue = 'count' | 'rate';
 
@@ -42,6 +54,11 @@ export interface ResolvedGuildConfig {
   quitterLeaderboardSize: number;
   quitterLeaderboardDisplay: QuitterLeaderboardDisplayValue;
   quitterLeaderboardSort: QuitterLeaderboardSortValue;
+  grieferLeaderboardChannelId: string | undefined;
+  grieferLeaderboardMessageId: string | undefined;
+  grieferLeaderboardSize: number;
+  grieferLeaderboardDisplay: GrieferLeaderboardDisplayValue;
+  grieferLeaderboardSort: GrieferLeaderboardSortValue;
   changelogChannelId: string | undefined;
   changelogDraftChannelId: string | undefined;
 }
@@ -83,6 +100,12 @@ export async function resolveGuildConfig(guildId: string): Promise<ResolvedGuild
     quitterLeaderboardDisplay:
       row?.quitterLeaderboardDisplay ?? QUITTER_LEADERBOARD_DEFAULT_DISPLAY,
     quitterLeaderboardSort: row?.quitterLeaderboardSort ?? QUITTER_LEADERBOARD_DEFAULT_SORT,
+    grieferLeaderboardChannelId: trimOptionalId(row?.grieferLeaderboardChannelId),
+    grieferLeaderboardMessageId: trimOptionalId(row?.grieferLeaderboardMessageId),
+    grieferLeaderboardSize: row?.grieferLeaderboardSize ?? GRIEFER_LEADERBOARD_DEFAULT_SIZE,
+    grieferLeaderboardDisplay:
+      row?.grieferLeaderboardDisplay ?? GRIEFER_LEADERBOARD_DEFAULT_DISPLAY,
+    grieferLeaderboardSort: row?.grieferLeaderboardSort ?? GRIEFER_LEADERBOARD_DEFAULT_SORT,
     changelogChannelId: trimOptionalId(row?.changelogChannelId),
     changelogDraftChannelId: trimOptionalId(row?.changelogDraftChannelId),
   };
@@ -197,6 +220,102 @@ export async function clearQuitterLeaderboardSort(guildId: string): Promise<void
       quitterLeaderboardSort: QuitterLeaderboardSort.count,
     },
     update: { quitterLeaderboardSort: QuitterLeaderboardSort.count },
+  });
+}
+
+export async function setGrieferLeaderboardChannel(
+  guildId: string,
+  channelId: string,
+  messageId: string,
+): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: {
+      guildId,
+      grieferLeaderboardChannelId: channelId,
+      grieferLeaderboardMessageId: messageId,
+    },
+    update: {
+      grieferLeaderboardChannelId: channelId,
+      grieferLeaderboardMessageId: messageId,
+    },
+  });
+}
+
+export async function clearGrieferLeaderboardChannel(guildId: string): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: { guildId },
+    update: {
+      grieferLeaderboardChannelId: null,
+      grieferLeaderboardMessageId: null,
+    },
+  });
+}
+
+export async function setGrieferLeaderboardSize(guildId: string, size: number): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: { guildId, grieferLeaderboardSize: size },
+    update: { grieferLeaderboardSize: size },
+  });
+}
+
+export async function clearGrieferLeaderboardSize(guildId: string): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: { guildId, grieferLeaderboardSize: GRIEFER_LEADERBOARD_DEFAULT_SIZE },
+    update: { grieferLeaderboardSize: GRIEFER_LEADERBOARD_DEFAULT_SIZE },
+  });
+}
+
+export async function setGrieferLeaderboardDisplay(
+  guildId: string,
+  display: GrieferLeaderboardDisplayValue,
+): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: {
+      guildId,
+      grieferLeaderboardDisplay: display as GrieferLeaderboardDisplay,
+    },
+    update: { grieferLeaderboardDisplay: display as GrieferLeaderboardDisplay },
+  });
+}
+
+export async function clearGrieferLeaderboardDisplay(guildId: string): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: {
+      guildId,
+      grieferLeaderboardDisplay: GrieferLeaderboardDisplay.both,
+    },
+    update: { grieferLeaderboardDisplay: GrieferLeaderboardDisplay.both },
+  });
+}
+
+export async function setGrieferLeaderboardSort(
+  guildId: string,
+  sort: GrieferLeaderboardSortValue,
+): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: {
+      guildId,
+      grieferLeaderboardSort: sort as GrieferLeaderboardSort,
+    },
+    update: { grieferLeaderboardSort: sort as GrieferLeaderboardSort },
+  });
+}
+
+export async function clearGrieferLeaderboardSort(guildId: string): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: {
+      guildId,
+      grieferLeaderboardSort: GrieferLeaderboardSort.count,
+    },
+    update: { grieferLeaderboardSort: GrieferLeaderboardSort.count },
   });
 }
 

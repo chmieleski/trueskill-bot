@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { MatchServiceError } from '../match/match-service.js';
 import { ensurePlayerRatings } from './rating-preview.js';
 import {
-  applyGrieferPenalties,
+  accrueGrieferPenalties,
   applyMatchRatings,
   applyQuitterPenalties,
   applySyntheticLosses,
@@ -336,29 +336,67 @@ describe('applyMatchRatings', () => {
   });
 });
 
-describe('applyGrieferPenalties', () => {
-  it('updates global ratings for a griefer with heroId null', async () => {
-    const db = heroNullDb();
+describe('accrueGrieferPenalties', () => {
+  it('writes grieferKiAccrued without updating PlayerRating', async () => {
+    const matchPlayerUpdate = vi.fn();
+    const db = {
+      matchPlayer: { update: matchPlayerUpdate },
+    };
 
-    await applyGrieferPenalties(
-      'league-1',
+    await accrueGrieferPenalties(
+      'match-1',
       [{ playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: false, isGriefer: true }],
+      new Map([['p1', { mu: 25, sigma: 8.333 }]]),
+      new Map([['p1', 10]]),
       db as never,
     );
 
-    expect(db.playerHeroRating.findMany).not.toHaveBeenCalled();
-    expect(db.playerRating.update).toHaveBeenCalled();
+    expect(matchPlayerUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ grieferKiAccrued: expect.any(Number) }),
+      }),
+    );
   });
 
-  it('skips griefer penalty when the player is also marked quitter', async () => {
-    const db = heroNullDb();
+  it('clears accrual when the player is not a griefer', async () => {
+    const matchPlayerUpdate = vi.fn();
+    const db = {
+      matchPlayer: { update: matchPlayerUpdate },
+    };
 
-    await applyGrieferPenalties(
-      'league-1',
-      [{ playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: true, isGriefer: true }],
+    await accrueGrieferPenalties(
+      'match-1',
+      [{ playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: false, isGriefer: false }],
+      new Map(),
+      new Map(),
       db as never,
     );
 
-    expect(db.playerRating.update).not.toHaveBeenCalled();
+    expect(matchPlayerUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { grieferKiAccrued: null },
+      }),
+    );
+  });
+
+  it('skips griefer accrual when the player is also marked quitter', async () => {
+    const matchPlayerUpdate = vi.fn();
+    const db = {
+      matchPlayer: { update: matchPlayerUpdate },
+    };
+
+    await accrueGrieferPenalties(
+      'match-1',
+      [{ playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: true, isGriefer: true }],
+      new Map([['p1', { mu: 25, sigma: 8.333 }]]),
+      new Map([['p1', 10]]),
+      db as never,
+    );
+
+    expect(matchPlayerUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { grieferKiAccrued: null },
+      }),
+    );
   });
 });
