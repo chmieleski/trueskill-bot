@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRankEmbed, formatHeroTable } from './rank-embed.js';
+import { buildRankEmbed, formatGrieferPoolField, formatHeroTable } from './rank-embed.js';
 import type { PlayerProfile } from './player-profile.js';
 import type { TeammateStats } from './teammate-stats.js';
 
@@ -12,6 +12,8 @@ const baseProfile: PlayerProfile = {
   wins: 12,
   losses: 5,
   quits: 2,
+  griefs: 1,
+  pendingGrieferKiTax: 250,
   winRatePercent: 70.6,
   heroes: [
     {
@@ -103,9 +105,30 @@ describe('buildRankEmbed', () => {
     expect(data.thumbnail?.url).toBe('https://cdn.example/a.png');
   });
 
-  it('includes quit count in the record line', () => {
+  it('includes quit and grief counts in the record line', () => {
     const description = buildRankEmbed(baseProfile).toJSON().description ?? '';
-    expect(description).toContain('12W · 5L · 2Q · 70.6% WR');
+    expect(description).toContain('12W · 5L · 2Q · 1G · 70.6% WR');
+    expect(description).not.toContain('tax ki');
+  });
+
+  it('shows griefer pool field with pending season-end ki loss', () => {
+    const fields = buildRankEmbed(baseProfile).toJSON().fields ?? [];
+    expect(fields[0]).toMatchObject({
+      name: 'Griefer pool',
+      value: 'Loses **250 ki** at season end (1 grief)',
+    });
+  });
+
+  it('omits griefer pool when no pending tax', () => {
+    const fields =
+      buildRankEmbed({ ...baseProfile, griefs: 0, pendingGrieferKiTax: 0 }).toJSON().fields ?? [];
+    expect(fields.find((field) => field.name === 'Griefer pool')).toBeUndefined();
+  });
+
+  it('formatGrieferPoolField pluralizes grief count', () => {
+    expect(formatGrieferPoolField({ griefs: 2, pendingGrieferKiTax: 400 }, 'ki')).toBe(
+      'Loses **400 ki** at season end (2 griefs)',
+    );
   });
 
   it('uses profile ratingLabel in the title when provided', () => {
@@ -120,10 +143,12 @@ describe('buildRankEmbed', () => {
       wins: 0,
       losses: 0,
       quits: 0,
+      griefs: 0,
+      pendingGrieferKiTax: 0,
       winRatePercent: null,
     });
     const description = embed.toJSON().description ?? '';
-    expect(description).toBe('0W · 0L · 0Q');
+    expect(description).toBe('0W · 0L · 0Q · 0G');
     expect(description).not.toContain('WR');
   });
 
@@ -140,19 +165,19 @@ describe('buildRankEmbed', () => {
   });
 
   it('omits the Heroes field when the player has no hero ratings', () => {
-    const data = buildRankEmbed({ ...baseProfile, heroes: [] }).toJSON();
-    expect(data.fields ?? []).toEqual([]);
+    const names = buildRankEmbed({ ...baseProfile, heroes: [] }).toJSON().fields?.map((f) => f.name);
+    expect(names).toEqual(['Griefer pool']);
   });
 
   it('omits the Heroes field when showHeroes is false even if ratings exist', () => {
-    const data = buildRankEmbed(baseProfile, { showHeroes: false }).toJSON();
-    expect(data.fields ?? []).toEqual([]);
+    const names = buildRankEmbed(baseProfile, { showHeroes: false }).toJSON().fields?.map((f) => f.name);
+    expect(names).toEqual(['Griefer pool']);
   });
 
   it('includes the Heroes field when hero ratings exist', () => {
     const data = buildRankEmbed(baseProfile).toJSON();
-    expect(data.fields?.[0]?.name).toBe('Heroes');
-    expect(data.fields?.[0]?.value).toContain('Goku');
+    const heroesField = (data.fields ?? []).find((field) => field.name === 'Heroes');
+    expect(heroesField?.value).toContain('Goku');
   });
 
   it('uses Calibrating title and hero cells when under 5 games', () => {
@@ -163,6 +188,8 @@ describe('buildRankEmbed', () => {
       wins: 2,
       losses: 1,
       quits: 0,
+      griefs: 0,
+      pendingGrieferKiTax: 0,
       winRatePercent: 66.7,
       heroes: [
         {
@@ -184,12 +211,12 @@ describe('buildRankEmbed', () => {
     expect(data.fields?.[0]?.value).toContain('2W 1L · 66.7%');
   });
 
-  it('adds teammate fields after Heroes and omits empty lists', () => {
+  it('adds teammate fields after Griefer pool and Heroes', () => {
     const data = buildRankEmbed(baseProfile, { teammates: sampleTeammates }).toJSON();
     const names = (data.fields ?? []).map((f) => f.name);
-    expect(names).toEqual(['Heroes', 'Played with', 'Win with']);
-    expect(data.fields?.[1]?.value).toContain('Ghost');
-    expect(data.fields?.[1]?.value).toContain('14G');
+    expect(names).toEqual(['Griefer pool', 'Heroes', 'Played with', 'Win with']);
+    expect(data.fields?.find((field) => field.name === 'Played with')?.value).toContain('Ghost');
+    expect(data.fields?.find((field) => field.name === 'Played with')?.value).toContain('14G');
     expect(names).not.toContain('Lose with');
   });
 
@@ -199,14 +226,14 @@ describe('buildRankEmbed', () => {
       teammates: sampleTeammates,
     }).toJSON();
     const names = (data.fields ?? []).map((f) => f.name);
-    expect(names).toEqual(['Played with', 'Win with']);
+    expect(names).toEqual(['Griefer pool', 'Played with', 'Win with']);
   });
 
   it('omits all teammate fields when every list is empty', () => {
     const data = buildRankEmbed(baseProfile, {
       teammates: { playedWith: [], winWith: [], loseWith: [] },
     }).toJSON();
-    expect((data.fields ?? []).map((f) => f.name)).toEqual(['Heroes']);
+    expect((data.fields ?? []).map((f) => f.name)).toEqual(['Griefer pool', 'Heroes']);
   });
 
   it('shows idle decay footer for linked players when set', () => {

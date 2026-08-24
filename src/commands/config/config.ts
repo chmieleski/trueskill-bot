@@ -6,12 +6,20 @@ import {
   clearQuitterLeaderboardDisplay,
   clearQuitterLeaderboardSize,
   clearQuitterLeaderboardSort,
+  clearGrieferLeaderboardDisplay,
+  clearGrieferLeaderboardSize,
+  clearGrieferLeaderboardSort,
   resolveGuildConfig,
   setMatchCreateRole,
   setMatchModRole,
   setQuitterLeaderboardDisplay,
   setQuitterLeaderboardSize,
   setQuitterLeaderboardSort,
+  setGrieferLeaderboardDisplay,
+  setGrieferLeaderboardSize,
+  setGrieferLeaderboardSort,
+  type GrieferLeaderboardDisplayValue,
+  type GrieferLeaderboardSortValue,
   type QuitterLeaderboardDisplayValue,
   type QuitterLeaderboardSortValue,
   type RoleConfigSource,
@@ -54,12 +62,16 @@ import {
   setLeagueWc3statsSlotMap,
 } from '../../services/wc3stats/index.js';
 import {
+  assertGrieferLeaderboardSize,
   assertQuitterLeaderboardSize,
+  clearGrieferLiveLeaderboard,
   clearLiveLeaderboard,
   clearQuitterLiveLeaderboard,
   LeaderboardServiceError,
+  refreshGuildGrieferLeaderboard,
   refreshGuildQuitterLeaderboard,
   refreshLeagueLeaderboard,
+  setupGrieferLiveLeaderboard,
   setupLiveLeaderboard,
   setupQuitterLiveLeaderboard,
 } from '../../services/leaderboard/index.js';
@@ -175,6 +187,19 @@ function formatQuitterLeaderboardLine(
   return `**Quitter leaderboard:** <#${channelId}> · message \`${messageId}\` · size \`${size}\` · display \`${display}\` · sort \`${sort}\``;
 }
 
+function formatGrieferLeaderboardLine(
+  channelId: string | undefined,
+  messageId: string | undefined,
+  size: number,
+  display: string,
+  sort: string,
+): string {
+  if (!channelId || !messageId) {
+    return `**Griefer leaderboard:** \`unset\` · size \`${size}\` · display \`${display}\` · sort \`${sort}\``;
+  }
+  return `**Griefer leaderboard:** <#${channelId}> · message \`${messageId}\` · size \`${size}\` · display \`${display}\` · sort \`${sort}\``;
+}
+
 function formatChangelogChannelLine(channelId: string | undefined): string {
   return channelId ? `**Changelog channel:** <#${channelId}>` : '**Changelog channel:** `unset`';
 }
@@ -271,6 +296,58 @@ export const data = new SlashCommandBuilder()
             option
               .setName('sort')
               .setDescription('Rank by quit count or quit rate')
+              .setRequired(true)
+              .addChoices({ name: 'count', value: 'count' }, { name: 'rate', value: 'rate' }),
+          ),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('griefer_leaderboard_channel')
+          .setDescription('Set the channel for the live griefer leaderboard message')
+          .addChannelOption((option) =>
+            option
+              .setName('channel')
+              .setDescription('Channel where the live griefer leaderboard message is posted')
+              .setRequired(true),
+          ),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('griefer_leaderboard_size')
+          .setDescription('How many players appear on the live griefer leaderboard')
+          .addIntegerOption((option) =>
+            option
+              .setName('size')
+              .setDescription('Number of ranks to show (10–100)')
+              .setRequired(true)
+              .setMinValue(10)
+              .setMaxValue(100),
+          ),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('griefer_leaderboard_display')
+          .setDescription('Columns shown on the griefer leaderboard')
+          .addStringOption((option) =>
+            option
+              .setName('display')
+              .setDescription('Show grief count, grief rate, or both (includes pending tax)')
+              .setRequired(true)
+              .addChoices(
+                { name: 'count', value: 'count' },
+                { name: 'rate', value: 'rate' },
+                { name: 'both', value: 'both' },
+              ),
+          ),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('griefer_leaderboard_sort')
+          .setDescription('Sort order for the griefer leaderboard')
+          .addStringOption((option) =>
+            option
+              .setName('sort')
+              .setDescription('Rank by grief count or grief rate')
               .setRequired(true)
               .addChoices({ name: 'count', value: 'count' }, { name: 'rate', value: 'rate' }),
           ),
@@ -502,6 +579,26 @@ export const data = new SlashCommandBuilder()
       )
       .addSubcommand((subcommand) =>
         subcommand
+          .setName('griefer_leaderboard_channel')
+          .setDescription('Remove the live griefer leaderboard message binding'),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('griefer_leaderboard_size')
+          .setDescription('Reset griefer leaderboard size to 10'),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('griefer_leaderboard_display')
+          .setDescription('Reset griefer leaderboard display to both'),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('griefer_leaderboard_sort')
+          .setDescription('Reset griefer leaderboard sort to count'),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
           .setName('changelog_channel')
           .setDescription('Remove the player changelog channel'),
       )
@@ -699,6 +796,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
             resolved.quitterLeaderboardDisplay,
             resolved.quitterLeaderboardSort,
           ),
+          formatGrieferLeaderboardLine(
+            resolved.grieferLeaderboardChannelId,
+            resolved.grieferLeaderboardMessageId,
+            resolved.grieferLeaderboardSize,
+            resolved.grieferLeaderboardDisplay,
+            resolved.grieferLeaderboardSort,
+          ),
           formatChangelogChannelLine(resolved.changelogChannelId),
           formatChangelogDraftLine(resolved.changelogDraftChannelId),
           formatLeaderboardLine(
@@ -849,6 +953,98 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         );
         await interaction.reply({
           content: `Quitter leaderboard sort set to \`${sort}\`.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'griefer_leaderboard_channel') {
+        const channel = interaction.options.getChannel('channel', true);
+        const allowedTypes = new Set([
+          ChannelType.GuildText,
+          ChannelType.GuildAnnouncement,
+          ChannelType.GuildForum,
+        ]);
+        if (!allowedTypes.has(channel.type)) {
+          await interaction.reply({
+            content: 'Choose a server text channel for the griefer leaderboard.',
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
+        await setupGrieferLiveLeaderboard(interaction.client, interaction.guildId, channel.id);
+        log.info(
+          {
+            guildId: interaction.guildId,
+            channelId: channel.id,
+            userId: interaction.user.id,
+          },
+          'Griefer leaderboard channel updated',
+        );
+        await interaction.reply({
+          content: `Live griefer leaderboard set in <#${channel.id}>. Keep only that message there.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'griefer_leaderboard_size') {
+        const size = interaction.options.getInteger('size', true);
+        try {
+          assertGrieferLeaderboardSize(size);
+          await setGrieferLeaderboardSize(interaction.guildId, size);
+        } catch (error) {
+          if (error instanceof LeaderboardServiceError) {
+            await interaction.reply({
+              content: error.message,
+              flags: MessageFlags.Ephemeral,
+            });
+            return;
+          }
+          throw error;
+        }
+
+        await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, size, userId: interaction.user.id },
+          'Griefer leaderboard size updated',
+        );
+        await interaction.reply({
+          content: `Griefer leaderboard size set to \`${size}\`.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'griefer_leaderboard_display') {
+        const display = interaction.options.getString(
+          'display',
+          true,
+        ) as GrieferLeaderboardDisplayValue;
+        await setGrieferLeaderboardDisplay(interaction.guildId, display);
+        await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, display, userId: interaction.user.id },
+          'Griefer leaderboard display updated',
+        );
+        await interaction.reply({
+          content: `Griefer leaderboard display set to \`${display}\`.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'griefer_leaderboard_sort') {
+        const sort = interaction.options.getString('sort', true) as GrieferLeaderboardSortValue;
+        await setGrieferLeaderboardSort(interaction.guildId, sort);
+        await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, sort, userId: interaction.user.id },
+          'Griefer leaderboard sort updated',
+        );
+        await interaction.reply({
+          content: `Griefer leaderboard sort set to \`${sort}\`.`,
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -1313,6 +1509,61 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         );
         await interaction.reply({
           content: 'Quitter leaderboard sort reset to `count`.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'griefer_leaderboard_channel') {
+        await clearGrieferLiveLeaderboard(interaction.client, interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, userId: interaction.user.id },
+          'Griefer leaderboard channel cleared',
+        );
+        await interaction.reply({
+          content: 'Live griefer leaderboard cleared.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'griefer_leaderboard_size') {
+        await clearGrieferLeaderboardSize(interaction.guildId);
+        await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, userId: interaction.user.id },
+          'Griefer leaderboard size cleared',
+        );
+        await interaction.reply({
+          content: 'Griefer leaderboard size reset to `10`.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'griefer_leaderboard_display') {
+        await clearGrieferLeaderboardDisplay(interaction.guildId);
+        await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, userId: interaction.user.id },
+          'Griefer leaderboard display cleared',
+        );
+        await interaction.reply({
+          content: 'Griefer leaderboard display reset to `both`.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'griefer_leaderboard_sort') {
+        await clearGrieferLeaderboardSort(interaction.guildId);
+        await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, userId: interaction.user.id },
+          'Griefer leaderboard sort cleared',
+        );
+        await interaction.reply({
+          content: 'Griefer leaderboard sort reset to `count`.',
           flags: MessageFlags.Ephemeral,
         });
         return;

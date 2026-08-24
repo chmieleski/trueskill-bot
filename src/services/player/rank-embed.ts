@@ -6,6 +6,19 @@ import { CALIBRATING_LABEL, formatPublicKi, isCalibrating } from '../rating/rati
 
 const RANK_GOLD = 0xf0b232;
 
+/** Embed field value for deferred griefer tax; null when nothing is pending. */
+export function formatGrieferPoolField(
+  profile: Pick<PlayerProfile, 'griefs' | 'pendingGrieferKiTax'>,
+  ratingLabel = 'ki',
+): string | null {
+  if (profile.pendingGrieferKiTax <= 0) {
+    return null;
+  }
+
+  const griefLabel = profile.griefs === 1 ? '1 grief' : `${profile.griefs} griefs`;
+  return `Loses **${profile.pendingGrieferKiTax} ${ratingLabel}** at season end (${griefLabel})`;
+}
+
 export function formatHeroTable(heroes: PlayerProfileHero[], leagueGames: number): string {
   if (heroes.length === 0) {
     return '_No hero games yet_';
@@ -51,8 +64,8 @@ export function buildRankEmbed(
     : `Rank #${profile.rankPosition} · ${profile.globalKi} ${ratingLabel}`;
   const record =
     profile.winRatePercent === null
-      ? `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q`
-      : `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q · ${profile.winRatePercent}% WR`;
+      ? `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q · ${profile.griefs}G`
+      : `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q · ${profile.griefs}G · ${profile.winRatePercent}% WR`;
 
   // Mentions only resolve in description/fields — Discord footers are plain text.
   const description = profile.discordId ? `${record}\n\nLinked · <@${profile.discordId}>` : record;
@@ -62,6 +75,11 @@ export function buildRankEmbed(
     .setAuthor({ name: profile.username })
     .setTitle(title)
     .setDescription(description);
+
+  const grieferPool = formatGrieferPoolField(profile, ratingLabel);
+  if (grieferPool) {
+    embed.addFields({ name: 'Griefer pool', value: grieferPool });
+  }
 
   // Omit when empty (ACA has no hero ratings; UDBR players may also have none yet).
   if (showHeroes && profile.heroes.length > 0) {

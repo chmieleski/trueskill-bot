@@ -1,13 +1,17 @@
 import { MessageFlags, type Interaction } from 'discord.js';
 import {
+  loadGrieferLeaderboardPage,
   loadOverallLeaderboardPage,
   loadQuitterLeaderboardPage,
 } from '../../services/leaderboard/index.js';
 import {
+  buildGrieferLeaderboardEmbed,
+  buildGrieferPageButtons,
   buildLeaderboardPageButtons,
   buildOverallLeaderboardEmbed,
   buildQuitterLeaderboardEmbed,
   buildQuitterPageButtons,
+  parseGrieferPageCustomId,
   parseLeaderboardPageCustomId,
   parseQuitterPageCustomId,
 } from '../../services/leaderboard/index.js';
@@ -18,6 +22,27 @@ const NOT_YOUR_PAGE = 'Only the person who ran the leaderboard command can chang
 export async function handleLeaderboardInteraction(interaction: Interaction): Promise<boolean> {
   if (!interaction.isButton()) {
     return false;
+  }
+
+  if (interaction.customId.startsWith('lb:griefers:')) {
+    const parsed = parseGrieferPageCustomId(interaction.customId);
+    if (!parsed) return true;
+    if (interaction.user.id !== parsed.invokerId) {
+      await interaction.reply({ content: NOT_YOUR_PAGE, flags: MessageFlags.Ephemeral });
+      return true;
+    }
+    if (!interaction.guildId) return true;
+    await interaction.deferUpdate();
+    const pageData = await loadGrieferLeaderboardPage(interaction.guildId, parsed.page);
+    await interaction.editReply({
+      embeds: [buildGrieferLeaderboardEmbed(pageData)],
+      components: buildGrieferPageButtons({
+        invokerId: parsed.invokerId,
+        page: pageData.page,
+        totalPages: pageData.totalPages,
+      }),
+    });
+    return true;
   }
 
   if (interaction.customId.startsWith('lb:quitters:')) {

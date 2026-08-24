@@ -235,6 +235,8 @@ model MatchPlayer {
   result    MatchResult? // Null until match ends
   isQuitter Boolean      @default(false) // Quitter penalty flag; excluded from team rating
   isGriefer Boolean      @default(false) // Bug-abuse penalty flag; stays in team rating
+  /// Deferred global ki tax for this griefer incident (null when not griefer).
+  grieferKiAccrued Int?
   wasNewPlayer Boolean      @default(false) // Snapshot of PlayerRating.isNewPlayer at rating apply
   /// Display ki after this match (null until completed with preview written).
   globalKi      Int?
@@ -301,6 +303,17 @@ enum QuitterLeaderboardSort {
   rate
 }
 
+enum GrieferLeaderboardDisplay {
+  count
+  rate
+  both
+}
+
+enum GrieferLeaderboardSort {
+  count
+  rate
+}
+
 // GuildConfig - per-server bot settings (roles, quitter leaderboard, changelog channels). IHL fields stay on League.
 model GuildConfig {
   guildId                      String                     @id
@@ -311,6 +324,11 @@ model GuildConfig {
   quitterLeaderboardSize       Int                        @default(10)
   quitterLeaderboardDisplay    QuitterLeaderboardDisplay  @default(both)
   quitterLeaderboardSort       QuitterLeaderboardSort     @default(count)
+  grieferLeaderboardChannelId  String?
+  grieferLeaderboardMessageId  String?
+  grieferLeaderboardSize       Int                        @default(10)
+  grieferLeaderboardDisplay    GrieferLeaderboardDisplay  @default(both)
+  grieferLeaderboardSort       GrieferLeaderboardSort     @default(count)
   changelogChannelId           String?
   changelogDraftChannelId      String?
   createdAt                    DateTime                   @default(now())

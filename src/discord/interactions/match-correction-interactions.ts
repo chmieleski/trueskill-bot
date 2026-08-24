@@ -8,6 +8,7 @@ import {
 import type { ButtonInteraction, Interaction } from 'discord.js';
 import { resolveGuildConfig } from '../../services/guild/index.js';
 import {
+  refreshGuildGrieferLeaderboard,
   refreshGuildQuitterLeaderboard,
   refreshLeagueLeaderboard,
 } from '../../services/leaderboard/index.js';
@@ -97,6 +98,7 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
     await refreshLeagueLeaderboard(interaction.client, updated.leagueId);
     if (interaction.guildId) {
       await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
+      await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);
     }
     await interaction.editReply({
       content: `Match \`${updated.id}\` corrected.`,
@@ -110,6 +112,7 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
     await refreshLeagueLeaderboard(interaction.client, updated.leagueId);
     if (interaction.guildId) {
       await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
+      await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);
     }
     await interaction.editReply({
       content: `Match \`${updated.id}\` voided and ratings restored.`,

@@ -49,6 +49,14 @@ const quitterDefaults = {
   changelogDraftChannelId: undefined,
 };
 
+const grieferDefaults = {
+  grieferLeaderboardChannelId: undefined,
+  grieferLeaderboardMessageId: undefined,
+  grieferLeaderboardSize: 10,
+  grieferLeaderboardDisplay: 'both' as const,
+  grieferLeaderboardSort: 'count' as const,
+};
+
 describe('resolveGuildConfig', () => {
   beforeEach(() => {
     findUnique.mockReset();
@@ -69,6 +77,7 @@ describe('resolveGuildConfig', () => {
       matchCreateRoleSource: 'env',
       matchModRoleSource: 'env',
       ...quitterDefaults,
+      ...grieferDefaults,
     });
   });
 

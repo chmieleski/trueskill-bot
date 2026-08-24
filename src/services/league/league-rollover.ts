@@ -1,5 +1,15 @@
 import type { League } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import {
+  applyGrieferSeasonTaxToSeededGlobals,
+  sumGrieferKiTaxByPlayer,
+  summarizeGrieferSeasonTax,
+  type GrieferSeasonTaxSummary,
+} from '../rating/griefer-tax.js';
+import {
+  gamesByPlayerFromStats,
+  loadMatchDisplayStatsByPlayer,
+} from '../rating/rank-reset-display.js';
 
 export class LeagueRolloverError extends Error {
   constructor(message: string) {
@@ -59,6 +69,7 @@ export type LeagueRolloverPreview = {
   compression: number | null;
   playerCount: number;
   bindingCount: number;
+  grieferSeasonTax: GrieferSeasonTaxSummary;
 };
 
 export type ApplyLeagueRolloverInput = {
@@ -294,6 +305,97 @@ async function assertNoActiveMatches(leagueId: string): Promise<void> {
   return assertNoActiveMatchesWithClient(prisma, leagueId);
 }
 
+async function loadPendingGrieferTaxForLeague(leagueId: string) {
+  const rows = await prisma.matchPlayer.findMany({
+    where: {
+      isGriefer: true,
+      isQuitter: false,
+      grieferKiAccrued: { not: null },
+      match: { leagueId },
+    },
+    select: { playerId: true, grieferKiAccrued: true },
+  });
+  return sumGrieferKiTaxByPlayer(rows);
+}
+
+async function clearConsumedGrieferKiAccruals(
+  leagueId: string,
+  db: Pick<typeof prisma, 'matchPlayer'> = prisma,
+): Promise<void> {
+  await db.matchPlayer.updateMany({
+    where: {
+      grieferKiAccrued: { not: null },
+      match: { leagueId },
+    },
+    data: { grieferKiAccrued: null },
+  });
+}
+
+type GlobalRatingRow = { playerId: string; mu: number; sigma: number };
+
+/** Apply deferred tax to ending-season global μ (archived board / rewards). */
+function applyGrieferTaxToEndingSeasonGlobals(
+  rows: GlobalRatingRow[],
+  taxByPlayer: ReturnType<typeof sumGrieferKiTaxByPlayer>,
+  gamesByPlayer: Map<string, number>,
+): GlobalRatingRow[] {
+  if (taxByPlayer.size === 0) {
+    return rows;
+  }
+  return applyGrieferSeasonTaxToSeededGlobals(rows, taxByPlayer, gamesByPlayer);
+}
+
+async function persistEndingSeasonGrieferTax(
+  leagueId: string,
+  rows: GlobalRatingRow[],
+  taxByPlayer: ReturnType<typeof sumGrieferKiTaxByPlayer>,
+  gamesByPlayer: Map<string, number>,
+  db: Pick<typeof prisma, 'playerRating' | 'matchPlayer'>,
+): Promise<GlobalRatingRow[]> {
+  const taxed = applyGrieferTaxToEndingSeasonGlobals(rows, taxByPlayer, gamesByPlayer);
+  if (taxByPlayer.size === 0) {
+    return taxed;
+  }
+
+  for (const row of taxed) {
+    const before = rows.find((entry) => entry.playerId === row.playerId);
+    if (!before || before.mu === row.mu) {
+      continue;
+    }
+    await db.playerRating.update({
+      where: { leagueId_playerId: { leagueId, playerId: row.playerId } },
+      data: { mu: row.mu },
+    });
+  }
+
+  await clearConsumedGrieferKiAccruals(leagueId, db);
+  return taxed;
+}
+
+function globalSeedRowsWithTaxedMu(
+  globalRatings: Array<{
+    playerId: string;
+    mu: number;
+    sigma: number;
+    lastQualifyingActivityAt: Date | null;
+    idleDecayKiApplied: number;
+    lastDecayAppliedAt: Date | null;
+    isNewPlayer: boolean;
+  }>,
+  taxedSourceGlobals: GlobalRatingRow[],
+): GlobalRatingSeedRow[] {
+  const taxedMu = new Map(taxedSourceGlobals.map((row) => [row.playerId, row.mu]));
+  return globalRatings.map((row) => ({
+    playerId: row.playerId,
+    mu: taxedMu.get(row.playerId) ?? row.mu,
+    sigma: row.sigma,
+    lastQualifyingActivityAt: row.lastQualifyingActivityAt,
+    idleDecayKiApplied: row.idleDecayKiApplied,
+    lastDecayAppliedAt: row.lastDecayAppliedAt,
+    isNewPlayer: row.isNewPlayer,
+  }));
+}
+
 async function countRolloverPlayers(leagueId: string): Promise<number> {
   const [globalRatings, heroRatings] = await Promise.all([
     prisma.playerRating.findMany({
@@ -387,10 +489,12 @@ export async function previewLeagueRollover(
 
   await assertNoActiveMatches(source.id);
 
-  const [playerCount, bindingCount] = await Promise.all([
+  const [playerCount, bindingCount, grieferTaxByPlayer] = await Promise.all([
     countRolloverPlayers(source.id),
     prisma.leagueChannelBinding.count({ where: { leagueId: source.id } }),
+    loadPendingGrieferTaxForLeague(source.id),
   ]);
+  const grieferSeasonTax = summarizeGrieferSeasonTax(grieferTaxByPlayer);
 
   const expiredBefore = new Date(Date.now() - ROLLOVER_DRAFT_TTL_MS);
   await prisma.leagueRolloverDraft.deleteMany({
@@ -420,6 +524,7 @@ export async function previewLeagueRollover(
     compression,
     playerCount,
     bindingCount,
+    grieferSeasonTax,
   };
 }
 
@@ -474,8 +579,28 @@ export async function applyLeagueRollover(
     playerIds.add(row.playerId);
   }
 
+  const [grieferTaxByPlayer, displayStats] = await Promise.all([
+    loadPendingGrieferTaxForLeague(source.id),
+    loadMatchDisplayStatsByPlayer(source.id),
+  ]);
+  const gamesByPlayer = gamesByPlayerFromStats(displayStats);
+
+  const sourceGlobalRows: GlobalRatingRow[] = globalRatings.map((row) => ({
+    playerId: row.playerId,
+    mu: row.mu,
+    sigma: row.sigma,
+  }));
+
   const result = await prisma.$transaction(async (tx) => {
     await assertNoActiveMatchesWithClient(tx, source.id);
+
+    const taxedSourceGlobals = await persistEndingSeasonGrieferTax(
+      source.id,
+      sourceGlobalRows,
+      grieferTaxByPlayer,
+      gamesByPlayer,
+      tx,
+    );
 
     const successor = await tx.league.create({
       data: successorLeagueCreateData(source, draft.successorName, resetMode),
@@ -497,15 +622,7 @@ export async function applyLeagueRollover(
       }
     } else if (resetMode === 'continue') {
       const seededGlobals = seedContinueGlobalRatings(
-        globalRatings.map((row) => ({
-          playerId: row.playerId,
-          mu: row.mu,
-          sigma: row.sigma,
-          lastQualifyingActivityAt: row.lastQualifyingActivityAt,
-          idleDecayKiApplied: row.idleDecayKiApplied,
-          lastDecayAppliedAt: row.lastDecayAppliedAt,
-          isNewPlayer: row.isNewPlayer,
-        })),
+        globalSeedRowsWithTaxedMu(globalRatings, taxedSourceGlobals),
       );
 
       if (seededGlobals.length > 0) {
@@ -546,23 +663,15 @@ export async function applyLeagueRollover(
         });
       }
     } else {
-      const seededGlobals = seedSoftGlobalRatings(
-        globalRatings.map((row) => ({
-          playerId: row.playerId,
-          mu: row.mu,
-          sigma: row.sigma,
-          lastQualifyingActivityAt: row.lastQualifyingActivityAt,
-          idleDecayKiApplied: row.idleDecayKiApplied,
-          lastDecayAppliedAt: row.lastDecayAppliedAt,
-          isNewPlayer: row.isNewPlayer,
-        })),
+      const seededGlobalsRaw = seedSoftGlobalRatings(
+        globalSeedRowsWithTaxedMu(globalRatings, taxedSourceGlobals),
         compression ?? ROLLOVER_COMPRESSION_DEFAULT,
       );
 
-      const globalPlayerIds = new Set(globalRatings.map((row) => row.playerId));
+      const globalPlayerIds = new Set(taxedSourceGlobals.map((row) => row.playerId));
       for (const playerId of playerIds) {
         if (!globalPlayerIds.has(playerId)) {
-          seededGlobals.push({
+          seededGlobalsRaw.push({
             playerId,
             mu: DEFAULT_MU,
             sigma: DEFAULT_SIGMA,
@@ -574,9 +683,9 @@ export async function applyLeagueRollover(
         }
       }
 
-      if (seededGlobals.length > 0) {
+      if (seededGlobalsRaw.length > 0) {
         await tx.playerRating.createMany({
-          data: seededGlobals.map((row) => ({
+          data: seededGlobalsRaw.map((row) => ({
             leagueId: successor.id,
             playerId: row.playerId,
             mu: row.mu,

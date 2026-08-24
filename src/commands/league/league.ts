@@ -128,6 +128,12 @@ export function buildRolloverPreviewMessage(preview: LeagueRolloverPreview): str
     lines.push('• Ratings copied unchanged (old league frozen)');
   }
 
+  if (preview.grieferSeasonTax.totalKiTax > 0) {
+    lines.push(
+      `• Griefer season tax: **${preview.grieferSeasonTax.playerCount}** player(s), **${preview.grieferSeasonTax.totalKiTax}** ki (applied to ending season ratings for rewards)`,
+    );
+  }
+
   lines.push(
     `• Players seeded: ${preview.playerCount}`,
     `• Bindings moved: ${preview.bindingCount}`,

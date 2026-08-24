@@ -8,6 +8,7 @@ import {
 import { getGameProfileForLeague } from '../league/league-profile.js';
 import { LIVE_LEADERBOARD_DEFAULT_SIZE, loadOverallLeaderboardTop } from './leaderboard.js';
 import { buildOverallLiveLeaderboardEmbeds } from './leaderboard-embed.js';
+import { refreshAllGrieferLeaderboardChannels } from './griefer-leaderboard-channel.js';
 import { refreshAllQuitterLeaderboardChannels } from './quitter-leaderboard-channel.js';
 
 const log = createLogger('leaderboard_channel');
@@ -145,6 +146,7 @@ export async function refreshAllLeaderboardChannels(client: Client): Promise<voi
   }
 
   await refreshAllQuitterLeaderboardChannels(client);
+  await refreshAllGrieferLeaderboardChannels(client);
 }
 
 export function scheduleLeaderboardRefresh(client: Client): void {
