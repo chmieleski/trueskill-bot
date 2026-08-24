@@ -4,6 +4,7 @@ Your strength is shown as **ki**.
 • New players start near **1000**
 • Win → ki usually up · Lose → usually down · Big upsets move more
 • The bot tracks **overall** skill and skill **per hero**
+• Same ki does **not** mean the same swing — see the next post
 
 **See a profile**
 

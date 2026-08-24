@@ -12,7 +12,8 @@ The command **deletes all messages** in that channel, then posts these files in 
 4. `public/04-fix-the-lobby.md`
 5. `public/05-play-and-finish.md`
 6. `public/06-rank-and-boards.md`
-7. `public/07-cheat-sheet.md`
+7. `public/06a-how-ki-works.md`
+8. `public/07-cheat-sheet.md`
 
 ## Staff channel (mods / admins only)
 
