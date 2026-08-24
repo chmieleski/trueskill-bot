@@ -115,10 +115,7 @@ export function resolveDecaySettings(
       league.decayPrizeLockEnabled == null
         ? DEFAULT_PRIZE_LOCK_ENABLED
         : league.decayPrizeLockEnabled,
-    prizeLockMinGames: coalesceInt(
-      league.decayPrizeLockMinGames,
-      DEFAULT_PRIZE_LOCK_MIN_GAMES,
-    ),
+    prizeLockMinGames: coalesceInt(league.decayPrizeLockMinGames, DEFAULT_PRIZE_LOCK_MIN_GAMES),
   };
 }
 

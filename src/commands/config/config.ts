@@ -864,7 +864,10 @@ export const data = new SlashCommandBuilder()
                 .setName('name')
                 .setDescription('Preset to apply')
                 .setRequired(true)
-                .addChoices({ name: 'Strict crunch (3d/−100ki / 7 games)', value: 'strict_crunch' }),
+                .addChoices({
+                  name: 'Strict crunch (3d/−100ki / 7 games)',
+                  value: 'strict_crunch',
+                }),
             ),
         ),
       )
