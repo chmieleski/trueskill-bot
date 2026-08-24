@@ -443,6 +443,17 @@ function successorLeagueCreateData(
     seasonEndsAt: source.seasonEndsAt,
     crunchStartedAt: source.crunchStartedAt,
     decayEnabled: resetMode === 'continue' ? false : (source.decayEnabled ?? true),
+    decayMidGraceDays: source.decayMidGraceDays,
+    decayMidTier1Ki: source.decayMidTier1Ki,
+    decayMidTier2Ki: source.decayMidTier2Ki,
+    decayMidTier1SpanDays: source.decayMidTier1SpanDays,
+    decayMidStreakCapKi: source.decayMidStreakCapKi,
+    decayCrunchGraceDays: source.decayCrunchGraceDays,
+    decayCrunchTier1Ki: source.decayCrunchTier1Ki,
+    decayCrunchTier2Ki: source.decayCrunchTier2Ki,
+    decayCrunchTier1SpanDays: source.decayCrunchTier1SpanDays,
+    decayCrunchWindowDays: source.decayCrunchWindowDays,
+    decayPrizeLockEnabled: source.decayPrizeLockEnabled,
   };
 }
 

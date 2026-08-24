@@ -1,6 +1,11 @@
 import { prisma } from '../../lib/prisma.js';
 import { normalizeNick } from './player-nick.js';
-import { applyPendingDecayForPlayers, resolveRankDecayFooter } from '../rating/rating-decay.js';
+import {
+  applyPendingDecayForPlayers,
+  DECAY_SETTINGS_SELECT,
+  resolveRankDecayFooter,
+  toDecayLeagueContext,
+} from '../rating/rating-decay.js';
 import { displayOrdinal, isCalibrating } from '../rating/rating-math.js';
 import {
   gamesByPlayerFromStats,
@@ -169,6 +174,7 @@ export async function loadPlayerProfile(
           seasonEndsAt: true,
           crunchStartedAt: true,
           archivedAt: true,
+          ...DECAY_SETTINGS_SELECT,
         },
       }),
       prisma.playerRating.findUnique({
@@ -218,13 +224,7 @@ export async function loadPlayerProfile(
           leagueGames: games,
           isNewPlayer: rating.isNewPlayer,
           lastQualifyingActivityAt: rating.lastQualifyingActivityAt,
-          league: {
-            status: league.status,
-            decayEnabled: league.decayEnabled,
-            seasonEndsAt: league.seasonEndsAt,
-            crunchStartedAt: league.crunchStartedAt,
-            archivedAt: league.archivedAt,
-          },
+          league: toDecayLeagueContext(league),
         })
       : null;
   const winRatePercentValue = winRatePercent(wins, losses);

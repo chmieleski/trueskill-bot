@@ -2,23 +2,33 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { gamesByPlayerFromStats, loadMatchDisplayStatsByPlayer } from './rank-reset-display.js';
 import { displayConservatismZ, isCalibrating, KI_SCALE } from './rating-math.js';
+import {
+  DECAY_SETTINGS_SELECT,
+  DEFAULT_DECAY_SETTINGS,
+  resolveDecaySettings,
+  tier1EndIdleDay,
+  type DecaySettingsSource,
+  type ResolvedDecaySettings,
+} from './decay-settings.js';
+
+export {
+  CRUNCH_GRACE_DAYS,
+  CRUNCH_TIER1_KI,
+  CRUNCH_TIER2_KI,
+  CRUNCH_WINDOW_DAYS,
+  DEFAULT_DECAY_SETTINGS,
+  DECAY_SETTINGS_SELECT,
+  MID_GRACE_DAYS,
+  MID_STREAK_CAP_KI,
+  MID_TIER1_KI,
+  MID_TIER2_KI,
+  PRIZE_LOCK_DAYS,
+  resolveDecaySettings,
+  type DecaySettingsSource,
+  type ResolvedDecaySettings,
+} from './decay-settings.js';
 
 type Db = Prisma.TransactionClient | typeof prisma;
-
-export const MID_GRACE_DAYS = 10;
-export const MID_TIER1_KI = 50;
-export const MID_TIER2_KI = 100;
-export const MID_STREAK_CAP_KI = 1000;
-export const CRUNCH_GRACE_DAYS = 2;
-export const CRUNCH_TIER1_KI = 100;
-export const CRUNCH_TIER2_KI = 200;
-export const CRUNCH_WINDOW_DAYS = 7;
-export const PRIZE_LOCK_DAYS = 7;
-
-export const RANK_CRUNCH_DECAY_FOOTER =
-  'Crunch week: −100 ki/day after 2 idle days (−200/day after 10).';
-export const RANK_IDLE_DECAY_FOOTER =
-  'Inactive 11+ days: league ki decays −50/day (−100/day after 20 days) until you finish a game.';
 
 const MS_PER_UTC_DAY = 86_400_000;
 
@@ -28,7 +38,34 @@ export type DecayLeagueContext = {
   seasonEndsAt: Date | null;
   crunchStartedAt: Date | null;
   archivedAt?: Date | null;
+  /** When omitted, code defaults apply (backward-compatible for tests/callers). */
+  settings?: ResolvedDecaySettings;
 };
+
+/** Effective decay settings for a league context. */
+export function leagueDecaySettings(league: DecayLeagueContext): ResolvedDecaySettings {
+  return league.settings ?? DEFAULT_DECAY_SETTINGS;
+}
+
+/** Build a DecayLeagueContext from a League row (or partial) + resolved settings. */
+export function toDecayLeagueContext(
+  league: {
+    status: string;
+    decayEnabled: boolean;
+    seasonEndsAt: Date | null;
+    crunchStartedAt: Date | null;
+    archivedAt?: Date | null;
+  } & DecaySettingsSource,
+): DecayLeagueContext {
+  return {
+    status: league.status,
+    decayEnabled: league.decayEnabled,
+    seasonEndsAt: league.seasonEndsAt,
+    crunchStartedAt: league.crunchStartedAt,
+    archivedAt: league.archivedAt,
+    settings: resolveDecaySettings(league),
+  };
+}
 
 export type ComputeDecayDeltaInput = {
   idleDays: number;
@@ -39,6 +76,7 @@ export type ComputeDecayDeltaInput = {
   leagueGames: number;
   /** Whole UTC days to apply (usually 1; 0 for idempotent same-day). */
   utcDaysToApply: number;
+  settings?: ResolvedDecaySettings;
 };
 
 export type ComputeDecayDeltaResult = {
@@ -71,15 +109,23 @@ export function pendingUtcDaysToApply(
 }
 
 /** Daily ki loss for a given idle streak day count and crunch mode. */
-export function dailyKiLoss(idleDays: number, inCrunch: boolean): number {
+export function dailyKiLoss(
+  idleDays: number,
+  inCrunch: boolean,
+  settings: ResolvedDecaySettings = DEFAULT_DECAY_SETTINGS,
+): number {
   if (inCrunch) {
-    if (idleDays <= CRUNCH_GRACE_DAYS) return 0;
-    if (idleDays <= 9) return CRUNCH_TIER1_KI;
-    return CRUNCH_TIER2_KI;
+    if (idleDays <= settings.crunchGraceDays) return 0;
+    if (idleDays <= tier1EndIdleDay(settings.crunchGraceDays, settings.crunchTier1SpanDays)) {
+      return settings.crunchTier1Ki;
+    }
+    return settings.crunchTier2Ki;
   }
-  if (idleDays <= MID_GRACE_DAYS) return 0;
-  if (idleDays <= 19) return MID_TIER1_KI;
-  return MID_TIER2_KI;
+  if (idleDays <= settings.midGraceDays) return 0;
+  if (idleDays <= tier1EndIdleDay(settings.midGraceDays, settings.midTier1SpanDays)) {
+    return settings.midTier1Ki;
+  }
+  return settings.midTier2Ki;
 }
 
 /** Minimum μ before public ki hits the ~1000 floor for this player. */
@@ -105,6 +151,7 @@ export function computeDecayDelta(input: ComputeDecayDeltaInput): ComputeDecayDe
     sigma,
     leagueGames,
     utcDaysToApply,
+    settings = DEFAULT_DECAY_SETTINGS,
   } = input;
 
   if (utcDaysToApply <= 0) {
@@ -122,10 +169,10 @@ export function computeDecayDelta(input: ComputeDecayDeltaInput): ComputeDecayDe
   let idleDays = initialIdleDays;
 
   for (let day = 0; day < utcDaysToApply; day += 1) {
-    let desiredKi = dailyKiLoss(idleDays, inCrunch);
+    let desiredKi = dailyKiLoss(idleDays, inCrunch, settings);
 
-    if (!inCrunch) {
-      const remainingStreakRoom = MID_STREAK_CAP_KI - streakKiApplied;
+    if (!inCrunch && settings.midStreakCapKi > 0) {
+      const remainingStreakRoom = settings.midStreakCapKi - streakKiApplied;
       desiredKi = Math.min(desiredKi, Math.max(0, remainingStreakRoom));
     }
 
@@ -161,9 +208,10 @@ export function computeDecayDelta(input: ComputeDecayDeltaInput): ComputeDecayDe
 /** Earliest UTC instant when crunch rules apply for this league. */
 export function resolveCrunchStart(league: DecayLeagueContext): Date | null {
   const candidates: Date[] = [];
+  const windowDays = leagueDecaySettings(league).crunchWindowDays;
 
   if (league.seasonEndsAt) {
-    candidates.push(new Date(league.seasonEndsAt.getTime() - CRUNCH_WINDOW_DAYS * MS_PER_UTC_DAY));
+    candidates.push(new Date(league.seasonEndsAt.getTime() - windowDays * MS_PER_UTC_DAY));
   }
 
   if (league.crunchStartedAt) {
@@ -190,12 +238,32 @@ export function isLeagueInCrunch(league: DecayLeagueContext, now: Date): boolean
   }
 
   if (league.seasonEndsAt) {
-    const start = new Date(league.seasonEndsAt.getTime() - CRUNCH_WINDOW_DAYS * MS_PER_UTC_DAY);
+    const start = new Date(
+      league.seasonEndsAt.getTime() -
+        leagueDecaySettings(league).crunchWindowDays * MS_PER_UTC_DAY,
+    );
     return now >= start && now < league.seasonEndsAt;
   }
 
   return false;
 }
+
+/** Build `/rank` idle-decay footer from resolved settings. */
+export function formatIdleDecayFooter(settings: ResolvedDecaySettings): string {
+  const startDay = settings.midGraceDays + 1;
+  const tier2Start = tier1EndIdleDay(settings.midGraceDays, settings.midTier1SpanDays) + 1;
+  return `Inactive ${startDay}+ days: league ki decays −${settings.midTier1Ki}/day (−${settings.midTier2Ki}/day after ${tier2Start} days) until you finish a game.`;
+}
+
+/** Build `/rank` crunch-decay footer from resolved settings. */
+export function formatCrunchDecayFooter(settings: ResolvedDecaySettings): string {
+  const tier2Start = tier1EndIdleDay(settings.crunchGraceDays, settings.crunchTier1SpanDays) + 1;
+  return `Crunch week: −${settings.crunchTier1Ki} ki/day after ${settings.crunchGraceDays} idle days (−${settings.crunchTier2Ki}/day after ${tier2Start}).`;
+}
+
+/** Default footers (code defaults) — kept for tests and static imports. */
+export const RANK_CRUNCH_DECAY_FOOTER = formatCrunchDecayFooter(DEFAULT_DECAY_SETTINGS);
+export const RANK_IDLE_DECAY_FOOTER = formatIdleDecayFooter(DEFAULT_DECAY_SETTINGS);
 
 /** Player-facing `/rank` footer when decay applies; null when hidden. */
 export function resolveRankDecayFooter(input: {
@@ -217,14 +285,15 @@ export function resolveRankDecayFooter(input: {
     return null;
   }
 
+  const settings = leagueDecaySettings(input.league);
   const inCrunch = isLeagueInCrunch(input.league, now);
   if (inCrunch) {
-    return RANK_CRUNCH_DECAY_FOOTER;
+    return formatCrunchDecayFooter(settings);
   }
 
   const idleDays = idleDaysSince(input.lastQualifyingActivityAt, now);
-  if (idleDays > MID_GRACE_DAYS) {
-    return RANK_IDLE_DECAY_FOOTER;
+  if (idleDays > settings.midGraceDays) {
+    return formatIdleDecayFooter(settings);
   }
 
   return null;
@@ -235,6 +304,9 @@ export function resolvePrizeLockWindowDays(
   league: DecayLeagueContext,
   now: Date,
 ): { startDay: number; endDay: number } | null {
+  if (!leagueDecaySettings(league).prizeLockEnabled) {
+    return null;
+  }
   if (!isLeagueInCrunch(league, now)) {
     return null;
   }
@@ -362,6 +434,7 @@ export async function applyPendingDecay(
         seasonEndsAt: true,
         crunchStartedAt: true,
         archivedAt: true,
+        ...DECAY_SETTINGS_SELECT,
       },
     }),
     db.playerRating.findUnique({
@@ -397,17 +470,10 @@ export async function applyPendingDecay(
     return { applied: false };
   }
 
+  const leagueCtx = toDecayLeagueContext(league);
+  const settings = leagueDecaySettings(leagueCtx);
   const idleDays = idleDaysSince(activityAt, now) - utcDaysToApply + 1;
-  const inCrunch = isLeagueInCrunch(
-    {
-      status: league.status,
-      decayEnabled: league.decayEnabled,
-      seasonEndsAt: league.seasonEndsAt,
-      crunchStartedAt: league.crunchStartedAt,
-      archivedAt: league.archivedAt,
-    },
-    now,
-  );
+  const inCrunch = isLeagueInCrunch(leagueCtx, now);
 
   const delta = computeDecayDelta({
     idleDays,
@@ -417,6 +483,7 @@ export async function applyPendingDecay(
     sigma: rating.sigma,
     leagueGames,
     utcDaysToApply,
+    settings,
   });
 
   const nextMu = rating.mu + delta.muDelta;

@@ -40,6 +40,18 @@ model League {
   decayEnabled                  Boolean  @default(true)
   seasonEndsAt                  DateTime?
   crunchStartedAt               DateTime?
+  // Nullable overrides — null means use code defaults in decay-settings.ts
+  decayMidGraceDays             Int?
+  decayMidTier1Ki               Int?
+  decayMidTier2Ki               Int?
+  decayMidTier1SpanDays         Int?
+  decayMidStreakCapKi           Int?
+  decayCrunchGraceDays          Int?
+  decayCrunchTier1Ki            Int?
+  decayCrunchTier2Ki            Int?
+  decayCrunchTier1SpanDays      Int?
+  decayCrunchWindowDays         Int?
+  decayPrizeLockEnabled         Boolean?
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt
 

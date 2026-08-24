@@ -30,6 +30,8 @@
 • `/config set|clear changelog_channel` — player patch notes for this server
 • `/config set|clear changelog_draft_channel` — one staff draft channel for the whole bot (second server is rejected)
 • `/config set decay` (`enabled:true|false`) — mid-season idle decay per league (`off` by default after `reset:continue`)
+• `/config decay …` — tune grace / ki rates / streak cap / crunch window / prize lock; `clear_*` resets to defaults
+• `/config view` — shows effective decay rates + season/crunch status
 
 **Releases (Manage Server on the draft server)**
 • After a version deploys, a Draft card appears in the draft channel
