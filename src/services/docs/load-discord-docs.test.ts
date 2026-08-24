@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { DocsServiceError, loadDiscordDocs } from './load-discord-docs.js';
+import { DocsServiceError } from './docs-errors.js';
+import { loadDiscordDocs } from './load-discord-docs.js';
 
 describe('loadDiscordDocs', () => {
   let rootDir: string;
