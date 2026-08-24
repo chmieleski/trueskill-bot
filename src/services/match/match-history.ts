@@ -135,9 +135,7 @@ export function buildMatchHistoryPageCustomId(
   return griefersOnly ? `${base}:g` : base;
 }
 
-export function parseMatchHistoryPageCustomId(
-  customId: string,
-): {
+export function parseMatchHistoryPageCustomId(customId: string): {
   invokerId: string;
   playerId: string;
   leagueId: string;
