@@ -3,7 +3,6 @@ import {
   computeDecayDelta,
   dailyKiLoss,
   DEFAULT_DECAY_SETTINGS,
-  hasQualifyingActivityEveryUtcDay,
   idleDaysSince,
   isLeagueInCrunch,
   isPrizeEligibleFromGameCount,
@@ -12,11 +11,9 @@ import {
   pendingUtcDaysToApply,
   resolveCrunchStart,
   resolvePrizeLockWindow,
-  resolvePrizeLockWindowDays,
   resolveRankDecayFooter,
   RANK_CRUNCH_DECAY_FOOTER,
   RANK_IDLE_DECAY_FOOTER,
-  utcDayIndex,
 } from './rating-decay.js';
 import { KI_SCALE } from './rating-math.js';
 
@@ -199,32 +196,6 @@ describe('isLeagueInCrunch', () => {
         now,
       ),
     ).toBe(false);
-  });
-});
-
-describe('hasQualifyingActivityEveryUtcDay', () => {
-  it('requires activity on every day in the window', () => {
-    const activeDays = new Set([16, 17, 18, 19, 20]);
-    expect(hasQualifyingActivityEveryUtcDay(activeDays, 16, 20)).toBe(true);
-    expect(hasQualifyingActivityEveryUtcDay(new Set([16, 17, 18, 20]), 16, 20)).toBe(false);
-    expect(hasQualifyingActivityEveryUtcDay(new Set([20]), 16, 20)).toBe(false);
-  });
-});
-
-describe('resolvePrizeLockWindowDays', () => {
-  it('returns crunch start through today while in crunch', () => {
-    const league = {
-      status: 'ACTIVE' as const,
-      decayEnabled: true,
-      seasonEndsAt: new Date('2026-08-23T00:00:00.000Z'),
-      crunchStartedAt: null,
-      archivedAt: null,
-    };
-    const now = new Date('2026-08-20T12:00:00.000Z');
-    expect(resolvePrizeLockWindowDays(league, now)).toEqual({
-      startDay: utcDayIndex(new Date('2026-08-16T00:00:00.000Z')),
-      endDay: utcDayIndex(now),
-    });
   });
 });
 

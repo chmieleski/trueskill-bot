@@ -5,10 +5,10 @@ import {
   DECAY_SETTINGS_SELECT,
   DEFAULT_DECAY_SETTINGS,
   isLeagueInCrunch,
-  isPrizeEligibleFromActivityDays,
+  isPrizeEligibleFromGameCount,
   leagueDecaySettings,
-  loadQualifyingActivityUtcDaysByPlayer,
-  resolvePrizeLockWindowDays,
+  loadQualifyingGameCountsByPlayer,
+  resolvePrizeLockWindow,
   toDecayLeagueContext,
 } from '../rating/rating-decay.js';
 import { displayOrdinal, isCalibrating } from '../rating/rating-math.js';
@@ -99,6 +99,8 @@ export type OverallLeaderboardPage = {
   prizeLockActive?: boolean;
   /** Effective crunch window days (for prize-lock copy). */
   crunchWindowDays?: number;
+  /** Minimum finished games for prize-lock medals (for footnote copy). */
+  prizeLockMinGames?: number;
 };
 
 export type HeroBoardSlice = {
@@ -152,6 +154,7 @@ export function paginateOverall(
   page: number,
   prizeLockActive = false,
   crunchWindowDays = DEFAULT_DECAY_SETTINGS.crunchWindowDays,
+  prizeLockMinGames = DEFAULT_DECAY_SETTINGS.prizeLockMinGames,
 ): OverallLeaderboardPage {
   const totalPlayers = rows.length;
   const totalPages = Math.max(1, Math.ceil(totalPlayers / LEADERBOARD_PAGE_SIZE));
@@ -164,6 +167,7 @@ export function paginateOverall(
     totalPlayers,
     prizeLockActive,
     crunchWindowDays,
+    prizeLockMinGames,
   };
 }
 
@@ -189,6 +193,7 @@ async function loadEligibleOverallRows(leagueId: string): Promise<{
   entries: OverallLeaderboardEntry[];
   prizeLockActive: boolean;
   crunchWindowDays: number;
+  prizeLockMinGames: number;
 }> {
   const ratingIds = await prisma.playerRating.findMany({
     where: { leagueId },
@@ -227,14 +232,14 @@ async function loadEligibleOverallRows(leagueId: string): Promise<{
     isLeagueInCrunch(leagueCtx, now) &&
     leagueDecaySettings(leagueCtx).prizeLockEnabled;
   const prizeLockWindow =
-    prizeLockActive && leagueCtx ? resolvePrizeLockWindowDays(leagueCtx, now) : null;
-  const activityDaysByPlayer =
+    prizeLockActive && leagueCtx ? resolvePrizeLockWindow(leagueCtx, now) : null;
+  const gameCountsByPlayer =
     prizeLockWindow != null
-      ? await loadQualifyingActivityUtcDaysByPlayer(
+      ? await loadQualifyingGameCountsByPlayer(
           leagueId,
           ratings.map((row) => row.playerId),
-          prizeLockWindow.startDay,
-          prizeLockWindow.endDay,
+          prizeLockWindow.start,
+          prizeLockWindow.end,
         )
       : null;
 
@@ -273,8 +278,8 @@ async function loadEligibleOverallRows(leagueId: string): Promise<{
       return base;
     }
 
-    const activeUtcDays = activityDaysByPlayer?.get(row.playerId) ?? new Set<number>();
-    const prizeEligible = isPrizeEligibleFromActivityDays(activeUtcDays, leagueCtx, now);
+    const gameCount = gameCountsByPlayer?.get(row.playerId) ?? 0;
+    const prizeEligible = isPrizeEligibleFromGameCount(gameCount, leagueCtx, now);
     return { ...base, prizeEligible };
   });
 
@@ -282,16 +287,20 @@ async function loadEligibleOverallRows(leagueId: string): Promise<{
   const crunchWindowDays = leagueCtx
     ? leagueDecaySettings(leagueCtx).crunchWindowDays
     : DEFAULT_DECAY_SETTINGS.crunchWindowDays;
+  const prizeLockMinGames = leagueCtx
+    ? leagueDecaySettings(leagueCtx).prizeLockMinGames
+    : DEFAULT_DECAY_SETTINGS.prizeLockMinGames;
 
-  return { entries, prizeLockActive, crunchWindowDays };
+  return { entries, prizeLockActive, crunchWindowDays, prizeLockMinGames };
 }
 
 export async function loadOverallLeaderboardPage(
   leagueId: string,
   page: number,
 ): Promise<OverallLeaderboardPage> {
-  const { entries, prizeLockActive, crunchWindowDays } = await loadEligibleOverallRows(leagueId);
-  return paginateOverall(entries, page, prizeLockActive, crunchWindowDays);
+  const { entries, prizeLockActive, crunchWindowDays, prizeLockMinGames } =
+    await loadEligibleOverallRows(leagueId);
+  return paginateOverall(entries, page, prizeLockActive, crunchWindowDays, prizeLockMinGames);
 }
 
 export async function loadOverallLeaderboardTop(
@@ -301,9 +310,11 @@ export async function loadOverallLeaderboardTop(
   entries: OverallLeaderboardEntry[];
   prizeLockActive: boolean;
   crunchWindowDays: number;
+  prizeLockMinGames: number;
 }> {
-  const { entries, prizeLockActive, crunchWindowDays } = await loadEligibleOverallRows(leagueId);
-  return { entries: entries.slice(0, limit), prizeLockActive, crunchWindowDays };
+  const { entries, prizeLockActive, crunchWindowDays, prizeLockMinGames } =
+    await loadEligibleOverallRows(leagueId);
+  return { entries: entries.slice(0, limit), prizeLockActive, crunchWindowDays, prizeLockMinGames };
 }
 
 function mapHeroRatings(

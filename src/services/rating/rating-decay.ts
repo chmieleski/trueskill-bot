@@ -298,22 +298,6 @@ export function resolveRankDecayFooter(input: {
   return null;
 }
 
-/** UTC day range for prize-lock checks while crunch is active (inclusive). */
-export function resolvePrizeLockWindowDays(
-  league: DecayLeagueContext,
-  now: Date,
-): { startDay: number; endDay: number } | null {
-  const window = resolvePrizeLockWindow(league, now);
-  if (!window) {
-    return null;
-  }
-
-  return {
-    startDay: utcDayIndex(window.start),
-    endDay: utcDayIndex(window.end),
-  };
-}
-
 /** Date range for prize-lock checks while crunch is active (inclusive). */
 export function resolvePrizeLockWindow(
   league: DecayLeagueContext,
@@ -350,34 +334,6 @@ export function isPrizeEligibleFromGameCount(
     return false;
   }
   return gameCount >= leagueDecaySettings(league).prizeLockMinGames;
-}
-
-/** True when the player has qualifying activity on every UTC day in the window. */
-export function hasQualifyingActivityEveryUtcDay(
-  activeUtcDays: ReadonlySet<number>,
-  startDay: number,
-  endDay: number,
-): boolean {
-  for (let day = startDay; day <= endDay; day += 1) {
-    if (!activeUtcDays.has(day)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-/** Prize medal eligibility during crunch (leaderboard only). @deprecated Use isPrizeEligibleFromGameCount. */
-export function isPrizeEligibleFromActivityDays(
-  activeUtcDays: ReadonlySet<number>,
-  league: DecayLeagueContext,
-  now: Date,
-): boolean {
-  const window = resolvePrizeLockWindowDays(league, now);
-  if (!window) {
-    return false;
-  }
-
-  return hasQualifyingActivityEveryUtcDay(activeUtcDays, window.startDay, window.endDay);
 }
 
 /**
@@ -419,66 +375,6 @@ export async function loadQualifyingGameCountsByPlayer(
   }
 
   return countsByPlayer;
-}
-
-/**
- * Distinct UTC days with a completed non-quit match per player in the prize-lock window.
- */
-export async function loadQualifyingActivityUtcDaysByPlayer(
-  leagueId: string,
-  playerIds: string[],
-  windowStartDay: number,
-  windowEndDay: number,
-  db: Db = prisma,
-): Promise<Map<string, Set<number>>> {
-  const uniquePlayerIds = [...new Set(playerIds)];
-  if (uniquePlayerIds.length === 0) {
-    return new Map();
-  }
-
-  const windowStart = new Date(windowStartDay * MS_PER_UTC_DAY);
-  const windowEndExclusive = new Date((windowEndDay + 1) * MS_PER_UTC_DAY);
-
-  const rows = await db.matchPlayer.findMany({
-    where: {
-      playerId: { in: uniquePlayerIds },
-      isQuitter: false,
-      match: {
-        leagueId,
-        status: 'COMPLETED',
-        completedAt: {
-          gte: windowStart,
-          lt: windowEndExclusive,
-        },
-      },
-    },
-    select: {
-      playerId: true,
-      match: { select: { completedAt: true } },
-    },
-  });
-
-  const activityDaysByPlayer = new Map<string, Set<number>>();
-  for (const row of rows) {
-    const completedAt = row.match.completedAt;
-    if (completedAt == null) {
-      continue;
-    }
-
-    const day = utcDayIndex(completedAt);
-    if (day < windowStartDay || day > windowEndDay) {
-      continue;
-    }
-
-    let days = activityDaysByPlayer.get(row.playerId);
-    if (!days) {
-      days = new Set<number>();
-      activityDaysByPlayer.set(row.playerId, days);
-    }
-    days.add(day);
-  }
-
-  return activityDaysByPlayer;
 }
 
 export type ApplyPendingDecayResult = {
