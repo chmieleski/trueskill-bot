@@ -1,21 +1,18 @@
 🧩 **Step 3 — Fix the lobby**
 
-The lobby message has buttons. Use them like toys that fix the board.
+The lobby message has buttons. Use them to fix the board.
 
-**Host tools**
-• ➕ **Add** a player
-• ✏️ **Edit** a nick
-• 🔀 **Move** / swap seats
-• 🗑️ **Remove** a player
-• 🔄 Refresh from wc3stats (when available)
-• ▶️ **Start Match** (only when the lobby is valid)
-• **Cancel** — close a pending lobby (host or match moderator; asks for confirm)
+**On the message**
+• ➕ **Add** · ✏️ **Edit** · 🔀 **Move** · 🗑️ **Remove**
+• 🔄 **Refresh** — pull from wc3stats when that feature is on (**host or mod**)
+• ▶️ **Start Match** — only when the lobby is valid
+• **Cancel** — close a pending lobby (**host or mod**; asks **Cancel Lobby** / **Keep Lobby**)
 
 **Players (if claim is on)**
 • **Claim slot** — sit in an empty hero seat (you must be linked)
 • **Leave** — leave your seat
 
-**Same things as slash commands (host)**
+**Slash commands (host; mods can help with `match_id`)**
 
 ```
 /lobby add slot:3 nick:SomeNick
@@ -32,15 +29,11 @@ The lobby message has buttons. Use them like toys that fix the board.
 
 **Swap pairs:** each side is a slot or a nick (`1-7`, `Gohan-4`). Comma-separated. Occupied dest swaps; empty dest moves.
 
-**Update from screenshot**
-• `/lobby screenshot` with a lobby image replaces the whole roster (like registering with a print)
-• If OCR reads nothing, your current roster is kept
-
-A **match moderator** can also `/lobby screenshot` or `/lobby cancel` with `match_id` if the host is gone.
+**Screenshot:** `/lobby screenshot` replaces the whole roster. If OCR reads nothing, the current roster is kept. Mods can screenshot or cancel with `match_id` if the host is gone.
 
 **Start rules**
 • Both teams need ≥1 human
-• No duplicate slots / broken roster
+• No duplicate nicks / broken roster
 • Unbalanced is OK (example: 4v6)
 
 If you have more than one lobby, add `match_id`.

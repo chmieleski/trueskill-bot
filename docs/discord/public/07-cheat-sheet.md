@@ -5,32 +5,32 @@
 • `/unlink` — disconnect yourself
 • `/rank` — your ki / look someone up
 • `/settings view` — personal prefs (e.g. host lobby pings)
-• `/settings set host_prompt_pings` — on/off pings when wc3stats finds your lobby
+• `/settings set host_prompt_pings` — on/off when wc3stats finds your lobby
 
 **Lobby (create role)**
 • `/register_lobby` — open a lobby
-• `/lobby add` / `remove` / `swap` / `sync` / `start` / `cancel`
+• `/lobby add` / `remove` / `swap` / `screenshot` / `sync` / `start` / `cancel`
 
 **Match (anyone)**
-• `/match history` — your completed matches (optional user/nick/page)
-• `/match list` — completed matches in this league + side win rate (optional page)
+• `/match history` — completed matches (optional user/nick/page/`griefers_only`)
+• `/match list` — league matches + side win rate (optional page)
 • `/match show` — open a completed match by id
 
 **Match (host or mod)**
-• `/lobby cancel` — cancel a pending lobby (pass `match_id` if you are not the host)
-• `/match complete` — report winner (+ optional quitters)
-• `/match quitters` — mark quitters
-• `/match cancel` — cancel in-progress match
+• `/lobby cancel` — cancel a pending lobby (`match_id` if not host)
+• `/match complete` — winner (+ optional `quitters` / `griefers`)
+• `/match quitters` / `/match griefers` — mark slots
+• `/match cancel` — cancel in-progress (+ optional `griefers`)
 
 **Boards**
 • `/leaderboard show` — overall
-• `/leaderboard heroes` — top per hero
-• `/leaderboard hero` — one hero
+• `/leaderboard heroes` / `hero` — heroes
+• `/leaderboard quitters` / `griefers` — if the server set them up
 
 **Teams**
 • Slots 1–6 = **Z Fighters**
 • Slots 7–12 = **Evil**
 
-**Buttons on the lobby message** do the same job as many of these commands.
+**Buttons on the lobby / match message** do the same job as many of these commands.
 
 Stuck? Ping a match moderator.

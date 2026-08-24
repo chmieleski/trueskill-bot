@@ -1,33 +1,31 @@
 🛡️ **Staff — match mod powers**
 
-People with the **mod role** can help when the host is gone or stuck.
+People with the **mod role** help when the host is gone or stuck.
 
 **Pending lobbies**
-• `/lobby cancel match_id:…` — cancel a lobby that has not started yet
-• Pass `match_id` when you are not the host
+• `/lobby cancel match_id:…` — cancel before start
+• `/lobby remove` / `/lobby screenshot` with `match_id` if the host is gone
+• Pass `match_id` whenever you are not the host
 
 **Matches in progress**
-• `/match complete` — report winner (pass `match_id` if needed)
-• `/match quitters` — mark leavers
-• `/match griefers` — mark bug-abuse griefers
-• `/match cancel` — cancel the match
+• `/match complete` — report winner (+ optional quitters/griefers)
+• `/match quitters` / `/match griefers` — mark slots
+• `/match cancel` — cancel (+ optional griefers)
 
-**Correcting a finished match** (within 24 hours)
-• `/match flip match_id:… winner:…` — fix wrong winner (optional `quitters`)
-• `/match void match_id:…` — undo the result and restore ki
-• Hosts cannot do this — mod role only
-• If players already played more ranked games, later matches are not recalculated
+**After a finished match**
+• `/match flip match_id:… winner:…` — fix wrong winner within **24h** (optional `quitters`)
+• `/match void match_id:…` — undo result and restore ki within **24h** (mod only)
+• `/lobby recreate match_id:…` — open a new pending lobby from a **voided** match
+• `/match ungrief match_id:…` — clear griefer flags / deferred tax (`slots:` optional)
+• If players already played more ranked games, later matches are **not** recalculated
 
-Mods should **always pass `match_id`** when they are not the host (the bot will ask for it).
+**Accounts & New players**
+• `/link nick:X user:@Player` — link others; mods can **relink**
+• `/unlink user:@Player`
+• `/player_new set` / `/player_new clear` — New-player isolation (excluded from team rate until 5 games; quit still hurts)
+• `/rank_reset user:@Player` — force reset (bypasses cooldown when enabled)
 
-**Linking accounts**
-• `/link nick:X user:@Player` — link someone else
-• Mods can **relink** a nick that was already bound
-• `/unlink user:@Player` — unlink someone else
-• Players can only unlink themselves
-
-**What mods do _not_ need for everyday play**
-Players still host their own lobbies if they have the create role.
+Players still host their own lobbies with the create role.
 Mods are the safety net for reporting and account fixes.
 
 Be fair. Wrong reports break trust and ranks.
