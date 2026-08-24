@@ -5,17 +5,22 @@
 • `/league rollover` — `reset:continue|soft|hard` (+ `compression` for soft)
 • `/league set|clear season_end` · `/league crunch start|clear`
 
-**Config (Manage Server)**
-• `/config view`
-• `create_role` · `mod_role` · `player_claim`
-• `lobby_channel` — when on, channel allows `/register_lobby`, `/lobby`, `/match complete|cancel|quitters|griefers`
-• Overall board: `leaderboard_channel` / `size` · `/leaderboard setup`
+**Config (Manage Server)** — guild-wide
+• `/config view` (includes league settings when `league:` is set)
+• `create_role` · `mod_role`
 • Quitter board: `quitter_leaderboard_*` · `/leaderboard setup_quitters` · `/leaderboard quitters`
 • Griefer board: `griefer_leaderboard_*` · `/leaderboard setup_griefers` · `/leaderboard griefers`
+• `changelog_channel` · `changelog_draft_channel` (one draft channel bot-wide)
+
+**League config (Manage Server)**
+• `player_claim` · `lobby_channel` — when on, channel allows `/register_lobby`, `/lobby`, `/match complete|cancel|quitters|griefers`
+• Overall board: `leaderboard_channel` / `size` · `/leaderboard setup`
 • `rank_reset` / `rank_reset_cooldown`
 • `wc3stats_map_preset` (UDBR) · `wc3stats_slot` / `map` · `wc3stats_host_prompt`
-• `changelog_channel` · `changelog_draft_channel` (one draft channel bot-wide)
-• `decay` (`enabled:true|false`) · `/config decay …` grace/rates/cap/crunch/prize lock/min games · `preset name:strict_crunch` (`clear_*` resets defaults)
+• `decay` (`enabled:true|false`)
+
+**Decay config (Manage Server)**
+• `/decay_config …` — grace/rates/cap/crunch/prize lock/min games · `preset name:strict_crunch` (`clear_*` resets defaults)
 
 **Releases (draft server)**
 Draft card → edit summary → **Publish** (all changelog channels) or **Dismiss**

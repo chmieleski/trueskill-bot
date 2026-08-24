@@ -2,7 +2,7 @@
 
 Keeps boards honest when players go idle. **Overall ki only** — hero ratings unchanged. This is **live**.
 
-Defaults match a fresh league. Override per league with `/config decay …`.
+Defaults match a fresh league. Override per league with `/decay_config …`.
 
 ---
 
@@ -26,12 +26,12 @@ Defaults match a fresh league. Override per league with `/config decay …`.
 
 Crunch: **2-day** grace, then **−100** / **−200 ki/day**. **No streak cap** — floor ~1000 ki.
 
-**Prize lock:** 🥇🥈🥉 need at least **N** finished non-quit games in the **crunch window** (default **N = 1**). Rank `#n` stays. Off: `/config decay prize_lock enabled:false`.
+**Prize lock:** 🥇🥈🥉 need at least **N** finished non-quit games in the **crunch window** (default **N = 1**). Rank `#n` stays. Off: `/decay_config prize_lock enabled:false`.
 
 ```
-/config decay prize_lock_min_games games:7 league:YourLeague
-/config decay clear_prize_lock_min_games
-/config decay preset name:strict_crunch league:YourLeague
+/decay_config prize_lock_min_games games:7 league:YourLeague
+/decay_config clear_prize_lock_min_games
+/decay_config preset name:strict_crunch league:YourLeague
 ```
 
 **`strict_crunch`:** grace **3**, flat **−100/−100 ki/day**, window **7**, min games **7**.
@@ -41,11 +41,22 @@ Crunch: **2-day** grace, then **−100** / **−200 ki/day**. **No streak cap** 
 **Toggle**
 
 ```
-/config set decay enabled:true league:YourLeague
-/config set decay enabled:false league:YourLeague
+/league_config set decay enabled:true league:YourLeague
+/league_config set decay enabled:false league:YourLeague
 ```
 
-Tune via `/config decay grace` / `tier1_ki` / `streak_cap` / `crunch_window` / `prize_lock_min_games` (`clear_*` resets defaults). `/config view` shows rates + crunch. **Rollover:** `reset:continue` copies overrides; decay **off** until re-enabled.
+**Tune rates** (optional)
+
+```
+/decay_config grace mode:mid days:14 league:YourLeague
+/decay_config tier1_ki mode:mid ki:40
+/decay_config streak_cap ki:1500
+/decay_config crunch_window days:10
+/decay_config prize_lock enabled:true
+/decay_config clear_grace mode:mid
+```
+
+`/config view` shows effective rates, season end, and crunch. **Rollover:** `reset:continue` copies overrides; decay **off** until re-enabled with `/league_config set decay enabled:true`.
 
 ---
 

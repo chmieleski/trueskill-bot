@@ -38,7 +38,7 @@ alwaysApply: true
 - `LOG_LEVEL` — `fatal` | `error` | `warn` | `info` | `verbose` | `debug` | `trace` (default: `debug` in dev, `info` in production)
 - `MATCH_MOD_ROLE_ID` — fallback Discord role that may report/cancel in-progress matches (host always can); overridden per guild after `/config set mod_role`
 - `MATCH_CREATE_ROLE_ID` — fallback Discord role required to run `/register_lobby` (empty/unset = creation disabled); overridden per guild after `/config set create_role`
-- wc3stats lobby import is enabled per server with `/config set wc3stats_map_preset`
+- wc3stats lobby import is enabled per server with `/league_config set wc3stats_map_preset`
 - `WC3STATS_TIMEOUT_MS` — wc3stats HTTP timeout (default `4000`)
 - `CLICKUP_API_TOKEN` — **local-only** ClickUp personal API token for agents when the ClickUp MCP is rate-limited. Not read by the bot; skip AWS SSM. See `.cursor/rules/clickup-api-fallback.mdc`
 
