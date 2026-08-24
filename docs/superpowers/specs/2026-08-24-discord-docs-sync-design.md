@@ -10,8 +10,8 @@
 
 Let staff publish the repo Discord guides into guild channels with one slash command:
 
-- `/sync_docs public` → wipe target channel, post `docs/discord/public/*.md` in order  
-- `/sync_docs staff` → wipe target channel, post `docs/discord/staff/*.md` in order  
+- `/sync_docs public` → wipe target channel, post `docs/discord/public/*.md` in order
+- `/sync_docs staff` → wipe target channel, post `docs/discord/staff/*.md` in order
 
 Re-running the same subcommand on a channel replaces the channel contents (full wipe, then new posts). No automatic update on deploy; operators re-run the command when docs change.
 
@@ -29,17 +29,17 @@ Re-running the same subcommand on a channel replaces the channel contents (full 
 
 ## Locked decisions
 
-| Topic | Choice |
-| --- | --- |
-| Surface | One command `/sync_docs` with subcommands `public` and `staff` |
-| Channel | Required `channel:` option (guild text or announcement) |
-| Re-sync | Wipe **all** messages in the target channel, then post |
-| Auth | Manage Server **or** configured match mod role |
+| Topic          | Choice                                                          |
+| -------------- | --------------------------------------------------------------- |
+| Surface        | One command `/sync_docs` with subcommands `public` and `staff`  |
+| Channel        | Required `channel:` option (guild text or announcement)         |
+| Re-sync        | Wipe **all** messages in the target channel, then post          |
+| Auth           | Manage Server **or** configured match mod role                  |
 | Content source | Files under `docs/discord/{public\|staff}/`, sorted by filename |
-| Skip | Non-`.md` files and `README.md` |
-| Message shape | Plain `content` messages (Discord markdown as written in files) |
-| Persistence | None (no Prisma / GuildConfig fields) |
-| Language | English user-facing strings |
+| Skip           | Non-`.md` files and `README.md`                                 |
+| Message shape  | Plain `content` messages (Discord markdown as written in files) |
+| Persistence    | None (no Prisma / GuildConfig fields)                           |
+| Language       | English user-facing strings                                     |
 
 ## Architecture
 
@@ -61,13 +61,13 @@ Re-running the same subcommand on a channel replaces the channel contents (full 
 
 ### Modules
 
-| Piece | Path | Responsibility |
-| --- | --- | --- |
-| Command | `src/commands/docs/sync-docs.ts` | Slash definition, defer, auth, channel resolve, call use-case, ephemeral summary |
-| Load | `src/services/docs/load-discord-docs.ts` | Resolve `docs/discord/{kind}` from `process.cwd()`, list/sort `.md`, read bodies, enforce ≤2000 chars |
-| Wipe | `src/services/docs/wipe-channel-messages.ts` | Fetch in batches; bulk-delete (&lt;14d); single-delete older; stop when empty |
-| Sync | `src/services/docs/sync-discord-docs.ts` | Orchestrate load → wipe → post |
-| Barrel | `src/services/docs/index.ts` | Public exports |
+| Piece   | Path                                         | Responsibility                                                                                        |
+| ------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Command | `src/commands/docs/sync-docs.ts`             | Slash definition, defer, auth, channel resolve, call use-case, ephemeral summary                      |
+| Load    | `src/services/docs/load-discord-docs.ts`     | Resolve `docs/discord/{kind}` from `process.cwd()`, list/sort `.md`, read bodies, enforce ≤2000 chars |
+| Wipe    | `src/services/docs/wipe-channel-messages.ts` | Fetch in batches; bulk-delete (&lt;14d); single-delete older; stop when empty                         |
+| Sync    | `src/services/docs/sync-discord-docs.ts`     | Orchestrate load → wipe → post                                                                        |
+| Barrel  | `src/services/docs/index.ts`                 | Public exports                                                                                        |
 
 Root path resolution matches changelog helpers: default `process.cwd()` (works for `tsx` watch and production `dist/` when the process cwd is the app root).
 
@@ -99,15 +99,15 @@ Root path resolution matches changelog helpers: default `process.cwd()` (works f
 
 ## Error cases
 
-| Condition | Behavior |
-| --- | --- |
-| Not in a guild | Ephemeral reject |
-| Caller lacks Manage Server and mod role | Ephemeral permission error |
-| Channel not text/announcement or not in guild | Ephemeral reject |
-| Docs directory missing / unreadable | Fail before wipe |
-| Any doc empty or &gt; 2000 chars | Fail before wipe with filename |
-| Missing Manage Messages / Send Messages | Fail with Discord permission guidance |
-| Mid-post send failure | Partial success message (posted k of n) |
+| Condition                                     | Behavior                                |
+| --------------------------------------------- | --------------------------------------- |
+| Not in a guild                                | Ephemeral reject                        |
+| Caller lacks Manage Server and mod role       | Ephemeral permission error              |
+| Channel not text/announcement or not in guild | Ephemeral reject                        |
+| Docs directory missing / unreadable           | Fail before wipe                        |
+| Any doc empty or &gt; 2000 chars              | Fail before wipe with filename          |
+| Missing Manage Messages / Send Messages       | Fail with Discord permission guidance   |
+| Mid-post send failure                         | Partial success message (posted k of n) |
 
 ## Testing
 

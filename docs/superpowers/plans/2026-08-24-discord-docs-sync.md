@@ -27,21 +27,21 @@
 
 ## File map
 
-| File | Responsibility |
-| --- | --- |
-| `src/services/docs/load-discord-docs.ts` | Read/sort/validate markdown under `docs/discord/{kind}` |
-| `src/services/docs/load-discord-docs.test.ts` | Unit tests for load/validate |
-| `src/services/docs/wipe-channel-messages.ts` | Empty a text-based channel (bulk + single deletes) |
-| `src/services/docs/wipe-channel-messages.test.ts` | Mocked channel wipe tests |
-| `src/services/docs/sync-discord-docs.ts` | Orchestrate load → wipe → post |
-| `src/services/docs/sync-discord-docs.test.ts` | Orchestration + validate-before-wipe |
-| `src/services/docs/docs-auth.ts` | `canSyncDocs` / `assertCanSyncDocs` |
-| `src/services/docs/docs-auth.test.ts` | Auth gate unit tests |
-| `src/services/docs/docs-errors.ts` | `DocsServiceError` |
-| `src/services/docs/index.ts` | Barrel exports |
-| `src/commands/docs/sync-docs.ts` | `/sync_docs` slash command |
-| `src/commands/docs/sync-docs.test.ts` | Subcommand registration smoke + auth wiring smoke if cheap |
-| `docs/discord/README.md` | Document `/sync_docs` usage |
+| File                                              | Responsibility                                             |
+| ------------------------------------------------- | ---------------------------------------------------------- |
+| `src/services/docs/load-discord-docs.ts`          | Read/sort/validate markdown under `docs/discord/{kind}`    |
+| `src/services/docs/load-discord-docs.test.ts`     | Unit tests for load/validate                               |
+| `src/services/docs/wipe-channel-messages.ts`      | Empty a text-based channel (bulk + single deletes)         |
+| `src/services/docs/wipe-channel-messages.test.ts` | Mocked channel wipe tests                                  |
+| `src/services/docs/sync-discord-docs.ts`          | Orchestrate load → wipe → post                             |
+| `src/services/docs/sync-discord-docs.test.ts`     | Orchestration + validate-before-wipe                       |
+| `src/services/docs/docs-auth.ts`                  | `canSyncDocs` / `assertCanSyncDocs`                        |
+| `src/services/docs/docs-auth.test.ts`             | Auth gate unit tests                                       |
+| `src/services/docs/docs-errors.ts`                | `DocsServiceError`                                         |
+| `src/services/docs/index.ts`                      | Barrel exports                                             |
+| `src/commands/docs/sync-docs.ts`                  | `/sync_docs` slash command                                 |
+| `src/commands/docs/sync-docs.test.ts`             | Subcommand registration smoke + auth wiring smoke if cheap |
+| `docs/discord/README.md`                          | Document `/sync_docs` usage                                |
 
 ---
 
@@ -71,10 +71,7 @@ export type DiscordDocPost = {
   content: string;
 };
 
-export function loadDiscordDocs(
-  kind: DiscordDocsKind,
-  rootDir?: string,
-): DiscordDocPost[];
+export function loadDiscordDocs(kind: DiscordDocsKind, rootDir?: string): DiscordDocPost[];
 ```
 
 - [ ] **Step 1: Write the failing tests**
@@ -210,11 +207,7 @@ export function loadDiscordDocs(
 
 ```ts
 export { DocsServiceError } from './docs-errors.js';
-export {
-  loadDiscordDocs,
-  type DiscordDocPost,
-  type DiscordDocsKind,
-} from './load-discord-docs.js';
+export { loadDiscordDocs, type DiscordDocPost, type DiscordDocsKind } from './load-discord-docs.js';
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -302,7 +295,12 @@ describe('wipeChannelMessages', () => {
     const b = msg('2', 2000);
     const fetch = vi
       .fn()
-      .mockResolvedValueOnce(new Map([['1', a], ['2', b]]))
+      .mockResolvedValueOnce(
+        new Map([
+          ['1', a],
+          ['2', b],
+        ]),
+      )
       .mockResolvedValueOnce(new Map());
     const bulkDelete = vi.fn().mockResolvedValue(undefined);
     const channel = { messages: { fetch }, bulkDelete };
@@ -513,10 +511,7 @@ const result = await syncDiscordDocsToChannel({
 });
 
 expect(wipeChannelMessages).toHaveBeenCalledOnce();
-expect(send.mock.calls.map((c) => c[0])).toEqual([
-  { content: 'first' },
-  { content: 'second' },
-]);
+expect(send.mock.calls.map((c) => c[0])).toEqual([{ content: 'first' }, { content: 'second' }]);
 expect(result).toEqual({
   kind: 'public',
   deletedCount: 3,
@@ -757,12 +752,7 @@ export const SYNC_DOCS_FORBIDDEN =
 export function canSyncDocs(input: {
   userId: string;
   memberPermissions:
-    | PermissionsBitField
-    | bigint
-    | string
-    | ReadonlyArray<PermissionsString>
-    | null
-    | undefined;
+    PermissionsBitField | bigint | string | ReadonlyArray<PermissionsString> | null | undefined;
   memberRoleIds: string[];
   matchModRoleId?: string;
 }): boolean {
@@ -842,17 +832,17 @@ EOF
 
 ## Self-review (plan vs spec)
 
-| Spec requirement | Task |
-| --- | --- |
-| `/sync_docs` + `public` / `staff` | Task 4 |
-| Required channel (text/announcement) | Task 4 |
-| Wipe all messages then post | Tasks 2–3 |
-| Auth Manage Server OR mod role | Task 4 |
-| Load from `docs/discord/{kind}`, sort, skip README | Task 1 |
-| Validate before wipe | Task 3 |
-| Plain content messages | Task 3 |
-| No DB / no env | All |
-| Update README | Task 4 |
-| Tests for load, wipe, sync, auth | Tasks 1–4 |
+| Spec requirement                                   | Task      |
+| -------------------------------------------------- | --------- |
+| `/sync_docs` + `public` / `staff`                  | Task 4    |
+| Required channel (text/announcement)               | Task 4    |
+| Wipe all messages then post                        | Tasks 2–3 |
+| Auth Manage Server OR mod role                     | Task 4    |
+| Load from `docs/discord/{kind}`, sort, skip README | Task 1    |
+| Validate before wipe                               | Task 3    |
+| Plain content messages                             | Task 3    |
+| No DB / no env                                     | All       |
+| Update README                                      | Task 4    |
+| Tests for load, wipe, sync, auth                   | Tasks 1–4 |
 
 No placeholders left; signatures consistent (`DiscordDocsKind`, `loadDiscordDocs`, `wipeChannelMessages`, `syncDiscordDocsToChannel`, `assertCanSyncDocs`).
