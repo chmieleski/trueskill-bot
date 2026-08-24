@@ -6,10 +6,12 @@ import {
   hasQualifyingActivityEveryUtcDay,
   idleDaysSince,
   isLeagueInCrunch,
-  isPrizeEligibleFromActivityDays,
+  isPrizeEligibleFromGameCount,
   kiLossToMuDelta,
   muFloor,
   pendingUtcDaysToApply,
+  resolveCrunchStart,
+  resolvePrizeLockWindow,
   resolvePrizeLockWindowDays,
   resolveRankDecayFooter,
   RANK_CRUNCH_DECAY_FOOTER,
@@ -61,7 +63,7 @@ describe('prize lock disabled', () => {
       settings: { ...DEFAULT_DECAY_SETTINGS, prizeLockEnabled: false },
     };
     const now = new Date('2026-08-20T12:00:00.000Z');
-    expect(resolvePrizeLockWindowDays(league, now)).toBeNull();
+    expect(resolvePrizeLockWindow(league, now)).toBeNull();
   });
 });
 
@@ -226,55 +228,53 @@ describe('resolvePrizeLockWindowDays', () => {
   });
 });
 
-describe('isPrizeEligibleFromActivityDays', () => {
+describe('isPrizeEligibleFromGameCount', () => {
   const seasonLeague = {
     status: 'ACTIVE' as const,
     decayEnabled: true,
     seasonEndsAt: new Date('2026-08-23T00:00:00.000Z'),
     crunchStartedAt: null,
     archivedAt: null,
+    settings: { ...DEFAULT_DECAY_SETTINGS, prizeLockMinGames: 7 },
   };
   const now = new Date('2026-08-20T12:00:00.000Z');
 
-  it('requires a completed game on each crunch day so far', () => {
-    const fullWeekSoFar = new Set([
-      utcDayIndex(new Date('2026-08-16T00:00:00.000Z')),
-      utcDayIndex(new Date('2026-08-17T00:00:00.000Z')),
-      utcDayIndex(new Date('2026-08-18T00:00:00.000Z')),
-      utcDayIndex(new Date('2026-08-19T00:00:00.000Z')),
-      utcDayIndex(new Date('2026-08-20T00:00:00.000Z')),
-    ]);
-    expect(isPrizeEligibleFromActivityDays(fullWeekSoFar, seasonLeague, now)).toBe(true);
-    expect(
-      isPrizeEligibleFromActivityDays(
-        new Set([utcDayIndex(new Date('2026-08-17T00:00:00.000Z'))]),
-        seasonLeague,
-        now,
-      ),
-    ).toBe(false);
+  it('requires at least prizeLockMinGames in the crunch window', () => {
+    expect(isPrizeEligibleFromGameCount(7, seasonLeague, now)).toBe(true);
+    expect(isPrizeEligibleFromGameCount(6, seasonLeague, now)).toBe(false);
   });
 
-  it('uses manual crunch start when no seasonEndsAt', () => {
+  it('defaults to min 1 when settings omit override', () => {
+    const league = {
+      ...seasonLeague,
+      settings: { ...DEFAULT_DECAY_SETTINGS, prizeLockMinGames: 1 },
+    };
+    expect(isPrizeEligibleFromGameCount(1, league, now)).toBe(true);
+    expect(isPrizeEligibleFromGameCount(0, league, now)).toBe(false);
+  });
+
+  it('returns false when prize lock disabled', () => {
+    const league = {
+      ...seasonLeague,
+      settings: { ...DEFAULT_DECAY_SETTINGS, prizeLockEnabled: false, prizeLockMinGames: 1 },
+    };
+    expect(isPrizeEligibleFromGameCount(99, league, now)).toBe(false);
+  });
+});
+
+describe('resolvePrizeLockWindow', () => {
+  it('caps end at seasonEndsAt when now is later', () => {
     const league = {
       status: 'ACTIVE' as const,
       decayEnabled: true,
-      seasonEndsAt: null,
-      crunchStartedAt: new Date('2026-08-18T00:00:00.000Z'),
+      seasonEndsAt: new Date('2026-08-23T00:00:00.000Z'),
+      crunchStartedAt: null,
       archivedAt: null,
     };
-    const activeDays = new Set([
-      utcDayIndex(new Date('2026-08-18T00:00:00.000Z')),
-      utcDayIndex(new Date('2026-08-19T00:00:00.000Z')),
-      utcDayIndex(new Date('2026-08-20T00:00:00.000Z')),
-    ]);
-    expect(isPrizeEligibleFromActivityDays(activeDays, league, now)).toBe(true);
-    expect(
-      isPrizeEligibleFromActivityDays(
-        new Set([utcDayIndex(new Date('2026-08-18T12:00:00.000Z'))]),
-        league,
-        now,
-      ),
-    ).toBe(false);
+    const now = new Date('2026-08-20T12:00:00.000Z');
+    const window = resolvePrizeLockWindow(league, now);
+    expect(window?.start.toISOString()).toBe(resolveCrunchStart(league)!.toISOString());
+    expect(window?.end.getTime()).toBe(now.getTime());
   });
 });
 
