@@ -60,4 +60,13 @@ describe('match command data', () => {
     expect(optionNames).toContain('griefers');
     expect(optionNames).not.toContain('abusers');
   });
+
+  it('complete subcommand takes quitters and griefers slots', () => {
+    const json = data.toJSON();
+    const complete = json.options?.find((option) => option.name === 'complete');
+    const optionNames = complete?.options?.map((option) => option.name);
+
+    expect(optionNames).toContain('quitters');
+    expect(optionNames).toContain('griefers');
+  });
 });

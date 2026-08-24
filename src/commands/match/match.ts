@@ -427,6 +427,12 @@ export const data = new SlashCommandBuilder()
       )
       .addStringOption((option) =>
         option
+          .setName('griefers')
+          .setDescription('Comma-separated griefer slots like "2,8" (bug abuse penalty)')
+          .setRequired(false),
+      )
+      .addStringOption((option) =>
+        option
           .setName('match_id')
           .setDescription('In-progress match id (required if you have more than one)')
           .setRequired(false),
@@ -759,11 +765,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const winner = parseWinner(interaction.options.getString('winner', true));
       const quittersRaw = interaction.options.getString('quitters');
       const quitterSlots = quittersRaw === null ? undefined : parseQuitterSlots(quittersRaw);
+      const griefersRaw = interaction.options.getString('griefers');
+      const grieferSlots = griefersRaw === null ? undefined : parseGrieferSlots(griefersRaw);
       await interaction.editReply({
         content: 'Updating ratings and completing the match… This can take a few seconds.',
       });
       const profile = await getGameProfileForLeague(match.leagueId);
-      const completed = await completeMatch(match.id, winner, quitterSlots);
+      const completed = await completeMatch(match.id, winner, quitterSlots, grieferSlots);
       void refreshAllLeaderboardChannels(interaction.client).catch(() => undefined);
       await applyMatchMutation(
         interaction,
