@@ -263,7 +263,9 @@ describe('isPrizeEligibleFromGameCount', () => {
 });
 
 describe('resolvePrizeLockWindow', () => {
-  it('caps end at seasonEndsAt when now is later', () => {
+  // isLeagueInCrunch requires now < seasonEndsAt, so end is `now` in practice; implementation
+  // still uses Math.min(now, seasonEndsAt) defensively when seasonEndsAt is set.
+  it('returns crunch start through now while in crunch before season end', () => {
     const league = {
       status: 'ACTIVE' as const,
       decayEnabled: true,
