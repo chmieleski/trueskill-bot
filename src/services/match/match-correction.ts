@@ -560,19 +560,9 @@ export async function flipCompletedMatch(
     await applyQuitterPenalties(match.leagueId, entries, tx);
     const preMatchGlobal = await loadPreMatchGlobalByPlayer(matchId, tx);
     const playerIds = previewEntries.map((entry) => entry.playerId);
-    const preMatchDisplayStats = await loadMatchDisplayStatsByPlayer(
-      match.leagueId,
-      playerIds,
-      tx,
-    );
+    const preMatchDisplayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds, tx);
     const preMatchGamesByPlayer = gamesByPlayerFromStats(preMatchDisplayStats);
-    await accrueGrieferPenalties(
-      matchId,
-      entries,
-      preMatchGlobal,
-      preMatchGamesByPlayer,
-      tx,
-    );
+    await accrueGrieferPenalties(matchId, entries, preMatchGlobal, preMatchGamesByPlayer, tx);
     const completedAt = match.completedAt ?? new Date();
     await applyMatchRatings(match.leagueId, entries, winningTeam, completedAt, tx);
 

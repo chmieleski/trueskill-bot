@@ -1,9 +1,4 @@
-import {
-  displayConservatismZ,
-  displayOrdinal,
-  KI_OFFSET,
-  KI_SCALE,
-} from './rating-math.js';
+import { displayConservatismZ, displayOrdinal, KI_OFFSET, KI_SCALE } from './rating-math.js';
 
 /** Fraction of global display ki accrued per griefer incident (deferred until season rollover). */
 export const GRIEFER_KI_TAX_PERCENT = 0.25;
@@ -23,12 +18,7 @@ export function computeGrieferKiAccrual(globalKi: number): number {
  * Reduce μ so display ki drops by `kiTax`, keeping σ and soft-z (games) unchanged.
  * Clamps resulting ki at 0.
  */
-export function applyKiTaxToMu(
-  mu: number,
-  sigma: number,
-  games: number,
-  kiTax: number,
-): number {
+export function applyKiTaxToMu(mu: number, sigma: number, games: number, kiTax: number): number {
   if (kiTax <= 0) {
     return mu;
   }
@@ -61,7 +51,9 @@ export type GrieferSeasonTaxSummary = {
 };
 
 /** Build preview totals for pending griefer season tax in a league. */
-export function summarizeGrieferSeasonTax(taxByPlayer: GrieferTaxByPlayer): GrieferSeasonTaxSummary {
+export function summarizeGrieferSeasonTax(
+  taxByPlayer: GrieferTaxByPlayer,
+): GrieferSeasonTaxSummary {
   let totalKiTax = 0;
   for (const kiTax of taxByPlayer.values()) {
     totalKiTax += kiTax;

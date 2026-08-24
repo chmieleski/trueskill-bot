@@ -280,19 +280,9 @@ export async function completeMatch(
 
     await applyQuitterPenalties(match.leagueId, entries, tx);
     const preMatchGlobal = await loadPreMatchGlobalByPlayer(matchId, tx);
-    const preMatchDisplayStats = await loadMatchDisplayStatsByPlayer(
-      match.leagueId,
-      playerIds,
-      tx,
-    );
+    const preMatchDisplayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds, tx);
     const preMatchGamesByPlayer = gamesByPlayerFromStats(preMatchDisplayStats);
-    await accrueGrieferPenalties(
-      matchId,
-      entries,
-      preMatchGlobal,
-      preMatchGamesByPlayer,
-      tx,
-    );
+    await accrueGrieferPenalties(matchId, entries, preMatchGlobal, preMatchGamesByPlayer, tx);
     const completedAt = new Date();
     await applyMatchRatings(match.leagueId, entries, winningTeam, completedAt, tx);
 
@@ -381,13 +371,7 @@ export async function cancelInProgressMatch(
       const gamesByPlayer = gamesByPlayerFromStats(displayStats);
       await accrueGrieferPenalties(matchId, entries, liveGlobal, gamesByPlayer, tx);
     } else {
-      await accrueGrieferPenalties(
-        matchId,
-        entries,
-        new Map(),
-        new Map(),
-        tx,
-      );
+      await accrueGrieferPenalties(matchId, entries, new Map(), new Map(), tx);
     }
 
     await tx.match.update({

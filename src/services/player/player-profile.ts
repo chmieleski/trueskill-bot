@@ -171,23 +171,23 @@ export async function loadPlayerProfile(
           archivedAt: true,
         },
       }),
-    prisma.playerRating.findUnique({
-      where: { leagueId_playerId: { leagueId, playerId: player.id } },
-    }),
-    prisma.playerRating.findMany({
-      where: { leagueId },
-      select: { playerId: true, mu: true, sigma: true },
-    }),
-    includeHeroes
-      ? prisma.playerHeroRating.findMany({
-          where: { leagueId, playerId: player.id, matchesPlayed: { gt: 0 } },
-          include: { hero: true },
-        })
-      : Promise.resolve([]),
-    // W/L/games/quits and soft-ki z restart after the player's latest rank reset.
-    loadMatchDisplayStats(leagueId),
-    loadPendingGrieferKiTaxByPlayer(leagueId, [player.id]),
-  ]);
+      prisma.playerRating.findUnique({
+        where: { leagueId_playerId: { leagueId, playerId: player.id } },
+      }),
+      prisma.playerRating.findMany({
+        where: { leagueId },
+        select: { playerId: true, mu: true, sigma: true },
+      }),
+      includeHeroes
+        ? prisma.playerHeroRating.findMany({
+            where: { leagueId, playerId: player.id, matchesPlayed: { gt: 0 } },
+            include: { hero: true },
+          })
+        : Promise.resolve([]),
+      // W/L/games/quits and soft-ki z restart after the player's latest rank reset.
+      loadMatchDisplayStats(leagueId),
+      loadPendingGrieferKiTaxByPlayer(leagueId, [player.id]),
+    ]);
 
   const displayStatsByPlayer = displayStats.byPlayer;
   const gamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);

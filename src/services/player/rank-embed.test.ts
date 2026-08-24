@@ -165,12 +165,16 @@ describe('buildRankEmbed', () => {
   });
 
   it('omits the Heroes field when the player has no hero ratings', () => {
-    const names = buildRankEmbed({ ...baseProfile, heroes: [] }).toJSON().fields?.map((f) => f.name);
+    const names = buildRankEmbed({ ...baseProfile, heroes: [] })
+      .toJSON()
+      .fields?.map((f) => f.name);
     expect(names).toEqual(['Griefer pool']);
   });
 
   it('omits the Heroes field when showHeroes is false even if ratings exist', () => {
-    const names = buildRankEmbed(baseProfile, { showHeroes: false }).toJSON().fields?.map((f) => f.name);
+    const names = buildRankEmbed(baseProfile, { showHeroes: false })
+      .toJSON()
+      .fields?.map((f) => f.name);
     expect(names).toEqual(['Griefer pool']);
   });
 
