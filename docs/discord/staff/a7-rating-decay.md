@@ -24,7 +24,7 @@ Defaults match a fresh league. Override per league with `/config decay …`.
 /league crunch clear league:YourLeague
 ```
 
-Crunch: **2-day** grace, then **−100** / **−200 ki/day**. **No streak cap** — floor ~1000 ki still applies.
+Crunch: **2-day** grace, then **−100** / **−200 ki/day**. **No streak cap** — floor ~1000 ki.
 
 **Prize lock:** 🥇🥈🥉 need at least **N** finished non-quit games in the **crunch window** (default **N = 1**). Rank `#n` stays. Off: `/config decay prize_lock enabled:false`.
 
@@ -34,7 +34,7 @@ Crunch: **2-day** grace, then **−100** / **−200 ki/day**. **No streak cap** 
 /config decay preset name:strict_crunch league:YourLeague
 ```
 
-**`strict_crunch`:** grace **3**, flat **−100/−100 ki/day**, window **7**, min games **7**. No decay toggle or season end.
+**`strict_crunch`:** grace **3**, flat **−100/−100 ki/day**, window **7**, min games **7**.
 
 ---
 
@@ -45,9 +45,7 @@ Crunch: **2-day** grace, then **−100** / **−200 ki/day**. **No streak cap** 
 /config set decay enabled:false league:YourLeague
 ```
 
-Tune via `/config decay grace` / `tier1_ki` / `streak_cap` / `crunch_window` / `prize_lock_min_games` (`clear_*` resets defaults).
-
-`/config view` shows effective rates, season end, and crunch. **Rollover:** `reset:continue` copies overrides but decay **off** — re-enable when needed.
+Tune via `/config decay grace` / `tier1_ki` / `streak_cap` / `crunch_window` / `prize_lock_min_games` (`clear_*` resets defaults). `/config view` shows rates + crunch. **Rollover:** `reset:continue` copies overrides; decay **off** until re-enabled.
 
 ---
 
