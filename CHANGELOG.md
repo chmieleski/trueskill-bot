@@ -1,3 +1,10 @@
+# [1.18.0](https://github.com/chmieleski/trueskill-bot/compare/v1.17.0...v1.18.0) (2026-08-24)
+
+
+### Features
+
+* **match:** collect griefers before quitters in Report Winner flow ([#85](https://github.com/chmieleski/trueskill-bot/issues/85)) ([31ba93f](https://github.com/chmieleski/trueskill-bot/commit/31ba93fdcf49a3142bfd60e1f228a3825cc54dd8))
+
 # [1.17.0](https://github.com/chmieleski/trueskill-bot/compare/v1.16.0...v1.17.0) (2026-08-24)
 
 
