@@ -65,7 +65,6 @@ describe('prize lock disabled', () => {
   });
 });
 
-
 describe('dailyKiLoss crunch', () => {
   it('uses shorter grace and 2x rates', () => {
     expect(dailyKiLoss(2, true)).toBe(0);

@@ -12,7 +12,11 @@ import {
   assertLiveLeaderboardSize,
 } from '../leaderboard/leaderboard.js';
 import { assertRankResetCooldownDays } from '../rating/rank-reset.js';
-import { isLeagueInCrunch, resolveDecaySettings, toDecayLeagueContext } from '../rating/rating-decay.js';
+import {
+  isLeagueInCrunch,
+  resolveDecaySettings,
+  toDecayLeagueContext,
+} from '../rating/rating-decay.js';
 import type { ResolvedDecaySettings } from '../rating/decay-settings.js';
 import { assertLeagueAllowsWc3stats } from '../lobby/register-lobby-source.js';
 import { assertLobbyHostPromptChannelsCompatible } from './league-lobby-channel.js';

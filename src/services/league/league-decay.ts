@@ -1,8 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
-import {
-  assertDecaySettingBounds,
-  type DecaySettingField,
-} from '../rating/decay-settings.js';
+import { assertDecaySettingBounds, type DecaySettingField } from '../rating/decay-settings.js';
 
 /** Archived-league rejection for season end / crunch staff commands. */
 export const LEAGUE_DECAY_ARCHIVED_MESSAGE = 'That league is archived. Pick an active league.';

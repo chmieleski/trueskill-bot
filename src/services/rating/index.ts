@@ -76,10 +76,7 @@ export {
   type DecaySettingsSource,
   type ResolvedDecaySettings,
 } from './rating-decay.js';
-export {
-  assertDecaySettingBounds,
-  type DecaySettingField,
-} from './decay-settings.js';
+export { assertDecaySettingBounds, type DecaySettingField } from './decay-settings.js';
 export {
   runRatingDecayTick,
   startRatingDecayScheduler,

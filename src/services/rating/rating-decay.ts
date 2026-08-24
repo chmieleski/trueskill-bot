@@ -239,8 +239,7 @@ export function isLeagueInCrunch(league: DecayLeagueContext, now: Date): boolean
 
   if (league.seasonEndsAt) {
     const start = new Date(
-      league.seasonEndsAt.getTime() -
-        leagueDecaySettings(league).crunchWindowDays * MS_PER_UTC_DAY,
+      league.seasonEndsAt.getTime() - leagueDecaySettings(league).crunchWindowDays * MS_PER_UTC_DAY,
     );
     return now >= start && now < league.seasonEndsAt;
   }
