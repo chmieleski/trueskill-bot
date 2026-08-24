@@ -1,34 +1,42 @@
-⚠️ **Staff — quitters & ratings (simple)**
+⚠️ **Staff — quitters, griefers & ratings**
 
-**Quitters** = players who left early / abandoned.
+Slots are **1–12**, comma-separated.
 
-Mark them **before** or **with** the final report:
+**Quitters** = left early / abandoned.
 
 ```
 /match quitters slots:2,8
 /match complete winner:Evil quitters:2,8
 ```
 
-Slots are **1–12**, comma-separated.
+• Quitters take a **ki penalty** (like a small solo loss)
+• They are **not** in the normal team rating update
+• Everyone else still gets a normal win/loss when you complete
+• Cancel can still apply quitter penalties if already marked
 
-**What happens**
-• Quitters get a **penalty** to their ki (they are treated like they lost a small solo fight)
-• They are **not** counted in the normal team rating update for that match
-• Everyone else still gets a normal win/loss update when you complete
-
-**Cancel**
+**Griefers** = bug abuse / griefing.
 
 ```
-/match cancel
+/match griefers slots:3
+/match complete winner:Z Fighters griefers:3
+/match cancel griefers:3
 ```
 
-If quitters were already marked, cancel can still apply those penalties.
-Use cancel for broken lobbies / wrong starts — not to hide a real loss.
+• No instant ki hit — bot accrues **min(25% of ki, 500)** per incident
+• Tax applies to the **archived ending board** on **season rollover**
+• If someone is both quitter and griefer, **quit wins** (no griefer accrual)
+• Mods can `/match ungrief match_id:…` to clear flags/tax
+
+**Report Winner** flow: griefers → quitters → pick team → confirm.
+
+**New players**
+`/player_new set` marks isolation — they don’t move the team OpenSkill until 5 finished games. Quits still hurt.
+
+**Boards**
+• `/leaderboard quitters` / `setup_quitters`
+• `/leaderboard griefers` / `setup_griefers`
 
 **Tips**
-• Agree on the server’s quitter rules and stick to them
-• Prefer marking quitters with the buttons on the match message when possible
+• Prefer match-message buttons when possible
 • Double-check slot numbers before completing
-
-**Public board**
-Some servers expose a guild-wide quitter leaderboard via `/leaderboard quitters` or a live channel set up with `/leaderboard setup_quitters` (see setup guide).
+• Use cancel for broken starts — not to hide a real loss

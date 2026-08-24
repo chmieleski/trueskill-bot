@@ -10,7 +10,7 @@ The bot maps wc3stats color indexes → hero slots **1–12**.
 /config set wc3stats_map_preset preset:UDBR
 ```
 
-This loads the built-in Z Fighters / Evil layout (referee unmapped).
+Loads the built-in Z Fighters / Evil layout (referee unmapped).
 
 **One seat**
 
@@ -34,30 +34,21 @@ This loads the built-in Z Fighters / Evil layout (referee unmapped).
 /config clear wc3stats
 ```
 
-**Check**
+**Check:** `/config view`
 
-```
-/config view
-```
-
-Hosts can also `/lobby sync` (or Refresh) to pull the live WC3 lobby when the feature is enabled.
-
-- Enable (and load UDBR defaults): `/config set wc3stats_map_preset preset:UDBR`
-- Full reset: `/config clear wc3stats`
-- Layout-only clear commands unchanged
+Hosts can `/lobby sync` (or **Refresh**) to pull the live WC3 lobby when import is enabled.
 
 **Optional: host lobby prompts**
-When import is enabled, ping linked hosts (`/link`) when their matching Warcraft lobby appears:
+Ping linked hosts when their matching Warcraft lobby appears:
 
 ```
 /config set wc3stats_host_prompt enabled:True channel:#lobbies
 /config clear wc3stats_host_prompt
 ```
 
-If `/config set lobby_channel` is on for the league, this prompt channel **must be the same channel** (the bot rejects a mismatch). Open lobby then happens in that lobby channel.
-Only the mentioned host can Open lobby / Dismiss. Open uses the same create-role rules as `/register_lobby`.
+If `/config set lobby_channel` is on, the prompt channel **must match**. Only the mentioned host can **Open lobby** / **Dismiss**. Open uses the same create-role rules as `/register_lobby`.
 
-Players can opt out of pings (still linked; just no auto-prompt):
+Players can opt out of pings (still linked):
 
 ```
 /settings set host_prompt_pings enabled:False

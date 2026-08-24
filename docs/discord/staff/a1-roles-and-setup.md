@@ -12,52 +12,46 @@ Need **Manage Server** (or Administrator) for `/config` and `/league`.
 
 One league → bind optional. Multiple → bind or pass `league:`.
 
-**1) Create role**
+**1) Create role** — required for `/register_lobby`
 
 ```
 /config set create_role role:@YourCreatorRole
 ```
 
-Required for `/register_lobby`.
-
-**2) Mod role**
+**2) Mod role** — report / cancel / link help / corrections
 
 ```
 /config set mod_role role:@YourModRole
 ```
 
-Report / cancel matches; help with links.
-
-**3) Player claim**
+**3) Player claim** (default on). Off = hosts only seat players.
 
 ```
 /config set player_claim enabled:True
 /config set player_claim enabled:False
 ```
 
-Default on. Off = hosts only seat players.
-
-**4) Dedicated lobby channel (optional, per league)**
+**4) Dedicated lobby channel** (optional, per league)
 Default **off**. When on, `/register_lobby` and wc3stats **Open lobby** only in that channel. `/lobby` works anywhere.
 
 ```
 /config set lobby_channel enabled:True channel:#lobbies
-/config set lobby_channel enabled:False
 /config clear lobby_channel
 ```
 
-When the lobby channel is on, only `/register_lobby`, `/lobby`, and `/match complete|cancel|quitters` work in that channel; other slash commands are refused there.
+In that channel, only `/register_lobby`, `/lobby`, and `/match complete|cancel|quitters|griefers` are allowed.
 Host prompts (if on) **must** use this channel. `/league bind` separately for auto league pick.
 
-**5) Live overall leaderboard**
-`/config set leaderboard_channel channel:#ranks` or `/leaderboard setup`. Only that bot message in-channel.
-Size (default 10, max 100): `/config set|clear leaderboard_size`
+**5) Live overall board** — `/config set leaderboard_channel` or `/leaderboard setup`. Size: `/config set|clear leaderboard_size` (default 10, max 100).
 
-**6) Rank reset (optional)**
-Default **off**. `/config set rank_reset enabled:True` (optional `cooldown_days`, default 30). Off: `enabled:False`. Days only: `/config set rank_reset_cooldown days:30`. Mods: `/rank_reset user:@Player`.
+**6) Rank reset** (default off) — `/config set rank_reset enabled:True` (optional `cooldown_days`, default 30). Mods: `/rank_reset user:@Player`.
 
-**7) Live quitter leaderboard**
-`/config set quitter_leaderboard_channel channel:#quitters` or `/leaderboard setup_quitters`. Guild-wide. Size / display (`count`/`rate`/`both`) / sort — see `/config view`. Browse: `/leaderboard quitters`.
+**7) Quitter / griefer boards** (guild-wide)
+• `/config set quitter_leaderboard_channel` or `/leaderboard setup_quitters`
+• `/config set griefer_leaderboard_channel` or `/leaderboard setup_griefers`
+• Size / display (`count`/`rate`/`both`) / sort — see `/config view`
+• Browse: `/leaderboard quitters` · `/leaderboard griefers`
+
+**8) Decay** — `/config set decay enabled:true|false` (see rating-decay guide).
 
 **See everything:** `/config view`
-Clear boards: `/config clear leaderboard_channel` · `/config clear quitter_leaderboard_channel`

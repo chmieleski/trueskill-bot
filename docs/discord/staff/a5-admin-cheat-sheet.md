@@ -1,55 +1,35 @@
 📋 **Staff cheat sheet**
 
 **Leagues (Manage Server)**
-• `/league create` / `/league list`
-• `/league bind` / `/league unbind` — tie channels/categories to a league
-• `/league rollover` — archive a season and open a successor (`reset:continue|soft|hard`, optional `compression` for soft)
-• `/league set season_end` / `/league clear season_end` — optional season end (auto crunch 7 days before)
-• `/league crunch start` / `/league crunch clear` — manual crunch week (faster decay, prize-lock medals)
+• `/league create` / `list` / `bind` / `unbind`
+• `/league rollover` — `reset:continue|soft|hard` (+ `compression` for soft)
+• `/league set|clear season_end` · `/league crunch start|clear`
 
 **Config (Manage Server)**
 • `/config view`
-• `/config set create_role`
-• `/config set mod_role`
-• `/config set player_claim`
-• `/config set|clear lobby_channel` — optional per-league create-only channel; when on, also limits slash commands in that channel to lobby/match ops
-• `/config set leaderboard_channel` / `/leaderboard setup`
-• `/config clear leaderboard_channel`
-• `/config set leaderboard_size` / `/config clear leaderboard_size`
-• `/config set quitter_leaderboard_channel` / `/leaderboard setup_quitters`
-• `/config clear quitter_leaderboard_channel`
-• `/config set quitter_leaderboard_size` / `/config clear quitter_leaderboard_size`
-• `/config set quitter_leaderboard_display` (`count` / `rate` / `both`) / `/config clear quitter_leaderboard_display`
-• `/config set quitter_leaderboard_sort` (`count` / `rate`) / `/config clear quitter_leaderboard_sort`
-• `/leaderboard quitters` — guild-wide paginated view (all leagues)
-• `/config set rank_reset` (optional `cooldown_days`) / `/config set rank_reset_cooldown`
-• `/config set wc3stats_map_preset` (UDBR)
-• `/config clear wc3stats`
-• `/config set|clear wc3stats_slot` / `wc3stats_map`
-• `/config set|clear wc3stats_host_prompt` — ping linked hosts for live matching lobbies
-• `/config set|clear changelog_channel` — player patch notes for this server
-• `/config set|clear changelog_draft_channel` — one staff draft channel for the whole bot (second server is rejected)
-• `/config set decay` (`enabled:true|false`) — mid-season idle decay per league (`off` by default after `reset:continue`)
-• `/config decay …` — tune grace / ki rates / streak cap / crunch window / prize lock; `clear_*` resets to defaults
-• `/config view` — shows effective decay rates + season/crunch status
+• `create_role` · `mod_role` · `player_claim`
+• `lobby_channel` — when on, channel allows `/register_lobby`, `/lobby`, `/match complete|cancel|quitters|griefers`
+• Overall board: `leaderboard_channel` / `size` · `/leaderboard setup`
+• Quitter board: `quitter_leaderboard_*` · `/leaderboard setup_quitters` · `/leaderboard quitters`
+• Griefer board: `griefer_leaderboard_*` · `/leaderboard setup_griefers` · `/leaderboard griefers`
+• `rank_reset` / `rank_reset_cooldown`
+• `wc3stats_map_preset` (UDBR) · `wc3stats_slot` / `map` · `wc3stats_host_prompt`
+• `changelog_channel` · `changelog_draft_channel` (one draft channel bot-wide)
+• `decay` (`enabled:true|false`) · `/config decay …` to tune grace/rates/cap/crunch/prize lock (`clear_*` resets defaults)
 
-**Releases (Manage Server on the draft server)**
-• After a version deploys, a Draft card appears in the draft channel
-• Edit the player summary, then Publish (all changelog channels) or Dismiss (no player post)
+**Releases (draft server)**
+Draft card → edit summary → **Publish** (all changelog channels) or **Dismiss**
 
 **Mod role**
 • `/match complete|quitters|griefers|cancel` (+ `match_id`)
-• `/match flip match_id:… winner:…` — fix wrong winner within 24h (optional `quitters`)
-• `/match void match_id:…` — undo result and restore ki within 24h (mod only, not host)
-• `/link nick: user:@…` (others + relink)
-• `/unlink user:@…`
-• `/rank_reset user:@…` (force reset another linked player; bypasses cooldown)
+• `/match flip` / `void` (24h) · `/match ungrief`
+• `/lobby recreate` after void · `/lobby remove` / `screenshot` with `match_id`
+• `/link` / `/unlink` others · `/player_new set|clear` · `/rank_reset user:`
 
 **Create role**
-• `/register_lobby`
-• `/lobby …` while hosting
+• `/register_lobby` · `/lobby …` while hosting
 
 **Remember**
-• No create role configured → nobody can open lobbies
-• Public guide stays in the player channel; keep this channel private
+• No create role → nobody opens lobbies
+• Keep this channel private; public guide stays in the player channel
 • Fair reports > fast reports

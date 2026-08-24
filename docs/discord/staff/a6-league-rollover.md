@@ -1,109 +1,40 @@
 🏁 **League season rollover** _(Manage Server)_
 
-Use this when a league season ends and you want a **new** league for the next season. The old league becomes **read-only history**; play moves to the successor.
+Archive a season and open a **successor**. Old league becomes read-only history.
 
-**Season 1 → break → Season 2:** freeze Season 1 with `reset:continue` into a name like `Season 1.5` (same ki, no reset). Later start Season 2 with `reset:soft` from that live 1.5 league. Season 2 uses **end of 1.5** ranks, not the frozen Season 1 board.
+**S1 → break → S2:** freeze S1 with `reset:continue` (e.g. `Season 1.5`). Later `reset:soft` from that break league — S2 uses **end of 1.5**, not frozen S1.
 
----
-
-**Before you start**
-
-• Every **active lobby or match** in that league must be **completed or cancelled** — rollover is blocked otherwise.  
-• Pick a **display name** for the new league (e.g. `UDBR Winter 2026`).  
-• Decide **continue**, **soft**, or **hard** (see below).  
-• Channel/category **bindings move automatically** to the new league.
-
----
-
-**Command**
+**Before**
+• Finish/cancel every active lobby or match in that league
+• Pick a name and `continue` / `soft` / `hard`
+• Bindings move to the new league automatically
 
 ```
 /league rollover name:Season 1.5 reset:continue
-/league rollover name:UDBR Season 2 reset:soft
 /league rollover name:UDBR Season 2 reset:soft compression:0.5
-/league rollover name:Fresh Start reset:hard league:YourLeagueName
+/league rollover name:Fresh Start reset:hard league:YourLeague
 ```
 
-| Option        | Meaning                                                                                                                          |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `name`        | Display name for the **new** league (required)                                                                                   |
-| `reset`       | `continue` — copy ki unchanged · `soft` — shrink toward the old average · `hard` — everyone back to ~1000 ki                     |
-| `compression` | Only for `soft`. `0.0`–`1.0`, default `0.5`. **Higher = stronger pull toward average**. Do not pass it with `continue` or `hard` |
-| `league`      | Required when the server has more than one **active** league                                                                     |
+• `compression` — soft only, `0`–`1`, default `0.5` (higher = stronger pull to average)
+• `league` — when more than one **active** league
+• Confirm / Cancel — only you can press
 
-You get a **Confirm / Cancel** prompt. Only you can press the buttons.
+**Modes**
+• **Continue** — copy overall + hero ki exactly; no Calibrating reset
+• **Hard** — everyone ~**1000 ki**; heroes rebuild; Calibrating until 5 games
+• **Soft** — compress toward old averages; σ up; hero Calibrating resets
 
----
+**Also on rollover**
+• Deferred **griefer season tax** hits the **archived ending board**
+• Successor may **inherit** season end / crunch timestamps — clear if unwanted
+• `continue` successors have **decay off** by default (see decay guide)
 
-**Continue (no reset)**
+**Moves:** wc3stats maps, leaderboard/lobby channel, claim, rank-reset, host prompts, bindings, live board (reposted).
+**Stays archived:** match history, per-player rank-reset cooldown history.
 
-• Copies overall and hero ki **exactly** — same μ, σ, and hero games played.  
-• Players do **not** go back to Calibrating.  
-• Old league is frozen: look back with `/leaderboard` / `/match list` and pick the archived name.  
-• New games only count on the successor (e.g. Season 1.5).
+**After:** `/league list` shows Active / Archived. Live board reposts on confirm. Archived leagues cannot register lobbies, import, `/rank_reset`, correct matches, or `/leaderboard setup`.
 
-**When to use:** end of a season when you still want ranked play during a break, without changing the saved ending board.
+**Player paste**
 
-`continue` is not `soft` with compression `0` — soft always recalibrates.
-
----
-
-**Hard reset**
-
-• Every player who had a rating in the old season starts at default skill (~**1000 ki**).  
-• Hero-specific ratings are cleared — they rebuild when players pick heroes again.  
-• Public **Calibrating** label until 5 completed games (same as new players).  
-• Old season matches and leaderboards stay in the archive.
-
-**When to use:** full fresh start, big rule changes, or you want everyone equal again.
-
----
-
-**Soft reset**
-
-• **Overall ki** moves toward the old season’s **average** — strong players drop, weaker players rise.  
-• **Each hero** rating is compressed toward that hero’s old-season average separately.  
-• **Uncertainty (σ)** goes up so early-season games move ki more (like ranked resets in other games).  
-• Hero **Calibrating** resets (`matchesPlayed` back to 0) even though skill carries over partially.
-
-**Compression guide**
-
-| Value | Feel                                            |
-| ----- | ----------------------------------------------- |
-| `0.3` | Gentle — keep most of last season’s spread      |
-| `0.5` | Default — halfway to the old average            |
-| `0.7` | Aggressive — tight cluster near the old average |
-
-Example: a 5000 ki player and a 1200 ki player with `compression:0.5` both move toward the league average (often ~2500–3500 depending on your population).
-
----
-
-**What moves with you**
-
-✅ wc3stats map preset & slot maps  
-✅ Leaderboard / lobby channel settings  
-✅ Rank-reset enable & cooldown  
-✅ Host-prompt settings  
-✅ Channel & category bindings  
-✅ Live leaderboard (old Discord message is removed; a new one is posted in the same channel)
-
-❌ Match history (stays on archived league)  
-❌ Per-player rank-reset cooldown history
-
----
-
-**After rollover**
-
-• `/league list` shows **Active** and **Archived** sections.  
-• Players use the same channels — bindings already point at the new league.  
-• Confirm **posts a new live board** on the successor (continue looks like the freeze; soft/hard show the reset). You do not need to wait for a match or re-run `/leaderboard setup`.  
-• View old season: `/match list` or `/leaderboard` with the **archived** league selected.  
-• Archived leagues **cannot** register lobbies, import wc3stats, run `/rank_reset`, correct matches, or `/leaderboard setup`.
-
----
-
-**Player message you can paste**
-
-> **Continue:** **{old name}** is archived as the season ending board. Play continues in **{new name}** with the same ki. Look back at the freeze with `/leaderboard` / `/match list` and pick the archived league.
-
-> **Soft / hard:** A new season started in **{new name}**. Your ki was {hard: reset to ~1000 | soft: adjusted toward the league average}. Last season is archived — history still visible with `/match list`. Have fun climbing again!
+> **Continue:** **{old}** archived. Play continues in **{new}** with the same ki.
+> **Soft/hard:** New season in **{new}**. Ki was {hard: reset ~1000 | soft: adjusted}. History stays via `/match list`.
