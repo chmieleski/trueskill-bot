@@ -10,10 +10,12 @@ import { resolveGuildConfig, teamDisplayName, winnerLabel } from '../../services
 import { assertCanManageMatch } from '../../services/match/index.js';
 import {
   refreshAllLeaderboardChannels,
+  refreshGuildGrieferLeaderboard,
   refreshLeagueLeaderboard,
 } from '../../services/leaderboard/index.js';
 import {
   cancelInProgressMatch,
+  clearMatchGriefers,
   completeMatch,
   setGriefers,
   setQuitters,
@@ -249,6 +251,43 @@ async function resolveCompletedMatchForModCorrection(
   return match;
 }
 
+/** Mod-only lookup for clearing griefers on a finished match. */
+async function resolveFinishedMatchForModGrieferClear(
+  interaction: ChatInputCommandInteraction,
+): Promise<MatchWithPlayers> {
+  if (!interaction.guildId) {
+    throw new MatchServiceError('This command can only be used in a server.');
+  }
+
+  const matchId = interaction.options.getString('match_id', true);
+  const config = await resolveGuildConfig(interaction.guildId);
+
+  assertHasMatchModRole({
+    actorDiscordId: interaction.user.id,
+    memberRoleIds: memberRoleIds(interaction),
+    matchModRoleId: config.matchModRoleId,
+  });
+
+  const match = await getMatchById(matchId);
+  if (!match) {
+    throw new MatchServiceError('This match was not found.');
+  }
+
+  if (match.status !== 'COMPLETED' && match.status !== 'CANCELLED') {
+    throw new MatchServiceError('This match must be completed or cancelled.');
+  }
+
+  return match;
+}
+
+function formatClearedGriefersMessage(
+  matchId: string,
+  cleared: Array<{ slot: number; kiTaxRemoved: number }>,
+): string {
+  const lines = cleared.map((row) => `slot **${row.slot}** (−${row.kiTaxRemoved} ki from pool)`);
+  return `Cleared griefer flag on match \`${matchId}\`: ${lines.join(', ')}.`;
+}
+
 async function applyMatchMutation(
   interaction: ChatInputCommandInteraction,
   match: MatchWithPlayers,
@@ -301,6 +340,14 @@ export const data = new SlashCommandBuilder()
         )
         .addIntegerOption((option) =>
           option.setName('page').setDescription('Page number').setRequired(false).setMinValue(1),
+        )
+        .addBooleanOption((option) =>
+          option
+            .setName('griefers_only')
+            .setDescription(
+              'Only show matches where this player was marked a griefer (includes cancelled)',
+            )
+            .setRequired(false),
         ),
     ),
   )
@@ -433,6 +480,23 @@ export const data = new SlashCommandBuilder()
       .addStringOption((option) =>
         option.setName('match_id').setDescription('Completed match id').setRequired(true),
       ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('ungrief')
+      .setDescription('Clear griefer flags and remove deferred ki tax (mods only)')
+      .addStringOption((option) =>
+        option
+          .setName('match_id')
+          .setDescription('Completed or cancelled match id')
+          .setRequired(true),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('slots')
+          .setDescription('Comma-separated slots to clear; omit to clear all griefers on the match')
+          .setRequired(false),
+      ),
   );
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
@@ -499,11 +563,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       const pageNum = interaction.options.getInteger('page') ?? 1;
+      const griefersOnly = interaction.options.getBoolean('griefers_only') === true;
       const pageData = await loadMatchHistoryPage({
         leagueId: resolved.leagueId,
         playerId: player.id,
         username: player.username,
         page: pageNum,
+        griefersOnly,
       });
       const embed = buildMatchHistoryEmbed(pageData, resolved.leagueId, (team) =>
         teamDisplayName(team, gameProfile),
@@ -514,6 +580,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         leagueId: resolved.leagueId,
         page: pageData.page,
         totalPages: pageData.totalPages,
+        griefersOnly: pageData.griefersOnly,
       });
       await replyMatchRead(interaction, { embeds: [embed], components });
       return;
@@ -637,6 +704,26 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         });
       }
 
+      return;
+    }
+
+    if (subcommand === 'ungrief') {
+      await resolveFinishedMatchForModGrieferClear(interaction);
+      const matchId = interaction.options.getString('match_id', true);
+      const slotsRaw = interaction.options.getString('slots');
+      const slots = slotsRaw === null ? undefined : parseGrieferSlots(slotsRaw);
+
+      await interaction.editReply({ content: 'Clearing griefer flags…' });
+      const { match, cleared } = await clearMatchGriefers(matchId, slots);
+
+      if (interaction.guildId) {
+        await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);
+      }
+      await refreshLeagueLeaderboard(interaction.client, match.leagueId);
+
+      await interaction.editReply({
+        content: formatClearedGriefersMessage(match.id, cleared),
+      });
       return;
     }
 

@@ -1,3 +1,4 @@
+import type { MatchStatus, Prisma } from '@prisma/client';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { prisma } from '../../lib/prisma.js';
 import { loadHeroCatalog } from '../guild/hero-catalog.js';
@@ -27,10 +28,13 @@ export const MATCH_HISTORY_PAGE_SIZE = 10;
 export type MatchHistoryRow = {
   matchId: string;
   completedAt: Date;
-  result: 'WIN' | 'LOSS';
+  result: 'WIN' | 'LOSS' | 'CANCELLED';
   team: 1 | 2;
   heroName: string | null;
   isQuitter: boolean;
+  isGriefer: boolean;
+  /** Deferred season-end ki tax accrued when marked griefer. */
+  grieferKiAccrued: number | null;
   /** Global ki delta for the history target when snapshots exist. */
   globalDelta?: number;
   /** After-match completed WIN/LOSS count for the Calibrating gate. */
@@ -43,13 +47,17 @@ export type MatchHistoryPage = {
   page: number;
   totalPages: number;
   totalMatches: number;
+  griefersOnly: boolean;
   rows: MatchHistoryRow[];
 };
 
-/** Compact result cell: W / L, with Q when the player quit. */
+/** Compact result cell: W / L / X (cancelled), with Q when the player quit. */
 export function formatMatchHistoryResult(
   row: Pick<MatchHistoryRow, 'result' | 'isQuitter'>,
 ): string {
+  if (row.result === 'CANCELLED') {
+    return 'X';
+  }
   const base = row.result === 'WIN' ? 'W' : 'L';
   return row.isQuitter ? `${base}Q` : base;
 }
@@ -71,20 +79,33 @@ export function formatMatchHistoryField(
   row: MatchHistoryRow,
   teamLabel: string,
 ): { name: string; value: string; inline: boolean } {
-  const emoji = row.result === 'WIN' ? '✅' : '❌';
-  const outcome = row.result === 'WIN' ? 'Win' : 'Loss';
+  const cancelled = row.result === 'CANCELLED';
+  const emoji = cancelled ? '🚫' : row.result === 'WIN' ? '✅' : '❌';
+  const outcome = cancelled ? 'Cancelled' : row.result === 'WIN' ? 'Win' : 'Loss';
   const hero = row.heroName ?? 'Unknown hero';
-  const ratingBit = isCalibrating(row.leagueGames)
-    ? CALIBRATING_LABEL
-    : `${formatMatchHistoryDelta(row.globalDelta)} ki`;
+  const ratingBit = cancelled
+    ? 'cancelled'
+    : isCalibrating(row.leagueGames)
+      ? CALIBRATING_LABEL
+      : `${formatMatchHistoryDelta(row.globalDelta)} ki`;
   const unix = Math.floor(row.completedAt.getTime() / 1000);
   const quit = row.isQuitter ? ' · Quit' : '';
+  const griefer =
+    row.isGriefer && row.grieferKiAccrued != null && row.grieferKiAccrued > 0
+      ? ` · Griefer (−${row.grieferKiAccrued} ki pool)`
+      : row.isGriefer
+        ? ' · Griefer'
+        : '';
 
   return {
     name: `${hero} · ${emoji} ${ratingBit}`,
-    value: `${outcome}${quit} · ${teamLabel} · <t:${unix}:D>\n\`${row.matchId}\``,
+    value: `${outcome}${quit}${griefer} · ${teamLabel} · <t:${unix}:D>\n\`${row.matchId}\``,
     inline: false,
   };
+}
+
+function matchEndedAt(match: { completedAt: Date | null; updatedAt: Date; createdAt: Date }): Date {
+  return match.completedAt ?? match.updatedAt ?? match.createdAt;
 }
 
 export function clampMatchHistoryPage(page: number, totalPages: number): number {
@@ -107,17 +128,30 @@ export function buildMatchHistoryPageCustomId(
   leagueId: string,
   direction: 'prev' | 'next',
   currentPage: number,
+  griefersOnly = false,
 ): string {
   const dirToken = direction === 'prev' ? 'p' : 'n';
-  return `mh:p:${invokerId}:${compactUuidForCustomId(playerId)}:${compactUuidForCustomId(leagueId)}:${dirToken}:${currentPage}`;
+  const base = `mh:p:${invokerId}:${compactUuidForCustomId(playerId)}:${compactUuidForCustomId(leagueId)}:${dirToken}:${currentPage}`;
+  return griefersOnly ? `${base}:g` : base;
 }
 
 export function parseMatchHistoryPageCustomId(
   customId: string,
-): { invokerId: string; playerId: string; leagueId: string; page: number } | null {
+): {
+  invokerId: string;
+  playerId: string;
+  leagueId: string;
+  page: number;
+  griefersOnly: boolean;
+} | null {
   const parts = customId.split(':');
   // mh:p:invoker:player:league:dir:page → 7 parts
-  if (parts.length !== 7 || parts[0] !== 'mh' || parts[1] !== 'p') {
+  // mh:p:invoker:player:league:dir:page:g → 8 parts (griefer filter)
+  if ((parts.length !== 7 && parts.length !== 8) || parts[0] !== 'mh' || parts[1] !== 'p') {
+    return null;
+  }
+  const griefersOnly = parts.length === 8;
+  if (griefersOnly && parts[7] !== 'g') {
     return null;
   }
   const direction = parts[5];
@@ -132,10 +166,10 @@ export function parseMatchHistoryPageCustomId(
     return null;
   }
   if (direction === 'prev' || direction === 'p') {
-    return { invokerId, playerId, leagueId, page: currentPage - 1 };
+    return { invokerId, playerId, leagueId, page: currentPage - 1, griefersOnly };
   }
   if (direction === 'next' || direction === 'n') {
-    return { invokerId, playerId, leagueId, page: currentPage + 1 };
+    return { invokerId, playerId, leagueId, page: currentPage + 1, griefersOnly };
   }
   return null;
 }
@@ -165,12 +199,20 @@ export async function loadMatchHistoryPage(input: {
   playerId: string;
   username: string;
   page: number;
+  griefersOnly?: boolean;
 }): Promise<MatchHistoryPage> {
-  const where = {
-    leagueId: input.leagueId,
-    status: 'COMPLETED' as const,
-    players: { some: { playerId: input.playerId } },
-  };
+  const griefersOnly = input.griefersOnly === true;
+  const where: Prisma.MatchWhereInput = griefersOnly
+    ? {
+        leagueId: input.leagueId,
+        status: { in: ['COMPLETED', 'CANCELLED'] satisfies MatchStatus[] },
+        players: { some: { playerId: input.playerId, isGriefer: true } },
+      }
+    : {
+        leagueId: input.leagueId,
+        status: 'COMPLETED',
+        players: { some: { playerId: input.playerId } },
+      };
 
   const totalMatches = await prisma.match.count({ where });
   const totalPages = Math.max(1, Math.ceil(totalMatches / MATCH_HISTORY_PAGE_SIZE));
@@ -179,8 +221,9 @@ export async function loadMatchHistoryPage(input: {
 
   const matches = await prisma.match.findMany({
     where,
-    // Null completedAt (legacy rows) must not float above newer completed matches.
-    orderBy: [{ completedAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
+    orderBy: griefersOnly
+      ? [{ updatedAt: 'desc' }, { createdAt: 'desc' }]
+      : [{ completedAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
     skip,
     take: MATCH_HISTORY_PAGE_SIZE,
     include: {
@@ -220,30 +263,63 @@ export async function loadMatchHistoryPage(input: {
   const rows: MatchHistoryRow[] = [];
   for (const match of matches) {
     const mp = match.players.find((player) => player.playerId === input.playerId);
-    if (!mp || (mp.result !== 'WIN' && mp.result !== 'LOSS')) {
+    if (!mp) {
       continue;
     }
     if (mp.team !== 1 && mp.team !== 2) {
       continue;
     }
+
+    const endedAt = matchEndedAt(match);
+
+    if (match.status === 'CANCELLED') {
+      if (!mp.isGriefer) {
+        continue;
+      }
+
+      const leagueGames = countCompletedGamesThrough(
+        gamesCountRows,
+        input.playerId,
+        endedAt,
+        resetAt,
+      );
+      rows.push({
+        matchId: match.id,
+        completedAt: endedAt,
+        result: 'CANCELLED',
+        team: mp.team,
+        heroName: mp.heroId != null ? (heroNameById.get(mp.heroId) ?? null) : null,
+        isQuitter: mp.isQuitter,
+        isGriefer: mp.isGriefer,
+        grieferKiAccrued: mp.grieferKiAccrued,
+        leagueGames,
+      });
+      continue;
+    }
+
+    if (mp.result !== 'WIN' && mp.result !== 'LOSS') {
+      continue;
+    }
+
     const globalDelta = await loadPlayerGlobalDeltaForMatch(
       match as MatchWithPlayers,
       input.playerId,
     );
-    const completedAt = match.completedAt ?? match.createdAt;
     const leagueGames = countCompletedGamesThrough(
       gamesCountRows,
       input.playerId,
-      completedAt,
+      endedAt,
       resetAt,
     );
     rows.push({
       matchId: match.id,
-      completedAt,
+      completedAt: endedAt,
       result: mp.result,
       team: mp.team,
       heroName: mp.heroId != null ? (heroNameById.get(mp.heroId) ?? null) : null,
       isQuitter: mp.isQuitter,
+      isGriefer: mp.isGriefer,
+      grieferKiAccrued: mp.grieferKiAccrued,
       globalDelta,
       leagueGames,
     });
@@ -255,6 +331,7 @@ export async function loadMatchHistoryPage(input: {
     page,
     totalPages,
     totalMatches,
+    griefersOnly,
     rows,
   };
 }
@@ -267,15 +344,19 @@ export function buildMatchHistoryEmbed(
   const embed = new EmbedBuilder()
     .setColor(0xf0b232)
     .setAuthor({ name: page.targetUsername })
-    .setTitle('Match history')
+    .setTitle(page.griefersOnly ? 'Match history · griefers' : 'Match history')
     .setDescription(
-      `Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`,
+      page.griefersOnly
+        ? `Griefer matches only · Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`
+        : `Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`,
     );
 
   if (page.rows.length === 0) {
     embed.addFields({
       name: 'Matches',
-      value: '_No completed matches yet._',
+      value: page.griefersOnly
+        ? '_No griefer matches for this player._'
+        : '_No completed matches yet._',
     });
   } else {
     embed.addFields(
@@ -288,7 +369,11 @@ export function buildMatchHistoryEmbed(
       text: 'Tap an id → /match show · Only you can use the buttons',
     });
   } else if (page.totalMatches > 0) {
-    embed.setFooter({ text: 'Copy an id → /match show match_id:…' });
+    embed.setFooter({
+      text: page.griefersOnly
+        ? 'Copy an id → /match show (completed) or /match ungrief (cancelled)'
+        : 'Copy an id → /match show match_id:…',
+    });
   }
 
   return embed;
@@ -300,6 +385,7 @@ export function buildMatchHistoryPageButtons(input: {
   leagueId: string;
   page: number;
   totalPages: number;
+  griefersOnly?: boolean;
 }): ActionRowBuilder<ButtonBuilder>[] {
   if (input.totalPages <= 1) {
     return [];
@@ -313,6 +399,7 @@ export function buildMatchHistoryPageButtons(input: {
           input.leagueId,
           'prev',
           input.page,
+          input.griefersOnly === true,
         ),
       )
       .setLabel('Previous')
@@ -326,6 +413,7 @@ export function buildMatchHistoryPageButtons(input: {
           input.leagueId,
           'next',
           input.page,
+          input.griefersOnly === true,
         ),
       )
       .setLabel('Next')
