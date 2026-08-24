@@ -107,10 +107,13 @@ export {
 } from './league-lobby-channel.js';
 
 export {
+  applyDecayPreset,
+  DECAY_PRESET_STRICT_CRUNCH,
   LEAGUE_DECAY_ARCHIVED_MESSAGE,
   clearDecayCrunchWindow,
   clearDecayModeSetting,
   clearDecayPrizeLock,
+  clearDecayPrizeLockMinGames,
   clearDecayStreakCap,
   clearLeagueCrunch,
   parseSeasonEndDate,
@@ -118,9 +121,11 @@ export {
   setDecayEnabled,
   setDecayModeSetting,
   setDecayPrizeLock,
+  setDecayPrizeLockMinGames,
   setDecayStreakCap,
   setLeagueSeasonEndsAt,
   startLeagueCrunch,
+  STRICT_CRUNCH_PRESET_DATA,
   type DecayMode,
   type DecayTunableKind,
   type StartLeagueCrunchResult,

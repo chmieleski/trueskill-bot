@@ -11,11 +11,15 @@ vi.mock('../../lib/prisma.js', () => ({
 }));
 
 import {
+  applyDecayPreset,
   LEAGUE_DECAY_ARCHIVED_MESSAGE,
   parseSeasonEndDate,
   setDecayEnabled,
   setDecayModeSetting,
+  setDecayPrizeLockMinGames,
+  clearDecayPrizeLockMinGames,
   setDecayStreakCap,
+  STRICT_CRUNCH_PRESET_DATA,
 } from './league-decay.js';
 import { assertDecaySettingBounds } from '../rating/decay-settings.js';
 
@@ -120,5 +124,57 @@ describe('setDecayStreakCap', () => {
 describe('assertDecaySettingBounds export used by setters', () => {
   it('is the shared validator', () => {
     expect(assertDecaySettingBounds('crunchWindowDays', 7)).toBe(7);
+  });
+});
+
+describe('setDecayPrizeLockMinGames', () => {
+  beforeEach(() => {
+    update.mockReset();
+  });
+
+  it('persists min games after bounds check', async () => {
+    await setDecayPrizeLockMinGames('league-1', 7);
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'league-1' },
+      data: { decayPrizeLockMinGames: 7 },
+    });
+  });
+
+  it('rejects out-of-bounds values', async () => {
+    await expect(setDecayPrizeLockMinGames('league-1', 0)).rejects.toThrow(/between 1 and 50/);
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe('clearDecayPrizeLockMinGames', () => {
+  beforeEach(() => {
+    update.mockReset();
+  });
+
+  it('clears the override', async () => {
+    await clearDecayPrizeLockMinGames('league-1');
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'league-1' },
+      data: { decayPrizeLockMinGames: null },
+    });
+  });
+});
+
+describe('applyDecayPreset', () => {
+  beforeEach(() => {
+    update.mockReset();
+  });
+
+  it('strict_crunch writes crunch overrides', async () => {
+    await applyDecayPreset('league-1', 'strict_crunch');
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'league-1' },
+      data: { ...STRICT_CRUNCH_PRESET_DATA },
+    });
+  });
+
+  it('rejects unknown names', async () => {
+    await expect(applyDecayPreset('league-1', 'nope')).rejects.toThrow(/Unknown decay preset/);
+    expect(update).not.toHaveBeenCalled();
   });
 });

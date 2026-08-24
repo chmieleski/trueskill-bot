@@ -192,3 +192,41 @@ export async function clearDecayPrizeLock(leagueId: string): Promise<void> {
     data: { decayPrizeLockEnabled: null },
   });
 }
+
+/** Set minimum qualifying games required for prize lock during crunch. */
+export async function setDecayPrizeLockMinGames(leagueId: string, games: number): Promise<void> {
+  const safe = assertDecaySettingBounds('prizeLockMinGames', games);
+  await prisma.league.update({
+    where: { id: leagueId },
+    data: { decayPrizeLockMinGames: safe },
+  });
+}
+
+/** Clear prize-lock min-games override (back to code default). */
+export async function clearDecayPrizeLockMinGames(leagueId: string): Promise<void> {
+  await prisma.league.update({
+    where: { id: leagueId },
+    data: { decayPrizeLockMinGames: null },
+  });
+}
+
+export const DECAY_PRESET_STRICT_CRUNCH = 'strict_crunch';
+
+export const STRICT_CRUNCH_PRESET_DATA = {
+  decayCrunchGraceDays: 3,
+  decayCrunchTier1Ki: 100,
+  decayCrunchTier2Ki: 100,
+  decayCrunchWindowDays: 7,
+  decayPrizeLockMinGames: 7,
+} as const;
+
+/** Apply a named decay preset (crunch overrides only; does not toggle decay or season state). */
+export async function applyDecayPreset(leagueId: string, name: string): Promise<void> {
+  if (name !== DECAY_PRESET_STRICT_CRUNCH) {
+    throw new Error('Unknown decay preset. Known: strict_crunch.');
+  }
+  await prisma.league.update({
+    where: { id: leagueId },
+    data: { ...STRICT_CRUNCH_PRESET_DATA },
+  });
+}

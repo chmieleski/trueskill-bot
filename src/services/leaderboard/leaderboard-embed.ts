@@ -1,5 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { formatPublicKi } from '../rating/rating-math.js';
+import { DEFAULT_DECAY_SETTINGS } from '../rating/rating-decay.js';
 import type {
   HeroBoardSlice,
   HeroLeaderboardEntry,
@@ -11,15 +12,23 @@ import { chunkLeaderboardEntries } from './leaderboard.js';
 const RANK_GOLD = 0xf0b232;
 
 export const PRIZE_LOCK_FOOTNOTE =
-  'Medals require a completed game on each day of the season crunch week.';
+  'Medals require at least 1 finished game during the season crunch week.';
 export const CRUNCH_BANNER = 'Season crunch — play this week to keep your medal spot.';
 
 /** Prize-lock footnote using the league crunch window length. */
-export function formatPrizeLockFootnote(crunchWindowDays: number): string {
-  if (crunchWindowDays === 7) {
-    return PRIZE_LOCK_FOOTNOTE;
+export function formatPrizeLockFootnote(options: {
+  minGames: number;
+  crunchWindowDays: number;
+}): string {
+  const { minGames, crunchWindowDays } = options;
+  if (minGames === 1) {
+    return crunchWindowDays === 7
+      ? PRIZE_LOCK_FOOTNOTE
+      : `Medals require at least 1 finished game during the ${crunchWindowDays}-day season crunch.`;
   }
-  return `Medals require a completed game on each day of the ${crunchWindowDays}-day season crunch.`;
+  return crunchWindowDays === 7
+    ? `Medals require at least ${minGames} finished games during the season crunch week.`
+    : `Medals require at least ${minGames} finished games during the ${crunchWindowDays}-day season crunch.`;
 }
 
 /** Crunch banner; mentions medals only when prize lock is active. */
@@ -121,7 +130,8 @@ export function buildOverallLeaderboardEmbed(
 ): EmbedBuilder {
   const ratingLabel = options?.ratingLabel ?? 'ki';
   const prizeLockActive = page.prizeLockActive ?? false;
-  const crunchWindowDays = page.crunchWindowDays ?? 7;
+  const crunchWindowDays = page.crunchWindowDays ?? DEFAULT_DECAY_SETTINGS.crunchWindowDays;
+  const prizeLockMinGames = page.prizeLockMinGames ?? DEFAULT_DECAY_SETTINGS.prizeLockMinGames;
   const table = formatOverallTable(page.entries, ratingLabel, { prizeLockActive });
   const embed = new EmbedBuilder().setColor(RANK_GOLD).setTitle('Global Leaderboard');
 
@@ -129,7 +139,7 @@ export function buildOverallLeaderboardEmbed(
     // Discord parses <t:…> only in description/fields — footers are plain text.
     let description = table;
     if (prizeLockActive) {
-      description = `${formatCrunchBanner(true)}\n\n${description}\n\n${formatPrizeLockFootnote(crunchWindowDays)}`;
+      description = `${formatCrunchBanner(true)}\n\n${description}\n\n${formatPrizeLockFootnote({ minGames: prizeLockMinGames, crunchWindowDays })}`;
     }
     if (options.updatedAt) {
       const unix = Math.floor(options.updatedAt.getTime() / 1000);
@@ -139,7 +149,7 @@ export function buildOverallLeaderboardEmbed(
   } else {
     let description = `Page ${page.page} of ${page.totalPages} · ${page.totalPlayers} players\n\n${table}`;
     if (prizeLockActive) {
-      description += `\n\n${formatPrizeLockFootnote(crunchWindowDays)}`;
+      description += `\n\n${formatPrizeLockFootnote({ minGames: prizeLockMinGames, crunchWindowDays })}`;
     }
     embed.setDescription(description);
     if (page.totalPages > 1) {
@@ -158,12 +168,13 @@ export function buildOverallLiveLeaderboardEmbeds(
   entries: OverallLeaderboardEntry[],
   updatedAt: Date,
   ratingLabel = 'ki',
-  options?: { prizeLockActive?: boolean; crunchWindowDays?: number },
+  options?: { prizeLockActive?: boolean; crunchWindowDays?: number; prizeLockMinGames?: number },
 ): EmbedBuilder[] {
   const unix = Math.floor(updatedAt.getTime() / 1000);
   const stamp = `\n\nUpdated <t:${unix}:R>`;
   const prizeLockActive = options?.prizeLockActive ?? false;
-  const crunchWindowDays = options?.crunchWindowDays ?? 7;
+  const crunchWindowDays = options?.crunchWindowDays ?? DEFAULT_DECAY_SETTINGS.crunchWindowDays;
+  const prizeLockMinGames = options?.prizeLockMinGames ?? DEFAULT_DECAY_SETTINGS.prizeLockMinGames;
   const chunks = entries.length === 0 ? [[]] : chunkLeaderboardEntries(entries);
 
   return chunks.map((chunk, index) => {
@@ -175,7 +186,7 @@ export function buildOverallLiveLeaderboardEmbeds(
       description = `${formatCrunchBanner(true)}\n\n${description}`;
     }
     if (prizeLockActive && isLast) {
-      description += `\n\n${formatPrizeLockFootnote(crunchWindowDays)}`;
+      description += `\n\n${formatPrizeLockFootnote({ minGames: prizeLockMinGames, crunchWindowDays })}`;
     }
     if (isLast) {
       description += stamp;

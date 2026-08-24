@@ -47,14 +47,13 @@ async function buildLiveOverallEmbeds(leagueId: string, size?: number): Promise<
     });
     resolvedSize = row?.leaderboardSize ?? LIVE_LEADERBOARD_DEFAULT_SIZE;
   }
-  const { entries, prizeLockActive, crunchWindowDays } = await loadOverallLeaderboardTop(
-    leagueId,
-    resolvedSize,
-  );
+  const { entries, prizeLockActive, crunchWindowDays, prizeLockMinGames } =
+    await loadOverallLeaderboardTop(leagueId, resolvedSize);
   const gameProfile = await getGameProfileForLeague(leagueId);
   return buildOverallLiveLeaderboardEmbeds(entries, new Date(), gameProfile.ratingLabel, {
     prizeLockActive,
     crunchWindowDays,
+    prizeLockMinGames,
   });
 }
 

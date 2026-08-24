@@ -24,6 +24,15 @@ describe('resolveDecaySettings', () => {
       prizeLockEnabled: false,
     });
   });
+
+  it('defaults prizeLockMinGames to 1', () => {
+    expect(resolveDecaySettings(null).prizeLockMinGames).toBe(1);
+    expect(resolveDecaySettings({}).prizeLockMinGames).toBe(1);
+  });
+
+  it('uses league override for prizeLockMinGames', () => {
+    expect(resolveDecaySettings({ decayPrizeLockMinGames: 7 }).prizeLockMinGames).toBe(7);
+  });
 });
 
 describe('assertDecaySettingBounds', () => {
@@ -51,6 +60,12 @@ describe('assertDecaySettingBounds', () => {
     expect(() => assertDecaySettingBounds('midTier1Ki', 1.5)).toThrow(
       'Value must be a whole number.',
     );
+  });
+
+  it('rejects prizeLockMinGames out of bounds', () => {
+    expect(() => assertDecaySettingBounds('prizeLockMinGames', 0)).toThrow(/between 1 and 50/);
+    expect(() => assertDecaySettingBounds('prizeLockMinGames', 51)).toThrow(/between 1 and 50/);
+    expect(assertDecaySettingBounds('prizeLockMinGames', 7)).toBe(7);
   });
 });
 

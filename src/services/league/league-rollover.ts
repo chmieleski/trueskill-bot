@@ -455,6 +455,7 @@ function successorLeagueCreateData(
     decayCrunchTier1SpanDays: source.decayCrunchTier1SpanDays,
     decayCrunchWindowDays: source.decayCrunchWindowDays,
     decayPrizeLockEnabled: source.decayPrizeLockEnabled,
+    decayPrizeLockMinGames: source.decayPrizeLockMinGames,
   };
 }
 

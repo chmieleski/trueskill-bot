@@ -6,6 +6,7 @@ import {
   buildOverallLeaderboardEmbed,
   buildOverallLiveLeaderboardEmbeds,
   formatOverallTable,
+  formatPrizeLockFootnote,
   formatRankPrefix,
   parseLeaderboardPageCustomId,
 } from './leaderboard-embed.js';
@@ -131,6 +132,12 @@ describe('formatOverallTable', () => {
 });
 
 describe('prize lock embed copy', () => {
+  it('mentions min finished games in prize-lock footnote', () => {
+    expect(formatPrizeLockFootnote({ minGames: 7, crunchWindowDays: 7 })).toContain(
+      'at least 7 finished games',
+    );
+  });
+
   it('adds footnote on command embed when prize lock is active', () => {
     const embed = buildOverallLeaderboardEmbed({
       entries: [{ ...fakeEntry(1), prizeEligible: true, medalRank: 1 }],
@@ -140,7 +147,7 @@ describe('prize lock embed copy', () => {
       prizeLockActive: true,
     });
     expect(embed.data.description).toContain(
-      'Medals require a completed game on each day of the season crunch week.',
+      'Medals require at least 1 finished game during the season crunch week.',
     );
   });
 
@@ -156,7 +163,7 @@ describe('prize lock embed copy', () => {
       'Season crunch — play this week to keep your medal spot.',
     );
     expect(embeds[0]!.data.description).toContain(
-      'Medals require a completed game on each day of the season crunch week.',
+      'Medals require at least 1 finished game during the season crunch week.',
     );
   });
 });
