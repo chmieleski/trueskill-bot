@@ -1,3 +1,10 @@
+# [1.16.0](https://github.com/chmieleski/trueskill-bot/compare/v1.15.0...v1.16.0) (2026-08-24)
+
+
+### Features
+
+* **rating:** defer griefer ki tax to season-end rollover ([#82](https://github.com/chmieleski/trueskill-bot/issues/82)) ([95ac6bb](https://github.com/chmieleski/trueskill-bot/commit/95ac6bb11df417f7508e8ce7f2a35ea4e625afac))
+
 # [1.15.0](https://github.com/chmieleski/trueskill-bot/compare/v1.14.1...v1.15.0) (2026-08-23)
 
 
