@@ -25,14 +25,16 @@ vi.mock('../../lib/logger.js', () => ({
   }),
 }));
 
-function completedMatch(overrides: {
-  players?: Array<{
-    slot: number;
-    playerId: string;
-    isGriefer: boolean;
-    grieferKiAccrued: number | null;
-  }>;
-} = {}) {
+function completedMatch(
+  overrides: {
+    players?: Array<{
+      slot: number;
+      playerId: string;
+      isGriefer: boolean;
+      grieferKiAccrued: number | null;
+    }>;
+  } = {},
+) {
   return {
     id: 'match-1',
     status: 'COMPLETED' as const,
@@ -78,9 +80,7 @@ describe('clearMatchGriefers', () => {
     matchFindUnique.mockResolvedValueOnce(match).mockResolvedValueOnce({
       ...match,
       players: match.players.map((player) =>
-        player.isGriefer
-          ? { ...player, isGriefer: false, grieferKiAccrued: null }
-          : player,
+        player.isGriefer ? { ...player, isGriefer: false, grieferKiAccrued: null } : player,
       ),
     });
 
@@ -138,7 +138,9 @@ describe('clearMatchGriefers', () => {
   it('rejects unknown slots', async () => {
     matchFindUnique.mockResolvedValue(completedMatch());
 
-    await expect(clearMatchGriefers('match-1', [99])).rejects.toThrow('No griefer player in slot 99.');
+    await expect(clearMatchGriefers('match-1', [99])).rejects.toThrow(
+      'No griefer player in slot 99.',
+    );
   });
 });
 

@@ -284,9 +284,7 @@ function formatClearedGriefersMessage(
   matchId: string,
   cleared: Array<{ slot: number; kiTaxRemoved: number }>,
 ): string {
-  const lines = cleared.map(
-    (row) => `slot **${row.slot}** (−${row.kiTaxRemoved} ki from pool)`,
-  );
+  const lines = cleared.map((row) => `slot **${row.slot}** (−${row.kiTaxRemoved} ki from pool)`);
   return `Cleared griefer flag on match \`${matchId}\`: ${lines.join(', ')}.`;
 }
 
@@ -488,7 +486,10 @@ export const data = new SlashCommandBuilder()
       .setName('ungrief')
       .setDescription('Clear griefer flags and remove deferred ki tax (mods only)')
       .addStringOption((option) =>
-        option.setName('match_id').setDescription('Completed or cancelled match id').setRequired(true),
+        option
+          .setName('match_id')
+          .setDescription('Completed or cancelled match id')
+          .setRequired(true),
       )
       .addStringOption((option) =>
         option

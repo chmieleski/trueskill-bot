@@ -104,11 +104,7 @@ export function formatMatchHistoryField(
   };
 }
 
-function matchEndedAt(match: {
-  completedAt: Date | null;
-  updatedAt: Date;
-  createdAt: Date;
-}): Date {
+function matchEndedAt(match: { completedAt: Date | null; updatedAt: Date; createdAt: Date }): Date {
   return match.completedAt ?? match.updatedAt ?? match.createdAt;
 }
 
@@ -141,7 +137,13 @@ export function buildMatchHistoryPageCustomId(
 
 export function parseMatchHistoryPageCustomId(
   customId: string,
-): { invokerId: string; playerId: string; leagueId: string; page: number; griefersOnly: boolean } | null {
+): {
+  invokerId: string;
+  playerId: string;
+  leagueId: string;
+  page: number;
+  griefersOnly: boolean;
+} | null {
   const parts = customId.split(':');
   // mh:p:invoker:player:league:dir:page → 7 parts
   // mh:p:invoker:player:league:dir:page:g → 8 parts (griefer filter)
