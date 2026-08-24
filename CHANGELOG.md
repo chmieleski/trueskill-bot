@@ -1,3 +1,10 @@
+# [1.19.0](https://github.com/chmieleski/trueskill-bot/compare/v1.18.0...v1.19.0) (2026-08-24)
+
+
+### Features
+
+* **rating:** allow per-league decay and crunch tuning ([#86](https://github.com/chmieleski/trueskill-bot/issues/86)) ([50ed4e5](https://github.com/chmieleski/trueskill-bot/commit/50ed4e5d93c62606e106700c3285aafea20f3647))
+
 # [1.18.0](https://github.com/chmieleski/trueskill-bot/compare/v1.17.0...v1.18.0) (2026-08-24)
 
 
