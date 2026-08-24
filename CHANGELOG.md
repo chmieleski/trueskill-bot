@@ -1,3 +1,10 @@
+# [1.17.0](https://github.com/chmieleski/trueskill-bot/compare/v1.16.0...v1.17.0) (2026-08-24)
+
+
+### Features
+
+* **match:** add griefer ungrief and history filter ([#83](https://github.com/chmieleski/trueskill-bot/issues/83)) ([84cc224](https://github.com/chmieleski/trueskill-bot/commit/84cc224361e46e47e3461bce4012bdf93fc00b73))
+
 # [1.16.0](https://github.com/chmieleski/trueskill-bot/compare/v1.15.0...v1.16.0) (2026-08-24)
 
 
