@@ -38,6 +38,7 @@ model League {
   predecessorLeagueId           String?
   archivedAt                    DateTime?
   decayEnabled                  Boolean  @default(true)
+  balanceStaticSigmaEnabled     Boolean  @default(false)
   seasonEndsAt                  DateTime?
   crunchStartedAt               DateTime?
   // Nullable overrides — null means use code defaults in decay-settings.ts

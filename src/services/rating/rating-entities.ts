@@ -6,6 +6,15 @@ export const BALANCE_PLAYER_WEIGHT = 0.8;
 /** Hero share of `predictWin` / balance-hint team strength. */
 export const BALANCE_HERO_WEIGHT = 0.2;
 
+/** Fixed σ for predictWin when a league enables static balance certainty. */
+export const BALANCE_STATIC_SIGMA = 6;
+
+/** Options for lobby win% / balance hints only (not `rate()`). */
+export type BalancePredictWinOptions = {
+  /** When true, every seat uses {@link BALANCE_STATIC_SIGMA} instead of persisted σ. */
+  staticSigma?: boolean;
+};
+
 /** Overall OpenSkill entity for `rate()` / overall synthetics (hero-agnostic). */
 export function ratingEntitiesForOverall(global: MuSigma): MuSigma[] {
   return [global];
@@ -16,13 +25,26 @@ export function ratingEntitiesForHero(hero: MuSigma): MuSigma[] {
   return [hero];
 }
 
+function balanceSigmaForEntity(dynamicSigma: number, options?: BalancePredictWinOptions): number {
+  return options?.staticSigma ? BALANCE_STATIC_SIGMA : dynamicSigma;
+}
+
 /**
- * Weighted Gaussian for lobby win% / balance hints: 80% player μ/σ + 20% hero.
+ * Weighted Gaussian for lobby win% / balance hints: 80% player μ + 20% hero μ.
+ * σ is blended from persisted values unless `staticSigma` is set.
  * Does not change persisted ratings or `rate()`.
  */
-export function blendedRatingForBalance(global: MuSigma, hero: MuSigma): MuSigma {
+export function blendedRatingForBalance(
+  global: MuSigma,
+  hero: MuSigma,
+  options?: BalancePredictWinOptions,
+): MuSigma {
+  const mu = BALANCE_PLAYER_WEIGHT * global.mu + BALANCE_HERO_WEIGHT * hero.mu;
+  if (options?.staticSigma) {
+    return { mu, sigma: BALANCE_STATIC_SIGMA };
+  }
   return {
-    mu: BALANCE_PLAYER_WEIGHT * global.mu + BALANCE_HERO_WEIGHT * hero.mu,
+    mu,
     sigma: Math.sqrt(
       (BALANCE_PLAYER_WEIGHT * global.sigma) ** 2 + (BALANCE_HERO_WEIGHT * hero.sigma) ** 2,
     ),
@@ -37,11 +59,12 @@ export function ratingEntitiesForBalance(
   global: MuSigma,
   hero: MuSigma,
   heroId: number | null,
+  options?: BalancePredictWinOptions,
 ): MuSigma[] {
   if (heroId == null) {
-    return [global];
+    return [{ mu: global.mu, sigma: balanceSigmaForEntity(global.sigma, options) }];
   }
-  return [blendedRatingForBalance(global, hero)];
+  return [blendedRatingForBalance(global, hero, options)];
 }
 
 /**

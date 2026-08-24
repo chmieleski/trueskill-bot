@@ -1,7 +1,8 @@
 # Discord bot guides — how to post
 
-Copy each file’s body into Discord (skip this README).
-Post in order. Pin the first post in each channel if you want.
+Use `/sync_docs public channel:#…` or `/sync_docs staff channel:#…` (Manage Server or match mod role).
+
+The command **deletes all messages** in that channel, then posts these files in order.
 
 ## Public channel (everyone)
 
@@ -28,3 +29,4 @@ Post in order. Pin the first post in each channel if you want.
 - Discord message limit is 2000 characters — these posts stay under that.
 - Prefer a read-only / announcements-style channel so the guide stays clean.
 - Do **not** put staff posts in the public channel.
+- The bot needs **View Channel**, **Manage Messages**, and **Send Messages** in the target channel.

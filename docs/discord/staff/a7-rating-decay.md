@@ -1,16 +1,18 @@
 ⏳ **Rating decay & season crunch** _(Manage Server)_
 
-Keeps boards honest when players go idle. **Overall ki only** — hero ratings unchanged.
+Keeps boards honest when players go idle. **Overall ki only** — hero ratings unchanged. This is **live**.
 
 Defaults match a fresh league. Override per league with `/config decay …`.
 
 ---
 
-**Mid-season** (default: on)
+**Mid-season** (default: on for new leagues)
 
 • **10 days** after last **finished** non-quit game → decay starts
 • Days 11–19: **−50 ki/day** · Day 20+: **−100 ki/day**
 • Max **−1000 ki** per idle streak, then stops until they play again
+• Joining a lobby does **not** reset the timer
+• Calibrating & New players are exempt
 
 ---
 
@@ -22,7 +24,7 @@ Defaults match a fresh league. Override per league with `/config decay …`.
 /league crunch clear league:YourLeague
 ```
 
-Crunch: **2-day** grace, then **−100** / **−200 ki/day**. **No streak cap** — floor ~1000 ki.
+Crunch: **2-day** grace, then **−100** / **−200 ki/day**. **No streak cap** — floor ~1000 ki still applies.
 
 **Prize lock:** 🥇🥈🥉 need at least **N** finished non-quit games in the **crunch window** (default **N = 1**). Rank `#n` stays. Off: `/config decay prize_lock enabled:false`.
 
@@ -36,7 +38,14 @@ Crunch: **2-day** grace, then **−100** / **−200 ki/day**. **No streak cap** 
 
 ---
 
-`/config set decay enabled:true|false` · tune via `/config decay grace` / `tier1_ki` / `streak_cap` / `crunch_window` (`clear_*` resets defaults).
+**Toggle**
+
+```
+/config set decay enabled:true league:YourLeague
+/config set decay enabled:false league:YourLeague
+```
+
+Tune via `/config decay grace` / `tier1_ki` / `streak_cap` / `crunch_window` / `prize_lock_min_games` (`clear_*` resets defaults).
 
 `/config view` shows effective rates, season end, and crunch. **Rollover:** `reset:continue` copies overrides but decay **off** — re-enable when needed.
 

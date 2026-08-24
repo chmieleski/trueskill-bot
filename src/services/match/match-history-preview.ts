@@ -6,6 +6,7 @@ import {
   loadMatchDisplayStatsByPlayer,
   type PlayerMatchDisplayStats,
 } from '../rating/rank-reset-display.js';
+import { resolveLeagueConfig } from '../league/league-wc3stats.js';
 import { displayOrdinal } from '../rating/rating-math.js';
 import {
   buildCompletedRatingPreview,
@@ -15,6 +16,7 @@ import {
   type PlayerKiPair,
   type WinChancePercents,
 } from '../rating/rating-preview.js';
+import type { BalancePredictWinOptions } from '../rating/rating-entities.js';
 import { simulatePostMatchRatings, type RatingRosterEntry } from '../rating/rating-update.js';
 import type { MatchWithPlayers } from './match-service.js';
 
@@ -92,6 +94,7 @@ function snapshotsToMaps(snapshots: SnapshotRow[]): {
 function winChanceFromSnapshots(
   match: MatchWithPlayers,
   snapshots: SnapshotRow[],
+  options?: BalancePredictWinOptions,
 ): WinChancePercents | undefined {
   const playerIds = match.players.map((player) => player.playerId);
   const globalSnaps = snapshots.filter((snap) => snap.entityKind === 'GLOBAL');
@@ -104,6 +107,7 @@ function winChanceFromSnapshots(
     matchPlayersToRatingEntries(match.players),
     globalByPlayer,
     heroByKey,
+    options,
   );
 }
 
@@ -111,10 +115,15 @@ function winChanceFromSnapshots(
 export async function loadWinChanceFromMatchSnapshots(
   match: MatchWithPlayers,
 ): Promise<WinChancePercents | undefined> {
-  const snapshots = await prisma.matchRatingSnapshot.findMany({
-    where: { matchId: match.id },
+  const [snapshots, leagueConfig] = await Promise.all([
+    prisma.matchRatingSnapshot.findMany({
+      where: { matchId: match.id },
+    }),
+    resolveLeagueConfig(match.leagueId),
+  ]);
+  return winChanceFromSnapshots(match, snapshots, {
+    staticSigma: leagueConfig.balanceStaticSigmaEnabled,
   });
-  return winChanceFromSnapshots(match, snapshots);
 }
 
 function kiPairFromState(
@@ -230,13 +239,18 @@ export async function rebuildCompletedRatingPreview(
     );
   }
 
+  const leagueConfig = await resolveLeagueConfig(match.leagueId);
+  const balanceOptions: BalancePredictWinOptions = {
+    staticSigma: leagueConfig.balanceStaticSigmaEnabled,
+  };
+
   return buildCompletedRatingPreview(
     previewEntries,
     beforeBySlot,
     afterBySlot,
     leagueGamesByPlayer,
     displayStatsByPlayer,
-    winChanceFromSnapshots(match, snapshots),
+    winChanceFromSnapshots(match, snapshots, balanceOptions),
   );
 }
 

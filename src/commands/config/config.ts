@@ -65,6 +65,8 @@ import {
   type DecayMode,
   type DecayTunableKind,
 } from '../../services/league/index.js';
+import { setBalanceStaticSigmaEnabled } from '../../services/league/league-balance-config.js';
+import { BALANCE_STATIC_SIGMA } from '../../services/rating/rating-entities.js';
 import type { ResolvedDecaySettings } from '../../services/rating/decay-settings.js';
 import {
   clearAllLeagueWc3statsSlotMaps,
@@ -131,6 +133,12 @@ function formatPlayerClaimLine(enabled: boolean): string {
 
 function formatRankResetLine(enabled: boolean, cooldownDays: number): string {
   return `**Rank reset:** \`${enabled ? 'on' : 'off'}\` · cooldown \`${cooldownDays}d\``;
+}
+
+function formatBalanceStaticSigmaLine(enabled: boolean): string {
+  return enabled
+    ? `**Lobby balance σ:** static (\`${BALANCE_STATIC_SIGMA}\`)`
+    : '**Lobby balance σ:** dynamic';
 }
 
 function formatDecayLine(
@@ -511,6 +519,19 @@ export const data = new SlashCommandBuilder()
               option
                 .setName('enabled')
                 .setDescription('On: idle players lose ki over time. Off: no decay.')
+                .setRequired(true),
+            ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('balance_static_sigma')
+            .setDescription('Use fixed σ for lobby win% and balance hints (ki apply stays dynamic)')
+            .addBooleanOption((option) =>
+              option
+                .setName('enabled')
+                .setDescription('On: fixed σ for balance. Off: use each player’s persisted σ.')
                 .setRequired(true),
             ),
         ),
@@ -1100,6 +1121,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
             leagueConfig.lobbyChannelId,
           ),
           formatRankResetLine(leagueConfig.rankResetEnabled, leagueConfig.rankResetCooldownDays),
+          formatBalanceStaticSigmaLine(leagueConfig.balanceStaticSigmaEnabled),
           formatDecayLine(
             leagueConfig.decayEnabled,
             leagueConfig.seasonEndsAt,
@@ -1540,6 +1562,25 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         );
         await interaction.reply({
           content: enabled ? 'Rating decay enabled.' : 'Rating decay disabled.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'balance_static_sigma') {
+        const leagueId = await requireWritableLeagueForDecay(interaction);
+        if (!leagueId) return;
+
+        const enabled = interaction.options.getBoolean('enabled', true);
+        await setBalanceStaticSigmaEnabled(leagueId, enabled);
+        log.info(
+          { guildId: interaction.guildId, leagueId, enabled, userId: interaction.user.id },
+          'Lobby balance static sigma setting updated',
+        );
+        await interaction.reply({
+          content: enabled
+            ? `Lobby balance uses static σ (${BALANCE_STATIC_SIGMA}). Ki apply is unchanged.`
+            : 'Lobby balance uses each player’s persisted σ again.',
           flags: MessageFlags.Ephemeral,
         });
         return;
