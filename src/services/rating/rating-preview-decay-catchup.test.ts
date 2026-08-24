@@ -12,6 +12,10 @@ vi.mock('./rank-reset-display.js', () => ({
   habitualQuitterFromStats: () => false,
 }));
 
+vi.mock('../league/league-wc3stats.js', () => ({
+  resolveLeagueConfig: vi.fn().mockResolvedValue({ balanceStaticSigmaEnabled: false }),
+}));
+
 import { loadRosterWinChance } from './rating-preview.js';
 
 describe('loadRosterWinChance decay catch-up', () => {

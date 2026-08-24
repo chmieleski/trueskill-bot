@@ -9,6 +9,7 @@ const {
   matchPlayerGroupBy,
   matchPlayerFindMany,
   playerRankResetFindMany,
+  leagueFindUnique,
   getMatchById,
   listLeaguesForGuild,
   buildMatchCompletedEmbed,
@@ -21,6 +22,7 @@ const {
   matchPlayerGroupBy: vi.fn(),
   matchPlayerFindMany: vi.fn(),
   playerRankResetFindMany: vi.fn(),
+  leagueFindUnique: vi.fn(),
   getMatchById: vi.fn(),
   listLeaguesForGuild: vi.fn(),
   buildMatchCompletedEmbed: vi.fn(),
@@ -28,6 +30,7 @@ const {
 
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
+    league: { findUnique: leagueFindUnique },
     player: { findUnique: playerFindUnique, findMany: playerFindMany },
     match: {
       findMany: matchFindMany,
@@ -638,6 +641,8 @@ describe('loadCompletedMatchShow', () => {
     matchPlayerGroupBy.mockReset();
     matchPlayerFindMany.mockReset();
     playerRankResetFindMany.mockReset();
+    leagueFindUnique.mockReset();
+    leagueFindUnique.mockResolvedValue(null);
     matchRatingSnapshotFindMany.mockResolvedValue([]);
     matchPlayerGroupBy.mockResolvedValue([]);
     matchPlayerFindMany.mockResolvedValue([

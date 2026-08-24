@@ -1,15 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { matchPlayerFindMany, playerRankResetFindMany, matchRatingSnapshotFindMany } = vi.hoisted(
-  () => ({
-    matchPlayerFindMany: vi.fn(),
-    playerRankResetFindMany: vi.fn(),
-    matchRatingSnapshotFindMany: vi.fn(),
-  }),
-);
+const {
+  matchPlayerFindMany,
+  playerRankResetFindMany,
+  matchRatingSnapshotFindMany,
+  leagueFindUnique,
+} = vi.hoisted(() => ({
+  matchPlayerFindMany: vi.fn(),
+  playerRankResetFindMany: vi.fn(),
+  matchRatingSnapshotFindMany: vi.fn(),
+  leagueFindUnique: vi.fn(),
+}));
 
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
+    league: { findUnique: leagueFindUnique },
     matchRatingSnapshot: { findMany: matchRatingSnapshotFindMany },
     matchPlayer: {
       groupBy: vi.fn(),
@@ -132,6 +137,8 @@ describe('resolveCompletedRatingPreview', () => {
     matchPlayerFindMany.mockReset();
     playerRankResetFindMany.mockReset();
     matchRatingSnapshotFindMany.mockReset();
+    leagueFindUnique.mockReset();
+    leagueFindUnique.mockResolvedValue(null);
     playerRankResetFindMany.mockResolvedValue([]);
     matchRatingSnapshotFindMany.mockResolvedValue([]);
   });
