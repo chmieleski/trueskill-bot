@@ -33,6 +33,12 @@ import { assertCanManageMatch } from '../../services/match/index.js';
 import { assertTeam, type GameProfile } from '../../domain/game-profile.js';
 import { getGameProfileForLeague } from '../../services/league/index.js';
 import { resolveGuildConfig, winnerLabel } from '../../services/guild/index.js';
+import {
+  buildReportConfirmCustomId,
+  buildReportQuitterSelectOptions,
+  decodeReportSlots,
+  encodeReportSlots,
+} from './match-report-wizard.js';
 
 const log = createLogger('match-interactions');
 
@@ -68,21 +74,8 @@ function memberRoleIds(interaction: { member: unknown }): string[] {
   return [];
 }
 
-function encodeSlots(slots: number[]): string {
-  const normalized = [...new Set(slots)].sort((a, b) => a - b);
-  return normalized.length > 0 ? normalized.join('-') : '-';
-}
-
-function decodeSlots(slotsCsv: string | undefined): number[] {
-  if (!slotsCsv || slotsCsv === '-') {
-    return [];
-  }
-
-  return slotsCsv
-    .split('-')
-    .map((slot) => Number(slot))
-    .filter((slot) => Number.isInteger(slot));
-}
+const encodeSlots = encodeReportSlots;
+const decodeSlots = decodeReportSlots;
 
 function sortedPlayers(match: MatchWithPlayers): MatchPlayer[] {
   return [...match.players].sort((a, b) => a.slot - b.slot);
@@ -161,7 +154,6 @@ function buildQuitterSelectRow(
  */
 function buildQuitterContinueRow(
   matchId: string,
-  kind: 'report' | 'save',
   quitterSlots: number[],
 ): ActionRowBuilder<ButtonBuilder> | null {
   if (quitterSlots.length === 0) {
@@ -169,13 +161,155 @@ function buildQuitterContinueRow(
   }
 
   const slotsCsv = encodeSlots(quitterSlots);
-  const customId =
-    kind === 'report' ? `match:rw:qok:${matchId}:${slotsCsv}` : `match:qok:${matchId}:${slotsCsv}`;
 
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(customId)
-      .setLabel(kind === 'report' ? 'Continue with selected' : 'Save selected')
+      .setCustomId(`match:qok:${matchId}:${slotsCsv}`)
+      .setLabel('Save selected')
+      .setStyle(ButtonStyle.Primary),
+  );
+}
+
+function buildReportGrieferSkipRow(matchId: string): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`match:rw:gskip:${matchId}`)
+      .setLabel('No Griefers')
+      .setStyle(ButtonStyle.Secondary),
+  );
+}
+
+function buildReportGrieferContinueRow(
+  matchId: string,
+  grieferSlots: number[],
+): ActionRowBuilder<ButtonBuilder> | null {
+  if (grieferSlots.length === 0) {
+    return null;
+  }
+
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`match:rw:gok:${matchId}:${encodeSlots(grieferSlots)}`)
+      .setLabel('Continue with selected')
+      .setStyle(ButtonStyle.Primary),
+  );
+}
+
+function buildQuitterSelectRowForReport(
+  match: MatchWithPlayers,
+  matchId: string,
+  grieferSlots: number[],
+): ActionRowBuilder<StringSelectMenuBuilder> | null {
+  const options = buildReportQuitterSelectOptions(match.players, grieferSlots);
+  if (options.length === 0) {
+    return null;
+  }
+
+  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`match:rw:q:${matchId}:${encodeSlots(grieferSlots)}`)
+      .setPlaceholder('Select players who quit')
+      .setMinValues(0)
+      .setMaxValues(options.length)
+      .addOptions(options),
+  );
+}
+
+function preselectedReportQuitterSlots(match: MatchWithPlayers, grieferSlots: number[]): number[] {
+  const grieferSet = new Set(grieferSlots);
+  return preselectedQuitterSlots(match).filter((slot) => !grieferSet.has(slot));
+}
+
+function reportQuitterStepHint(
+  match: MatchWithPlayers,
+  grieferSlots: number[],
+  preselected: number[],
+): string {
+  const grieferLine = formatGrieferSummary(match, grieferSlots);
+  const quitterHint =
+    preselected.length > 0
+      ? 'Select any players who quit (or Continue with selected), then choose the winner:'
+      : 'Select any players who quit, then choose the winner:';
+  return `${grieferLine}\n\n${quitterHint}`;
+}
+
+function reportQuitterStepComponents(
+  match: MatchWithPlayers,
+  grieferSlots: number[],
+): ComponentRow[] {
+  const preselected = preselectedReportQuitterSlots(match, grieferSlots);
+  const components: ComponentRow[] = [];
+  const selectRow = buildQuitterSelectRowForReport(match, match.id, grieferSlots);
+  if (selectRow) {
+    components.push(selectRow);
+  }
+  const continueRow = buildReportQuitterContinueRow(match.id, grieferSlots, preselected);
+  if (continueRow) {
+    components.push(continueRow);
+  }
+  components.push(buildReportQuitterSkipRow(match.id, grieferSlots));
+  return components;
+}
+
+async function showReportQuitterStep(
+  interaction: MessageComponentInteraction,
+  match: MatchWithPlayers,
+  grieferSlots: number[],
+): Promise<void> {
+  const preselected = preselectedReportQuitterSlots(match, grieferSlots);
+  await updateEphemeral(
+    interaction,
+    reportQuitterStepHint(match, grieferSlots, preselected),
+    reportQuitterStepComponents(match, grieferSlots),
+  );
+}
+
+async function showReportWinnerStep(
+  interaction: MessageComponentInteraction,
+  match: MatchWithPlayers,
+  grieferSlots: number[],
+  quitterSlots: number[],
+): Promise<void> {
+  const profile = await profileForMatch(match);
+  const content = [
+    formatGrieferSummary(match, grieferSlots),
+    formatQuitterSummary(match, quitterSlots),
+    '',
+    'Choose the winner:',
+  ].join('\n');
+
+  await updateEphemeral(interaction, content, [
+    buildWinnerRow(match.id, grieferSlots, quitterSlots, profile),
+  ]);
+}
+
+function buildReportQuitterSkipRow(
+  matchId: string,
+  grieferSlots: number[],
+): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`match:rw:qskip:${matchId}:${encodeSlots(grieferSlots)}`)
+      .setLabel('No Quitters')
+      .setStyle(ButtonStyle.Secondary),
+  );
+}
+
+function buildReportQuitterContinueRow(
+  matchId: string,
+  grieferSlots: number[],
+  quitterSlots: number[],
+): ActionRowBuilder<ButtonBuilder> | null {
+  if (quitterSlots.length === 0) {
+    return null;
+  }
+
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(
+        `match:rw:qok:${matchId}:${encodeSlots(grieferSlots)}:${encodeSlots(quitterSlots)}`,
+      )
+      .setLabel('Continue with selected')
       .setStyle(ButtonStyle.Primary),
   );
 }
@@ -218,29 +352,22 @@ function buildGrieferContinueRow(
   );
 }
 
-function buildReportSkipRow(matchId: string): ActionRowBuilder<ButtonBuilder> {
-  return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`match:rw:skip:${matchId}`)
-      .setLabel('No Quitters')
-      .setStyle(ButtonStyle.Secondary),
-  );
-}
-
 function buildWinnerRow(
   matchId: string,
+  grieferSlots: number[],
   quitterSlots: number[],
   profile: GameProfile,
 ): ActionRowBuilder<ButtonBuilder> {
-  const slotsCsv = encodeSlots(quitterSlots);
+  const grieferCsv = encodeSlots(grieferSlots);
+  const quitterCsv = encodeSlots(quitterSlots);
 
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(`match:rw:win:${matchId}:1:${slotsCsv}`)
+      .setCustomId(`match:rw:win:${matchId}:1:${grieferCsv}:${quitterCsv}`)
       .setLabel(`${winnerLabel(1, profile)} Won`)
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
-      .setCustomId(`match:rw:win:${matchId}:2:${slotsCsv}`)
+      .setCustomId(`match:rw:win:${matchId}:2:${grieferCsv}:${quitterCsv}`)
       .setLabel(`${winnerLabel(2, profile)} Won`)
       .setStyle(ButtonStyle.Primary),
   );
@@ -249,11 +376,12 @@ function buildWinnerRow(
 function buildConfirmRow(
   matchId: string,
   winningTeam: 1 | 2,
+  grieferSlots: number[],
   quitterSlots: number[],
 ): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(`match:rw:ok:${matchId}:${winningTeam}:${encodeSlots(quitterSlots)}`)
+      .setCustomId(buildReportConfirmCustomId(matchId, winningTeam, grieferSlots, quitterSlots))
       .setLabel('Confirm Result')
       .setStyle(ButtonStyle.Success),
   );
@@ -423,18 +551,18 @@ async function handleReportEntry(interaction: ButtonInteraction): Promise<void> 
     throw new MatchServiceError('This match has no players to report.');
   }
 
-  const preselected = preselectedQuitterSlots(match);
-  const components: ComponentRow[] = [buildQuitterSelectRow(match, `match:rw:q:${match.id}`)];
-  const continueRow = buildQuitterContinueRow(match.id, 'report', preselected);
+  const preselected = preselectedGrieferSlots(match);
+  const components: ComponentRow[] = [buildGrieferSelectRow(match, `match:rw:g:${match.id}`)];
+  const continueRow = buildReportGrieferContinueRow(match.id, preselected);
   if (continueRow) {
     components.push(continueRow);
   }
-  components.push(buildReportSkipRow(match.id));
+  components.push(buildReportGrieferSkipRow(match.id));
 
   const hint =
     preselected.length > 0
-      ? 'Select any players who quit (or Continue with selected), then choose the winner:'
-      : 'Select any players who quit, then choose the winner:';
+      ? 'Select any griefers (bug abuse), or Continue with selected, then quitters and winner:'
+      : 'Select any griefers (bug abuse), then quitters and winner:';
 
   await replyEphemeral(interaction, hint, components);
 }
@@ -448,7 +576,7 @@ async function handleQuittersEntry(interaction: ButtonInteraction): Promise<void
 
   const preselected = preselectedQuitterSlots(match);
   const components: ComponentRow[] = [buildQuitterSelectRow(match, `match:qset:${match.id}`)];
-  const continueRow = buildQuitterContinueRow(match.id, 'save', preselected);
+  const continueRow = buildQuitterContinueRow(match.id, preselected);
   if (continueRow) {
     components.push(continueRow);
   }
@@ -561,62 +689,81 @@ async function handleCancelSkip(interaction: ButtonInteraction, matchId: string)
   );
 }
 
-async function handleReportQuitters(
+async function handleReportGriefers(
   interaction: StringSelectMenuInteraction,
   matchId: string,
 ): Promise<void> {
   const match = await resolveById(interaction, matchId);
-  const profile = await profileForMatch(match);
-  const quitterSlots = interaction.values.map((slot) => Number(slot));
+  const grieferSlots = interaction.values.map((slot) => Number(slot));
+  await showReportQuitterStep(interaction, match, grieferSlots);
+}
 
-  await updateEphemeral(
-    interaction,
-    `${formatQuitterSummary(match, quitterSlots)}\n\nChoose the winner:`,
-    [buildWinnerRow(matchId, quitterSlots, profile)],
-  );
+async function handleReportGriefersKeep(
+  interaction: ButtonInteraction,
+  matchId: string,
+  grieferSlots: number[],
+): Promise<void> {
+  const match = await resolveById(interaction, matchId);
+  await showReportQuitterStep(interaction, match, grieferSlots);
+}
+
+async function handleReportGrieferSkip(
+  interaction: ButtonInteraction,
+  matchId: string,
+): Promise<void> {
+  const match = await resolveById(interaction, matchId);
+  await showReportQuitterStep(interaction, match, []);
+}
+
+async function handleReportQuitters(
+  interaction: StringSelectMenuInteraction,
+  matchId: string,
+  grieferSlots: number[],
+): Promise<void> {
+  const match = await resolveById(interaction, matchId);
+  const quitterSlots = interaction.values.map((slot) => Number(slot));
+  await showReportWinnerStep(interaction, match, grieferSlots, quitterSlots);
 }
 
 /** Continue Report Winner with pre-selected quitters (select unchanged). */
 async function handleReportQuittersKeep(
   interaction: ButtonInteraction,
   matchId: string,
+  grieferSlots: number[],
   quitterSlots: number[],
 ): Promise<void> {
   const match = await resolveById(interaction, matchId);
-  const profile = await profileForMatch(match);
-
-  await updateEphemeral(
-    interaction,
-    `${formatQuitterSummary(match, quitterSlots)}\n\nChoose the winner:`,
-    [buildWinnerRow(matchId, quitterSlots, profile)],
-  );
+  await showReportWinnerStep(interaction, match, grieferSlots, quitterSlots);
 }
 
-async function handleReportSkip(interaction: ButtonInteraction, matchId: string): Promise<void> {
+async function handleReportQuitterSkip(
+  interaction: ButtonInteraction,
+  matchId: string,
+  grieferSlots: number[],
+): Promise<void> {
   const match = await resolveById(interaction, matchId);
-  const profile = await profileForMatch(match);
-  await updateEphemeral(interaction, 'Quitters: none\n\nChoose the winner:', [
-    buildWinnerRow(matchId, [], profile),
-  ]);
+  await showReportWinnerStep(interaction, match, grieferSlots, []);
 }
 
 async function handleWinnerChoice(
   interaction: ButtonInteraction,
   matchId: string,
   winningTeam: 1 | 2,
+  grieferSlots: number[],
   quitterSlots: number[],
 ): Promise<void> {
   const match = await resolveById(interaction, matchId);
   const profile = await profileForMatch(match);
   const content = [
     `Winner: **${winnerLabel(winningTeam, profile)}**`,
+    formatGrieferSummary(match, grieferSlots),
     formatQuitterSummary(match, quitterSlots),
     '',
     'Confirm to complete the match and apply ratings.',
   ].join('\n');
 
   await updateEphemeral(interaction, content, [
-    buildConfirmRow(matchId, winningTeam, quitterSlots),
+    buildConfirmRow(matchId, winningTeam, grieferSlots, quitterSlots),
   ]);
 }
 
@@ -624,6 +771,7 @@ async function handleConfirmResult(
   interaction: ButtonInteraction,
   matchId: string,
   winningTeam: 1 | 2,
+  grieferSlots: number[],
   quitterSlots: number[],
 ): Promise<void> {
   const match = await resolveById(interaction, matchId);
@@ -633,7 +781,7 @@ async function handleConfirmResult(
     'Updating ratings and completing the match… This can take a few seconds.',
   );
 
-  const completed = await completeMatch(matchId, winningTeam, quitterSlots);
+  const completed = await completeMatch(matchId, winningTeam, quitterSlots, grieferSlots);
   void refreshAllLeaderboardChannels(interaction.client).catch(() => undefined);
   await syncLobbyDiscordMessage(interaction.client, completed.match, 'completed', {
     ratingPreview: completed.ratingPreview,
@@ -758,13 +906,28 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
       return;
     }
 
-    if (parts[1] === 'rw' && parts[2] === 'skip' && parts[3]) {
-      await handleReportSkip(interaction, parts[3]);
+    if (parts[1] === 'rw' && parts[2] === 'gskip' && parts[3]) {
+      await handleReportGrieferSkip(interaction, parts[3]);
       return;
     }
 
-    if (parts[1] === 'rw' && parts[2] === 'qok' && parts[3] && parts[4]) {
-      await handleReportQuittersKeep(interaction, parts[3], decodeSlots(parts[4]));
+    if (parts[1] === 'rw' && parts[2] === 'gok' && parts[3] && parts[4]) {
+      await handleReportGriefersKeep(interaction, parts[3], decodeSlots(parts[4]));
+      return;
+    }
+
+    if (parts[1] === 'rw' && parts[2] === 'qskip' && parts[3] && parts[4]) {
+      await handleReportQuitterSkip(interaction, parts[3], decodeSlots(parts[4]));
+      return;
+    }
+
+    if (parts[1] === 'rw' && parts[2] === 'qok' && parts[3] && parts[4] && parts[5]) {
+      await handleReportQuittersKeep(
+        interaction,
+        parts[3],
+        decodeSlots(parts[4]),
+        decodeSlots(parts[5]),
+      );
       return;
     }
 
@@ -778,13 +941,25 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
       return;
     }
 
-    if (parts[1] === 'rw' && parts[2] === 'win' && parts[3] && parts[4] && parts[5]) {
-      await handleWinnerChoice(interaction, parts[3], decodeTeam(parts[4]), decodeSlots(parts[5]));
+    if (parts[1] === 'rw' && parts[2] === 'win' && parts[3] && parts[4] && parts[5] && parts[6]) {
+      await handleWinnerChoice(
+        interaction,
+        parts[3],
+        decodeTeam(parts[4]),
+        decodeSlots(parts[5]),
+        decodeSlots(parts[6]),
+      );
       return;
     }
 
-    if (parts[1] === 'rw' && parts[2] === 'ok' && parts[3] && parts[4] && parts[5]) {
-      await handleConfirmResult(interaction, parts[3], decodeTeam(parts[4]), decodeSlots(parts[5]));
+    if (parts[1] === 'rw' && parts[2] === 'ok' && parts[3] && parts[4] && parts[5] && parts[6]) {
+      await handleConfirmResult(
+        interaction,
+        parts[3],
+        decodeTeam(parts[4]),
+        decodeSlots(parts[5]),
+        decodeSlots(parts[6]),
+      );
       return;
     }
 
@@ -825,8 +1000,13 @@ async function handleSelect(interaction: StringSelectMenuInteraction): Promise<v
   );
 
   await safeHandle(interaction, async () => {
-    if (parts[1] === 'rw' && parts[2] === 'q' && parts[3]) {
-      await handleReportQuitters(interaction, parts[3]);
+    if (parts[1] === 'rw' && parts[2] === 'g' && parts[3]) {
+      await handleReportGriefers(interaction, parts[3]);
+      return;
+    }
+
+    if (parts[1] === 'rw' && parts[2] === 'q' && parts[3] && parts[4]) {
+      await handleReportQuitters(interaction, parts[3], decodeSlots(parts[4]));
       return;
     }
 

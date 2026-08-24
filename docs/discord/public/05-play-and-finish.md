@@ -6,16 +6,18 @@ Now the game is **in progress**. Play in Warcraft!
 
 **When the game ends**, the host (or a mod) reports it on the same message:
 
-• **Report Winner** — pick **Z Fighters** or **Evil**
+• **Report Winner** — griefers, then quitters, then pick **Z Fighters** or **Evil**
 • **Quitters** — mark people who left early (slots like `1,3,7`)
+• **Griefer** — mark bug abuse before completing or cancelling
 • **Cancel** — abort the match (no normal win/loss)
 
 **Or use commands**
 
 ```
 /match complete winner:Z Fighters
-/match complete winner:Evil quitters:2,8
+/match complete winner:Evil quitters:2,8 griefers:3
 /match quitters slots:2,8
+/match griefers slots:3
 /match cancel
 ```
 

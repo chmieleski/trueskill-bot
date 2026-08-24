@@ -1,0 +1,59 @@
+import { describe, expect, it } from 'vitest';
+import {
+  buildReportConfirmCustomId,
+  buildReportQuitterSelectOptions,
+  decodeReportSlots,
+  encodeReportSlots,
+  parseReportConfirmCustomId,
+} from './match-report-wizard.js';
+
+describe('encodeReportSlots / decodeReportSlots', () => {
+  it('round-trips sorted unique slots', () => {
+    expect(decodeReportSlots(encodeReportSlots([7, 1, 3, 1]))).toEqual([1, 3, 7]);
+  });
+
+  it('encodes an empty list as a dash', () => {
+    expect(encodeReportSlots([])).toBe('-');
+    expect(decodeReportSlots('-')).toEqual([]);
+  });
+});
+
+describe('buildReportConfirmCustomId / parseReportConfirmCustomId', () => {
+  it('round-trips griefer and quitter slots', () => {
+    const customId = buildReportConfirmCustomId('match-abc', 2, [2, 8], [1, 7]);
+    expect(customId).toBe('match:rw:ok:match-abc:2:2-8:1-7');
+    expect(parseReportConfirmCustomId(customId)).toEqual({
+      matchId: 'match-abc',
+      winningTeam: 2,
+      grieferSlots: [2, 8],
+      quitterSlots: [1, 7],
+    });
+  });
+
+  it('returns null for unrelated custom ids', () => {
+    expect(parseReportConfirmCustomId('match:rw:win:abc:1:-:-')).toBeNull();
+  });
+});
+
+describe('buildReportQuitterSelectOptions', () => {
+  const players = [
+    { slot: 1, isQuitter: false, player: { username: 'goku' } },
+    { slot: 2, isQuitter: true, player: { username: 'gohan' } },
+    { slot: 7, isQuitter: false, player: { username: 'vegeta' } },
+    { slot: 8, isQuitter: true, player: { username: 'cell' } },
+  ];
+
+  it('excludes griefer slots from quitter options', () => {
+    const options = buildReportQuitterSelectOptions(players, [2, 8]);
+    expect(options.map((option) => option.value)).toEqual(['1', '7']);
+  });
+
+  it('preserves default quitter flags on eligible slots', () => {
+    const options = buildReportQuitterSelectOptions(players, [8]);
+    expect(options).toEqual([
+      { label: 'Slot 1: goku', value: '1', default: false },
+      { label: 'Slot 2: gohan', value: '2', default: true },
+      { label: 'Slot 7: vegeta', value: '7', default: false },
+    ]);
+  });
+});

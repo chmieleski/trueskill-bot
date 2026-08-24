@@ -33,7 +33,7 @@ Primary UX is **buttons on the Match In Progress embed**. Slash commands mirror 
 | Primary UI                          | Three buttons: Report Winner, Quitters, Cancel                        |
 | Slash                               | Mirrors via shared use-cases (`/match` subcommands)                   |
 | Architecture                        | Ephemeral wizard + `match-report` / `rating-update` services          |
-| Report Winner steps                 | Quitters (pre-select existing flags) → Winner → Confirm               |
+| Report Winner steps                 | Griefers (pre-select existing flags) → Quitters → Winner → Confirm    |
 | Quitters button                     | Persist `isQuitter` only; no rating writes; stay `IN_PROGRESS`        |
 | Quitter penalty                     | N=3 synthetic OpenSkill losses vs strong dummy team (global + hero)   |
 | Cancel + quitters                   | Apply quitter penalties, then `CANCELLED`; plain cancel voids ratings |
@@ -92,9 +92,10 @@ No Prisma migration. Existing fields/enums suffice:
 
 ### Report Winner (ephemeral)
 
-1. Multi-select quitters — pre-select slots already `isQuitter`; Skip allowed
-2. Winner — Team A / Team B
-3. Confirm summary → `completeMatch` → channel **Match Completed** embed (no buttons)
+1. Multi-select griefers — pre-select slots already `isGriefer`; Skip allowed
+2. Multi-select quitters — pre-select slots already `isQuitter` (griefer slots excluded); Skip allowed
+3. Winner — Team A / Team B
+4. Confirm summary → `completeMatch` → channel **Match Completed** embed (no buttons)
 
 ### Quitters button
 
