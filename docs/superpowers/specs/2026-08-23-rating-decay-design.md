@@ -2,9 +2,11 @@
 
 **Date:** 2026-08-23  
 **Status:** Approved for implementation  
-**Scope:** `general` (league-scoped idle decay + end-of-season crunch; not game-specific)  
-**Plan:** [`docs/superpowers/plans/2026-08-23-rating-decay.md`](../plans/2026-08-23-rating-decay.md)  
-**Related:** [`2026-08-19-league-rollover-design.md`](./2026-08-19-league-rollover-design.md), [`2026-08-22-new-player-rating-isolation-design.md`](./2026-08-22-new-player-rating-isolation-design.md), [`2026-08-17-calibrating-ki-display-design.md`](./2026-08-17-calibrating-ki-display-design.md), `.cursor/rules/openskill-rating.mdc`
+**Scope:** `general` (league-scoped idle decay + end-of-season crunch; not game-specific)
+
+> **Superseded (2026-08-24):** Prize-lock eligibility no longer uses “a finished game on each UTC day of crunch.” See [`2026-08-24-crunch-prize-lock-min-games-design.md`](./2026-08-24-crunch-prize-lock-min-games-design.md) — medals require **≥ N** qualifying games in the crunch window (default N = 1; tunable via `/config decay prize_lock_min_games`).  
+> **Plan:** [`docs/superpowers/plans/2026-08-23-rating-decay.md`](../plans/2026-08-23-rating-decay.md)  
+> **Related:** [`2026-08-19-league-rollover-design.md`](./2026-08-19-league-rollover-design.md), [`2026-08-22-new-player-rating-isolation-design.md`](./2026-08-22-new-player-rating-isolation-design.md), [`2026-08-17-calibrating-ki-display-design.md`](./2026-08-17-calibrating-ki-display-design.md), `.cursor/rules/openskill-rating.mdc`
 
 ## Goal
 

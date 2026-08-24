@@ -17,15 +17,17 @@ Nullable columns on `League`. `NULL` → code defaults from [`decay-settings.ts`
 
 ## Tunables
 
-| Setting                     | Default           | Staff command                         |
-| --------------------------- | ----------------- | ------------------------------------- |
-| Mid grace days              | 10                | `/config decay grace mode:mid`        |
-| Mid tier1 / tier2 ki        | 50 / 100          | `/config decay tier1_ki` / `tier2_ki` |
-| Mid tier1 span              | 9                 | `/config decay tier1_span mode:mid`   |
-| Mid streak cap              | 1000 (0 = none)   | `/config decay streak_cap`            |
-| Crunch grace / tiers / span | 2 / 100 / 200 / 7 | same with `mode:crunch`               |
-| Crunch window days          | 7                 | `/config decay crunch_window`         |
-| Prize lock                  | on                | `/config decay prize_lock`            |
+| Setting                     | Default           | Staff command                             |
+| --------------------------- | ----------------- | ----------------------------------------- |
+| Mid grace days              | 10                | `/config decay grace mode:mid`            |
+| Mid tier1 / tier2 ki        | 50 / 100          | `/config decay tier1_ki` / `tier2_ki`     |
+| Mid tier1 span              | 9                 | `/config decay tier1_span mode:mid`       |
+| Mid streak cap              | 1000 (0 = none)   | `/config decay streak_cap`                |
+| Crunch grace / tiers / span | 2 / 100 / 200 / 7 | same with `mode:crunch`                   |
+| Crunch window days          | 7                 | `/config decay crunch_window`             |
+| Prize lock                  | on                | `/config decay prize_lock`                |
+| Prize lock min games        | 1                 | `/config decay prize_lock_min_games`      |
+| Decay preset                | —                 | `/config decay preset name:strict_crunch` |
 
 Master switch remains `/config set decay`. Season timing remains `/league set season_end` and `/league crunch`.
 

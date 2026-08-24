@@ -15,7 +15,7 @@
 • `rank_reset` / `rank_reset_cooldown`
 • `wc3stats_map_preset` (UDBR) · `wc3stats_slot` / `map` · `wc3stats_host_prompt`
 • `changelog_channel` · `changelog_draft_channel` (one draft channel bot-wide)
-• `decay` (`enabled:true|false`) · `/config decay …` to tune grace/rates/cap/crunch/prize lock (`clear_*` resets defaults)
+• `decay` (`enabled:true|false`) · `/config decay …` grace/rates/cap/crunch/prize lock/min games · `preset name:strict_crunch` (`clear_*` resets defaults)
 
 **Releases (draft server)**
 Draft card → edit summary → **Publish** (all changelog channels) or **Dismiss**

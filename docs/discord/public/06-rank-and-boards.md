@@ -47,6 +47,6 @@ The previous season is **archived**. New games only count in the active league.
 
 Stop playing and **overall ki** drops after **10 days** without a **finished** game (quits don’t count). One finished game resets it. Hero ki is unchanged.
 
-Near season end, **crunch week** uses faster decay. Live board 🥇🥈🥉 need a **completed game on each day of crunch so far**; your rank `#` stays — medals go to the next eligible player.
+Near season end, **crunch week** uses faster decay. Live board 🥇🥈🥉 need enough **finished games during crunch** (default at least **1**; some leagues require more, e.g. **7**); your rank `#` stays — medals go to the next eligible player.
 
 Remember: ki is a score, not a trophy case. Play, learn, climb.
