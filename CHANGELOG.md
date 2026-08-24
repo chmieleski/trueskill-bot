@@ -1,3 +1,10 @@
+# [1.20.0](https://github.com/chmieleski/trueskill-bot/compare/v1.19.0...v1.20.0) (2026-08-24)
+
+
+### Features
+
+* **docs:** sync Discord guides to a channel ([#87](https://github.com/chmieleski/trueskill-bot/issues/87)) ([59e0024](https://github.com/chmieleski/trueskill-bot/commit/59e00243fbeb8f171698308594dc6d1f4ebd6d3b))
+
 # [1.19.0](https://github.com/chmieleski/trueskill-bot/compare/v1.18.0...v1.19.0) (2026-08-24)
 
 
