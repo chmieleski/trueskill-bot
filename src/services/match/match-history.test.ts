@@ -73,6 +73,13 @@ vi.mock('./match-service.js', () => {
   return {
     MatchServiceError,
     getMatchById,
+    requireLeagueId: (match: { leagueId: string | null }) => {
+      if (match.leagueId == null) {
+        throw new MatchServiceError('This action is only available for league (IHL) matches.');
+      }
+      return match.leagueId;
+    },
+    getGameProfileForMatch: vi.fn(async () => ({})),
     matchToLobbyPlayers: (match: {
       players: Array<{ slot: number; player: { username: string } }>;
     }) =>

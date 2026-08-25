@@ -59,6 +59,12 @@ vi.mock('../../services/match/index.js', () => {
       buildCustomId('no', input.action === 'flip' ? 'f' : 'v', input.matchId, input.actorDiscordId),
     voidCompletedMatch,
     MatchServiceError,
+    requireLeagueId: (match: { leagueId: string | null }) => {
+      if (match.leagueId == null) {
+        throw new MatchServiceError('This action is only available for league (IHL) matches.');
+      }
+      return match.leagueId;
+    },
   };
 });
 
