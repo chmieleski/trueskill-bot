@@ -5,14 +5,16 @@ import {
   assertHasMatchModRole,
   attachDiscordMessage,
   createPendingMatch,
+  getGameProfileForMatch,
   getMatchById,
   hasMatchModRole,
+  isEventMatch,
   MatchServiceError,
+  requireLeagueId,
   type MatchWithPlayers,
 } from '../match/index.js';
 import { matchToLobbyPlayers } from '../match/match-service.js';
 import { assertLeagueLobbyCreateChannel } from '../league/league-lobby-channel.js';
-import { getGameProfileForLeague } from '../league/league-profile.js';
 import type { GameProfile } from '../../domain/game-profile.js';
 import { isLeagueWc3statsImportReady, resolveLeagueConfig } from '../league/league-wc3stats.js';
 import { loadLobbyRatingPreview, matchPlayersToRatingEntries } from '../rating/index.js';
@@ -20,6 +22,7 @@ import {
   collectNewPlayerSuggestionsForPendingCreate,
   type NewPlayerSuggestion,
 } from '../rating/new-player.js';
+import { getEventById, isEventWritable, EVENT_NOT_ACTIVE_MESSAGE } from '../event/event.js';
 
 const log = createLogger('recreate-lobby-from-match');
 
@@ -40,7 +43,9 @@ export type RecreateLobbyFromMatchResult = {
   createdAt: Date;
   sourceMatchId: string;
   hostDiscordId: string;
-  leagueId: string;
+  leagueId: string | null;
+  eventId: string | null;
+  eventName: string | null;
   players: LobbyPlayer[];
   canStart: boolean;
   wc3statsGameId: string | null;
@@ -79,35 +84,84 @@ export async function recreateLobbyFromVoidedMatch(
   }
 
   assertVoidedCompletedMatch(source);
-  await assertLeagueLobbyCreateChannel(source.leagueId, input.discordChannelId);
 
   const players = matchToLobbyPlayers(source);
-  const profile = await getGameProfileForLeague(source.leagueId);
-  const leagueConfig = await resolveLeagueConfig(source.leagueId);
-  const wc3statsReady = isLeagueWc3statsImportReady(leagueConfig);
+  const profile = await getGameProfileForMatch(source);
   const canStart = canStartLobby(players, profile);
+  const bypassHostLobbyCap = hasMatchModRole({
+    actorDiscordId: input.actorDiscordId,
+    memberRoleIds: input.memberRoleIds,
+    matchModRoleId: input.matchModRoleId,
+  });
+
+  if (isEventMatch(source)) {
+    const event = await getEventById(source.eventId!);
+    if (!event || !isEventWritable(event)) {
+      throw new MatchServiceError(EVENT_NOT_ACTIVE_MESSAGE);
+    }
+
+    const created = await createPendingMatch({
+      eventId: source.eventId!,
+      hostDiscordId: source.hostDiscordId,
+      discordChannelId: input.discordChannelId,
+      players,
+      wc3statsGameId: source.wc3statsGameId,
+      bypassHostLobbyCap,
+    });
+
+    log.info(
+      {
+        sourceMatchId: source.id,
+        matchId: created.matchId,
+        eventId: source.eventId,
+        actorDiscordId: input.actorDiscordId,
+        playerCount: players.length,
+      },
+      'Event lobby recreated from voided match',
+    );
+
+    return {
+      matchId: created.matchId,
+      createdAt: created.createdAt,
+      sourceMatchId: source.id,
+      hostDiscordId: source.hostDiscordId,
+      leagueId: null,
+      eventId: source.eventId,
+      eventName: event.name,
+      players,
+      canStart,
+      wc3statsGameId: source.wc3statsGameId,
+      wc3statsReady: false,
+      playerClaimEnabled: false,
+      ratingPreview: undefined,
+      profile,
+      newPlayerSuggestions: [],
+    };
+  }
+
+  const leagueId = requireLeagueId(source);
+  await assertLeagueLobbyCreateChannel(leagueId, input.discordChannelId);
+
+  const leagueConfig = await resolveLeagueConfig(leagueId);
+  const wc3statsReady = isLeagueWc3statsImportReady(leagueConfig);
 
   const created = await createPendingMatch({
-    leagueId: source.leagueId,
+    leagueId,
     hostDiscordId: source.hostDiscordId,
     discordChannelId: input.discordChannelId,
     players,
     wc3statsGameId: source.wc3statsGameId,
-    bypassHostLobbyCap: hasMatchModRole({
-      actorDiscordId: input.actorDiscordId,
-      memberRoleIds: input.memberRoleIds,
-      matchModRoleId: input.matchModRoleId,
-    }),
+    bypassHostLobbyCap,
   });
 
   const match = await getMatchById(created.matchId);
   const ratingPreview = match
-    ? await loadLobbyRatingPreview(source.leagueId, matchPlayersToRatingEntries(match.players))
+    ? await loadLobbyRatingPreview(leagueId, matchPlayersToRatingEntries(match.players))
     : undefined;
 
   const newPlayerSuggestions = match
     ? await collectNewPlayerSuggestionsForPendingCreate({
-        leagueId: match.leagueId,
+        leagueId,
         matchId: match.id,
         players: match.players.map((player) => ({
           playerId: player.playerId,
@@ -131,7 +185,9 @@ export async function recreateLobbyFromVoidedMatch(
     createdAt: created.createdAt,
     sourceMatchId: source.id,
     hostDiscordId: source.hostDiscordId,
-    leagueId: source.leagueId,
+    leagueId,
+    eventId: null,
+    eventName: null,
     players,
     canStart,
     wc3statsGameId: source.wc3statsGameId,

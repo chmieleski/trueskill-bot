@@ -23,7 +23,8 @@ import {
 import { collectNewPlayerSuggestions, type NewPlayerSuggestion } from '../rating/new-player.js';
 import { prisma } from '../../lib/prisma.js';
 import { isLeagueWc3statsImportReady } from '../league/league-wc3stats.js';
-import { getGameProfileForLeague } from '../league/league-profile.js';
+import { getGameProfileForMatch, isEventMatch, requireLeagueId } from '../match/match-service.js';
+import { getEventById } from '../event/event.js';
 
 const log = createLogger('lobby-discord-sync');
 
@@ -41,8 +42,11 @@ export async function withNewPlayerSuggestions(
   result: LobbyActionResult,
   previousPlayerIds: Set<string>,
 ): Promise<LobbyActionResult> {
+  if (isEventMatch(result.match)) {
+    return { ...result, newPlayerSuggestions: [] };
+  }
   const newPlayerSuggestions = await collectNewPlayerSuggestions({
-    leagueId: result.match.leagueId,
+    leagueId: requireLeagueId(result.match),
     matchId: result.match.id,
     previousPlayerIds,
     nextPlayers: result.match.players.map((player) => ({
@@ -110,7 +114,9 @@ export async function syncLobbyDiscordMessage(
   }
 
   const players = matchToLobbyPlayers(match);
-  const profile = await getGameProfileForLeague(match.leagueId);
+  const profile = await getGameProfileForMatch(match);
+  const eventName = match.eventId ? ((await getEventById(match.eventId))?.name ?? null) : null;
+  const isEvent = isEventMatch(match);
   let payload: {
     embeds: EmbedBuilder[];
     components: ActionRowBuilder<ButtonBuilder>[];
@@ -118,13 +124,15 @@ export async function syncLobbyDiscordMessage(
 
   if (mode === 'pending') {
     const canStart = canStartLobby(players, profile);
-    const ratingPreview = await loadLobbyRatingPreview(
-      match.leagueId,
-      matchPlayersToRatingEntries(match.players),
-    );
-    const { playerClaimEnabled, wc3statsReady } = await resolveLeagueSettingsForLobby(
-      match.leagueId,
-    );
+    const ratingPreview = isEvent
+      ? undefined
+      : await loadLobbyRatingPreview(
+          requireLeagueId(match),
+          matchPlayersToRatingEntries(match.players),
+        );
+    const { playerClaimEnabled, wc3statsReady } = isEvent
+      ? { playerClaimEnabled: false, wc3statsReady: false }
+      : await resolveLeagueSettingsForLobby(requireLeagueId(match));
     payload = {
       embeds: [
         buildMatchLobbyEmbed(match.id, players, {
@@ -134,6 +142,7 @@ export async function syncLobbyDiscordMessage(
           wc3statsGameId: match.wc3statsGameId,
           wc3statsLinkAvailable: wc3statsReady && !match.wc3statsGameId,
           profile,
+          eventName,
         }),
       ],
       components: buildLobbyButtons({
@@ -146,31 +155,40 @@ export async function syncLobbyDiscordMessage(
       }),
     };
   } else if (mode === 'started') {
-    const ratingPreview = await loadLobbyRatingPreview(
-      match.leagueId,
-      matchPlayersToRatingEntries(match.players),
-    );
+    const ratingPreview = isEvent
+      ? undefined
+      : await loadLobbyRatingPreview(
+          requireLeagueId(match),
+          matchPlayersToRatingEntries(match.players),
+        );
     payload = {
-      embeds: [buildMatchInProgressEmbed(match.id, players, { ratingPreview, profile })],
+      embeds: [buildMatchInProgressEmbed(match.id, players, { ratingPreview, profile, eventName })],
       components: buildMatchReportButtons(),
     };
   } else if (mode === 'completed') {
-    const ratingPreview =
-      options.ratingPreview ??
-      (await loadLobbyRatingPreview(match.leagueId, matchPlayersToRatingEntries(match.players)));
+    const ratingPreview = isEvent
+      ? (options.ratingPreview ?? { players: [] })
+      : (options.ratingPreview ??
+        (await loadLobbyRatingPreview(
+          requireLeagueId(match),
+          matchPlayersToRatingEntries(match.players),
+        )));
     payload = {
       embeds: [
         buildMatchCompletedEmbed(match.id, players, {
           ratingPreview,
           winningTeam: determineWinningTeam(match.players),
           profile,
+          eventName,
         }),
       ],
       components: [],
     };
   } else {
     payload = {
-      embeds: [buildMatchCancelledEmbed(match.id, options.cancelReason ?? 'by the host')],
+      embeds: [
+        buildMatchCancelledEmbed(match.id, options.cancelReason ?? 'by the host', { eventName }),
+      ],
       components: [],
     };
   }
