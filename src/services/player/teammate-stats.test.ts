@@ -67,19 +67,29 @@ describe('pickTopTeammates', () => {
       pair({ playerId: 'a', username: 'Low', games: 10, wins: 2, losses: 8 }),
       pair({ playerId: 'b', username: 'High', games: 5, wins: 5, losses: 0 }),
       pair({ playerId: 'c', username: 'Mid', games: 6, wins: 3, losses: 3 }),
-      // Same WR% as High but fewer games — loses the games tie-break
-      pair({ playerId: 'd', username: 'AlsoHigh', games: 2, wins: 2, losses: 0 }),
+      // Same WR% as High but more games — wins the games tie-break
+      pair({ playerId: 'd', username: 'AlsoHigh', games: 8, wins: 8, losses: 0 }),
     ];
     expect(pickTopTeammates(pairs, 'winRate').map((p) => p.username)).toEqual([
-      'High',
       'AlsoHigh',
+      'High',
       'Mid',
     ]);
     expect(pickTopTeammates(pairs, 'loseRate').map((p) => p.username)).toEqual([
       'Low',
       'Mid',
-      'High',
+      'AlsoHigh',
     ]);
+  });
+
+  it('excludes pairs under WINRATE_LIST_MIN_GAMES from winRate and loseRate', () => {
+    const pairs = [
+      pair({ playerId: 'a', username: 'Tiny', games: 4, wins: 4, losses: 0 }),
+      pair({ playerId: 'b', username: 'Ok', games: 5, wins: 1, losses: 4 }),
+    ];
+    expect(pickTopTeammates(pairs, 'winRate').map((p) => p.username)).toEqual(['Ok']);
+    expect(pickTopTeammates(pairs, 'loseRate').map((p) => p.username)).toEqual(['Ok']);
+    expect(pickTopTeammates(pairs, 'games').map((p) => p.username)).toEqual(['Ok', 'Tiny']);
   });
 
   it('sorts null WR% after numeric WR% for games, winRate, and loseRate', () => {
@@ -189,7 +199,8 @@ describe('buildTeammateStatsFromPairs', () => {
     const stats = buildTeammateStatsFromPairs(pairs);
     expect(stats.playedWith.map((p) => p.username)).toEqual(['Ghost', 'Krillin', 'Piccolo']);
     expect(stats.winWith.map((p) => p.username)).toEqual(['Gohan', 'Ghost', 'Piccolo']);
-    expect(stats.loseWith.map((p) => p.username)).toEqual(['Yamcha', 'Krillin', 'Piccolo']);
+    // Yamcha (4G) is under the winrate-list floor; next-worst eligible is Ghost
+    expect(stats.loseWith.map((p) => p.username)).toEqual(['Krillin', 'Piccolo', 'Ghost']);
   });
 });
 
