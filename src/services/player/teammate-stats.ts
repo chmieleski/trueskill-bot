@@ -32,6 +32,9 @@ export type TeammateMatchRow = {
 
 const DEFAULT_TOP = 3;
 
+/** Min shared games before a pair can appear on Win with / Lose with. */
+export const WINRATE_LIST_MIN_GAMES = 5;
+
 export type TeammateSortPrimary = 'games' | 'winRate' | 'loseRate';
 
 /** Compare WR%; nulls always sort last. `direction` is applied only when both are numeric. */
@@ -45,16 +48,19 @@ function compareWinRate(aWr: number | null, bWr: number | null, direction: 'desc
 /**
  * Rank pairs by primary metric, then tie-break, then nick A–Z. Cap at `limit` (default 3).
  *
- * - `games`: games desc → WR% desc → nick
- * - `winRate`: WR% desc → games desc → nick
- * - `loseRate`: WR% asc → games desc → nick
+ * - `games`: games desc → WR% desc → nick (no games floor)
+ * - `winRate`: WR% desc → games desc → nick (≥ {@link WINRATE_LIST_MIN_GAMES} games)
+ * - `loseRate`: WR% asc → games desc → nick (≥ {@link WINRATE_LIST_MIN_GAMES} games)
  */
 export function pickTopTeammates(
   pairs: TeammatePairStats[],
   primary: TeammateSortPrimary,
   limit: number = DEFAULT_TOP,
 ): TeammatePairStats[] {
-  return [...pairs]
+  const eligible =
+    primary === 'games' ? pairs : pairs.filter((pair) => pair.games >= WINRATE_LIST_MIN_GAMES);
+
+  return [...eligible]
     .sort((a, b) => {
       if (primary === 'games') {
         const gamesDiff = b.games - a.games;
