@@ -45,12 +45,17 @@ function compareWinRate(aWr: number | null, bWr: number | null, direction: 'desc
   return direction === 'desc' ? bWr - aWr : aWr - bWr;
 }
 
+/** Compare shared-game count; higher first. */
+function compareGamesDesc(a: TeammatePairStats, b: TeammatePairStats): number {
+  return b.games - a.games;
+}
+
 /**
  * Rank pairs by primary metric, then tie-break, then nick A–Z. Cap at `limit` (default 3).
  *
  * - `games`: games desc → WR% desc → nick (no games floor)
- * - `winRate`: WR% desc → games desc → nick (≥ {@link WINRATE_LIST_MIN_GAMES} games)
- * - `loseRate`: WR% asc → games desc → nick (≥ {@link WINRATE_LIST_MIN_GAMES} games)
+ * - `winRate`: WR% desc → shared games desc → nick (≥ {@link WINRATE_LIST_MIN_GAMES} games)
+ * - `loseRate`: WR% asc → shared games desc → nick (≥ {@link WINRATE_LIST_MIN_GAMES} games)
  */
 export function pickTopTeammates(
   pairs: TeammatePairStats[],
@@ -63,19 +68,19 @@ export function pickTopTeammates(
   return [...eligible]
     .sort((a, b) => {
       if (primary === 'games') {
-        const gamesDiff = b.games - a.games;
+        const gamesDiff = compareGamesDesc(a, b);
         if (gamesDiff !== 0) return gamesDiff;
         const wrDiff = compareWinRate(a.winRatePercent, b.winRatePercent, 'desc');
         if (wrDiff !== 0) return wrDiff;
       } else if (primary === 'winRate') {
         const wrDiff = compareWinRate(a.winRatePercent, b.winRatePercent, 'desc');
         if (wrDiff !== 0) return wrDiff;
-        const gamesDiff = b.games - a.games;
+        const gamesDiff = compareGamesDesc(a, b);
         if (gamesDiff !== 0) return gamesDiff;
       } else {
         const wrDiff = compareWinRate(a.winRatePercent, b.winRatePercent, 'asc');
         if (wrDiff !== 0) return wrDiff;
-        const gamesDiff = b.games - a.games;
+        const gamesDiff = compareGamesDesc(a, b);
         if (gamesDiff !== 0) return gamesDiff;
       }
       return a.username.localeCompare(b.username);
