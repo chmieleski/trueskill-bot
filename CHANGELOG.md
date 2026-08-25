@@ -1,3 +1,10 @@
+## [1.25.2](https://github.com/chmieleski/trueskill-bot/compare/v1.25.1...v1.25.2) (2026-08-25)
+
+
+### Bug Fixes
+
+* **lobby:** allow recreate from any cancelled match ([#97](https://github.com/chmieleski/trueskill-bot/issues/97)) ([55707a1](https://github.com/chmieleski/trueskill-bot/commit/55707a1538cb50d3aa6a7a971d09c00d34992c65))
+
 ## [1.25.1](https://github.com/chmieleski/trueskill-bot/compare/v1.25.0...v1.25.1) (2026-08-25)
 
 
