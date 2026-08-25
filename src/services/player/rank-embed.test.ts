@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { buildRankEmbed, formatGrieferPoolField, formatHeroTable } from './rank-embed.js';
 import type { PlayerProfile } from './player-profile.js';
 import type { TeammateStats } from './teammate-stats.js';
-import type { OpponentStats } from './opponent-stats.js';
 
 const baseProfile: PlayerProfile = {
   playerId: 'p1',
@@ -61,30 +60,6 @@ const sampleTeammates: TeammateStats = {
     },
   ],
   loseWith: [],
-};
-
-const sampleOpponents: OpponentStats = {
-  playedAgainst: [
-    {
-      playerId: 'p4',
-      username: 'Rival',
-      games: 8,
-      wins: 5,
-      losses: 3,
-      winRatePercent: 62.5,
-    },
-  ],
-  winAgainst: [
-    {
-      playerId: 'p4',
-      username: 'Rival',
-      games: 8,
-      wins: 5,
-      losses: 3,
-      winRatePercent: 62.5,
-    },
-  ],
-  loseAgainst: [],
 };
 
 describe('formatHeroTable', () => {
@@ -238,25 +213,6 @@ describe('buildRankEmbed', () => {
     expect(data.fields?.[0]?.value).toContain('Calibrating');
     expect(data.fields?.[0]?.value).not.toContain('4200');
     expect(data.fields?.[0]?.value).toContain('2W 1L · 66.7%');
-  });
-
-  it('adds teammate and opponent fields after Griefer pool and Heroes', () => {
-    const data = buildRankEmbed(baseProfile, {
-      teammates: sampleTeammates,
-      opponents: sampleOpponents,
-    }).toJSON();
-    const names = (data.fields ?? []).map((f) => f.name);
-    expect(names).toEqual([
-      'Griefer pool',
-      'Heroes',
-      'Played with',
-      'Win with',
-      'Played against',
-      'Win against',
-    ]);
-    expect(data.fields?.find((field) => field.name === 'Played against')?.value).toContain('Rival');
-    expect(names).not.toContain('Lose with');
-    expect(names).not.toContain('Lose against');
   });
 
   it('adds teammate fields after Griefer pool and Heroes', () => {

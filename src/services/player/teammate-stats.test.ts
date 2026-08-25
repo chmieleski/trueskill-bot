@@ -264,10 +264,32 @@ describe('buildTeammateStatsFromPairs', () => {
       pair({ playerId: 'e', username: 'Yamcha', games: 4, wins: 1, losses: 3 }), // 25%
     ];
     const stats = buildTeammateStatsFromPairs(pairs);
-    expect(stats.playedWith.map((p) => p.username)).toEqual(['Ghost', 'Krillin', 'Piccolo']);
     expect(stats.winWith.map((p) => p.username)).toEqual(['Gohan', 'Ghost', 'Piccolo']);
     // Yamcha (4G) is under the winrate-list floor; next-worst eligible is Ghost
     expect(stats.loseWith.map((p) => p.username)).toEqual(['Krillin', 'Piccolo', 'Ghost']);
+    // Played with skips anyone already on Win/Lose with
+    expect(stats.playedWith.map((p) => p.username)).toEqual(['Yamcha']);
+  });
+
+  it('does not repeat the same nick across Played with and Win/Lose with', () => {
+    const pairs = [
+      pair({ playerId: 'a', username: 'dragonnpx4', games: 5, wins: 4, losses: 1 }),
+      pair({ playerId: 'b', username: 'grave', games: 5, wins: 3, losses: 2 }),
+      pair({ playerId: 'c', username: 'notverriegod', games: 10, wins: 4, losses: 6 }),
+      pair({ playerId: 'd', username: 'frequent', games: 12, wins: 6, losses: 6 }),
+    ];
+    const stats = buildTeammateStatsFromPairs(pairs);
+    const playedIds = new Set(stats.playedWith.map((p) => p.playerId));
+    const winLoseIds = new Set([
+      ...stats.winWith.map((p) => p.playerId),
+      ...stats.loseWith.map((p) => p.playerId),
+    ]);
+    for (const id of playedIds) {
+      expect(winLoseIds.has(id)).toBe(false);
+    }
+    expect(stats.winWith.map((p) => p.username)).toContain('dragonnpx4');
+    expect(stats.winWith.map((p) => p.username)).toContain('grave');
+    expect(stats.loseWith.map((p) => p.username)).toContain('notverriegod');
   });
 });
 
