@@ -1,3 +1,10 @@
+# [1.25.0](https://github.com/chmieleski/trueskill-bot/compare/v1.24.0...v1.25.0) (2026-08-25)
+
+
+### Features
+
+* **rank:** require 5 games for win/lose with ([#95](https://github.com/chmieleski/trueskill-bot/issues/95)) ([cdafbdb](https://github.com/chmieleski/trueskill-bot/commit/cdafbdbec7b8317852cf46f97acd06aa0ba3bf37))
+
 # [1.24.0](https://github.com/chmieleski/trueskill-bot/compare/v1.23.0...v1.24.0) (2026-08-25)
 
 
