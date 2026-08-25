@@ -1,6 +1,7 @@
 import type { LeagueBindingKind } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { LEAGUE_BIND_EVENT_CONFLICT } from '../event/event-binding.js';
+import { MatchServiceError } from '../match/match-service.js';
 
 export type { LeagueBindingKind };
 
@@ -19,7 +20,7 @@ export async function bindDiscordToLeague(input: {
     select: { discordId: true },
   });
   if (eventBound) {
-    throw new Error(LEAGUE_BIND_EVENT_CONFLICT);
+    throw new MatchServiceError(LEAGUE_BIND_EVENT_CONFLICT);
   }
 
   await prisma.leagueChannelBinding.upsert({

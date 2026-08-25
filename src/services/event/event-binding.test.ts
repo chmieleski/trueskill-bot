@@ -24,6 +24,7 @@ vi.mock('../../lib/prisma.js', () => ({
 import { bindDiscordToEvent, EVENT_BIND_LEAGUE_CONFLICT } from './event-binding.js';
 import { bindDiscordToLeague } from '../league/league-binding.js';
 import { LEAGUE_BIND_EVENT_CONFLICT } from './event-binding.js';
+import { MatchServiceError } from '../match/match-service.js';
 
 describe('event/league bind mutual exclusion', () => {
   beforeEach(() => {
@@ -36,6 +37,9 @@ describe('event/league bind mutual exclusion', () => {
   it('rejects event bind when league-bound', async () => {
     leagueBindingFindUnique.mockResolvedValue({ discordId: 'chan-1' });
 
+    await expect(
+      bindDiscordToEvent({ eventId: 'e1', discordId: 'chan-1', kind: 'CHANNEL' }),
+    ).rejects.toBeInstanceOf(MatchServiceError);
     await expect(
       bindDiscordToEvent({ eventId: 'e1', discordId: 'chan-1', kind: 'CHANNEL' }),
     ).rejects.toThrow(EVENT_BIND_LEAGUE_CONFLICT);
