@@ -82,6 +82,24 @@ describe('pickTopTeammates', () => {
     ]);
   });
 
+  it('breaks winrate ties by shared games before nick A–Z', () => {
+    const pairs = [
+      pair({ playerId: 'a', username: 'Adam', games: 5, wins: 4, losses: 1 }), // 80%
+      pair({ playerId: 'b', username: 'Zara', games: 10, wins: 8, losses: 2 }), // 80%
+      pair({ playerId: 'c', username: 'Mia', games: 6, wins: 3, losses: 3 }), // 50%
+    ];
+    expect(pickTopTeammates(pairs, 'winRate').map((p) => p.username)).toEqual([
+      'Zara',
+      'Adam',
+      'Mia',
+    ]);
+    expect(pickTopTeammates(pairs, 'loseRate').map((p) => p.username)).toEqual([
+      'Mia',
+      'Zara',
+      'Adam',
+    ]);
+  });
+
   it('excludes pairs under WINRATE_LIST_MIN_GAMES from winRate and loseRate', () => {
     const pairs = [
       pair({ playerId: 'a', username: 'Tiny', games: 4, wins: 4, losses: 0 }),
