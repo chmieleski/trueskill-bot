@@ -1,3 +1,10 @@
+## [1.25.1](https://github.com/chmieleski/trueskill-bot/compare/v1.25.0...v1.25.1) (2026-08-25)
+
+
+### Bug Fixes
+
+* **rank:** tie-break win/lose with by shared games ([#96](https://github.com/chmieleski/trueskill-bot/issues/96)) ([6ed7ad1](https://github.com/chmieleski/trueskill-bot/commit/6ed7ad1d706618ba0b53a97f3eee57c7397bd822))
+
 # [1.25.0](https://github.com/chmieleski/trueskill-bot/compare/v1.24.0...v1.25.0) (2026-08-25)
 
 
