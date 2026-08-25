@@ -1,3 +1,10 @@
+# [1.22.0](https://github.com/chmieleski/trueskill-bot/compare/v1.21.1...v1.22.0) (2026-08-25)
+
+
+### Features
+
+* **match:** add /match unquit to clear quitters ([#92](https://github.com/chmieleski/trueskill-bot/issues/92)) ([3a6484a](https://github.com/chmieleski/trueskill-bot/commit/3a6484ae089dd1c58840861a632f39f9cd6e5db7))
+
 ## [1.21.1](https://github.com/chmieleski/trueskill-bot/compare/v1.21.0...v1.21.1) (2026-08-24)
 
 

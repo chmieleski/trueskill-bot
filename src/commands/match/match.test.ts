@@ -39,6 +39,7 @@ describe('match command data', () => {
       'flip',
       'void',
       'ungrief',
+      'unquit',
     ]);
   });
 

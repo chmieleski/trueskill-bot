@@ -370,7 +370,7 @@ export function buildMatchHistoryEmbed(
   } else if (page.totalMatches > 0) {
     embed.setFooter({
       text: page.griefersOnly
-        ? 'Copy an id → /match show (completed) or /match ungrief (cancelled)'
+        ? 'Copy an id → /match show (completed) or /match ungrief|/match unquit (cancelled)'
         : 'Copy an id → /match show match_id:…',
     });
   }
