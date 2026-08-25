@@ -11,10 +11,11 @@ alwaysApply: false
 - **Game** — catalog row (`id`, `displayName`). Example: `warcraft3_udbr`.
 - **League** — one IHL instance: `(guildId, gameId, name)` unique. Holds per-IHL settings (wc3stats, leaderboard channel ids, lobby claim flag, optional lobby creation channel). Default league created per guild during migration/backfill.
 - **LeagueChannelBinding** — maps a Discord channel or category (`discordId`, `kind`) to a `leagueId`. Used by `resolveLeagueContext`.
+- **Event** — guild+game container for **unrated** tournament/scrim matches (sibling to League). Channel bindings map to a specific Event; mutually exclusive with league bindings.
 - **GuildConfig** — guild-wide only: create/mod role ids, claim defaults at guild level where still used. **Not** wc3stats or leaderboard (those live on `League`).
 - **BotRelease / BotReleasePost** — process-wide product versioning and changelog fan-out. Not keyed by `leagueId`.
 
-Ratings and matches **never** cross `leagueId`. `Player` identity is **`(gameId, username)`**; Discord link is unique per **`(gameId, discordId)`** (worldwide for that game — not per guild/league). See `docs/superpowers/specs/2026-08-17-per-game-player-identity-design.md`.
+Ratings are **never** applied for Event matches. IHL ratings and matches **never** cross `leagueId`. `Player` identity is **`(gameId, username)`**; Discord link is unique per **`(gameId, discordId)`** (worldwide for that game — not per guild/league). See `docs/superpowers/specs/2026-08-17-per-game-player-identity-design.md`.
 
 ## Tables
 
@@ -22,8 +23,9 @@ Ratings and matches **never** cross `leagueId`. `Player` identity is **`(gameId,
 - **PlayerRating** — League-scoped overall skill (μ/σ). PK `(leagueId, playerId)`
 - **Hero** — IDs 1–12, tied to lobby slots (WC3 UDBR catalog; not universal for future games)
 - **PlayerHeroRating** — League-scoped hero μ/σ + `matchesPlayed`. PK `(leagueId, playerId, heroId)`
-- **Match** — Up to 6v6 sessions; required `leagueId`; status (unbalanced fills allowed)
+- **Match** — Up to 6v6 sessions; exactly one of `leagueId` (IHL) or `eventId` (unrated Event); status (unbalanced fills allowed)
 - **MatchPlayer** — team, slot, hero, result
+- **Event** / **EventChannelBinding** — unrated event containers + channel/category binds
 - **LeagueWc3statsSlotMap** — `game:warcraft3_udbr` slot layout. PK `(leagueId, wc3statsSlot)`
 - **BotRelease** — semver PK; staff draft vs published/skipped player notes
 - **BotReleasePost** — one posted player message per `(version, guildId)`

@@ -13,6 +13,7 @@ model Game {
   id          String   @id // e.g. "warcraft3_udbr"
   displayName String
   leagues     League[]
+  events      Event[]
   players     Player[]
 }
 
@@ -106,6 +107,47 @@ enum LeagueBindingKind {
 enum LeagueStatus {
   ACTIVE
   ARCHIVED
+}
+
+enum EventStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum EventBindingKind {
+  CHANNEL
+  CATEGORY
+}
+
+// Event - guild+game container for unrated tournament/scrim matches (sibling to League)
+model Event {
+  id        String      @id @default(cuid())
+  guildId   String
+  gameId    String
+  name      String
+  status    EventStatus @default(ACTIVE)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  game            Game                   @relation(fields: [gameId], references: [id])
+  channelBindings EventChannelBinding[]
+  matches         Match[]
+
+  @@index([guildId])
+  @@index([gameId])
+  @@index([guildId, gameId])
+}
+
+model EventChannelBinding {
+  eventId   String
+  discordId String
+  kind      EventBindingKind
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([discordId])
+  @@index([eventId])
 }
 
 model LeagueRolloverDraft {
@@ -211,7 +253,8 @@ model PlayerRankReset {
   @@index([leagueId, createdAt])
 }
 
-// Match - up to 6v6 game session (unbalanced human fills allowed)
+// Match - up to 6v6 game session (unbalanced human fills allowed).
+// Exactly one of leagueId (IHL rated) or eventId (unrated Event) must be set (DB check).
 model Match {
   id               String        @id @default(cuid())
   status           MatchStatus   @default(PENDING)
@@ -221,11 +264,13 @@ model Match {
   wc3statsGameId   String?
   /// Last screenshot upload or manual roster edit; wc3stats Refresh must beat this.
   lobbyRosterAuthorityAt DateTime?
-  leagueId         String
+  leagueId         String?
+  eventId          String?
   completedAt      DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
-  league           League        @relation(fields: [leagueId], references: [id], onDelete: Restrict)
+  league           League?       @relation(fields: [leagueId], references: [id], onDelete: Restrict)
+  event            Event?        @relation(fields: [eventId], references: [id], onDelete: Restrict)
   players          MatchPlayer[]
   ratingSnapshots  MatchRatingSnapshot[]
 
@@ -237,6 +282,8 @@ model Match {
   @@index([leagueId, status])
   @@index([leagueId, wc3statsGameId])
   @@index([leagueId, completedAt])
+  @@index([eventId, status])
+  @@index([eventId, completedAt])
 }
 
 // MatchPlayer - Player participation in a match

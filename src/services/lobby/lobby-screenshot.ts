@@ -1,7 +1,11 @@
 import type { Attachment, Client } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
-import { getGameProfileForLeague, LeagueNotFoundError } from '../league/league-profile.js';
-import { MatchServiceError, touchLobbyRosterAuthority } from '../match/match-service.js';
+import {
+  MatchServiceError,
+  requireLeagueId,
+  touchLobbyRosterAuthority,
+} from '../match/match-service.js';
+import { getGameProfileForMatch } from '../match/match-service.js';
 import {
   applyRosterAndSync,
   syncLobbyDiscordMessage,
@@ -86,17 +90,6 @@ export async function tryExtractLobbyPlayers(
   }
 }
 
-async function profileForLeague(leagueId: string) {
-  try {
-    return await getGameProfileForLeague(leagueId);
-  } catch (error) {
-    if (error instanceof LeagueNotFoundError) {
-      throw new MatchServiceError(error.message);
-    }
-    throw error;
-  }
-}
-
 /**
  * Host or match moderator replaces a PENDING lobby roster from a Warcraft lobby screenshot.
  * When OCR finds no players, the current roster is kept.
@@ -117,7 +110,7 @@ export async function refreshLobbyFromScreenshot(input: {
     matchModRoleId: input.matchModRoleId,
   });
 
-  const profile = await profileForLeague(match.leagueId);
+  const profile = await getGameProfileForMatch(match);
   assertRegisterLobbyAllowedForProfile(profile, {
     hasScreenshot: true,
     hasWc3statsId: false,

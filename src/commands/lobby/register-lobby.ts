@@ -39,6 +39,12 @@ import {
   assertLeagueLobbyCreateChannel,
 } from '../../services/league/index.js';
 import {
+  EVENT_NOT_ACTIVE_MESSAGE,
+  isEventWritable,
+  resolveEventContext,
+} from '../../services/event/index.js';
+import { getGameProfile } from '../../domain/game-profile.js';
+import {
   isLeagueWc3statsImportReady,
   resolveLeagueConfig,
 } from '../../services/league/league-wc3stats.js';
@@ -47,6 +53,14 @@ import { loadLeagueWc3statsHeroSlotMap } from '../../services/wc3stats/index.js'
 import { sendNewPlayerSuggestPrompts } from '../../discord/interactions/new-player-interactions.js';
 
 const log = createLogger('register_lobby');
+
+function categoryIdFromInteraction(interaction: ChatInputCommandInteraction): string | null {
+  const channel = interaction.channel;
+  if (channel && 'parentId' in channel && typeof channel.parentId === 'string') {
+    return channel.parentId;
+  }
+  return null;
+}
 
 function memberRoleIds(interaction: { member: unknown }): string[] {
   const member = interaction.member;
@@ -117,7 +131,106 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     throw error;
   }
 
-  // ── Resolve league early (needed for IHL config) ─────────────────────────────
+  // ── Resolve Event bind first, else league ──────────────────────────────────
+  const eventResolved = await resolveEventContext({
+    guildId: interaction.guildId,
+    channelId: interaction.channelId,
+    categoryId: categoryIdFromInteraction(interaction),
+  });
+
+  if (eventResolved.ok) {
+    if (!isEventWritable(eventResolved.event)) {
+      await interaction.editReply(EVENT_NOT_ACTIVE_MESSAGE);
+      return;
+    }
+
+    const event = eventResolved.event;
+    const profile = getGameProfile(event.gameId);
+    const attachment = interaction.options.getAttachment('print');
+    if (attachment && !isImageAttachment(attachment)) {
+      await interaction.editReply(
+        'Please attach a valid lobby screenshot image (PNG, JPG, WEBP, or GIF).',
+      );
+      return;
+    }
+
+    let players: LobbyPlayer[] = [];
+    if (attachment) {
+      players = await tryExtractLobbyPlayers(attachment.url, resolveMimeType(attachment));
+    }
+
+    try {
+      assertRegisterLobbyAllowedForProfile(profile, {
+        hasScreenshot: Boolean(attachment),
+        hasWc3statsId: false,
+      });
+    } catch (error) {
+      if (error instanceof MatchServiceError) {
+        await interaction.editReply(error.message);
+        return;
+      }
+      throw error;
+    }
+
+    const canStart = canStartLobby(players, profile);
+
+    try {
+      const created = await createPendingMatch({
+        eventId: event.id,
+        hostDiscordId: interaction.user.id,
+        discordChannelId: interaction.channelId,
+        players,
+        lobbyRosterAuthorityAt: attachment ? new Date() : undefined,
+        bypassHostLobbyCap: hasMatchModRole({
+          actorDiscordId: interaction.user.id,
+          memberRoleIds: memberRoleIds(interaction),
+          matchModRoleId: guildConfig?.matchModRoleId,
+        }),
+      });
+
+      await interaction.editReply({
+        embeds: [
+          buildMatchLobbyEmbed(created.matchId, players, {
+            canStart,
+            createdAt: created.createdAt,
+            profile,
+            eventName: event.name,
+          }),
+        ],
+        components: buildLobbyButtons({
+          canStart,
+          playerCount: players.length,
+          playerClaimEnabled: false,
+          wc3statsEnabled: false,
+          profile,
+        }),
+      });
+
+      const previewMessage = await interaction.fetchReply();
+      await attachDiscordMessage(created.matchId, previewMessage.id, interaction.channelId);
+
+      log.info(
+        {
+          matchId: created.matchId,
+          eventId: event.id,
+          messageId: previewMessage.id,
+          ownerId: interaction.user.id,
+          playerCount: players.length,
+        },
+        'Event match lobby registered',
+      );
+    } catch (error) {
+      if (error instanceof MatchServiceError) {
+        await interaction.editReply(error.message);
+        return;
+      }
+      log.error({ err: error, userId: interaction.user.id }, 'Failed to register event lobby');
+      await interaction.editReply('Could not create the match lobby. Please try again.');
+    }
+    return;
+  }
+
+  // ── Resolve league (IHL) ─────────────────────────────────────────────────────
   const leagueResolved = await resolveLeagueIdFromInteraction(
     interaction,
     getLeagueOption(interaction),
@@ -322,7 +435,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         match: {
           id: match.id,
           hostDiscordId: match.hostDiscordId,
-          leagueId: match.leagueId,
+          leagueId: match.leagueId!,
         },
         suggestions,
         matchModRoleId: guildConfig?.matchModRoleId,

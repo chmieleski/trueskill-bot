@@ -19,6 +19,7 @@ import {
   assertCanManageMatch,
   getMatchById,
   MatchServiceError,
+  requireLeagueId,
 } from '../../services/match/index.js';
 import { canManageMatch } from '../../services/match/match-auth.js';
 import {
@@ -43,7 +44,7 @@ export type BuildNewPlayerSuggestComponentsInput = {
 
 export type SendNewPlayerSuggestPromptsInput = {
   interaction: MessageComponentInteraction | ModalSubmitInteraction | ChatInputCommandInteraction;
-  match: { id: string; hostDiscordId: string; leagueId: string };
+  match: { id: string; hostDiscordId: string; leagueId: string | null };
   suggestions: NewPlayerSuggestion[];
   matchModRoleId?: string;
 };
@@ -106,7 +107,7 @@ export async function sendNewPlayerSuggestPrompts(
   input: SendNewPlayerSuggestPromptsInput,
 ): Promise<void> {
   const { interaction, match, suggestions, matchModRoleId } = input;
-  if (suggestions.length === 0) {
+  if (suggestions.length === 0 || match.leagueId == null) {
     return;
   }
 
@@ -181,7 +182,11 @@ async function authorizeNewPlayerClick(
     matchModRoleId: config.matchModRoleId,
   });
 
-  return match;
+  return {
+    id: match.id,
+    hostDiscordId: match.hostDiscordId,
+    leagueId: requireLeagueId(match),
+  };
 }
 
 async function handleConfirm(interaction: ButtonInteraction): Promise<void> {

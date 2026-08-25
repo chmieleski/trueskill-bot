@@ -12,6 +12,7 @@ import {
   linkMatchWc3statsGameId,
   matchToLobbyPlayers,
   MatchServiceError,
+  requireLeagueId,
   replaceMatchRoster,
   type MatchWithPlayers,
 } from '../match/match-service.js';
@@ -99,7 +100,8 @@ async function importAndMaybeLinkWc3stats(input: {
   const storedId = input.match.wc3statsGameId?.trim() || null;
   let boundNow = false;
   let working = input.match;
-  const slotMap = await loadLeagueWc3statsHeroSlotMap(input.match.leagueId);
+  const leagueId = requireLeagueId(input.match);
+  const slotMap = await loadLeagueWc3statsHeroSlotMap(leagueId);
 
   if (explicitId) {
     const imported = await importWc3statsLobby({
@@ -141,7 +143,7 @@ async function importAndMaybeLinkWc3stats(input: {
 
   const hostNick = await nickForDiscordId(
     working.hostDiscordId,
-    await profileGameIdForLeague(working.leagueId),
+    await profileGameIdForLeague(leagueId),
   );
   const imported = await importWc3statsLobby({
     hostNick,
@@ -186,7 +188,9 @@ export async function refreshLobbyFromWc3stats(input: {
     throw new MatchServiceError(NOT_EDITABLE_MESSAGE);
   }
 
-  await assertLeagueAllowsWc3statsImport(match.leagueId);
+  const leagueId = requireLeagueId(match);
+
+  await assertLeagueAllowsWc3statsImport(leagueId);
 
   assertCanManageMatch({
     hostDiscordId: match.hostDiscordId,
@@ -198,10 +202,10 @@ export async function refreshLobbyFromWc3stats(input: {
   const explicitId = input.wc3statsId ?? null;
   const storedId = match.wc3statsGameId?.trim() || null;
 
-  const leagueConfig = await assertWc3statsImportReady(match.leagueId);
+  const leagueConfig = await assertWc3statsImportReady(leagueId);
 
   if (!explicitId && !storedId) {
-    await nickForDiscordId(match.hostDiscordId, await profileGameIdForLeague(match.leagueId));
+    await nickForDiscordId(match.hostDiscordId, await profileGameIdForLeague(leagueId));
   }
 
   const lastRefreshAt = lastRefreshAtByMatchId.get(match.id);

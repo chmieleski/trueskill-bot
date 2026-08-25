@@ -310,7 +310,7 @@ function ordinalFooter(
   );
 }
 
-/** Shared chrome: author (match id), footer legend, timestamp. */
+/** Shared chrome: author (match id / event), footer legend, timestamp. */
 function applyEmbedChrome(
   embed: EmbedBuilder,
   options: {
@@ -318,9 +318,13 @@ function applyEmbedChrome(
     ratingPreview?: LobbyRatingPreview;
     profile: GameProfile;
     timestamp?: Date;
+    eventName?: string | null;
   },
 ): EmbedBuilder {
-  embed.setAuthor({ name: `Match ${options.matchId}` });
+  const authorName = options.eventName
+    ? `Event: ${options.eventName} · Match ${options.matchId}`
+    : `Match ${options.matchId}`;
+  embed.setAuthor({ name: authorName });
 
   const footer = ordinalFooter(options.ratingPreview, options.profile);
   if (footer) {
@@ -345,6 +349,7 @@ export function buildMatchLobbyEmbed(
     wc3statsUnavailable?: boolean;
     wc3statsLinkAvailable?: boolean;
     profile?: GameProfile;
+    eventName?: string | null;
   } = {},
 ): EmbedBuilder {
   const profile = resolvedProfile(options.profile);
@@ -403,13 +408,18 @@ export function buildMatchLobbyEmbed(
     ratingPreview: options.ratingPreview,
     profile,
     timestamp: createdAt,
+    eventName: options.eventName,
   });
 }
 
 export function buildMatchInProgressEmbed(
   matchId: string,
   players: LobbyPlayer[],
-  options: { ratingPreview?: LobbyRatingPreview; profile?: GameProfile } = {},
+  options: {
+    ratingPreview?: LobbyRatingPreview;
+    profile?: GameProfile;
+    eventName?: string | null;
+  } = {},
 ): EmbedBuilder {
   const profile = resolvedProfile(options.profile);
   const { teamAValue, teamBValue, teamACount, teamBCount } = teamFieldValues(
@@ -441,6 +451,7 @@ export function buildMatchInProgressEmbed(
     ratingPreview: options.ratingPreview,
     profile,
     timestamp: new Date(),
+    eventName: options.eventName,
   });
 }
 
@@ -479,6 +490,7 @@ export function buildMatchCompletedEmbed(
     profile?: GameProfile;
     /** Defaults to now; prefer match.completedAt for historical show. */
     timestamp?: Date;
+    eventName?: string | null;
   },
 ): EmbedBuilder {
   const profile = resolvedProfile(options.profile);
@@ -517,16 +529,21 @@ export function buildMatchCompletedEmbed(
     ratingPreview: options.ratingPreview,
     profile,
     timestamp: options.timestamp ?? new Date(),
+    eventName: options.eventName,
   });
 }
 
 export function buildMatchCancelledEmbed(
   matchId: string,
   reason: string = 'expired',
+  options: { eventName?: string | null } = {},
 ): EmbedBuilder {
+  const authorName = options.eventName
+    ? `Event: ${options.eventName} · Match ${matchId}`
+    : `Match ${matchId}`;
   return new EmbedBuilder()
     .setTitle('Match Cancelled')
-    .setAuthor({ name: `Match ${matchId}` })
+    .setAuthor({ name: authorName })
     .setDescription(`This match was cancelled (${reason}).`)
     .setColor(0xed4245)
     .setTimestamp(new Date());

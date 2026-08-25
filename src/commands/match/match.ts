@@ -37,6 +37,8 @@ import {
   MatchServiceError,
   previewMatchCorrection,
   resolveHistoryPlayer,
+  getGameProfileForMatch,
+  requireLeagueId,
   type ClearedMatchQuitter,
   type MatchWithPlayers,
 } from '../../services/match/index.js';
@@ -715,7 +717,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
             ? ` with quitters [${quitterSlots.join(', ')}]`
             : '';
 
-        const profile = await getGameProfileForLeague(match.leagueId);
+        const profile = await getGameProfileForMatch(match);
         lines.push(
           `Flip match \`${match.id}\` → winner **${winnerLabel(winner, profile)}**${quittersLine}.`,
         );
@@ -772,7 +774,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       if (interaction.guildId) {
         await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);
       }
-      await refreshLeagueLeaderboard(interaction.client, match.leagueId);
+      await refreshLeagueLeaderboard(interaction.client, requireLeagueId(match));
 
       await interaction.editReply({
         content: formatClearedGriefersMessage(match.id, cleared),
@@ -797,7 +799,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       if (interaction.guildId) {
         await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
       }
-      await refreshLeagueLeaderboard(interaction.client, result.match.leagueId);
+      await refreshLeagueLeaderboard(interaction.client, requireLeagueId(result.match));
 
       await interaction.editReply({
         content: formatClearedQuittersMessage(result.match.id, result.cleared, result.mode, {
@@ -845,7 +847,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       await interaction.editReply({
         content: 'Updating ratings and completing the match… This can take a few seconds.',
       });
-      const profile = await getGameProfileForLeague(match.leagueId);
+      const profile = await getGameProfileForMatch(match);
       const completed = await completeMatch(match.id, winner, quitterSlots, grieferSlots);
       void refreshAllLeaderboardChannels(interaction.client).catch(() => undefined);
       await applyMatchMutation(

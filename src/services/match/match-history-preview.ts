@@ -19,6 +19,7 @@ import {
 import type { BalancePredictWinOptions } from '../rating/rating-entities.js';
 import { simulatePostMatchRatings, type RatingRosterEntry } from '../rating/rating-update.js';
 import type { MatchWithPlayers } from './match-service.js';
+import { requireLeagueId } from './match-service.js';
 
 type SnapshotRow = {
   playerId: string;
@@ -115,11 +116,12 @@ function winChanceFromSnapshots(
 export async function loadWinChanceFromMatchSnapshots(
   match: MatchWithPlayers,
 ): Promise<WinChancePercents | undefined> {
+  const leagueId = requireLeagueId(match);
   const [snapshots, leagueConfig] = await Promise.all([
     prisma.matchRatingSnapshot.findMany({
       where: { matchId: match.id },
     }),
-    resolveLeagueConfig(match.leagueId),
+    resolveLeagueConfig(leagueId),
   ]);
   return winChanceFromSnapshots(match, snapshots, {
     staticSigma: leagueConfig.balanceStaticSigmaEnabled,
@@ -153,6 +155,7 @@ function kiPairFromState(
 export async function rebuildCompletedRatingPreview(
   match: MatchWithPlayers,
 ): Promise<LobbyRatingPreview | undefined> {
+  const leagueId = requireLeagueId(match);
   const snapshots = await prisma.matchRatingSnapshot.findMany({
     where: { matchId: match.id },
   });
@@ -176,7 +179,7 @@ export async function rebuildCompletedRatingPreview(
   }));
 
   const globalGames = await loadGlobalGamesBeforeMatch(
-    match.leagueId,
+    leagueId,
     playerIds,
     match.completedAt,
     match.id,
@@ -200,7 +203,7 @@ export async function rebuildCompletedRatingPreview(
 
   const leagueGamesByPlayer = await loadLeagueGamesAfterMatch(match);
   const displayStatsByPlayer = await loadMatchDisplayStatsByPlayer(
-    match.leagueId,
+    leagueId,
     match.players.map((player) => player.playerId),
   );
 
@@ -239,7 +242,7 @@ export async function rebuildCompletedRatingPreview(
     );
   }
 
-  const leagueConfig = await resolveLeagueConfig(match.leagueId);
+  const leagueConfig = await resolveLeagueConfig(leagueId);
   const balanceOptions: BalancePredictWinOptions = {
     staticSigma: leagueConfig.balanceStaticSigmaEnabled,
   };
@@ -288,6 +291,7 @@ export async function persistMatchRatingPreviewToPlayers(
  * cutoff per player.
  */
 async function loadLeagueGamesAfterMatch(match: MatchWithPlayers): Promise<Map<string, number>> {
+  const leagueId = requireLeagueId(match);
   const playerIds = match.players.map((player) => player.playerId);
   if (playerIds.length === 0) {
     return new Map();
@@ -296,12 +300,12 @@ async function loadLeagueGamesAfterMatch(match: MatchWithPlayers): Promise<Map<s
   const throughAt = match.completedAt ?? match.createdAt;
 
   const [resetAtByPlayer, completedMatchRows] = await Promise.all([
-    loadLatestRankResetAtByPlayer(match.leagueId, playerIds),
+    loadLatestRankResetAtByPlayer(leagueId, playerIds),
     prisma.matchPlayer.findMany({
       where: {
         playerId: { in: playerIds },
         result: { in: ['WIN', 'LOSS'] },
-        match: { leagueId: match.leagueId, status: 'COMPLETED' },
+        match: { leagueId, status: 'COMPLETED' },
       },
       select: {
         playerId: true,
@@ -367,10 +371,11 @@ export function ratingPreviewFromStoredMatchPlayers(
 export async function resolveCompletedRatingPreview(
   match: MatchWithPlayers,
 ): Promise<LobbyRatingPreview | undefined> {
+  const leagueId = requireLeagueId(match);
   const playerIds = match.players.map((player) => player.playerId);
   const [leagueGamesByPlayer, displayStatsByPlayer] = await Promise.all([
     loadLeagueGamesAfterMatch(match),
-    loadMatchDisplayStatsByPlayer(match.leagueId, playerIds),
+    loadMatchDisplayStatsByPlayer(leagueId, playerIds),
   ]);
   const stored = ratingPreviewFromStoredMatchPlayers(
     match,

@@ -1,6 +1,9 @@
 import type { Client } from 'discord.js';
-import { getGameProfileForLeague, LeagueNotFoundError } from '../league/league-profile.js';
-import { MatchServiceError } from '../match/match-service.js';
+import {
+  MatchServiceError,
+  getGameProfileForMatch,
+  requireLeagueId,
+} from '../match/match-service.js';
 import { prisma } from '../../lib/prisma.js';
 import { nickForDiscordId } from './lobby-identity.js';
 import {
@@ -33,17 +36,6 @@ function previousPlayerIdsFromMatch(match: { players: Array<{ playerId: string }
   return new Set(match.players.map((player) => player.playerId));
 }
 
-async function profileForLeague(leagueId: string) {
-  try {
-    return await getGameProfileForLeague(leagueId);
-  } catch (error) {
-    if (error instanceof LeagueNotFoundError) {
-      throw new MatchServiceError(error.message);
-    }
-    throw error;
-  }
-}
-
 /**
  * Reject player claim/leave when the league has turned the feature off.
  */
@@ -69,7 +61,7 @@ export async function addLobbyPlayer(input: {
     hostDiscordId: input.hostDiscordId,
     matchId: input.matchId,
   });
-  const profile = await profileForLeague(match.leagueId);
+  const profile = await getGameProfileForMatch(match);
   const next = addPlayer(players, input.nick, input.slot, profile);
   const beforeIds = previousPlayerIdsFromMatch(match);
   const result = await applyRosterAndSync(input.client, match.id, next);
@@ -90,7 +82,7 @@ export async function addLobbyPlayerFromDiscord(input: {
     hostDiscordId: input.hostDiscordId,
     matchId: input.matchId,
   });
-  const profile = await profileForLeague(match.leagueId);
+  const profile = await getGameProfileForMatch(match);
   const nick = await nickForDiscordId(input.discordId, profile.gameId);
   const next = addPlayer(players, nick, input.slot, profile);
   const beforeIds = previousPlayerIdsFromMatch(match);
@@ -111,8 +103,8 @@ export async function claimLobbySlot(input: {
   const { match, players } = await resolvePendingMatchByMessageId({
     messageId: input.messageId,
   });
-  await assertLobbyPlayerClaimEnabled(match.leagueId);
-  const profile = await profileForLeague(match.leagueId);
+  await assertLobbyPlayerClaimEnabled(requireLeagueId(match));
+  const profile = await getGameProfileForMatch(match);
   const nick = await nickForDiscordId(input.discordId, profile.gameId);
   const next = rosterAfterClaim(players, nick, input.slot, profile);
   const beforeIds = previousPlayerIdsFromMatch(match);
@@ -132,8 +124,8 @@ export async function leaveLobbySlot(input: {
   const { match, players } = await resolvePendingMatchByMessageId({
     messageId: input.messageId,
   });
-  await assertLobbyPlayerClaimEnabled(match.leagueId);
-  const profile = await profileForLeague(match.leagueId);
+  await assertLobbyPlayerClaimEnabled(requireLeagueId(match));
+  const profile = await getGameProfileForMatch(match);
   const nick = await nickForDiscordId(input.discordId, profile.gameId);
   const next = rosterAfterLeave(players, nick, profile);
   return applyRosterAndSync(input.client, match.id, next);
@@ -154,7 +146,7 @@ export async function removeLobbyPlayer(input: {
     memberRoleIds: input.memberRoleIds,
     matchModRoleId: input.matchModRoleId,
   });
-  const profile = await profileForLeague(match.leagueId);
+  const profile = await getGameProfileForMatch(match);
   const next = removePlayer(players, { nick: input.nick, slot: input.slot }, profile);
   return applyRosterAndSync(input.client, match.id, next);
 }
@@ -170,7 +162,7 @@ export async function moveLobbyPlayer(input: {
     hostDiscordId: input.hostDiscordId,
     matchId: input.matchId,
   });
-  const profile = await profileForLeague(match.leagueId);
+  const profile = await getGameProfileForMatch(match);
   const next = movePlayer(players, input.fromSlot, input.toSlot, profile);
   return applyRosterAndSync(input.client, match.id, next);
 }
@@ -186,7 +178,7 @@ export async function swapLobbyPlayers(input: {
     hostDiscordId: input.hostDiscordId,
     matchId: input.matchId,
   });
-  const profile = await profileForLeague(match.leagueId);
+  const profile = await getGameProfileForMatch(match);
   const next = swapPlayers(players, input.slotA, input.slotB, profile);
   return applyRosterAndSync(input.client, match.id, next);
 }
@@ -204,7 +196,7 @@ export async function remapLobbyPlayers(input: {
     hostDiscordId: input.hostDiscordId,
     matchId: input.matchId,
   });
-  const profile = await profileForLeague(match.leagueId);
+  const profile = await getGameProfileForMatch(match);
   const next = applyRemapPairs(players, input.pairs, profile);
   return applyRosterAndSync(input.client, match.id, next);
 }
@@ -220,7 +212,7 @@ export async function editLobbyPlayerNick(input: {
     hostDiscordId: input.hostDiscordId,
     matchId: input.matchId,
   });
-  const profile = await profileForLeague(match.leagueId);
+  const profile = await getGameProfileForMatch(match);
   const next = editPlayerNick(players, input.slot, input.nick, profile);
   return applyRosterAndSync(input.client, match.id, next);
 }

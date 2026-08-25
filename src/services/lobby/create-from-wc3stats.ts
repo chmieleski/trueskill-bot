@@ -13,6 +13,7 @@ import {
   getMatchById,
   hasMatchModRole,
   MatchServiceError,
+  requireLeagueId,
 } from '../match/index.js';
 import { isLeagueWc3statsImportReady, resolveLeagueConfig } from '../league/league-wc3stats.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
@@ -138,7 +139,7 @@ export async function createMatchFromWc3statsLobby(
 
   const newPlayerSuggestions = match
     ? await collectNewPlayerSuggestionsForPendingCreate({
-        leagueId: match.leagueId,
+        leagueId: requireLeagueId(match),
         matchId: match.id,
         players: match.players.map((player) => ({
           playerId: player.playerId,

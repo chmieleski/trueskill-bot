@@ -1,7 +1,13 @@
 import type { Prisma } from '@prisma/client';
 import { createLogger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
-import { getMatchById, MatchServiceError, type MatchWithPlayers } from './match-service.js';
+import {
+  getMatchById,
+  isEventMatch,
+  MatchServiceError,
+  requireLeagueId,
+  type MatchWithPlayers,
+} from './match-service.js';
 import {
   buildCompletedRatingPreview,
   ensurePlayerRatings,
@@ -236,6 +242,38 @@ export async function completeMatch(
     assertKnownSlots(match, quitterSet, 'quitter');
     assertKnownSlots(match, grieferSet, 'griefer');
 
+    const activeForTeams = match.players
+      .filter((p) => !quitterSet.has(p.slot))
+      .map((p) => ({ slot: p.slot, team: assertTeam(p.team) }));
+    assertBothTeamsHaveActivePlayers(activeForTeams);
+
+    // Event matches: roster/results only — no OpenSkill or IHL side effects.
+    if (isEventMatch(match)) {
+      for (const player of match.players) {
+        const isQuitter = quitterSet.has(player.slot);
+        const won = !isQuitter && isWinningTeam(player.team, winningTeam);
+
+        await tx.matchPlayer.update({
+          where: { matchId_playerId: { matchId, playerId: player.playerId } },
+          data: {
+            isQuitter,
+            isGriefer: grieferSet.has(player.slot),
+            result: won ? 'WIN' : 'LOSS',
+            wasNewPlayer: false,
+          },
+        });
+      }
+
+      await tx.match.update({
+        where: { id: matchId },
+        data: { status: 'COMPLETED', completedAt: new Date() },
+      });
+      ratingPreview = { players: [] };
+      return;
+    }
+
+    const leagueId = requireLeagueId(match);
+
     const previewEntries = matchPlayersToRatingEntries(
       match.players.map((player) => ({
         ...player,
@@ -244,15 +282,15 @@ export async function completeMatch(
       })),
     );
 
-    const beforeBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
+    const beforeBySlot = await loadPlayerKiBySlot(leagueId, previewEntries, tx);
 
     await ensurePlayerRatings(
-      match.leagueId,
+      leagueId,
       match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
       tx,
     );
     const playerIds = match.players.map((p) => p.playerId);
-    const isNewByPlayerId = await loadIsNewPlayerByPlayerId(match.leagueId, playerIds, tx);
+    const isNewByPlayerId = await loadIsNewPlayerByPlayerId(leagueId, playerIds, tx);
     const entries = toRatingEntries(match, quitterSet, grieferSet, isNewByPlayerId);
     const active = entries.filter((entry) => !entry.isQuitter);
     assertBothTeamsHaveActivePlayers(active);
@@ -261,9 +299,9 @@ export async function completeMatch(
       entry.wasNewPlayer = isNewByPlayerId.get(entry.playerId) === true;
     }
 
-    const winChance = await loadRosterWinChance(match.leagueId, previewEntries, tx);
+    const winChance = await loadRosterWinChance(leagueId, previewEntries, tx);
     await writeMatchRatingSnapshots(
-      match.leagueId,
+      leagueId,
       matchId,
       match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
       tx,
@@ -284,30 +322,30 @@ export async function completeMatch(
       });
     }
 
-    await applyQuitterPenalties(match.leagueId, entries, tx);
+    await applyQuitterPenalties(leagueId, entries, tx);
     const preMatchGlobal = await loadPreMatchGlobalByPlayer(matchId, tx);
-    const preMatchDisplayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds, tx);
+    const preMatchDisplayStats = await loadMatchDisplayStatsByPlayer(leagueId, playerIds, tx);
     const preMatchGamesByPlayer = gamesByPlayerFromStats(preMatchDisplayStats);
     await accrueGrieferPenalties(matchId, entries, preMatchGlobal, preMatchGamesByPlayer, tx);
     const completedAt = new Date();
-    await applyMatchRatings(match.leagueId, entries, winningTeam, completedAt, tx);
+    await applyMatchRatings(leagueId, entries, winningTeam, completedAt, tx);
 
     await tx.match.update({
       where: { id: matchId },
       data: { status: 'COMPLETED', completedAt },
     });
 
-    const displayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds, tx);
+    const displayStats = await loadMatchDisplayStatsByPlayer(leagueId, playerIds, tx);
     const gamesByPlayer = gamesByPlayerFromStats(displayStats);
     const clearIds = playerIdsToClearNewFlag(playerIds, gamesByPlayer);
     if (clearIds.length > 0) {
       await tx.playerRating.updateMany({
-        where: { leagueId: match.leagueId, playerId: { in: clearIds }, isNewPlayer: true },
+        where: { leagueId, playerId: { in: clearIds }, isNewPlayer: true },
         data: { isNewPlayer: false },
       });
     }
 
-    const afterBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
+    const afterBySlot = await loadPlayerKiBySlot(leagueId, previewEntries, tx);
     ratingPreview = buildCompletedRatingPreview(
       previewEntries,
       beforeBySlot,
@@ -359,21 +397,30 @@ export async function cancelInProgressMatch(
       }
     }
 
+    if (isEventMatch(match)) {
+      await tx.match.update({
+        where: { id: matchId },
+        data: { status: 'CANCELLED' },
+      });
+      return;
+    }
+
+    const leagueId = requireLeagueId(match);
     const entries = toRatingEntries(match, new Set(quitterSlots), grieferSet);
     const playerIds = match.players.map((p) => p.playerId);
 
     if (quitterSlots.length > 0) {
-      await applyQuitterPenalties(match.leagueId, entries, tx);
+      await applyQuitterPenalties(leagueId, entries, tx);
     }
 
     if (resolvedGrieferSlots.length > 0) {
       await ensurePlayerRatings(
-        match.leagueId,
+        leagueId,
         match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
         tx,
       );
-      const liveGlobal = await loadLiveGlobalByPlayer(match.leagueId, playerIds, tx);
-      const displayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds, tx);
+      const liveGlobal = await loadLiveGlobalByPlayer(leagueId, playerIds, tx);
+      const displayStats = await loadMatchDisplayStatsByPlayer(leagueId, playerIds, tx);
       const gamesByPlayer = gamesByPlayerFromStats(displayStats);
       await accrueGrieferPenalties(matchId, entries, liveGlobal, gamesByPlayer, tx);
     } else {
