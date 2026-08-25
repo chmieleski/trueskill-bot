@@ -26,6 +26,7 @@ Slots are **1–12**, comma-separated.
 • Tax applies to the **archived ending board** on **season rollover**
 • If someone is both quitter and griefer, **quit wins** (no griefer accrual)
 • Mods can `/match ungrief match_id:…` to clear flags/tax
+• Mods can `/match unquit match_id:…` to clear quitters (restores ki when still correctable within 24h)
 
 **Report Winner** flow: griefers → quitters → pick team → confirm.
 

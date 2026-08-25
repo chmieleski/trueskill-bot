@@ -17,6 +17,7 @@ People with the **mod role** help when the host is gone or stuck.
 • `/match void match_id:…` — undo result and restore ki within **24h** (mod only)
 • `/lobby recreate match_id:…` — open a new pending lobby from a **voided** match
 • `/match ungrief match_id:…` — clear griefer flags / deferred tax (`slots:` optional)
+• `/match unquit match_id:…` — clear quitter flags (`slots:` optional); restores ki when the match is still within the **24h** correction window
 • If players already played more ranked games, later matches are **not** recalculated
 
 **Accounts & New players**

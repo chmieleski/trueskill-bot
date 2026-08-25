@@ -20,8 +20,13 @@ import {
   loadPreMatchGlobalByPlayer,
   type RatingRosterEntry,
 } from '../rating/rating-update.js';
-import { writeMatchRatingSnapshots } from './match-correction.js';
+import {
+  flipCompletedMatch,
+  previewMatchCorrection,
+  writeMatchRatingSnapshots,
+} from './match-correction.js';
 import { persistMatchRatingPreviewToPlayers } from './match-history-preview.js';
+import { winningTeamFromPlayers } from './match-history.js';
 import {
   gamesByPlayerFromStats,
   loadMatchDisplayStatsByPlayer,
@@ -460,4 +465,158 @@ export async function clearMatchGriefers(
   const updated = await getMatchById(matchId);
   log.info({ matchId, cleared }, 'Griefers cleared from match');
   return { match: updated!, cleared };
+}
+
+export type ClearedMatchQuitter = {
+  slot: number;
+  playerId: string;
+};
+
+export type ClearMatchQuittersResult = {
+  match: MatchWithPlayers;
+  cleared: ClearedMatchQuitter[];
+  mode: 'ratings_restored' | 'flag_only';
+  /** Present when mode is flag_only — short English reason for the reply. */
+  flagOnlyReason?: string;
+  hasNewerMatches?: boolean;
+  ratingPreview?: LobbyRatingPreview;
+};
+
+/**
+ * Map correction preview / status into a short reason for the unquit reply.
+ */
+function unquitFlagOnlyReason(status: string, correctionBlockReason?: string): string {
+  if (status === 'CANCELLED') {
+    return 'match is cancelled';
+  }
+  if (!correctionBlockReason) {
+    return 'ratings cannot be restored';
+  }
+  if (correctionBlockReason.includes('24 hours')) {
+    return 'outside the 24-hour correction window';
+  }
+  if (correctionBlockReason.toLowerCase().includes('snapshot')) {
+    return 'rating snapshots are missing';
+  }
+  if (correctionBlockReason.toLowerCase().includes('archiv')) {
+    return 'league is archived';
+  }
+  return correctionBlockReason.replace(/^This match\s+/i, '').replace(/\.$/, '');
+}
+
+/**
+ * Clear quitter flags on a finished match (mods).
+ * When correctable COMPLETED: restore snapshots and re-apply with remaining quitters.
+ * Otherwise: flag-only (COMPLETED also fixes result to W/L from current winner).
+ * When `slots` is omitted or empty, clears every quitter on the match.
+ */
+export async function clearMatchQuitters(
+  matchId: string,
+  slots?: number[],
+): Promise<ClearMatchQuittersResult> {
+  const match = await getMatchById(matchId);
+
+  if (!match) {
+    throw new MatchServiceError('This match was not found.');
+  }
+
+  if (match.status !== 'COMPLETED' && match.status !== 'CANCELLED') {
+    throw new MatchServiceError(
+      'Quitter flags can only be cleared on completed or cancelled matches.',
+    );
+  }
+
+  const currentQuitterSlots = new Set(
+    match.players.filter((player) => player.isQuitter).map((player) => player.slot),
+  );
+
+  let targetSlots: Set<number>;
+  if (slots !== undefined && slots.length > 0) {
+    targetSlots = new Set(slots);
+    assertKnownSlots(match, targetSlots, 'quitter');
+    if (![...targetSlots].some((slot) => currentQuitterSlots.has(slot))) {
+      throw new MatchServiceError('The selected slots are not marked as quitters.');
+    }
+  } else {
+    targetSlots = new Set(currentQuitterSlots);
+    if (targetSlots.size === 0) {
+      throw new MatchServiceError('This match has no quitters to clear.');
+    }
+  }
+
+  const clearedPlayers = match.players.filter(
+    (player) => targetSlots.has(player.slot) && player.isQuitter,
+  );
+  const cleared: ClearedMatchQuitter[] = clearedPlayers.map((player) => ({
+    slot: player.slot,
+    playerId: player.playerId,
+  }));
+  const clearedSlotSet = new Set(cleared.map((row) => row.slot));
+  const remainingQuitters = [...currentQuitterSlots]
+    .filter((slot) => !clearedSlotSet.has(slot))
+    .sort((a, b) => a - b);
+
+  if (match.status === 'COMPLETED') {
+    const preview = await previewMatchCorrection(matchId);
+    if (preview.canCorrect) {
+      const winningTeam = winningTeamFromPlayers(match.players);
+      const flipResult = await flipCompletedMatch(matchId, winningTeam, remainingQuitters);
+      log.info(
+        { matchId, cleared, remainingQuitters, mode: 'ratings_restored' },
+        'Quitters cleared from match',
+      );
+      return {
+        match: flipResult.match,
+        cleared,
+        mode: 'ratings_restored',
+        hasNewerMatches: preview.hasNewerMatches,
+        ratingPreview: flipResult.ratingPreview,
+      };
+    }
+
+    const winningTeam = winningTeamFromPlayers(match.players);
+    await prisma.$transaction(async (tx) => {
+      for (const player of clearedPlayers) {
+        await tx.matchPlayer.update({
+          where: { matchId_playerId: { matchId, playerId: player.playerId } },
+          data: {
+            isQuitter: false,
+            result: player.team === winningTeam ? 'WIN' : 'LOSS',
+          },
+        });
+      }
+    });
+
+    const updated = await getMatchById(matchId);
+    const flagOnlyReason = unquitFlagOnlyReason(match.status, preview.correctionBlockReason);
+    log.info(
+      { matchId, cleared, mode: 'flag_only', flagOnlyReason },
+      'Quitters cleared from match',
+    );
+    return {
+      match: updated!,
+      cleared,
+      mode: 'flag_only',
+      flagOnlyReason,
+    };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    for (const player of clearedPlayers) {
+      await tx.matchPlayer.update({
+        where: { matchId_playerId: { matchId, playerId: player.playerId } },
+        data: { isQuitter: false },
+      });
+    }
+  });
+
+  const updated = await getMatchById(matchId);
+  const flagOnlyReason = unquitFlagOnlyReason(match.status);
+  log.info({ matchId, cleared, mode: 'flag_only', flagOnlyReason }, 'Quitters cleared from match');
+  return {
+    match: updated!,
+    cleared,
+    mode: 'flag_only',
+    flagOnlyReason,
+  };
 }

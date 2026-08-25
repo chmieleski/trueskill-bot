@@ -27,7 +27,7 @@ Draft card → edit summary → **Publish** (all changelog channels) or **Dismis
 
 **Mod role**
 • `/match complete|quitters|griefers|cancel` (+ `match_id`)
-• `/match flip` / `void` (24h) · `/match ungrief`
+• `/match flip` / `void` (24h) · `/match ungrief` · `/match unquit`
 • `/lobby recreate` after void · `/lobby remove` / `screenshot` with `match_id`
 • `/link` / `/unlink` others · `/player_new set|clear` · `/rank_reset user:`
 
