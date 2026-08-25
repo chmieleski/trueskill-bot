@@ -26,12 +26,12 @@ import {
 } from '../../services/match/index.js';
 import {
   getMatchById,
+  getGameProfileForMatch,
   MatchServiceError,
   type MatchWithPlayers,
 } from '../../services/match/index.js';
 import { assertCanManageMatch } from '../../services/match/index.js';
 import { assertTeam, type GameProfile } from '../../domain/game-profile.js';
-import { getGameProfileForLeague } from '../../services/league/index.js';
 import { resolveGuildConfig, winnerLabel } from '../../services/guild/index.js';
 import {
   buildReportConfirmCustomId,
@@ -503,7 +503,7 @@ async function resolveById(
 }
 
 async function profileForMatch(match: MatchWithPlayers): Promise<GameProfile> {
-  return getGameProfileForLeague(match.leagueId);
+  return getGameProfileForMatch(match);
 }
 
 /**

@@ -3,13 +3,14 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'disc
 import { prisma } from '../../lib/prisma.js';
 import { loadHeroCatalog } from '../guild/hero-catalog.js';
 import { listLeaguesForGuild } from '../league/league.js';
-import { getGameProfileForLeague } from '../league/league-profile.js';
 import { CALIBRATING_LABEL, isCalibrating } from '../rating/rating-math.js';
 import { buildMatchCompletedEmbed } from '../lobby/lobby-preview.js';
 import {
+  getGameProfileForMatch,
   getMatchById,
   matchToLobbyPlayers,
   MatchServiceError,
+  requireLeagueId,
   type MatchWithPlayers,
 } from './match-service.js';
 import { compactUuidForCustomId, expandUuidFromCustomId } from './compact-custom-id.js';
@@ -432,13 +433,15 @@ export async function loadCompletedMatchShow(input: {
     throw new MatchServiceError('This match was not found.');
   }
 
+  const leagueId = requireLeagueId(match);
+
   const leagues = await listLeaguesForGuild(input.guildId);
   const allowed = new Set(leagues.map((league) => league.id));
-  if (!allowed.has(match.leagueId)) {
+  if (!allowed.has(leagueId)) {
     throw new MatchServiceError('This match was not found.');
   }
 
-  if (input.leagueId && match.leagueId !== input.leagueId) {
+  if (input.leagueId && leagueId !== input.leagueId) {
     throw new MatchServiceError('This match was not found.');
   }
 
@@ -446,7 +449,7 @@ export async function loadCompletedMatchShow(input: {
     throw new MatchServiceError('This match is not completed.');
   }
 
-  const profile = await getGameProfileForLeague(match.leagueId);
+  const profile = await getGameProfileForMatch(match);
   const winningTeam = winningTeamFromPlayers(match.players);
   const ratingPreview = await resolveCompletedRatingPreview(match);
   const embed = buildMatchCompletedEmbed(match.id, matchToLobbyPlayers(match), {

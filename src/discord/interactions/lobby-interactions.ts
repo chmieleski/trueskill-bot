@@ -39,12 +39,13 @@ import { claimSlotSelectOptions, LOBBY_CUSTOM_IDS } from '../../services/lobby/i
 import { loadHeroCatalog } from '../../services/guild/index.js';
 import { nickForDiscordId } from '../../services/lobby/index.js';
 import { resolveGuildConfig } from '../../services/guild/index.js';
-import { assertCanManageMatch, MatchServiceError } from '../../services/match/index.js';
-import { teamDisplayName, teamDisplayNameForSlot } from '../../services/guild/index.js';
 import {
-  getGameProfileForLeague,
-  LeagueNotFoundError,
-} from '../../services/league/league-profile.js';
+  assertCanManageMatch,
+  getGameProfileForMatch,
+  MatchServiceError,
+  requireLeagueId,
+} from '../../services/match/index.js';
+import { teamDisplayName, teamDisplayNameForSlot } from '../../services/guild/index.js';
 import {
   invalidSlotMessage,
   teamForSlot,
@@ -331,17 +332,6 @@ async function requirePendingMatch(messageId: string) {
   }
 }
 
-async function profileForMatch(leagueId: string): Promise<GameProfile> {
-  try {
-    return await getGameProfileForLeague(leagueId);
-  } catch (error) {
-    if (error instanceof LeagueNotFoundError) {
-      throw new MatchServiceError(error.message);
-    }
-    throw error;
-  }
-}
-
 async function applyPlayersUpdate(
   interaction: MessageComponentInteraction | ModalSubmitInteraction,
   messageId: string,
@@ -527,7 +517,7 @@ async function handleAdd(interaction: ButtonInteraction): Promise<void> {
     return;
   }
 
-  const profile = await profileForMatch(result.match.leagueId);
+  const profile = await getGameProfileForMatch(result.match);
   if (emptySlotSelectOptions(result.players, profile).length === 0) {
     await replyEphemeral(interaction, 'No empty slots available. Remove a player first.');
     return;
@@ -620,7 +610,7 @@ async function handleSelectAddTeam(
     return;
   }
 
-  const profile = await profileForMatch(result.match.leagueId);
+  const profile = await getGameProfileForMatch(result.match);
   try {
     nextEmptySlotOnTeam(result.players, profile, team as TeamId);
   } catch (error) {
@@ -669,8 +659,8 @@ async function handleClaim(interaction: ButtonInteraction): Promise<void> {
 
   let profile: GameProfile;
   try {
-    await assertLobbyPlayerClaimEnabled(result.match.leagueId);
-    profile = await profileForMatch(result.match.leagueId);
+    await assertLobbyPlayerClaimEnabled(requireLeagueId(result.match));
+    profile = await getGameProfileForMatch(result.match);
     const nick = await nickForDiscordId(interaction.user.id, profile.gameId);
     const existing = result.players.find((player) => player.nick === nick);
 
@@ -868,7 +858,7 @@ async function handleSelectMovePlayer(
     return;
   }
 
-  const profile = await profileForMatch(result.match.leagueId);
+  const profile = await getGameProfileForMatch(result.match);
   const destinations = destinationSlotSelectOptions(result.players, fromSlot, profile);
 
   if (destinations.length === 0) {
@@ -913,7 +903,7 @@ async function handleSelectMoveSlot(
   const rawDestination = interaction.values[0]!;
 
   try {
-    const profile = await profileForMatch(result.match.leagueId);
+    const profile = await getGameProfileForMatch(result.match);
     const toSlot = resolveDestinationSlot(rawDestination, result.players, profile);
     const nextPlayers = movePlayer(result.players, fromSlot, toSlot, profile);
     const updated = await applyPlayersUpdate(interaction, messageId, nextPlayers);
@@ -946,7 +936,7 @@ async function handleSelectRemove(
   const slot = Number(interaction.values[0]);
 
   try {
-    const profile = await profileForMatch(result.match.leagueId);
+    const profile = await getGameProfileForMatch(result.match);
     const nextPlayers = removePlayer(result.players, { slot }, profile);
     const updated = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
@@ -993,7 +983,7 @@ async function handleModalEditNick(
   const nick = interaction.fields.getTextInputValue('nick');
 
   try {
-    const profile = await profileForMatch(result.match.leagueId);
+    const profile = await getGameProfileForMatch(result.match);
     const nextPlayers = editPlayerNick(result.players, slot, nick, profile);
     const updated = await applyPlayersUpdate(interaction, messageId, nextPlayers);
 
@@ -1040,7 +1030,7 @@ async function handleModalAdd(
   const nick = interaction.fields.getTextInputValue('nick');
 
   try {
-    const profile = await profileForMatch(result.match.leagueId);
+    const profile = await getGameProfileForMatch(result.match);
     let slot: number;
 
     if (teamFromSelect != null) {

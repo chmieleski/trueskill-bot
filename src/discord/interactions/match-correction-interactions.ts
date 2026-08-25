@@ -16,6 +16,7 @@ import {
   assertHasMatchModRole,
   flipCompletedMatch,
   MatchServiceError,
+  requireLeagueId,
   parseMatchCorrectionButtonCustomId,
   buildMatchCorrectionConfirmCustomId,
   buildMatchCorrectionCancelCustomId,
@@ -95,7 +96,7 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
       parsed.quitterSlots,
     );
     await syncLobbyDiscordMessage(interaction.client, updated, 'completed', { ratingPreview });
-    await refreshLeagueLeaderboard(interaction.client, updated.leagueId);
+    await refreshLeagueLeaderboard(interaction.client, requireLeagueId(updated));
     if (interaction.guildId) {
       await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
       await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);
@@ -109,7 +110,7 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
     await syncLobbyDiscordMessage(interaction.client, updated, 'cancelled', {
       cancelReason: 'by a moderator',
     });
-    await refreshLeagueLeaderboard(interaction.client, updated.leagueId);
+    await refreshLeagueLeaderboard(interaction.client, requireLeagueId(updated));
     if (interaction.guildId) {
       await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
       await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);
