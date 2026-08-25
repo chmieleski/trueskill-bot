@@ -1,7 +1,13 @@
 import type { Prisma } from '@prisma/client';
 import { createLogger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
-import { getMatchById, MatchServiceError, type MatchWithPlayers } from './match-service.js';
+import {
+  getMatchById,
+  isEventMatch,
+  MatchServiceError,
+  requireLeagueId,
+  type MatchWithPlayers,
+} from './match-service.js';
 import {
   buildCompletedRatingPreview,
   ensurePlayerRatings,
@@ -216,10 +222,10 @@ export async function assertSnapshotsComplete(
 
 /**
  * Returns true if any of the given players completed another match
- * in this league after completedAt.
+ * in this league (or event) after completedAt.
  */
 export async function hasNewerCompletedMatches(
-  leagueId: string,
+  tenant: { leagueId: string } | { eventId: string },
   matchId: string,
   completedAt: Date,
   playerIds: string[],
@@ -233,7 +239,7 @@ export async function hasNewerCompletedMatches(
       playerId: { in: playerIds },
       matchId: { not: matchId },
       match: {
-        leagueId,
+        ...tenant,
         status: 'COMPLETED',
         completedAt: { gt: completedAt },
       },
@@ -387,17 +393,19 @@ export async function previewMatchCorrection(matchId: string): Promise<MatchCorr
     throw new MatchServiceError('This match was not found.');
   }
 
-  const league = await prisma.league.findUnique({
-    where: { id: match.leagueId },
-    select: { status: true },
-  });
-  if (league && !isLeagueWritable(league)) {
-    return {
-      match,
-      canCorrect: false,
-      hasNewerMatches: false,
-      correctionBlockReason: LEAGUE_ARCHIVED_MESSAGE,
-    };
+  if (!isEventMatch(match)) {
+    const league = await prisma.league.findUnique({
+      where: { id: requireLeagueId(match) },
+      select: { status: true },
+    });
+    if (league && !isLeagueWritable(league)) {
+      return {
+        match,
+        canCorrect: false,
+        hasNewerMatches: false,
+        correctionBlockReason: LEAGUE_ARCHIVED_MESSAGE,
+      };
+    }
   }
 
   if (match.status !== 'COMPLETED') {
@@ -418,19 +426,25 @@ export async function previewMatchCorrection(matchId: string): Promise<MatchCorr
     };
   }
 
-  const snapshotCount = await prisma.matchRatingSnapshot.count({ where: { matchId } });
-  if (snapshotCount !== expectedSnapshotCount(match.players)) {
-    return {
-      match,
-      canCorrect: false,
-      hasNewerMatches: false,
-      correctionBlockReason: 'This match cannot be corrected because rating snapshots are missing.',
-    };
+  if (!isEventMatch(match)) {
+    const snapshotCount = await prisma.matchRatingSnapshot.count({ where: { matchId } });
+    if (snapshotCount !== expectedSnapshotCount(match.players)) {
+      return {
+        match,
+        canCorrect: false,
+        hasNewerMatches: false,
+        correctionBlockReason:
+          'This match cannot be corrected because rating snapshots are missing.',
+      };
+    }
   }
 
   const playerIds = match.players.map((p) => p.playerId);
+  const tenant = isEventMatch(match)
+    ? { eventId: match.eventId! }
+    : { leagueId: requireLeagueId(match) };
   const newerMatches = await hasNewerCompletedMatches(
-    match.leagueId,
+    tenant,
     matchId,
     match.completedAt!,
     playerIds,
@@ -516,13 +530,36 @@ export async function flipCompletedMatch(
   await prisma.$transaction(async (tx) => {
     const match = await lockCompletedMatch(tx, matchId);
     assertMatchCorrectable(match);
-    await assertSnapshotsComplete(matchId, match.players, tx);
-
-    await restoreMatchRatingSnapshots(match.leagueId, matchId, tx);
 
     resolvedQuitterSlots = resolveQuitterSlots(match.players, quitterSlots);
     const quitterSet = new Set(resolvedQuitterSlots);
     assertKnownQuitterSlots(match, quitterSet);
+
+    const activeForTeams = match.players
+      .filter((e) => !quitterSet.has(e.slot))
+      .map((e) => ({ slot: e.slot, team: assertTeam(e.team) }));
+    assertBothTeamsHaveActivePlayers(activeForTeams);
+
+    if (isEventMatch(match)) {
+      for (const player of match.players) {
+        const isQuitter = quitterSet.has(player.slot);
+        const won = !isQuitter && isWinningTeam(player.team, winningTeam);
+        await tx.matchPlayer.update({
+          where: { matchId_playerId: { matchId, playerId: player.playerId } },
+          data: {
+            isQuitter,
+            isGriefer: player.isGriefer,
+            result: won ? 'WIN' : 'LOSS',
+          },
+        });
+      }
+      ratingPreview = { players: [] };
+      return;
+    }
+
+    const leagueId = requireLeagueId(match);
+    await assertSnapshotsComplete(matchId, match.players, tx);
+    await restoreMatchRatingSnapshots(leagueId, matchId, tx);
 
     const entries = toRatingEntries(match, quitterSet);
     const active = entries.filter((e) => !e.isQuitter);
@@ -537,12 +574,12 @@ export async function flipCompletedMatch(
       })),
     );
     await ensurePlayerRatings(
-      match.leagueId,
+      leagueId,
       match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
       tx,
     );
-    const beforeBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
-    const winChance = await loadRosterWinChance(match.leagueId, previewEntries, tx);
+    const beforeBySlot = await loadPlayerKiBySlot(leagueId, previewEntries, tx);
+    const winChance = await loadRosterWinChance(leagueId, previewEntries, tx);
 
     for (const player of match.players) {
       const isQuitter = quitterSet.has(player.slot);
@@ -557,26 +594,26 @@ export async function flipCompletedMatch(
       });
     }
 
-    await applyQuitterPenalties(match.leagueId, entries, tx);
+    await applyQuitterPenalties(leagueId, entries, tx);
     const preMatchGlobal = await loadPreMatchGlobalByPlayer(matchId, tx);
     const playerIds = previewEntries.map((entry) => entry.playerId);
-    const preMatchDisplayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds, tx);
+    const preMatchDisplayStats = await loadMatchDisplayStatsByPlayer(leagueId, playerIds, tx);
     const preMatchGamesByPlayer = gamesByPlayerFromStats(preMatchDisplayStats);
     await accrueGrieferPenalties(matchId, entries, preMatchGlobal, preMatchGamesByPlayer, tx);
     const completedAt = match.completedAt ?? new Date();
-    await applyMatchRatings(match.leagueId, entries, winningTeam, completedAt, tx);
+    await applyMatchRatings(leagueId, entries, winningTeam, completedAt, tx);
 
-    const displayStats = await loadMatchDisplayStatsByPlayer(match.leagueId, playerIds, tx);
+    const displayStats = await loadMatchDisplayStatsByPlayer(leagueId, playerIds, tx);
     const gamesByPlayer = gamesByPlayerFromStats(displayStats);
     const clearIds = playerIdsToClearNewFlag(playerIds, gamesByPlayer);
     if (clearIds.length > 0) {
       await tx.playerRating.updateMany({
-        where: { leagueId: match.leagueId, playerId: { in: clearIds }, isNewPlayer: true },
+        where: { leagueId, playerId: { in: clearIds }, isNewPlayer: true },
         data: { isNewPlayer: false },
       });
     }
 
-    const afterBySlot = await loadPlayerKiBySlot(match.leagueId, previewEntries, tx);
+    const afterBySlot = await loadPlayerKiBySlot(leagueId, previewEntries, tx);
     ratingPreview = buildCompletedRatingPreview(
       previewEntries,
       beforeBySlot,
@@ -605,9 +642,11 @@ export async function voidCompletedMatch(matchId: string): Promise<MatchWithPlay
   await prisma.$transaction(async (tx) => {
     const match = await lockCompletedMatch(tx, matchId);
     assertMatchCorrectable(match);
-    await assertSnapshotsComplete(matchId, match.players, tx);
 
-    await restoreMatchRatingSnapshots(match.leagueId, matchId, tx);
+    if (!isEventMatch(match)) {
+      await assertSnapshotsComplete(matchId, match.players, tx);
+      await restoreMatchRatingSnapshots(requireLeagueId(match), matchId, tx);
+    }
 
     for (const player of match.players) {
       await tx.matchPlayer.update({

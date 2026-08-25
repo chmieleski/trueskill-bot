@@ -1,10 +1,12 @@
 import type { Match, MatchPlayer, Player, Prisma } from '@prisma/client';
-import type { GameProfile } from '../../domain/game-profile.js';
 import {
+  getGameProfile,
+  type GameProfile,
   invalidSlotMessage,
   isSlotInProfile,
   rosterHeroId,
   teamForSlot,
+  UnknownGameIdError,
 } from '../../domain/game-profile.js';
 import { prisma } from '../../lib/prisma.js';
 import { createLogger } from '../../lib/logger.js';
@@ -17,6 +19,11 @@ import {
 } from '../guild/hero-catalog.js';
 import { isLeagueWritable, LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
 import { getGameProfileForLeague, LeagueNotFoundError } from '../league/league-profile.js';
+import {
+  EVENT_NOT_ACTIVE_MESSAGE,
+  EVENT_NOT_FOUND_MESSAGE,
+  isEventWritable,
+} from '../event/event.js';
 
 const log = createLogger('match');
 
@@ -42,8 +49,7 @@ export interface CreatedPendingMatch {
   playerCount: number;
 }
 
-export interface CreatePendingMatchInput {
-  leagueId: string;
+export type CreatePendingMatchInput = {
   hostDiscordId: string;
   discordChannelId: string;
   players: LobbyPlayer[];
@@ -51,6 +57,19 @@ export interface CreatePendingMatchInput {
   bypassHostLobbyCap?: boolean;
   /** Set when roster authority comes from a screenshot at register time. */
   lobbyRosterAuthorityAt?: Date | null;
+} & ({ leagueId: string; eventId?: never } | { eventId: string; leagueId?: never });
+
+/** True when the match belongs to an Event (unrated). */
+export function isEventMatch(match: { eventId: string | null }): boolean {
+  return match.eventId != null;
+}
+
+/** Require IHL leagueId; throws for Event matches. */
+export function requireLeagueId(match: { leagueId: string | null }): string {
+  if (match.leagueId == null) {
+    throw new MatchServiceError('This action is only available for league (IHL) matches.');
+  }
+  return match.leagueId;
 }
 
 export type ReplaceMatchRosterOptions = {
@@ -123,6 +142,41 @@ async function loadMatchProfile(leagueId: string): Promise<GameProfile> {
   }
 }
 
+async function loadMatchProfileForTenant(match: {
+  leagueId: string | null;
+  eventId: string | null;
+}): Promise<GameProfile> {
+  if (match.leagueId) {
+    return loadMatchProfile(match.leagueId);
+  }
+  if (match.eventId) {
+    const event = await prisma.event.findUnique({
+      where: { id: match.eventId },
+      select: { gameId: true },
+    });
+    if (!event) {
+      throw new MatchServiceError(EVENT_NOT_FOUND_MESSAGE);
+    }
+    try {
+      return getGameProfile(event.gameId);
+    } catch (error) {
+      if (error instanceof UnknownGameIdError) {
+        throw new MatchServiceError(error.message);
+      }
+      throw error;
+    }
+  }
+  throw new MatchServiceError('Match has no league or event.');
+}
+
+/** Public helper: game profile for a league or event match. */
+export async function getGameProfileForMatch(match: {
+  leagueId: string | null;
+  eventId: string | null;
+}): Promise<GameProfile> {
+  return loadMatchProfileForTenant(match);
+}
+
 function toLobbyPlayers(match: MatchWithPlayers): LobbyPlayer[] {
   return match.players
     .map((entry) => ({
@@ -147,7 +201,7 @@ function teamCounts(
 async function resolvePlayersInTx(
   tx: Prisma.TransactionClient,
   players: LobbyPlayer[],
-  leagueId: string,
+  leagueId: string | null,
   profile: GameProfile,
 ): Promise<{ playerId: string; slot: number; team: number; heroId: number | null }[]> {
   const sorted = withNormalizedNicks(players).sort((a, b) => a.slot - b.slot);
@@ -195,23 +249,25 @@ async function resolvePlayersInTx(
     };
   });
 
-  await tx.playerRating.createMany({
-    data: resolved.map((entry) => ({ leagueId, playerId: entry.playerId })),
-    skipDuplicates: true,
-  });
-
-  const withHero = resolved.filter(
-    (entry): entry is typeof entry & { heroId: number } => entry.heroId != null,
-  );
-  if (withHero.length > 0) {
-    await tx.playerHeroRating.createMany({
-      data: withHero.map((entry) => ({
-        leagueId,
-        playerId: entry.playerId,
-        heroId: entry.heroId,
-      })),
+  if (leagueId != null) {
+    await tx.playerRating.createMany({
+      data: resolved.map((entry) => ({ leagueId, playerId: entry.playerId })),
       skipDuplicates: true,
     });
+
+    const withHero = resolved.filter(
+      (entry): entry is typeof entry & { heroId: number } => entry.heroId != null,
+    );
+    if (withHero.length > 0) {
+      await tx.playerHeroRating.createMany({
+        data: withHero.map((entry) => ({
+          leagueId,
+          playerId: entry.playerId,
+          heroId: entry.heroId,
+        })),
+        skipDuplicates: true,
+      });
+    }
   }
 
   return resolved;
@@ -232,7 +288,8 @@ export function hostLobbyCapMessage(status: 'PENDING' | 'IN_PROGRESS', matchId: 
 export async function assertHostLobbyCapInTx(
   tx: Prisma.TransactionClient,
   input: {
-    leagueId: string;
+    leagueId?: string | null;
+    eventId?: string | null;
     hostDiscordId: string;
     bypassHostLobbyCap?: boolean;
   },
@@ -241,9 +298,19 @@ export async function assertHostLobbyCapInTx(
     return;
   }
 
+  const tenantWhere =
+    input.eventId != null
+      ? { eventId: input.eventId }
+      : input.leagueId != null
+        ? { leagueId: input.leagueId }
+        : null;
+  if (tenantWhere == null) {
+    throw new MatchServiceError('Match has no league or event.');
+  }
+
   const existing = await tx.match.findFirst({
     where: {
-      leagueId: input.leagueId,
+      ...tenantWhere,
       hostDiscordId: input.hostDiscordId,
       status: { in: ['PENDING', 'IN_PROGRESS'] },
     },
@@ -335,15 +402,44 @@ export async function linkMatchWc3statsGameId(
 export async function createPendingMatch(
   input: CreatePendingMatchInput,
 ): Promise<CreatedPendingMatch> {
-  const league = await prisma.league.findUnique({
-    where: { id: input.leagueId },
-    select: { status: true },
-  });
-  if (league && !isLeagueWritable(league)) {
-    throw new MatchServiceError(LEAGUE_ARCHIVED_MESSAGE);
+  const eventId = 'eventId' in input && input.eventId ? input.eventId : null;
+  const leagueId = 'leagueId' in input && input.leagueId ? input.leagueId : null;
+
+  if ((eventId == null) === (leagueId == null)) {
+    throw new MatchServiceError('Match must belong to exactly one of league or event.');
   }
 
-  const profile = await loadMatchProfile(input.leagueId);
+  let profile: GameProfile;
+  if (leagueId) {
+    const league = await prisma.league.findUnique({
+      where: { id: leagueId },
+      select: { status: true },
+    });
+    if (league && !isLeagueWritable(league)) {
+      throw new MatchServiceError(LEAGUE_ARCHIVED_MESSAGE);
+    }
+    profile = await loadMatchProfile(leagueId);
+  } else {
+    const event = await prisma.event.findUnique({
+      where: { id: eventId! },
+      select: { status: true, gameId: true },
+    });
+    if (!event) {
+      throw new MatchServiceError(EVENT_NOT_FOUND_MESSAGE);
+    }
+    if (!isEventWritable(event)) {
+      throw new MatchServiceError(EVENT_NOT_ACTIVE_MESSAGE);
+    }
+    try {
+      profile = getGameProfile(event.gameId);
+    } catch (error) {
+      if (error instanceof UnknownGameIdError) {
+        throw new MatchServiceError(error.message);
+      }
+      throw error;
+    }
+  }
+
   const players = withNormalizedNicks(input.players);
   assertValidSlots(players, profile);
   assertUniqueNicks(players);
@@ -363,15 +459,16 @@ export async function createPendingMatch(
 
   const created = await prisma.$transaction(async (tx) => {
     await assertHostLobbyCapInTx(tx, {
-      leagueId: input.leagueId,
+      leagueId,
+      eventId,
       hostDiscordId: input.hostDiscordId,
       bypassHostLobbyCap: input.bypassHostLobbyCap === true,
     });
 
-    if (wc3statsGameId) {
+    if (wc3statsGameId && leagueId) {
       const existing = await tx.match.findFirst({
         where: {
-          leagueId: input.leagueId,
+          leagueId,
           wc3statsGameId,
           status: { in: ['PENDING', 'IN_PROGRESS'] },
         },
@@ -383,12 +480,13 @@ export async function createPendingMatch(
       }
     }
 
-    const resolved = await resolvePlayersInTx(tx, players, input.leagueId, profile);
+    const resolved = await resolvePlayersInTx(tx, players, leagueId, profile);
 
     return tx.match.create({
       data: {
         status: 'PENDING',
-        leagueId: input.leagueId,
+        leagueId,
+        eventId,
         hostDiscordId: input.hostDiscordId,
         discordChannelId: input.discordChannelId,
         wc3statsGameId,
@@ -520,7 +618,7 @@ export async function replaceMatchRoster(
     throw new MatchServiceError('This match lobby was not found.');
   }
 
-  const profile = await loadMatchProfile(existingMatch.leagueId);
+  const profile = await loadMatchProfileForTenant(existingMatch);
   const roster = withNormalizedNicks(players);
   assertValidSlots(roster, profile);
   assertUniqueNicks(roster);
@@ -643,7 +741,7 @@ export async function startMatch(matchId: string): Promise<MatchWithPlayers> {
     throw new MatchServiceError('This match has already been started or cancelled.');
   }
 
-  const profile = await loadMatchProfile(match.leagueId);
+  const profile = await loadMatchProfileForTenant(match);
   const players = toLobbyPlayers(match);
   assertUniqueNicks(players);
   assertBothTeamsOccupied(players, profile);

@@ -2,8 +2,11 @@ export {
   attachDiscordMessage,
   createPendingMatch,
   findInProgressMatchesByHost,
+  getGameProfileForMatch,
   getMatchById,
+  isEventMatch,
   MatchServiceError,
+  requireLeagueId,
   type MatchWithPlayers,
 } from './match-service.js';
 export {
