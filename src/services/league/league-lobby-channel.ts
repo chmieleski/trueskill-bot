@@ -174,7 +174,11 @@ const LOBBY_CHANNEL_ALLOWED_MATCH_SUBCOMMANDS = new Set([
   'cancel',
   'quitters',
   'griefers',
+  'void',
+  'unquit',
 ]);
+
+const LOBBY_CHANNEL_ALLOWED_PLAYER_NEW_SUBCOMMANDS = new Set(['set', 'clear']);
 
 /** User-facing copy when a non-allowlisted slash command is used in a ready lobby channel. */
 export function lobbyChannelCommandsLimitedMessage(channelId: string): string {
@@ -183,7 +187,7 @@ export function lobbyChannelCommandsLimitedMessage(channelId: string): string {
 
 /**
  * Slash commands permitted inside a ready league lobby channel.
- * `/match` is limited to in-progress ops; missing/unknown subcommand is denied.
+ * `/match` is limited to in-progress and mod-correction ops; missing/unknown subcommand is denied.
  */
 export function isLobbyChannelAllowedCommand(
   commandName: string,
@@ -195,6 +199,11 @@ export function isLobbyChannelAllowedCommand(
   if (commandName === 'match') {
     return (
       typeof subcommand === 'string' && LOBBY_CHANNEL_ALLOWED_MATCH_SUBCOMMANDS.has(subcommand)
+    );
+  }
+  if (commandName === 'player_new') {
+    return (
+      typeof subcommand === 'string' && LOBBY_CHANNEL_ALLOWED_PLAYER_NEW_SUBCOMMANDS.has(subcommand)
     );
   }
   return false;

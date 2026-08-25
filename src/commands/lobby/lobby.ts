@@ -27,6 +27,20 @@ import { sendNewPlayerSuggestPrompts } from '../../discord/interactions/new-play
 
 const log = createLogger('lobby_cmd');
 
+function isSendableTextChannel(
+  channel: unknown,
+): channel is { send: (options: unknown) => Promise<{ id: string }> } {
+  return Boolean(
+    channel &&
+    typeof channel === 'object' &&
+    'isTextBased' in channel &&
+    typeof (channel as { isTextBased: () => boolean }).isTextBased === 'function' &&
+    (channel as { isTextBased: () => boolean }).isTextBased() &&
+    'send' in channel &&
+    typeof (channel as { send: unknown }).send === 'function',
+  );
+}
+
 const MIN_SLOT = 1;
 const MAX_SLOT = 12;
 
@@ -212,8 +226,7 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const subcommand = interaction.options.getSubcommand(true);
-  const isPublicLobbyPost = subcommand === 'recreate';
-  await interaction.deferReply(isPublicLobbyPost ? {} : { flags: MessageFlags.Ephemeral });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const matchId = interaction.options.getString('match_id');
   const hostDiscordId = interaction.user.id;
 
@@ -432,7 +445,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         discordChannelId: interaction.channelId,
       });
 
-      await interaction.editReply({
+      if (!isSendableTextChannel(interaction.channel)) {
+        throw new MatchServiceError('This command can only be used in a server text channel.');
+      }
+
+      const lobbyMessage = await interaction.channel.send({
         embeds: [
           buildMatchLobbyEmbed(result.matchId, result.players, {
             canStart: result.canStart,
@@ -453,8 +470,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         }),
       });
 
-      const previewMessage = await interaction.fetchReply();
-      await attachRecreatedLobbyMessage(result.matchId, previewMessage.id, interaction.channelId);
+      await attachRecreatedLobbyMessage(result.matchId, lobbyMessage.id, interaction.channelId);
+
+      await interaction.editReply({
+        content: `Lobby recreated from cancelled match \`${result.sourceMatchId}\` → \`${result.matchId}\`.`,
+      });
 
       await sendNewPlayerSuggestPrompts({
         interaction,

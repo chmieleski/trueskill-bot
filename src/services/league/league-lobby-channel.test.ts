@@ -274,19 +274,27 @@ describe('isLobbyChannelAllowedCommand', () => {
     expect(isLobbyChannelAllowedCommand('lobby', null)).toBe(true);
   });
 
-  it('allows only match complete, cancel, quitters, and griefers', () => {
+  it('allows match complete, cancel, quitters, griefers, void, and unquit', () => {
     expect(isLobbyChannelAllowedCommand('match', 'complete')).toBe(true);
     expect(isLobbyChannelAllowedCommand('match', 'cancel')).toBe(true);
     expect(isLobbyChannelAllowedCommand('match', 'quitters')).toBe(true);
     expect(isLobbyChannelAllowedCommand('match', 'griefers')).toBe(true);
+    expect(isLobbyChannelAllowedCommand('match', 'void')).toBe(true);
+    expect(isLobbyChannelAllowedCommand('match', 'unquit')).toBe(true);
     expect(isLobbyChannelAllowedCommand('match', 'abusers')).toBe(false);
     expect(isLobbyChannelAllowedCommand('match', 'history')).toBe(false);
     expect(isLobbyChannelAllowedCommand('match', 'list')).toBe(false);
     expect(isLobbyChannelAllowedCommand('match', 'show')).toBe(false);
     expect(isLobbyChannelAllowedCommand('match', 'flip')).toBe(false);
-    expect(isLobbyChannelAllowedCommand('match', 'void')).toBe(false);
     expect(isLobbyChannelAllowedCommand('match', null)).toBe(false);
     expect(isLobbyChannelAllowedCommand('match')).toBe(false);
+  });
+
+  it('allows player_new set and clear only', () => {
+    expect(isLobbyChannelAllowedCommand('player_new', 'set')).toBe(true);
+    expect(isLobbyChannelAllowedCommand('player_new', 'clear')).toBe(true);
+    expect(isLobbyChannelAllowedCommand('player_new', null)).toBe(false);
+    expect(isLobbyChannelAllowedCommand('player_new')).toBe(false);
   });
 
   it('blocks other root commands', () => {
@@ -341,7 +349,14 @@ describe('getLobbyChannelSlashDenial', () => {
 
   it('returns null for allowed commands without hitting the DB', async () => {
     await expect(getLobbyChannelSlashDenial('g', 'lobby', 'lobby', 'add')).resolves.toBeNull();
+    await expect(getLobbyChannelSlashDenial('g', 'lobby', 'lobby', 'recreate')).resolves.toBeNull();
     await expect(getLobbyChannelSlashDenial('g', 'lobby', 'match', 'complete')).resolves.toBeNull();
+    await expect(getLobbyChannelSlashDenial('g', 'lobby', 'match', 'void')).resolves.toBeNull();
+    await expect(getLobbyChannelSlashDenial('g', 'lobby', 'match', 'unquit')).resolves.toBeNull();
+    await expect(getLobbyChannelSlashDenial('g', 'lobby', 'player_new', 'set')).resolves.toBeNull();
+    await expect(
+      getLobbyChannelSlashDenial('g', 'lobby', 'player_new', 'clear'),
+    ).resolves.toBeNull();
     expect(findFirst).not.toHaveBeenCalled();
   });
 
