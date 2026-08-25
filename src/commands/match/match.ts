@@ -11,11 +11,13 @@ import { assertCanManageMatch } from '../../services/match/index.js';
 import {
   refreshAllLeaderboardChannels,
   refreshGuildGrieferLeaderboard,
+  refreshGuildQuitterLeaderboard,
   refreshLeagueLeaderboard,
 } from '../../services/leaderboard/index.js';
 import {
   cancelInProgressMatch,
   clearMatchGriefers,
+  clearMatchQuitters,
   completeMatch,
   setGriefers,
   setQuitters,
@@ -35,6 +37,7 @@ import {
   MatchServiceError,
   previewMatchCorrection,
   resolveHistoryPlayer,
+  type ClearedMatchQuitter,
   type MatchWithPlayers,
 } from '../../services/match/index.js';
 import { buildMatchCorrectionConfirmComponents } from '../../discord/interactions/match-correction-interactions.js';
@@ -251,8 +254,8 @@ async function resolveCompletedMatchForModCorrection(
   return match;
 }
 
-/** Mod-only lookup for clearing griefers on a finished match. */
-async function resolveFinishedMatchForModGrieferClear(
+/** Mod-only lookup for clearing griefers/quitters on a finished match. */
+async function resolveFinishedMatchForModClear(
   interaction: ChatInputCommandInteraction,
 ): Promise<MatchWithPlayers> {
   if (!interaction.guildId) {
@@ -286,6 +289,31 @@ function formatClearedGriefersMessage(
 ): string {
   const lines = cleared.map((row) => `slot **${row.slot}** (−${row.kiTaxRemoved} ki from pool)`);
   return `Cleared griefer flag on match \`${matchId}\`: ${lines.join(', ')}.`;
+}
+
+function formatClearedQuittersMessage(
+  matchId: string,
+  cleared: ClearedMatchQuitter[],
+  mode: 'ratings_restored' | 'flag_only',
+  options: { flagOnlyReason?: string; hasNewerMatches?: boolean } = {},
+): string {
+  const slots = cleared.map((row) => row.slot).join(', ');
+  const lines = [`Cleared quitter(s) on match \`${matchId}\`: slots ${slots}.`];
+
+  if (mode === 'ratings_restored') {
+    lines.push('Ratings were restored and re-applied.');
+    if (options.hasNewerMatches) {
+      lines.push(
+        'Warning: some players have completed ranked matches since this one. Restoring ratings will overwrite their current ki; those later matches will not be re-applied.',
+      );
+    }
+  } else {
+    lines.push(
+      `Ratings were not restored (${options.flagOnlyReason ?? 'ratings cannot be restored'}).`,
+    );
+  }
+
+  return lines.join(' ');
 }
 
 async function applyMatchMutation(
@@ -503,6 +531,25 @@ export const data = new SlashCommandBuilder()
           .setDescription('Comma-separated slots to clear; omit to clear all griefers on the match')
           .setRequired(false),
       ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('unquit')
+      .setDescription(
+        'Clear quitter flags on a finished match; restore ratings when possible (mods only)',
+      )
+      .addStringOption((option) =>
+        option
+          .setName('match_id')
+          .setDescription('Completed or cancelled match id')
+          .setRequired(true),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('slots')
+          .setDescription('Comma-separated slots to clear; omit to clear all quitters on the match')
+          .setRequired(false),
+      ),
   );
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
@@ -714,7 +761,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     if (subcommand === 'ungrief') {
-      await resolveFinishedMatchForModGrieferClear(interaction);
+      await resolveFinishedMatchForModClear(interaction);
       const matchId = interaction.options.getString('match_id', true);
       const slotsRaw = interaction.options.getString('slots');
       const slots = slotsRaw === null ? undefined : parseGrieferSlots(slotsRaw);
@@ -729,6 +776,34 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
       await interaction.editReply({
         content: formatClearedGriefersMessage(match.id, cleared),
+      });
+      return;
+    }
+
+    if (subcommand === 'unquit') {
+      await resolveFinishedMatchForModClear(interaction);
+      const matchId = interaction.options.getString('match_id', true);
+      const slotsRaw = interaction.options.getString('slots');
+      const slots = slotsRaw === null ? undefined : parseQuitterSlots(slotsRaw);
+
+      await interaction.editReply({ content: 'Clearing quitter flags…' });
+      const result = await clearMatchQuitters(matchId, slots);
+
+      const syncMode = result.match.status === 'COMPLETED' ? 'completed' : 'cancelled';
+      await syncLobbyDiscordMessage(interaction.client, result.match, syncMode, {
+        ratingPreview: result.ratingPreview,
+      });
+
+      if (interaction.guildId) {
+        await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
+      }
+      await refreshLeagueLeaderboard(interaction.client, result.match.leagueId);
+
+      await interaction.editReply({
+        content: formatClearedQuittersMessage(result.match.id, result.cleared, result.mode, {
+          flagOnlyReason: result.flagOnlyReason,
+          hasNewerMatches: result.hasNewerMatches,
+        }),
       });
       return;
     }

@@ -9,11 +9,14 @@ export {
 export {
   cancelInProgressMatch,
   clearMatchGriefers,
+  clearMatchQuitters,
   completeMatch,
   setGriefers,
   setQuitters,
   resolveGrieferSlots,
   type ClearedMatchGriefer,
+  type ClearedMatchQuitter,
+  type ClearMatchQuittersResult,
   type CompleteMatchResult,
 } from './match-report.js';
 export {
