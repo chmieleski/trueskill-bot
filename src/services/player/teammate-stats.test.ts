@@ -22,8 +22,10 @@ vi.mock('../rating/rank-reset-display.js', async (importOriginal) => {
 });
 
 import {
+  aggregateCompanionPairs,
   aggregateTeammatePairs,
   buildTeammateStatsFromPairs,
+  COMPANION_RECENCY_DAYS,
   formatTeammateTable,
   loadTeammateStats,
   pickTopTeammates,
@@ -130,27 +132,31 @@ describe('pickTopTeammates', () => {
 
 describe('aggregateTeammatePairs', () => {
   it('counts same-team partners and ignores the viewed player', () => {
-    const pairs = aggregateTeammatePairs([
-      {
-        matchId: 'm1',
-        completedAt: new Date('2026-08-01'),
-        viewedPlayerId: 'p1',
-        viewedTeam: 1,
-        viewedResult: 'WIN',
-        partners: [
-          { playerId: 'p2', username: 'Ghost' },
-          { playerId: 'p3', username: 'Krillin' },
-        ],
-      },
-      {
-        matchId: 'm2',
-        completedAt: new Date('2026-08-02'),
-        viewedPlayerId: 'p1',
-        viewedTeam: 1,
-        viewedResult: 'LOSS',
-        partners: [{ playerId: 'p2', username: 'Ghost' }],
-      },
-    ]);
+    const now = new Date('2026-08-25T12:00:00.000Z');
+    const pairs = aggregateTeammatePairs(
+      [
+        {
+          matchId: 'm1',
+          completedAt: new Date('2026-08-20T00:00:00.000Z'),
+          viewedPlayerId: 'p1',
+          viewedTeam: 1,
+          viewedResult: 'WIN',
+          partners: [
+            { playerId: 'p2', username: 'Ghost' },
+            { playerId: 'p3', username: 'Krillin' },
+          ],
+        },
+        {
+          matchId: 'm2',
+          completedAt: new Date('2026-08-21T00:00:00.000Z'),
+          viewedPlayerId: 'p1',
+          viewedTeam: 1,
+          viewedResult: 'LOSS',
+          partners: [{ playerId: 'p2', username: 'Ghost' }],
+        },
+      ],
+      { now },
+    );
     const byId = new Map(pairs.map((p) => [p.playerId, p]));
     expect(byId.get('p2')).toMatchObject({
       username: 'Ghost',
@@ -172,6 +178,49 @@ describe('aggregateTeammatePairs', () => {
   it("skips rows before the caller's rank-reset cutoff when filtered upstream", () => {
     // aggregateTeammatePairs only sees already-eligible rows; empty in → empty out
     expect(aggregateTeammatePairs([])).toEqual([]);
+  });
+
+  it('keeps all-time stats for active pairs and hides pairs past the recency window', () => {
+    const now = new Date('2026-08-25T12:00:00.000Z');
+    const pairs = aggregateCompanionPairs(
+      [
+        ...Array.from({ length: 9 }, (_, index) => ({
+          matchId: `old-${index}`,
+          completedAt: new Date('2026-06-01T00:00:00.000Z'),
+          viewedPlayerId: 'p1',
+          viewedTeam: 1,
+          viewedResult: 'WIN' as const,
+          partners: [{ playerId: 'p2', username: 'Tiny' }],
+        })),
+        {
+          matchId: 'recent',
+          completedAt: new Date('2026-08-22T00:00:00.000Z'),
+          viewedPlayerId: 'p1',
+          viewedTeam: 1,
+          viewedResult: 'WIN',
+          partners: [{ playerId: 'p2', username: 'Tiny' }],
+        },
+        {
+          matchId: 'stale',
+          completedAt: new Date('2026-08-01T00:00:00.000Z'),
+          viewedPlayerId: 'p1',
+          viewedTeam: 1,
+          viewedResult: 'WIN',
+          partners: [{ playerId: 'p3', username: 'Ghost' }],
+        },
+      ],
+      { now },
+    );
+    const byId = new Map(pairs.map((p) => [p.playerId, p]));
+    expect(byId.get('p2')).toMatchObject({
+      username: 'Tiny',
+      games: 10,
+      wins: 10,
+      losses: 0,
+      winRatePercent: 100,
+    });
+    expect(byId.has('p3')).toBe(false);
+    expect(COMPANION_RECENCY_DAYS).toBe(14);
   });
 });
 
@@ -252,7 +301,7 @@ describe('loadTeammateStats', () => {
         result: 'WIN',
         match: {
           id: 'm1',
-          completedAt: new Date('2026-08-11T00:00:00.000Z'),
+          completedAt: new Date('2026-08-20T00:00:00.000Z'),
           players: [
             { playerId: 'p1', team: 1, result: 'WIN', player: { username: 'Me' } },
             { playerId: 'p2', team: 1, result: 'WIN', player: { username: 'Ghost' } },
@@ -266,7 +315,7 @@ describe('loadTeammateStats', () => {
         result: 'LOSS',
         match: {
           id: 'm2',
-          completedAt: new Date('2026-08-12T00:00:00.000Z'),
+          completedAt: new Date('2026-08-21T00:00:00.000Z'),
           players: [
             { playerId: 'p1', team: 1, result: 'LOSS', player: { username: 'Me' } },
             {
