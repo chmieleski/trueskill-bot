@@ -32,6 +32,9 @@ export type TeammateMatchRow = {
 
 const DEFAULT_TOP = 3;
 
+/** Only list partners/opponents with a shared match within this many days (stats still all-time). */
+export const COMPANION_RECENCY_DAYS = 14;
+
 /** Min shared games before a pair can appear on Win with / Lose with. */
 export const WINRATE_LIST_MIN_GAMES = 5;
 
@@ -88,36 +91,66 @@ export function pickTopTeammates(
     .slice(0, limit);
 }
 
-/** Aggregate same-team partner W/L from already-eligible match rows. */
-export function aggregateTeammatePairs(rows: TeammateMatchRow[]): TeammatePairStats[] {
-  const buckets = new Map<string, { username: string; wins: number; losses: number }>();
+type PairBucket = {
+  username: string;
+  wins: number;
+  losses: number;
+  lastPlayedAt: Date | null;
+};
+
+function recencyCutoff(recencyDays: number, now: Date): Date {
+  return new Date(now.getTime() - recencyDays * 24 * 60 * 60 * 1000);
+}
+
+/** Aggregate partner/opponent W/L from eligible rows; hide pairs idle longer than the recency window. */
+export function aggregateCompanionPairs(
+  rows: TeammateMatchRow[],
+  options?: { recencyDays?: number; now?: Date },
+): TeammatePairStats[] {
+  const recencyDays = options?.recencyDays ?? COMPANION_RECENCY_DAYS;
+  const now = options?.now ?? new Date();
+  const cutoff = recencyCutoff(recencyDays, now);
+  const buckets = new Map<string, PairBucket>();
 
   for (const row of rows) {
     for (const partner of row.partners) {
       if (partner.playerId === row.viewedPlayerId) continue;
       let bucket = buckets.get(partner.playerId);
       if (!bucket) {
-        bucket = { username: partner.username, wins: 0, losses: 0 };
+        bucket = { username: partner.username, wins: 0, losses: 0, lastPlayedAt: null };
         buckets.set(partner.playerId, bucket);
       } else {
         bucket.username = partner.username;
+      }
+      if (row.completedAt && (!bucket.lastPlayedAt || row.completedAt > bucket.lastPlayedAt)) {
+        bucket.lastPlayedAt = row.completedAt;
       }
       if (row.viewedResult === 'WIN') bucket.wins += 1;
       else bucket.losses += 1;
     }
   }
 
-  return [...buckets.entries()].map(([playerId, bucket]) => {
-    const games = bucket.wins + bucket.losses;
-    return {
-      playerId,
-      username: bucket.username,
-      games,
-      wins: bucket.wins,
-      losses: bucket.losses,
-      winRatePercent: winRatePercent(bucket.wins, bucket.losses),
-    };
-  });
+  return [...buckets.entries()]
+    .filter(([, bucket]) => bucket.lastPlayedAt !== null && bucket.lastPlayedAt >= cutoff)
+    .map(([playerId, bucket]) => {
+      const games = bucket.wins + bucket.losses;
+      return {
+        playerId,
+        username: bucket.username,
+        games,
+        wins: bucket.wins,
+        losses: bucket.losses,
+        winRatePercent: winRatePercent(bucket.wins, bucket.losses),
+      };
+    });
+}
+
+/** Aggregate same-team partner W/L from already-eligible match rows. */
+export function aggregateTeammatePairs(
+  rows: TeammateMatchRow[],
+  options?: { recencyDays?: number; now?: Date },
+): TeammatePairStats[] {
+  return aggregateCompanionPairs(rows, options);
 }
 
 /** Monospace table: `Nick  14G · 9W 5L · 64.3%`. */
