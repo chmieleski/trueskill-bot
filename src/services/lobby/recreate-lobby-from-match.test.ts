@@ -103,7 +103,7 @@ describe('recreateLobbyFromVoidedMatch', () => {
     });
   });
 
-  it('rejects non-voided matches', async () => {
+  it('rejects non-cancelled matches', async () => {
     getMatchById.mockResolvedValue({
       ...VOIDED_MATCH,
       status: 'COMPLETED',
@@ -120,6 +120,38 @@ describe('recreateLobbyFromVoidedMatch', () => {
     ).rejects.toThrow(MatchServiceError);
 
     expect(createPendingMatch).not.toHaveBeenCalled();
+  });
+
+  it('creates a pending lobby from a cancelled match without completedAt', async () => {
+    getMatchById
+      .mockResolvedValueOnce({
+        ...VOIDED_MATCH,
+        completedAt: null,
+      })
+      .mockResolvedValueOnce({
+        ...VOIDED_MATCH,
+        id: 'new-2',
+        status: 'PENDING',
+        completedAt: null,
+      });
+    createPendingMatch.mockResolvedValue({
+      matchId: 'new-2',
+      createdAt: new Date('2026-08-23T11:30:00Z'),
+      teamACount: 1,
+      teamBCount: 0,
+      playerCount: 1,
+    });
+
+    const result = await recreateLobbyFromVoidedMatch({
+      actorDiscordId: 'mod-1',
+      memberRoleIds: ['mod-role'],
+      matchModRoleId: 'mod-role',
+      sourceMatchId: 'voided-1',
+      discordChannelId: 'chan-2',
+    });
+
+    expect(createPendingMatch).toHaveBeenCalled();
+    expect(result.matchId).toBe('new-2');
   });
 
   it('creates a pending lobby from a voided roster', async () => {

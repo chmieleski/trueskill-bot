@@ -201,13 +201,11 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName('recreate')
-      .setDescription(
-        'Recreate a pending lobby from a voided match roster (mods only; use after /match void)',
-      )
+      .setDescription('Recreate a pending lobby from a cancelled match roster (mods only)')
       .addStringOption((option) =>
         option
           .setName('match_id')
-          .setDescription('Voided completed match id to copy the roster from')
+          .setDescription('Cancelled match id to copy the roster from')
           .setRequired(true),
       ),
   );
