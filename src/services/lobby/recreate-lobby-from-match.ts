@@ -26,8 +26,7 @@ import { getEventById, isEventWritable, EVENT_NOT_ACTIVE_MESSAGE } from '../even
 
 const log = createLogger('recreate-lobby-from-match');
 
-const NOT_VOIDED_MESSAGE =
-  'Only a voided completed match can be recreated. Void the match first with /match void.';
+const NOT_RECREATABLE_MESSAGE = 'Only a cancelled match can be recreated.';
 const NOT_FOUND_MESSAGE = 'This match was not found.';
 
 export type RecreateLobbyFromMatchInput = {
@@ -56,18 +55,16 @@ export type RecreateLobbyFromMatchResult = {
   newPlayerSuggestions: NewPlayerSuggestion[];
 };
 
-/**
- * A voided match is CANCELLED but still has completedAt from when it was rated.
- */
-function assertVoidedCompletedMatch(match: MatchWithPlayers): void {
-  if (match.status !== 'CANCELLED' || !match.completedAt) {
-    throw new MatchServiceError(NOT_VOIDED_MESSAGE);
+/** Cancelled lobbies (pending, in-progress, or voided completed) keep their roster. */
+function assertRecreatableMatch(match: MatchWithPlayers): void {
+  if (match.status !== 'CANCELLED') {
+    throw new MatchServiceError(NOT_RECREATABLE_MESSAGE);
   }
 }
 
 /**
- * Create a fresh PENDING lobby from a voided completed match roster (mods only).
- * Pairs with `/match void` when names or seats need correction before re-playing.
+ * Create a fresh PENDING lobby from a cancelled match roster (mods only).
+ * Used after `/match void`, `/lobby cancel`, or `/match cancel`.
  */
 export async function recreateLobbyFromVoidedMatch(
   input: RecreateLobbyFromMatchInput,
@@ -83,7 +80,7 @@ export async function recreateLobbyFromVoidedMatch(
     throw new MatchServiceError(NOT_FOUND_MESSAGE);
   }
 
-  assertVoidedCompletedMatch(source);
+  assertRecreatableMatch(source);
 
   const players = matchToLobbyPlayers(source);
   const profile = await getGameProfileForMatch(source);
