@@ -1,3 +1,15 @@
+# [1.26.0](https://github.com/chmieleski/trueskill-bot/compare/v1.25.2...v1.26.0) (2026-08-25)
+
+
+### Bug Fixes
+
+* **lobby:** allow mod commands in lobby channel with ephemeral recreate ([#99](https://github.com/chmieleski/trueskill-bot/issues/99)) ([82ec180](https://github.com/chmieleski/trueskill-bot/commit/82ec1807fe6596d720c052ba91e6c4e87c6cf3af))
+
+
+### Features
+
+* **rank:** add opponent lists with 14-day recency filter ([#98](https://github.com/chmieleski/trueskill-bot/issues/98)) ([81eb2b9](https://github.com/chmieleski/trueskill-bot/commit/81eb2b9205016ecbb29a02750b4ec6f0d2a1d6bb))
+
 ## [1.25.2](https://github.com/chmieleski/trueskill-bot/compare/v1.25.1...v1.25.2) (2026-08-25)
 
 
