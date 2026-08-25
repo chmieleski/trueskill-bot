@@ -1,3 +1,10 @@
+# [1.23.0](https://github.com/chmieleski/trueskill-bot/compare/v1.22.0...v1.23.0) (2026-08-25)
+
+
+### Features
+
+* **event:** unrated event matches sibling to leagues ([#93](https://github.com/chmieleski/trueskill-bot/issues/93)) ([bd3227d](https://github.com/chmieleski/trueskill-bot/commit/bd3227d1fd6655f225339e4df28fc81f9ed66a85))
+
 # [1.22.0](https://github.com/chmieleski/trueskill-bot/compare/v1.21.1...v1.22.0) (2026-08-25)
 
 
