@@ -1,3 +1,10 @@
+## [1.26.1](https://github.com/chmieleski/trueskill-bot/compare/v1.26.0...v1.26.1) (2026-08-25)
+
+
+### Bug Fixes
+
+* **rank:** dedupe teammate lists and remove opponent fields ([#100](https://github.com/chmieleski/trueskill-bot/issues/100)) ([c73ab56](https://github.com/chmieleski/trueskill-bot/commit/c73ab56d88443ce868fcda7afc81562108b58168))
+
 # [1.26.0](https://github.com/chmieleski/trueskill-bot/compare/v1.25.2...v1.26.0) (2026-08-25)
 
 
