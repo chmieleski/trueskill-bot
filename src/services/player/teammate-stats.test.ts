@@ -62,21 +62,27 @@ describe('pickTopTeammates', () => {
     expect(pickTopTeammates(pairs, 'games').map((p) => p.username)).toEqual(['Ann', 'Bob', 'Zed']);
   });
 
-  it('sorts winWith by wins and loseWith by losses', () => {
+  it('sorts winRate by WR% desc then games, loseRate by WR% asc then games', () => {
     const pairs = [
       pair({ playerId: 'a', username: 'Low', games: 10, wins: 2, losses: 8 }),
       pair({ playerId: 'b', username: 'High', games: 5, wins: 5, losses: 0 }),
       pair({ playerId: 'c', username: 'Mid', games: 6, wins: 3, losses: 3 }),
+      // Same WR% as High but fewer games — loses the games tie-break
+      pair({ playerId: 'd', username: 'AlsoHigh', games: 2, wins: 2, losses: 0 }),
     ];
-    expect(pickTopTeammates(pairs, 'wins').map((p) => p.username)).toEqual(['High', 'Mid', 'Low']);
-    expect(pickTopTeammates(pairs, 'losses').map((p) => p.username)).toEqual([
+    expect(pickTopTeammates(pairs, 'winRate').map((p) => p.username)).toEqual([
+      'High',
+      'AlsoHigh',
+      'Mid',
+    ]);
+    expect(pickTopTeammates(pairs, 'loseRate').map((p) => p.username)).toEqual([
       'Low',
       'Mid',
       'High',
     ]);
   });
 
-  it('sorts null WR% after numeric WR%', () => {
+  it('sorts null WR% after numeric WR% for games, winRate, and loseRate', () => {
     const pairs = [
       pair({
         playerId: 'a',
@@ -89,6 +95,8 @@ describe('pickTopTeammates', () => {
       pair({ playerId: 'b', username: 'Zero', games: 5, wins: 0, losses: 5 }),
     ];
     expect(pickTopTeammates(pairs, 'games').map((p) => p.username)).toEqual(['Zero', 'Null']);
+    expect(pickTopTeammates(pairs, 'winRate').map((p) => p.username)).toEqual(['Zero', 'Null']);
+    expect(pickTopTeammates(pairs, 'loseRate').map((p) => p.username)).toEqual(['Zero', 'Null']);
   });
 });
 
@@ -172,16 +180,16 @@ describe('formatTeammateTable', () => {
 describe('buildTeammateStatsFromPairs', () => {
   it('builds three top-3 lists from the same pool', () => {
     const pairs = [
-      pair({ playerId: 'a', username: 'Ghost', games: 14, wins: 9, losses: 5 }),
-      pair({ playerId: 'b', username: 'Krillin', games: 11, wins: 6, losses: 5 }),
-      pair({ playerId: 'c', username: 'Piccolo', games: 8, wins: 5, losses: 3 }),
-      pair({ playerId: 'd', username: 'Gohan', games: 5, wins: 4, losses: 1 }),
-      pair({ playerId: 'e', username: 'Yamcha', games: 4, wins: 1, losses: 3 }),
+      pair({ playerId: 'a', username: 'Ghost', games: 14, wins: 9, losses: 5 }), // 64.3%
+      pair({ playerId: 'b', username: 'Krillin', games: 11, wins: 6, losses: 5 }), // 54.5%
+      pair({ playerId: 'c', username: 'Piccolo', games: 8, wins: 5, losses: 3 }), // 62.5%
+      pair({ playerId: 'd', username: 'Gohan', games: 5, wins: 4, losses: 1 }), // 80%
+      pair({ playerId: 'e', username: 'Yamcha', games: 4, wins: 1, losses: 3 }), // 25%
     ];
     const stats = buildTeammateStatsFromPairs(pairs);
     expect(stats.playedWith.map((p) => p.username)).toEqual(['Ghost', 'Krillin', 'Piccolo']);
-    expect(stats.winWith.map((p) => p.username)).toEqual(['Ghost', 'Krillin', 'Piccolo']);
-    expect(stats.loseWith.map((p) => p.username)).toEqual(['Ghost', 'Krillin', 'Piccolo']);
+    expect(stats.winWith.map((p) => p.username)).toEqual(['Gohan', 'Ghost', 'Piccolo']);
+    expect(stats.loseWith.map((p) => p.username)).toEqual(['Yamcha', 'Krillin', 'Piccolo']);
   });
 });
 
