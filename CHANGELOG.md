@@ -1,3 +1,10 @@
+# [1.24.0](https://github.com/chmieleski/trueskill-bot/compare/v1.23.0...v1.24.0) (2026-08-25)
+
+
+### Features
+
+* **rank:** sort win/lose with by winrate ([#94](https://github.com/chmieleski/trueskill-bot/issues/94)) ([6457825](https://github.com/chmieleski/trueskill-bot/commit/6457825a18d29e574a26cf8d5651c27e507cb0ac))
+
 # [1.23.0](https://github.com/chmieleski/trueskill-bot/compare/v1.22.0...v1.23.0) (2026-08-25)
 
 
