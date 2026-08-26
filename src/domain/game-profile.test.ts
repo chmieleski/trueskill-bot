@@ -19,6 +19,7 @@ describe('getGameProfile', () => {
     expect(profile.import).toBe('wc3stats');
     expect(profile.ratingLabel).toBe('ki');
     expect(profile.teamNames).toEqual({ 1: 'Z Fighters', 2: 'Evil' });
+    expect(profile.sideWinLossDefault).toBe(true);
   });
 
   it('returns ACA 10-slot optional_in_game none profile', () => {
@@ -31,6 +32,7 @@ describe('getGameProfile', () => {
     expect(profile.import).toBe('none');
     expect(profile.ratingLabel).toBe('ki');
     expect(profile.teamNames).toEqual({ 1: 'Team A', 2: 'Team B' });
+    expect(profile.sideWinLossDefault).toBe(false);
   });
 
   it('throws UnknownGameIdError for unknown ids', () => {

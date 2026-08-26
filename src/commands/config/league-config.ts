@@ -22,7 +22,10 @@ import {
   setLeagueLobbyChannel,
   withSubcommandLeagueOption,
 } from '../../services/league/index.js';
-import { setBalanceStaticSigmaEnabled } from '../../services/league/league-balance-config.js';
+import {
+  setBalanceStaticSigmaEnabled,
+  setShowSideWinLoss,
+} from '../../services/league/league-balance-config.js';
 import { BALANCE_STATIC_SIGMA } from '../../services/rating/rating-entities.js';
 import {
   clearAllLeagueWc3statsSlotMaps,
@@ -174,6 +177,19 @@ export const data = new SlashCommandBuilder()
               option
                 .setName('enabled')
                 .setDescription('On: fixed σ for balance. Off: use each player’s persisted σ.')
+                .setRequired(true),
+            ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('side_win_loss')
+            .setDescription('Show per-side W–L on /rank (Z Fighters / Evil, or Team A / Team B)')
+            .addBooleanOption((option) =>
+              option
+                .setName('enabled')
+                .setDescription('On: second /rank line with side W–L. Off: hide it.')
                 .setRequired(true),
             ),
         ),
@@ -509,6 +525,23 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         content: enabled
           ? `Lobby balance uses static σ (${BALANCE_STATIC_SIGMA}). Ki apply is unchanged.`
           : 'Lobby balance uses each player’s persisted σ again.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (subcommand === 'side_win_loss') {
+      const leagueId = await requireLeagueId(interaction);
+      if (!leagueId) return;
+
+      const enabled = interaction.options.getBoolean('enabled', true);
+      await setShowSideWinLoss(leagueId, enabled);
+      log.info(
+        { guildId: interaction.guildId, leagueId, enabled, userId: interaction.user.id },
+        'Rank side W/L setting updated',
+      );
+      await interaction.reply({
+        content: enabled ? 'Side W–L line enabled on /rank.' : 'Side W–L line disabled on /rank.',
         flags: MessageFlags.Ephemeral,
       });
       return;

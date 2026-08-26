@@ -136,6 +136,7 @@ const ACTIVE_SOURCE = {
   wc3statsHostPromptChannelId: null,
   rankResetEnabled: true,
   rankResetCooldownDays: 30,
+  showSideWinLoss: true,
   decayEnabled: true,
   balanceStaticSigmaEnabled: true,
   seasonEndsAt: SEASON_ENDS_AT,
@@ -491,6 +492,7 @@ describe('applyLeagueRollover', () => {
       data: expect.objectContaining({
         decayEnabled: true,
         balanceStaticSigmaEnabled: true,
+        showSideWinLoss: true,
         seasonEndsAt: SEASON_ENDS_AT,
         crunchStartedAt: CRUNCH_STARTED_AT,
       }),
@@ -650,6 +652,7 @@ describe('applyLeagueRollover', () => {
       data: expect.objectContaining({
         decayEnabled: true,
         balanceStaticSigmaEnabled: true,
+        showSideWinLoss: true,
         seasonEndsAt: SEASON_ENDS_AT,
         crunchStartedAt: CRUNCH_STARTED_AT,
       }),

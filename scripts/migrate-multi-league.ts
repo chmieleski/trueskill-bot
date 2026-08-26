@@ -211,6 +211,7 @@ async function ensureGameAndLeagues(
         guildId,
         gameId: WARCRAFT3_UDBR_GAME_ID,
         name: DEFAULT_LEAGUE_NAME,
+        showSideWinLoss: true,
       },
     });
     leaguesCreated += 1;

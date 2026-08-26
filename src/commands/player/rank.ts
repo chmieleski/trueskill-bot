@@ -93,6 +93,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           ratingLabel: gameProfile.ratingLabel,
           showHeroes: gameProfile.heroBinding === 'slot_bound',
           teammates,
+          teamNames: gameProfile.teamNames,
         }),
       ],
     };

@@ -15,6 +15,8 @@ export type GameProfile = {
   /** User-facing rating unit (e.g. "ki"). Math unchanged; label is per game. */
   ratingLabel: string;
   teamNames: { 1: string; 2: string };
+  /** Default for League.showSideWinLoss when creating a league of this game. */
+  sideWinLossDefault: boolean;
 };
 
 export class UnknownGameIdError extends Error {
@@ -34,6 +36,7 @@ const GAME_PROFILES: Record<string, GameProfile> = {
     import: 'wc3stats',
     ratingLabel: 'ki',
     teamNames: { 1: 'Z Fighters', 2: 'Evil' },
+    sideWinLossDefault: true,
   },
   [WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID]: {
     gameId: WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
@@ -44,6 +47,7 @@ const GAME_PROFILES: Record<string, GameProfile> = {
     import: 'none',
     ratingLabel: 'ki',
     teamNames: { 1: 'Team A', 2: 'Team B' },
+    sideWinLossDefault: false,
   },
 };
 
