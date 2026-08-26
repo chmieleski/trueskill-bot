@@ -88,15 +88,26 @@ function applyIndependentSyntheticLosses(
   return { global: nextGlobal, hero: nextHero };
 }
 
-export function partitionRosterForRating<T extends { isQuitter: boolean; wasNewPlayer?: boolean }>(
-  entries: T[],
-): { quitters: T[]; newNonQuit: T[]; activeRateable: T[] } {
+export function partitionRosterForRating<
+  T extends { isQuitter: boolean; wasNewPlayer?: boolean; team: 1 | 2; slot: number },
+>(entries: T[]): { quitters: T[]; newNonQuit: T[]; activeRateable: T[] } {
   const quitters = entries.filter((entry) => entry.isQuitter);
   const nonQuit = entries.filter((entry) => !entry.isQuitter);
+  const nonQuitNew = nonQuit.filter((entry) => entry.wasNewPlayer === true);
+
+  const newOnTeam = (team: 1 | 2) =>
+    nonQuitNew.filter((entry) => entry.team === team).sort((a, b) => a.slot - b.slot);
+
+  const team1New = newOnTeam(1);
+  const team2New = newOnTeam(2);
+  const k = Math.min(team1New.length, team2New.length);
+
+  const frozen = new Set<T>([...team1New.slice(0, k), ...team2New.slice(0, k)]);
+
   return {
     quitters,
-    newNonQuit: nonQuit.filter((entry) => entry.wasNewPlayer === true),
-    activeRateable: nonQuit.filter((entry) => entry.wasNewPlayer !== true),
+    newNonQuit: nonQuitNew.filter((entry) => frozen.has(entry)),
+    activeRateable: nonQuit.filter((entry) => !frozen.has(entry)),
   };
 }
 
@@ -478,7 +489,7 @@ function idleDecayActivityReset(completedAt: Date) {
 
 /**
  * Persist idle-decay activity reset for non-quit participants.
- * Runs even when team OpenSkill rate() was skipped (New freeze).
+ * Runs even when team OpenSkill rate() was skipped (paired New freeze).
  */
 async function resetIdleDecayStreakForNonQuit(
   leagueId: string,
@@ -598,7 +609,7 @@ export async function applyMatchRatings(
     });
   }
 
-  // New non-quit finishers skip team rate but still reset idle streak.
+  // Paired frozen New skip team rate but still reset idle streak.
   const { newNonQuit } = partitionRosterForRating(sorted);
   await resetIdleDecayStreakForNonQuit(leagueId, newNonQuit, completedAt, db);
 }

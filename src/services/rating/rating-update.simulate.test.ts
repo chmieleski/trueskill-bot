@@ -122,6 +122,36 @@ describe('simulatePostMatchRatings with New', () => {
     expect(globalByPlayer.get('vetB')!.mu).toBeLessThan(32);
   });
 
+  it('rates one-sided New μ when the other team has no non-quit New', () => {
+    const entries = [
+      {
+        playerId: 'vetA',
+        slot: 1,
+        team: 1 as const,
+        heroId: null,
+        isQuitter: false,
+        wasNewPlayer: false,
+      },
+      {
+        playerId: 'newB',
+        slot: 7,
+        team: 2 as const,
+        heroId: null,
+        isQuitter: false,
+        wasNewPlayer: true,
+      },
+    ];
+    const start = new Map([
+      ['vetA', { mu: 32, sigma: 5 }],
+      ['newB', { mu: 25, sigma: 8.333 }],
+    ]);
+
+    const { globalByPlayer } = simulatePostMatchRatings(entries, 1, start, new Map());
+
+    expect(globalByPlayer.get('vetA')!.mu).toBeGreaterThan(32);
+    expect(globalByPlayer.get('newB')!.mu).not.toBe(25);
+  });
+
   it('skips team rate when both sides are only New (quitters optional)', () => {
     const entries = [
       {

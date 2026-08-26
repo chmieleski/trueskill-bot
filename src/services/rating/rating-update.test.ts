@@ -59,9 +59,9 @@ describe('applySyntheticLosses', () => {
 describe('partitionRosterForRating', () => {
   it('splits quitters from rateable veterans', () => {
     const { quitters, newNonQuit, activeRateable } = partitionRosterForRating([
-      { slot: 1, isQuitter: true },
-      { slot: 2, isQuitter: false },
-      { slot: 7, isQuitter: false },
+      { slot: 1, team: 1, isQuitter: true },
+      { slot: 2, team: 1, isQuitter: false },
+      { slot: 7, team: 2, isQuitter: false },
     ]);
 
     expect(quitters.map((entry) => entry.slot)).toEqual([1]);
@@ -71,8 +71,8 @@ describe('partitionRosterForRating', () => {
 
   it('keeps griefers in the rateable roster when not New', () => {
     const { quitters, newNonQuit, activeRateable } = partitionRosterForRating([
-      { slot: 1, isQuitter: false },
-      { slot: 2, isQuitter: false },
+      { slot: 1, team: 1, isQuitter: false },
+      { slot: 2, team: 1, isQuitter: false },
     ]);
 
     expect(quitters).toEqual([]);
@@ -80,22 +80,63 @@ describe('partitionRosterForRating', () => {
     expect(activeRateable.map((entry) => entry.slot)).toEqual([1, 2]);
   });
 
-  it('puts non-quit New into newNonQuit and veterans into activeRateable', () => {
+  it('freezes paired New (1v1) and leaves veterans rateable', () => {
     const { quitters, newNonQuit, activeRateable } = partitionRosterForRating([
-      { slot: 1, isQuitter: false, wasNewPlayer: true },
-      { slot: 2, isQuitter: false, wasNewPlayer: false },
-      { slot: 7, isQuitter: true, wasNewPlayer: true },
+      { slot: 1, team: 1 as const, isQuitter: false, wasNewPlayer: true },
+      { slot: 2, team: 1 as const, isQuitter: false, wasNewPlayer: false },
+      { slot: 7, team: 2 as const, isQuitter: false, wasNewPlayer: true },
+      { slot: 8, team: 2 as const, isQuitter: false, wasNewPlayer: false },
     ]);
 
-    expect(newNonQuit.map((entry) => entry.slot)).toEqual([1]);
-    expect(activeRateable.map((entry) => entry.slot)).toEqual([2]);
-    expect(quitters.map((entry) => entry.slot)).toEqual([7]);
+    expect(newNonQuit.map((entry) => entry.slot).sort()).toEqual([1, 7]);
+    expect(activeRateable.map((entry) => entry.slot).sort()).toEqual([2, 8]);
+    expect(quitters).toEqual([]);
+  });
+
+  it('rates one-sided New (k=0) instead of freezing', () => {
+    const { newNonQuit, activeRateable, quitters } = partitionRosterForRating([
+      { slot: 1, team: 1 as const, isQuitter: false, wasNewPlayer: false },
+      { slot: 2, team: 1 as const, isQuitter: false, wasNewPlayer: false },
+      { slot: 7, team: 2 as const, isQuitter: false, wasNewPlayer: true },
+      { slot: 8, team: 2 as const, isQuitter: true, wasNewPlayer: true },
+    ]);
+
+    expect(newNonQuit).toEqual([]);
+    expect(activeRateable.map((entry) => entry.slot).sort()).toEqual([1, 2, 7]);
+    expect(quitters.map((entry) => entry.slot)).toEqual([8]);
+  });
+
+  it('freezes k lowest slots per team and rates excess New (2v1)', () => {
+    const { newNonQuit, activeRateable } = partitionRosterForRating([
+      { slot: 1, team: 1 as const, isQuitter: false, wasNewPlayer: true },
+      { slot: 3, team: 1 as const, isQuitter: false, wasNewPlayer: true },
+      { slot: 2, team: 1 as const, isQuitter: false, wasNewPlayer: false },
+      { slot: 7, team: 2 as const, isQuitter: false, wasNewPlayer: true },
+      { slot: 8, team: 2 as const, isQuitter: false, wasNewPlayer: false },
+    ]);
+
+    // k=1 → freeze slot 1 (lowest New on T1) and slot 7; excess New slot 3 rates
+    expect(newNonQuit.map((entry) => entry.slot).sort()).toEqual([1, 7]);
+    expect(activeRateable.map((entry) => entry.slot).sort()).toEqual([2, 3, 8]);
+  });
+
+  it('does not count New quitters toward k', () => {
+    const { newNonQuit, activeRateable, quitters } = partitionRosterForRating([
+      { slot: 1, team: 1 as const, isQuitter: true, wasNewPlayer: true },
+      { slot: 2, team: 1 as const, isQuitter: false, wasNewPlayer: false },
+      { slot: 7, team: 2 as const, isQuitter: false, wasNewPlayer: true },
+      { slot: 8, team: 2 as const, isQuitter: false, wasNewPlayer: false },
+    ]);
+
+    expect(quitters.map((entry) => entry.slot)).toEqual([1]);
+    expect(newNonQuit).toEqual([]);
+    expect(activeRateable.map((entry) => entry.slot).sort()).toEqual([2, 7, 8]);
   });
 
   it('treats missing wasNewPlayer as not New', () => {
     const { newNonQuit, activeRateable } = partitionRosterForRating([
-      { slot: 1, isQuitter: false },
-      { slot: 2, isQuitter: false, wasNewPlayer: false },
+      { slot: 1, team: 1, isQuitter: false },
+      { slot: 2, team: 1, isQuitter: false, wasNewPlayer: false },
     ]);
 
     expect(newNonQuit).toEqual([]);
@@ -287,21 +328,41 @@ describe('applyMatchRatings', () => {
     }
   });
 
-  it('resets idle decay streak even when New freeze skips team rate', async () => {
+  it('resets idle decay streak for frozen New who skip team rate', async () => {
     const db = heroNullDb();
+    db.playerRating.findMany.mockResolvedValue([
+      { playerId: 'new1', mu: 25, sigma: 8.333 },
+      { playerId: 'vet1', mu: 32, sigma: 5 },
+      { playerId: 'new2', mu: 25, sigma: 8.333 },
+      { playerId: 'vet2', mu: 32, sigma: 5 },
+    ]);
     const roster: RatingRosterEntry[] = [
-      { playerId: 'p1', slot: 1, team: 1, heroId: null, isQuitter: false, wasNewPlayer: true },
-      { playerId: 'p2', slot: 6, team: 2, heroId: null, isQuitter: false, wasNewPlayer: false },
+      { playerId: 'new1', slot: 1, team: 1, heroId: null, isQuitter: false, wasNewPlayer: true },
+      { playerId: 'vet1', slot: 2, team: 1, heroId: null, isQuitter: false, wasNewPlayer: false },
+      { playerId: 'new2', slot: 7, team: 2, heroId: null, isQuitter: false, wasNewPlayer: true },
+      { playerId: 'vet2', slot: 8, team: 2, heroId: null, isQuitter: false, wasNewPlayer: false },
     ];
 
-    await expect(
-      applyMatchRatings('league-1', roster, 1, COMPLETED_AT, db as never),
-    ).resolves.toBeUndefined();
+    await applyMatchRatings('league-1', roster, 1, COMPLETED_AT, db as never);
 
-    expect(db.playerRating.update).toHaveBeenCalledTimes(2);
-    for (const call of db.playerRating.update.mock.calls) {
-      expect(call[0].data).toEqual(activityResetData);
-    }
+    expect(db.playerRating.update).toHaveBeenCalledTimes(4);
+    const updatesByPlayer = new Map(
+      db.playerRating.update.mock.calls.map(
+        (call) => [call[0].where.leagueId_playerId.playerId as string, call[0].data] as const,
+      ),
+    );
+    expect(updatesByPlayer.get('new1')).toEqual(activityResetData);
+    expect(updatesByPlayer.get('new2')).toEqual(activityResetData);
+    expect(updatesByPlayer.get('vet1')).toMatchObject({
+      ...activityResetData,
+      mu: expect.any(Number),
+      sigma: expect.any(Number),
+    });
+    expect(updatesByPlayer.get('vet2')).toMatchObject({
+      ...activityResetData,
+      mu: expect.any(Number),
+      sigma: expect.any(Number),
+    });
   });
 
   it('does not write hero ratings when one team has no hero seats', async () => {
