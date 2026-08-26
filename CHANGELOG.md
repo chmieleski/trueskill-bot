@@ -1,3 +1,10 @@
+## [1.27.3](https://github.com/chmieleski/trueskill-bot/compare/v1.27.2...v1.27.3) (2026-08-26)
+
+
+### Bug Fixes
+
+* **rank:** prioritize Played with by shared games ([#104](https://github.com/chmieleski/trueskill-bot/issues/104)) ([70bc81f](https://github.com/chmieleski/trueskill-bot/commit/70bc81f128301bf576a54cf43d000425418c5ac5))
+
 ## [1.27.2](https://github.com/chmieleski/trueskill-bot/compare/v1.27.1...v1.27.2) (2026-08-26)
 
 
