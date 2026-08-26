@@ -1,3 +1,10 @@
+# [1.28.0](https://github.com/chmieleski/trueskill-bot/compare/v1.27.3...v1.28.0) (2026-08-26)
+
+
+### Features
+
+* **rank:** show optional Z/Evil side W–L on /rank ([#105](https://github.com/chmieleski/trueskill-bot/issues/105)) ([a128eb4](https://github.com/chmieleski/trueskill-bot/commit/a128eb4f6b949ec52f3ad98accefc438c83c8ab0))
+
 ## [1.27.3](https://github.com/chmieleski/trueskill-bot/compare/v1.27.2...v1.27.3) (2026-08-26)
 
 
