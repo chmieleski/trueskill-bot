@@ -255,7 +255,7 @@ describe('formatTeammateTable', () => {
 });
 
 describe('buildTeammateStatsFromPairs', () => {
-  it('builds three top-3 lists from the same pool', () => {
+  it('puts highest shared-game partners on Played with first', () => {
     const pairs = [
       pair({ playerId: 'a', username: 'Ghost', games: 14, wins: 9, losses: 5 }), // 64.3%
       pair({ playerId: 'b', username: 'Krillin', games: 11, wins: 6, losses: 5 }), // 54.5%
@@ -264,11 +264,11 @@ describe('buildTeammateStatsFromPairs', () => {
       pair({ playerId: 'e', username: 'Yamcha', games: 4, wins: 1, losses: 3 }), // 25%
     ];
     const stats = buildTeammateStatsFromPairs(pairs);
-    expect(stats.winWith.map((p) => p.username)).toEqual(['Gohan', 'Ghost', 'Piccolo']);
-    // Yamcha (4G) is under the winrate-list floor; next-worst eligible is Ghost
-    expect(stats.loseWith.map((p) => p.username)).toEqual(['Krillin', 'Piccolo', 'Ghost']);
-    // Played with skips anyone already on Win/Lose with
-    expect(stats.playedWith.map((p) => p.username)).toEqual(['Yamcha']);
+    // Played with always owns the most-games partners
+    expect(stats.playedWith.map((p) => p.username)).toEqual(['Ghost', 'Krillin', 'Piccolo']);
+    // Win/Lose fill from everyone else (Gohan is the only remaining ≥5G pair)
+    expect(stats.winWith.map((p) => p.username)).toEqual(['Gohan']);
+    expect(stats.loseWith.map((p) => p.username)).toEqual(['Gohan']);
   });
 
   it('does not repeat the same nick across Played with and Win/Lose with', () => {
@@ -279,6 +279,11 @@ describe('buildTeammateStatsFromPairs', () => {
       pair({ playerId: 'd', username: 'frequent', games: 12, wins: 6, losses: 6 }),
     ];
     const stats = buildTeammateStatsFromPairs(pairs);
+    expect(stats.playedWith.map((p) => p.username)).toEqual([
+      'frequent',
+      'notverriegod',
+      'dragonnpx4',
+    ]);
     const playedIds = new Set(stats.playedWith.map((p) => p.playerId));
     const winLoseIds = new Set([
       ...stats.winWith.map((p) => p.playerId),
@@ -287,9 +292,9 @@ describe('buildTeammateStatsFromPairs', () => {
     for (const id of playedIds) {
       expect(winLoseIds.has(id)).toBe(false);
     }
-    expect(stats.winWith.map((p) => p.username)).toContain('dragonnpx4');
-    expect(stats.winWith.map((p) => p.username)).toContain('grave');
-    expect(stats.loseWith.map((p) => p.username)).toContain('notverriegod');
+    // Only grave remains after Played with takes the top-3 by games
+    expect(stats.winWith.map((p) => p.username)).toEqual(['grave']);
+    expect(stats.loseWith.map((p) => p.username)).toEqual(['grave']);
   });
 });
 
