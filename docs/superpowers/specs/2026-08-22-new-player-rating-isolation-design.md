@@ -1,9 +1,10 @@
 # New-player rating isolation — Design
 
 **Date:** 2026-08-22  
-**Status:** Implemented  
+**Status:** Implemented (partially superseded)  
 **Scope:** `general` (OpenSkill apply path, lobby UX; keyed by `leagueId`)  
-**Related:** [`2026-08-17-calibrating-ki-display-design.md`](./2026-08-17-calibrating-ki-display-design.md), [`2026-08-18-lobby-relative-rating-scale-design.md`](./2026-08-18-lobby-relative-rating-scale-design.md), `.cursor/rules/openskill-rating.mdc`
+**Related:** [`2026-08-17-calibrating-ki-display-design.md`](./2026-08-17-calibrating-ki-display-design.md), [`2026-08-18-lobby-relative-rating-scale-design.md`](./2026-08-18-lobby-relative-rating-scale-design.md), `.cursor/rules/openskill-rating.mdc`  
+**Supersession:** **When** New seats freeze is redefined by [`2026-08-26-balanced-new-player-isolation-design.md`](./2026-08-26-balanced-new-player-isolation-design.md) (balanced pair-off). Flag, suggest UX, auto-clear, and quit synthetics below remain in force.
 
 ## Goal
 
@@ -23,21 +24,21 @@ Maps are hard to learn. Veterans want first-timers in lobbies to grow the player
 
 ## Locked decisions
 
-| Topic                    | Choice                                                                                                                                               |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Approach                 | Hard exclude + freeze while `isNewPlayer`                                                                                                            |
-| When exclude             | **Always** while New (every completed match), not only when quitters or equal New counts                                                             |
-| New’s own μ/σ (non-quit) | **Freeze** — no OpenSkill write from team `rate()`                                                                                                   |
-| New + quitter            | Synthetic quit penalty **still applies**; still excluded from team `rate()`                                                                          |
-| New ends                 | Auto-clear when completed league games (same count as calibrating / soft-z, including after rank reset) **≥ 5**, even if those games were frozen     |
-| Unmarked calibrating     | Full OpenSkill participation                                                                                                                         |
-| Degenerate lobby         | After removing New + quitters, if **either** team has **0** rateable players → **skip team `rate()` for the whole match**; quit synthetics still run |
-| UX                       | Auto-suggest when a player with **0** completed games joins a PENDING lobby; **host/mod confirms**                                                   |
-| Decline suggest          | Player remains unmarked → normal rating                                                                                                              |
-| Persistence              | `PlayerRating.isNewPlayer` (league-scoped); snapshot `MatchPlayer.wasNewPlayer` at apply time                                                        |
-| Rank reset               | Post-reset game count returns to 0 → eligible for suggest again; **do not** auto-set without confirm                                                 |
-| Equal New counts         | Superseded by always-exclude; no separate pairing rule                                                                                               |
-| Language                 | English user-facing strings                                                                                                                          |
+| Topic                    | Choice                                                                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Approach                 | Hard exclude + freeze for **paired** New (see 2026-08-26); excess non-quit New rate                                                              |
+| When exclude             | **Superseded** — pair-off `k = min(newA, newB)` among non-quit New; see 2026-08-26                                                               |
+| New’s own μ/σ (non-quit) | **Freeze** when paired; **rate** when excess (2026-08-26)                                                                                        |
+| New + quitter            | Synthetic quit penalty **still applies**; still excluded from team `rate()`                                                                      |
+| New ends                 | Auto-clear when completed league games (same count as calibrating / soft-z, including after rank reset) **≥ 5**, even if those games were frozen |
+| Unmarked calibrating     | Full OpenSkill participation                                                                                                                     |
+| Degenerate lobby         | After removing **frozen** New + quitters, if **either** team has **0** rateable players → **skip team `rate()`**; quit synthetics still run      |
+| UX                       | Auto-suggest when a player with **0** completed games joins a PENDING lobby; **host/mod confirms**                                               |
+| Decline suggest          | Player remains unmarked → normal rating                                                                                                          |
+| Persistence              | `PlayerRating.isNewPlayer` (league-scoped); snapshot `MatchPlayer.wasNewPlayer` at apply time                                                    |
+| Rank reset               | Post-reset game count returns to 0 → eligible for suggest again; **do not** auto-set without confirm                                             |
+| Equal New counts         | **Restored as pair-off** — see 2026-08-26 (not always-exclude)                                                                                   |
+| Language                 | English user-facing strings                                                                                                                      |
 
 ## Product note (intentional)
 
