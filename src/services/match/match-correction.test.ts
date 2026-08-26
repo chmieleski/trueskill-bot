@@ -41,9 +41,9 @@ describe('expectedSnapshotCount', () => {
   });
 
   it('counts one GLOBAL row per null-hero player (not rosterSize * 2)', () => {
-    const acaRoster = Array.from({ length: 10 }, () => ({ heroId: null }));
-    expect(expectedSnapshotCount(acaRoster)).toBe(10);
-    expect(expectedSnapshotCount(acaRoster)).not.toBe(acaRoster.length * 2);
+    const wosRoster = Array.from({ length: 10 }, () => ({ heroId: null }));
+    expect(expectedSnapshotCount(wosRoster)).toBe(10);
+    expect(expectedSnapshotCount(wosRoster)).not.toBe(wosRoster.length * 2);
   });
 
   it('adds 1 for null heroId and 2 when heroId is set', () => {

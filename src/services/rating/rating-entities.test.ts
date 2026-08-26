@@ -52,7 +52,7 @@ describe('ratingEntitiesForBalance', () => {
     expect(ratingEntitiesForBalance(G, H, null)).toEqual([G]);
   });
 
-  it('uses global μ with fixed σ for ACA when staticSigma is enabled', () => {
+  it('uses global μ with fixed σ for WOS when staticSigma is enabled', () => {
     expect(ratingEntitiesForBalance(G, H, null, { staticSigma: true })).toEqual([
       { mu: G.mu, sigma: BALANCE_STATIC_SIGMA },
     ]);

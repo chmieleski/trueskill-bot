@@ -160,7 +160,7 @@ function destinationSlotSelectOptions(
 }
 
 /**
- * ACA-style destinations: move to other team (next empty seat) or swap with a nick.
+ * WOS-style destinations: move to other team (next empty seat) or swap with a nick.
  */
 function teamBasedDestinationOptions(
   players: LobbyPlayer[],
@@ -756,7 +756,7 @@ async function handleAdd(interaction: ButtonInteraction): Promise<void> {
   await interaction.showModal(modal);
 }
 
-/** Teams with at least one empty seat (ACA add dropdown). */
+/** Teams with at least one empty seat (WOS add dropdown). */
 function addTeamSelectOptions(players: LobbyPlayer[], profile: GameProfile) {
   const occupied = new Set(players.map((player) => player.slot));
   const options: { label: string; description: string; value: string }[] = [];

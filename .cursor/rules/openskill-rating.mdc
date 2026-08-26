@@ -30,7 +30,7 @@ Spec: `docs/superpowers/specs/2026-08-22-independent-overall-hero-rate-design.md
 
 ## Team strength (for win probability / balance hints)
 
-`predictWin` and lobby balance hints do **not** feed the apply arrays. Each human with a hero becomes **one** blended Gaussian (80% league-global, 20% hero). ACA (`heroId` null) stays global-only.
+`predictWin` and lobby balance hints do **not** feed the apply arrays. Each human with a hero becomes **one** blended Gaussian (80% league-global, 20% hero). WOS (`heroId` null) stays global-only.
 
 ```text
 μ_eff = 0.8 × μ_player + 0.2 × μ_hero

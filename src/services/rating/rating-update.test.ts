@@ -175,7 +175,7 @@ describe('canRunHeroRate', () => {
     expect(canRunHeroRate([])).toBe(false);
   });
 
-  it('allows mixed ACA + hero when both teams still have a hero', () => {
+  it('allows mixed WOS + hero when both teams still have a hero', () => {
     expect(
       canRunHeroRate([
         { team: 1, heroId: null },

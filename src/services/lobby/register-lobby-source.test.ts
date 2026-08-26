@@ -16,10 +16,7 @@ vi.mock('../league/league-profile.js', () => ({
 }));
 
 import { getGameProfile } from '../../domain/game-profile.js';
-import {
-  WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
-  WARCRAFT3_UDBR_GAME_ID,
-} from '../../domain/games.js';
+import { WARCRAFT3_WOS_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
 import { LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
 import { MatchServiceError } from '../match/match-service.js';
 import {
@@ -33,7 +30,7 @@ import {
   WC3STATS_UNSUPPORTED_MESSAGE,
 } from './register-lobby-source.js';
 
-const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
+const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
 const udbr = getGameProfile(WARCRAFT3_UDBR_GAME_ID);
 
 describe('resolveRegisterLobbySource', () => {
@@ -114,10 +111,10 @@ describe('parseWc3statsId', () => {
 describe('assertRegisterLobbyAllowedForProfile', () => {
   it('refuses screenshot and wc3stats id on import none', () => {
     expect(() =>
-      assertRegisterLobbyAllowedForProfile(aca, { hasScreenshot: true, hasWc3statsId: false }),
+      assertRegisterLobbyAllowedForProfile(wos, { hasScreenshot: true, hasWc3statsId: false }),
     ).toThrow(SCREENSHOT_UNSUPPORTED_MESSAGE);
     expect(() =>
-      assertRegisterLobbyAllowedForProfile(aca, { hasScreenshot: false, hasWc3statsId: true }),
+      assertRegisterLobbyAllowedForProfile(wos, { hasScreenshot: false, hasWc3statsId: true }),
     ).toThrow(WC3STATS_UNSUPPORTED_MESSAGE);
   });
 
@@ -129,7 +126,7 @@ describe('assertRegisterLobbyAllowedForProfile', () => {
 
   it('allows empty Discord-only register on import none', () => {
     expect(() =>
-      assertRegisterLobbyAllowedForProfile(aca, { hasScreenshot: false, hasWc3statsId: false }),
+      assertRegisterLobbyAllowedForProfile(wos, { hasScreenshot: false, hasWc3statsId: false }),
     ).not.toThrow();
   });
 });
@@ -156,8 +153,8 @@ describe('assertLeagueAllowsWc3statsImport', () => {
 });
 
 describe('assertProfileAllowsWc3statsImport', () => {
-  it('throws the import refuse string for ACA', () => {
-    expect(() => assertProfileAllowsWc3statsImport(aca)).toThrow(WC3STATS_UNSUPPORTED_MESSAGE);
+  it('throws the import refuse string for WOS', () => {
+    expect(() => assertProfileAllowsWc3statsImport(wos)).toThrow(WC3STATS_UNSUPPORTED_MESSAGE);
   });
 
   it('does not throw for UDBR', () => {

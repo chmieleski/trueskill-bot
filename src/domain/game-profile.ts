@@ -1,4 +1,4 @@
-import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from './games.js';
+import { WARCRAFT3_UDBR_GAME_ID, WARCRAFT3_WOS_GAME_ID } from './games.js';
 
 export type HeroBinding = 'slot_bound' | 'optional_in_game';
 export type GameImportKind = 'none' | 'wc3stats';
@@ -38,9 +38,9 @@ const GAME_PROFILES: Record<string, GameProfile> = {
     teamNames: { 1: 'Z Fighters', 2: 'Evil' },
     sideWinLossDefault: true,
   },
-  [WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID]: {
-    gameId: WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
-    displayName: 'Anime Choice Arena',
+  [WARCRAFT3_WOS_GAME_ID]: {
+    gameId: WARCRAFT3_WOS_GAME_ID,
+    displayName: 'WOS',
     slotCount: 10,
     teamAMaxSlot: 5,
     heroBinding: 'optional_in_game',
