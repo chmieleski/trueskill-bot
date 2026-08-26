@@ -10,7 +10,7 @@
 
 Maps are hard to learn. Veterans want first-timers in lobbies to grow the playerbase, but high-σ newcomers (and quit-heavy finishes) move ki too hard for both veterans and the newcomers themselves.
 
-**New** players stay in the lobby and play; they are **excluded from team OpenSkill `rate()`** and their μ/σ **freeze** on the non-quit path until the New window ends. Quitter synthetic penalties still apply to New quitters. Veterans’ team updates no longer treat New humans as rating entities.
+**New** players stay in the lobby and play. Among non-quit New, **paired** seats freeze out of team OpenSkill `rate()` until the New window ends; **excess** New on the heavier team still rate. See [`2026-08-26-balanced-new-player-isolation-design.md`](./2026-08-26-balanced-new-player-isolation-design.md) for when freeze applies (`k = min(newA, newB)`). Quitter synthetic penalties still apply to New quitters. Veterans’ team updates omit **frozen** New from the rateable set.
 
 ## Non-goals
 
@@ -42,7 +42,7 @@ Maps are hard to learn. Veterans want first-timers in lobbies to grow the player
 
 ## Product note (intentional)
 
-After five frozen completed games, New and Calibrating both clear while μ/σ are still near defaults. **Game 6** is the first real team OpenSkill update. That is the cost of freeze + auto-clear on the same gate.
+After five completed games, New and Calibrating both clear while μ/σ may still be near defaults. **Paired** frozen New often accrue games without μ/σ change; **excess** New can receive real team updates earlier. See product note in [`2026-08-26-balanced-new-player-isolation-design.md`](./2026-08-26-balanced-new-player-isolation-design.md).
 
 ## Data model
 
@@ -68,26 +68,34 @@ Prisma migration adding both booleans with defaults. No backfill required (all e
 
 ## Rating apply
 
-Extend the existing partition in `rating-update.ts` (today: quitters vs active).
+Extend the existing partition in `rating-update.ts` (today: quitters vs active). Pair-off math is defined in [`2026-08-26-balanced-new-player-isolation-design.md`](./2026-08-26-balanced-new-player-isolation-design.md).
 
 ```text
-quitters          = isQuitter
-newNonQuit        = wasNewPlayer && !isQuitter
-activeRateable    = !isQuitter && !wasNewPlayer
+quitters       = isQuitter
+nonQuitNew     = !isQuitter && wasNewPlayer
+k              = min(|nonQuitNew on team 1|, |nonQuitNew on team 2|)
+frozenNew      = k lowest-slot nonQuitNew per team
+excessNew      = nonQuitNew \ frozenNew
+activeRateable = !isQuitter && not in frozenNew
+newNonQuit     = frozenNew   // μ/σ freeze path
 ```
 
 ### Team Bayesian `rate()`
 
-1. Build dual-entity team arrays from **`activeRateable` only**.
+1. Build dual-entity team arrays from **`activeRateable` only** (veterans + excess New).
 2. If **either** team has zero `activeRateable` humans → **skip** team `rate()` entirely for this match (no μ/σ writes from that path for anyone).
 3. Otherwise `rate()` as today, then lobby-relative Δμ scale on those updated humans only.
 4. Persist / preview for rateable humans as today.
 
 ### New non-quitters
 
+**Frozen** (`newNonQuit` / paired seats):
+
 - No μ/σ update (global or hero) from team `rate()` or lobby-relative scale.
 - Match still counts as a completed game toward the 5 (W/L recorded on `MatchPlayer` as today).
 - Public surfaces may show Calibrating + **New** marker; ki deltas for that player are **0** / omitted consistently with freeze.
+
+**Excess** (non-quit New beyond `k` on the heavier team): full team `rate()` + lobby-relative scale; may show Calibrating + **New** while `games < 5`. See 2026-08-26.
 
 ### Quitters (including New quitters)
 
@@ -97,7 +105,7 @@ activeRateable    = !isQuitter && !wasNewPlayer
 
 ### Griefer
 
-Unchanged: griefer stays in team rating when not a quitter. New + griefer: New exclusion wins (not in team `rate()`); if also quitter, synthetic path only.
+Unchanged: griefer stays in team rating when not a quitter. New + griefer (non-quit): if **excess** → rates as griefer (no immediate μ/σ from grief tax; still in team `rate()`); if **frozen** → freeze wins (not in team `rate()`). If also quitter, synthetic path only. See 2026-08-26.
 
 ### Lobby-relative scale
 
@@ -140,9 +148,9 @@ lobby add / link paths
   → maybeSuggestNewPlayer(host/mod)
 
 rating-update.applyMatchRatings
-  → partition: quitters | newNonQuit | activeRateable
+  → partition: quitters | frozenNew | excessNew | activeRateable
   → skip team rate if either side empty
-  → freeze newNonQuit
+  → freeze frozenNew (pair-off k)
   → synthetic quit path (all quitters)
   → clear isNewPlayer when games >= 5 after count
 ```
@@ -151,21 +159,21 @@ Commands and buttons stay thin: confirm handler writes the flag; rating service 
 
 ## Edge cases
 
-| Case                                      | Rule                                                                                                   |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| All humans on one team are New            | Other team rates only if it has ≥1 rateable; if not, skip team `rate()`                                |
-| New on both teams, no quitters            | Both sides omit New; remaining veterans rate vs each other                                             |
-| Only New (+ quitters) left rateable-empty | Skip team `rate()`; quit synthetics only                                                               |
-| Rank reset                                | Flag not auto-set; games=0 → suggest eligible again                                                    |
-| Flip / correction re-apply                | Use `wasNewPlayer` snapshot on the match, not live flag, if re-rating from stored roster               |
-| Unlinked nick marked New                  | Flag lives on `PlayerRating` once the player row exists; suggest only after a real `playerId` is known |
+| Case                              | Rule                                                                                                                                              |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| All humans on one team are New    | `k = min(newA,newB)`; excess on heavier side rates; skip team `rate()` only if both sides have 0 `activeRateable` after pair-off (see 2026-08-26) |
+| New on both teams, no quitters    | Freeze `k` lowest slots per team; excess + veterans rate vs each other (2026-08-26)                                                               |
+| Only frozen New (+ quitters) left | Skip team `rate()`; quit synthetics only                                                                                                          |
+| Rank reset                        | Flag not auto-set; games=0 → suggest eligible again                                                                                               |
+| Flip / correction re-apply        | Use `wasNewPlayer` snapshot on the match, not live flag, if re-rating from stored roster                                                          |
+| Unlinked nick marked New          | Flag lives on `PlayerRating` once the player row exists; suggest only after a real `playerId` is known                                            |
 
 ## Testing (acceptance)
 
-- Unit: partition helpers — New excluded; quitters still synthetic; empty-side skips team `rate()`.
-- Unit: freeze — New non-quit μ/σ unchanged after simulate/apply.
+- Unit: partition helpers — pair-off `k`, frozen vs excess; quitters still synthetic; empty-side skips team `rate()` (see 2026-08-26).
+- Unit: freeze — **frozen** New non-quit μ/σ unchanged after simulate/apply; excess New may move.
 - Unit: clear flag when completed games reach 5.
-- Unit: lobby-relative scale not applied to frozen New.
+- Unit: lobby-relative scale not applied to frozen New; applied to excess New when rateable.
 - Integration / interaction: suggest fires at 0 games; confirm sets flag; decline leaves false; non-mod cannot confirm.
 - Regression: unmarked calibrating player still enters team `rate()` as today.
 

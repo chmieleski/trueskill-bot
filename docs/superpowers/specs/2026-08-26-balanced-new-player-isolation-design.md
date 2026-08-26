@@ -1,7 +1,7 @@
 # Balanced New-player isolation — Design
 
 **Date:** 2026-08-26  
-**Status:** Approved (pending implementation)  
+**Status:** Implemented (on branch)  
 **Scope:** `general` (OpenSkill apply partition; keyed by `leagueId`)  
 **Supersedes (partial):** [`2026-08-22-new-player-rating-isolation-design.md`](./2026-08-22-new-player-rating-isolation-design.md) — **when** New seats are frozen (always-exclude → balanced pair-off only). Flag, suggest UX, auto-clear gate, quit synthetics, and calibrating display are unchanged.  
 **Related:** `.cursor/rules/openskill-rating.mdc`, `src/services/rating/rating-update.ts`
