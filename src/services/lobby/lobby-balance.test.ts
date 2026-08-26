@@ -385,3 +385,54 @@ describe('formatBalanceHint', () => {
     ).toBe('1. Swap Alice (1) ↔ Bob (7) → ~52% / 48%\n2. Move Eve (8) → empty slot 2 → ~51% / 49%');
   });
 });
+
+describe('suggestBalanceMoves soft locks', () => {
+  it('skips candidates that touch a locked slot', () => {
+    const roster: BalanceRosterEntry[] = [
+      { playerId: 'strong', slot: 1, team: 1, heroId: 1, nick: 'Strong', locked: true },
+      { playerId: 'weakA', slot: 2, team: 1, heroId: 2, nick: 'WeakA' },
+      { playerId: 'w1', slot: 7, team: 2, heroId: 7, nick: 'Weak1' },
+      { playerId: 'mid', slot: 8, team: 2, heroId: 8, nick: 'Mid' },
+    ];
+    const lookup = lookupFromMaps(
+      {
+        strong: { mu: 40, sigma: 2 },
+        weakA: { mu: 18, sigma: 8 },
+        w1: { mu: 18, sigma: 8 },
+        mid: { mu: 25, sigma: 5 },
+      },
+      {},
+    );
+    const unlocked = suggestBalanceMove(
+      roster.map((e) => ({ ...e, locked: false })),
+      lookup,
+      {
+        teamAPercent: 85,
+        teamBPercent: 15,
+      },
+    );
+    expect(unlocked).toBeDefined();
+    expect(unlocked!.fromNick).toBe('Strong');
+
+    const lockedSuggestions = suggestBalanceMoves(roster, lookup, {
+      teamAPercent: 85,
+      teamBPercent: 15,
+    });
+    expect(lockedSuggestions.every((s) => s.fromSlot !== 1 && s.toSlot !== 1)).toBe(true);
+  });
+
+  it('returns empty when every improving move would touch a lock', () => {
+    const roster: BalanceRosterEntry[] = [
+      { playerId: 'a', slot: 1, team: 1, heroId: 1, nick: 'Alice', locked: true },
+      { playerId: 'b', slot: 7, team: 2, heroId: 7, nick: 'Bob', locked: true },
+    ];
+    const lookup = lookupFromMaps(
+      {
+        a: { mu: 40, sigma: 2 },
+        b: { mu: 18, sigma: 8 },
+      },
+      {},
+    );
+    expect(suggestBalanceMoves(roster, lookup, { teamAPercent: 90, teamBPercent: 10 })).toEqual([]);
+  });
+});

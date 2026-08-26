@@ -65,6 +65,8 @@ export interface LobbyRatingPlayerLine {
   leagueGames: number;
   /** League `/rank` quit rate is 50%+ (post–rank-reset). */
   habitualQuitter?: boolean;
+  /** Soft lock: balance hints + shuffle leave this seat alone. */
+  locked?: boolean;
 }
 
 export interface LobbyRatingPreview {
@@ -84,6 +86,7 @@ export type RatingPreviewRosterEntry = {
   isQuitter?: boolean;
   isGriefer?: boolean;
   wasNewPlayer?: boolean;
+  locked?: boolean;
 };
 
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -413,6 +416,7 @@ export async function loadLobbyRatingPreview(
           showHero: false,
           leagueGames: globalGames,
           habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),
+          ...(entry.locked === true ? { locked: true as const } : {}),
         };
       }
 
@@ -430,6 +434,7 @@ export async function loadLobbyRatingPreview(
         showHero: true,
         leagueGames: globalGames,
         habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),
+        ...(entry.locked === true ? { locked: true as const } : {}),
       };
     });
 
@@ -475,6 +480,7 @@ export async function loadLobbyRatingPreview(
       team: entry.team,
       heroId: entry.heroId,
       nick: entry.nick,
+      locked: entry.locked === true,
     }));
 
     let balanceSuggestions: BalanceSuggestion[] | undefined;
@@ -523,6 +529,7 @@ export function matchPlayersToRatingEntries(
     isQuitter?: boolean;
     isGriefer?: boolean;
     wasNewPlayer?: boolean;
+    locked?: boolean;
     player: { username: string };
   }[],
 ): RatingPreviewRosterEntry[] {
@@ -535,5 +542,6 @@ export function matchPlayersToRatingEntries(
     isQuitter: entry.isQuitter,
     isGriefer: entry.isGriefer,
     wasNewPlayer: entry.wasNewPlayer,
+    locked: entry.locked === true,
   }));
 }
