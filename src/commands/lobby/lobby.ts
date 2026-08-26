@@ -10,6 +10,7 @@ import {
   buildMatchLobbyEmbed,
   cancelLobbyMatch,
   isImageAttachment,
+  lockLobbySlot,
   parseRemapPairs,
   recreateLobbyFromVoidedMatch,
   refreshLobbyFromScreenshot,
@@ -19,8 +20,10 @@ import {
   resolveHostPendingMatch,
   resolveMimeType,
   resolveSwapForm,
+  shuffleLobbyRoster,
   startLobbyMatch,
   swapLobbyPlayers,
+  unlockLobbySlot,
 } from '../../services/lobby/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
 import { sendNewPlayerSuggestPrompts } from '../../discord/interactions/new-player-interactions.js';
@@ -160,6 +163,65 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('cancel')
       .setDescription('Cancel a pending lobby (host or match moderator)')
+      .addStringOption((option) =>
+        option
+          .setName('match_id')
+          .setDescription('Pending match id (required if several, or if you are not the host)')
+          .setRequired(false),
+      ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('lock')
+      .setDescription('Soft-lock a player into their current slot (host or match moderator)')
+      .addIntegerOption((option) =>
+        option
+          .setName('slot')
+          .setDescription('Occupied lobby slot to lock')
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(12),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('match_id')
+          .setDescription('Pending match id (required if several, or if you are not the host)')
+          .setRequired(false),
+      ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('unlock')
+      .setDescription('Clear a soft lock on a lobby slot (host or match moderator)')
+      .addIntegerOption((option) =>
+        option
+          .setName('slot')
+          .setDescription('Lobby slot to unlock')
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(12),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('match_id')
+          .setDescription('Pending match id (required if several, or if you are not the host)')
+          .setRequired(false),
+      ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('shuffle')
+      .setDescription('Randomly shuffle unlocked lobby seats (host or match moderator)')
+      .addStringOption((option) =>
+        option
+          .setName('scope')
+          .setDescription('Shuffle within each team, or across the whole lobby')
+          .setRequired(true)
+          .addChoices(
+            { name: 'Within teams', value: 'team' },
+            { name: 'Whole lobby', value: 'all' },
+          ),
+      )
       .addStringOption((option) =>
         option
           .setName('match_id')
@@ -352,6 +414,64 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       });
       await interaction.editReply({
         content: `Match \`${result.match.id}\` cancelled.`,
+      });
+      return;
+    }
+
+    if (subcommand === 'lock') {
+      const slot = interaction.options.getInteger('slot', true);
+      const matchModRoleId = interaction.guildId
+        ? (await resolveGuildConfig(interaction.guildId)).matchModRoleId
+        : undefined;
+      const result = await lockLobbySlot({
+        client: interaction.client,
+        actorDiscordId: hostDiscordId,
+        matchId,
+        slot,
+        memberRoleIds: memberRoleIds(interaction),
+        matchModRoleId,
+      });
+      await interaction.editReply({
+        content: `Locked slot ${slot} in match \`${result.match.id}\`.`,
+      });
+      return;
+    }
+
+    if (subcommand === 'unlock') {
+      const slot = interaction.options.getInteger('slot', true);
+      const matchModRoleId = interaction.guildId
+        ? (await resolveGuildConfig(interaction.guildId)).matchModRoleId
+        : undefined;
+      const result = await unlockLobbySlot({
+        client: interaction.client,
+        actorDiscordId: hostDiscordId,
+        matchId,
+        slot,
+        memberRoleIds: memberRoleIds(interaction),
+        matchModRoleId,
+      });
+      await interaction.editReply({
+        content: `Unlocked slot ${slot} in match \`${result.match.id}\`.`,
+      });
+      return;
+    }
+
+    if (subcommand === 'shuffle') {
+      const scopeRaw = interaction.options.getString('scope', true);
+      const scope = scopeRaw === 'all' ? 'all' : 'team';
+      const matchModRoleId = interaction.guildId
+        ? (await resolveGuildConfig(interaction.guildId)).matchModRoleId
+        : undefined;
+      const result = await shuffleLobbyRoster({
+        client: interaction.client,
+        actorDiscordId: hostDiscordId,
+        matchId,
+        scope,
+        memberRoleIds: memberRoleIds(interaction),
+        matchModRoleId,
+      });
+      await interaction.editReply({
+        content: `Shuffled unlocked seats (${scope === 'all' ? 'whole lobby' : 'within teams'}) in match \`${result.match.id}\`.`,
       });
       return;
     }

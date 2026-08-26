@@ -20,6 +20,8 @@ export type BalanceRosterEntry = {
   team: 1 | 2;
   heroId: number | null;
   nick: string;
+  /** Soft lock: exclude this seat from balance suggestions. */
+  locked?: boolean;
 };
 
 export type BalanceRatingLookup = {
@@ -195,12 +197,18 @@ export function suggestBalanceMoves(
   const currentImbalance = imbalance(currentWinChance.teamAPercent);
   const occupied = new Set(roster.map((e) => e.slot));
   const emptySlots = emptySlotsForProfile(resolved, occupied);
+  const lockedSlots = new Set(
+    roster.filter((entry) => entry.locked === true).map((entry) => entry.slot),
+  );
   const { teamA, teamB } = splitRosterByTeam(roster);
 
   const candidates: BalanceSuggestion[] = [];
 
   for (const a of teamA) {
     for (const b of teamB) {
+      if (lockedSlots.has(a.slot) || lockedSlots.has(b.slot)) {
+        continue;
+      }
       const next = applySwap(roster, a.slot, b.slot, resolved);
       const wc = winChanceForRoster(next, lookup, options);
       if (!wc || imbalance(wc.teamAPercent) >= currentImbalance) {
@@ -218,7 +226,13 @@ export function suggestBalanceMoves(
   }
 
   for (const entry of roster) {
+    if (lockedSlots.has(entry.slot)) {
+      continue;
+    }
     for (const toSlot of emptySlots) {
+      if (lockedSlots.has(toSlot)) {
+        continue;
+      }
       const next = applyMove(roster, entry.slot, toSlot, resolved);
       if (!teamCountsOk(next)) {
         continue;

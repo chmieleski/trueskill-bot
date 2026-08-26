@@ -153,7 +153,9 @@ export function movePlayer(
     return swapPlayers(players, fromSlot, toSlot, profile);
   }
 
-  return players.map((player) => (player.slot === fromSlot ? { ...player, slot: toSlot } : player));
+  return players.map((player) =>
+    player.slot === fromSlot ? { ...player, slot: toSlot, locked: false } : player,
+  );
 }
 
 export function swapPlayers(
@@ -182,11 +184,11 @@ export function swapPlayers(
 
   return players.map((player) => {
     if (player.slot === slotA) {
-      return { ...player, slot: slotB };
+      return { ...player, slot: slotB, locked: false };
     }
 
     if (player.slot === slotB) {
-      return { ...player, slot: slotA };
+      return { ...player, slot: slotA, locked: false };
     }
 
     return player;
@@ -263,4 +265,73 @@ export function rosterAfterLeave(
   }
 
   return removePlayer(players, { nick }, profile);
+}
+
+export type ShuffleScope = 'team' | 'all';
+
+function fisherYatesInPlace<T>(items: T[], random: () => number): void {
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    const tmp = items[i]!;
+    items[i] = items[j]!;
+    items[j] = tmp;
+  }
+}
+
+/**
+ * Randomly reassign unlocked occupants among unlocked occupied slots.
+ * Locked pairs stay put; empty slots stay empty. Returns shuffled:false when
+ * fewer than two unlocked movers exist in the chosen scope.
+ */
+export function shuffleLobbyPlayers(
+  players: LobbyPlayer[],
+  profile: GameProfile,
+  scope: ShuffleScope,
+  random: () => number = Math.random,
+): { players: LobbyPlayer[]; shuffled: boolean } {
+  if (scope === 'all') {
+    return shuffleSlotPool(players, players, random);
+  }
+
+  let next = players;
+  let anyShuffled = false;
+  for (const team of [1, 2] as const) {
+    const teamPlayers = next.filter((player) => teamForSlot(profile, player.slot) === team);
+    const result = shuffleSlotPool(next, teamPlayers, random);
+    next = result.players;
+    anyShuffled = anyShuffled || result.shuffled;
+  }
+
+  return { players: next, shuffled: anyShuffled };
+}
+
+/**
+ * Shuffle unlocked occupants within `pool` (subset of `allPlayers`) into that
+ * pool's unlocked occupied slots. Players outside the pool are unchanged.
+ */
+function shuffleSlotPool(
+  allPlayers: LobbyPlayer[],
+  pool: LobbyPlayer[],
+  random: () => number,
+): { players: LobbyPlayer[]; shuffled: boolean } {
+  const unlocked = pool.filter((player) => player.locked !== true);
+  if (unlocked.length < 2) {
+    return { players: allPlayers, shuffled: false };
+  }
+
+  const slots = unlocked.map((player) => player.slot);
+  const movers = unlocked.map((player) => ({ nick: player.nick, locked: false as boolean }));
+  fisherYatesInPlace(movers, random);
+
+  const bySlot = new Map(allPlayers.map((player) => [player.slot, player]));
+  for (let i = 0; i < slots.length; i += 1) {
+    const slot = slots[i]!;
+    const mover = movers[i]!;
+    bySlot.set(slot, { slot, nick: mover.nick, locked: false });
+  }
+
+  return {
+    players: [...bySlot.values()].sort((a, b) => a.slot - b.slot),
+    shuffled: true,
+  };
 }

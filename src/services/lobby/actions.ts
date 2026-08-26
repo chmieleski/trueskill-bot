@@ -1,8 +1,11 @@
 import type { Client } from 'discord.js';
+import { invalidSlotMessage, isSlotInProfile } from '../../domain/game-profile.js';
 import {
   MatchServiceError,
   getGameProfileForMatch,
+  matchToLobbyPlayers,
   requireLeagueId,
+  setMatchPlayerLocked,
 } from '../match/match-service.js';
 import { prisma } from '../../lib/prisma.js';
 import { nickForDiscordId } from './lobby-identity.js';
@@ -13,11 +16,14 @@ import {
   removePlayer,
   rosterAfterClaim,
   rosterAfterLeave,
+  shuffleLobbyPlayers,
   swapPlayers,
+  type ShuffleScope,
 } from './roster.js';
 import { applyRemapPairs } from './remap.js';
 import {
   applyRosterAndSync,
+  syncLobbyDiscordMessage,
   withNewPlayerSuggestions,
   type LobbyActionResult,
 } from './discord-sync.js';
@@ -28,7 +34,7 @@ import {
 } from './resolve.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
 
-export type { LobbyActionResult };
+export type { LobbyActionResult, ShuffleScope };
 
 const PLAYER_CLAIM_DISABLED_MESSAGE = 'Player slot claim is disabled on this server.';
 
@@ -229,4 +235,88 @@ export async function applyRosterUpdateForMessage(input: {
   const beforeIds = previousPlayerIdsFromMatch(match);
   const result = await applyRosterAndSync(input.client, match.id, input.nextPlayers);
   return withNewPlayerSuggestions(result, beforeIds);
+}
+
+type ManageLobbyInput = {
+  client: Client;
+  actorDiscordId: string;
+  matchId?: string | null;
+  memberRoleIds: string[];
+  matchModRoleId?: string;
+};
+
+async function syncAfterLock(
+  client: Client,
+  match: Awaited<ReturnType<typeof setMatchPlayerLocked>>,
+): Promise<LobbyActionResult> {
+  await syncLobbyDiscordMessage(client, match, 'pending');
+  return { match, players: matchToLobbyPlayers(match) };
+}
+
+/** Soft-lock an occupied PENDING seat (host or match mod). */
+export async function lockLobbySlot(
+  input: ManageLobbyInput & { slot: number },
+): Promise<LobbyActionResult> {
+  const { match } = await resolvePendingMatchForManage({
+    actorDiscordId: input.actorDiscordId,
+    matchId: input.matchId,
+    memberRoleIds: input.memberRoleIds,
+    matchModRoleId: input.matchModRoleId,
+  });
+  const updated = await setMatchPlayerLocked(match.id, input.slot, true);
+  return syncAfterLock(input.client, updated);
+}
+
+/** Clear soft lock on a PENDING seat (host or match mod). Idempotent when unlocked. */
+export async function unlockLobbySlot(
+  input: ManageLobbyInput & { slot: number },
+): Promise<LobbyActionResult> {
+  const { match } = await resolvePendingMatchForManage({
+    actorDiscordId: input.actorDiscordId,
+    matchId: input.matchId,
+    memberRoleIds: input.memberRoleIds,
+    matchModRoleId: input.matchModRoleId,
+  });
+  const updated = await setMatchPlayerLocked(match.id, input.slot, false);
+  return syncAfterLock(input.client, updated);
+}
+
+/** Toggle soft lock on an occupied PENDING seat (button path). */
+export async function toggleLobbySlotLock(
+  input: ManageLobbyInput & { slot: number },
+): Promise<LobbyActionResult> {
+  const { match, players } = await resolvePendingMatchForManage({
+    actorDiscordId: input.actorDiscordId,
+    matchId: input.matchId,
+    memberRoleIds: input.memberRoleIds,
+    matchModRoleId: input.matchModRoleId,
+  });
+  const profile = await getGameProfileForMatch(match);
+  if (!isSlotInProfile(profile, input.slot)) {
+    throw new MatchServiceError(invalidSlotMessage(profile));
+  }
+  const occupant = players.find((player) => player.slot === input.slot);
+  if (!occupant) {
+    throw new MatchServiceError('Nobody in that slot to lock.');
+  }
+  const updated = await setMatchPlayerLocked(match.id, input.slot, occupant.locked !== true);
+  return syncAfterLock(input.client, updated);
+}
+
+/** Randomly shuffle unlocked seats (host or match mod). */
+export async function shuffleLobbyRoster(
+  input: ManageLobbyInput & { scope: ShuffleScope },
+): Promise<LobbyActionResult> {
+  const { match, players } = await resolvePendingMatchForManage({
+    actorDiscordId: input.actorDiscordId,
+    matchId: input.matchId,
+    memberRoleIds: input.memberRoleIds,
+    matchModRoleId: input.matchModRoleId,
+  });
+  const profile = await getGameProfileForMatch(match);
+  const { players: next, shuffled } = shuffleLobbyPlayers(players, profile, input.scope);
+  if (!shuffled) {
+    throw new MatchServiceError('Nothing to shuffle.');
+  }
+  return applyRosterAndSync(input.client, match.id, next);
 }

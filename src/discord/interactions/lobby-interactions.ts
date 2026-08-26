@@ -33,7 +33,9 @@ import {
   refreshLobbyFromWc3stats,
   removePlayer,
   resolvePendingMatchByMessageId,
+  shuffleLobbyRoster,
   startLobbyMatchByMessageId,
+  toggleLobbySlotLock,
 } from '../../services/lobby/index.js';
 import { claimSlotSelectOptions, LOBBY_CUSTOM_IDS } from '../../services/lobby/index.js';
 import { loadHeroCatalog } from '../../services/guild/index.js';
@@ -318,6 +320,193 @@ async function handleCancelConfirm(interaction: ButtonInteraction, matchId: stri
 
 async function handleCancelKeep(interaction: ButtonInteraction, matchId: string): Promise<void> {
   await updateEphemeral(interaction, `Match \`${matchId}\` was not cancelled.`);
+}
+
+/**
+ * Host or match mod gate for PENDING lobby buttons (same as Cancel).
+ */
+async function assertManagePendingOrReply(
+  interaction: ButtonInteraction | StringSelectMenuInteraction,
+  match: { hostDiscordId: string },
+): Promise<boolean> {
+  const reply = async (content: string) => {
+    if (interaction.isStringSelectMenu() || interaction.replied || interaction.deferred) {
+      await updateEphemeral(interaction, content);
+    } else {
+      await replyEphemeral(interaction, content);
+    }
+  };
+
+  if (!interaction.guildId) {
+    await reply('This action can only be used in a server.');
+    return false;
+  }
+
+  try {
+    const config = await resolveGuildConfig(interaction.guildId);
+    assertCanManageMatch({
+      hostDiscordId: match.hostDiscordId,
+      actorDiscordId: interaction.user.id,
+      memberRoleIds: memberRoleIds(interaction),
+      matchModRoleId: config.matchModRoleId,
+    });
+    return true;
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await reply(error.message);
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function handleLockToggleEntry(interaction: ButtonInteraction): Promise<void> {
+  const messageId = interaction.message.id;
+  const result = await requirePendingMatch(messageId);
+
+  if ('error' in result) {
+    await replyEphemeral(interaction, result.error);
+    return;
+  }
+
+  if (!(await assertManagePendingOrReply(interaction, result.match))) {
+    return;
+  }
+
+  const options = playerSelectOptions(result.players);
+  if (options.length === 0) {
+    await replyEphemeral(interaction, 'No players to lock or unlock.');
+    return;
+  }
+
+  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`lobby:select:lock_slot:${messageId}`)
+      .setPlaceholder('Select a player to lock or unlock')
+      .addOptions(options),
+  );
+
+  await replyEphemeral(interaction, 'Select a player to lock or unlock their seat:', [row]);
+}
+
+async function handleSelectLockSlot(
+  interaction: StringSelectMenuInteraction,
+  messageId: string,
+): Promise<void> {
+  const slot = Number(interaction.values[0]);
+  if (!Number.isInteger(slot)) {
+    await updateEphemeral(interaction, 'Invalid slot.');
+    return;
+  }
+
+  const pending = await requirePendingMatch(messageId);
+  if ('error' in pending) {
+    await updateEphemeral(interaction, pending.error);
+    return;
+  }
+
+  if (!(await assertManagePendingOrReply(interaction, pending.match))) {
+    return;
+  }
+
+  if (!interaction.guildId) {
+    return;
+  }
+
+  try {
+    const config = await resolveGuildConfig(interaction.guildId);
+    const result = await toggleLobbySlotLock({
+      client: interaction.client,
+      actorDiscordId: interaction.user.id,
+      matchId: pending.match.id,
+      slot,
+      memberRoleIds: memberRoleIds(interaction),
+      matchModRoleId: config.matchModRoleId,
+    });
+    const locked = result.players.find((player) => player.slot === slot)?.locked === true;
+    await updateEphemeral(
+      interaction,
+      locked
+        ? `Locked slot ${slot} in match \`${result.match.id}\`.`
+        : `Unlocked slot ${slot} in match \`${result.match.id}\`.`,
+    );
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await updateEphemeral(interaction, error.message);
+      return;
+    }
+    throw error;
+  }
+}
+
+async function handleShuffleEntry(interaction: ButtonInteraction): Promise<void> {
+  const messageId = interaction.message.id;
+  const result = await requirePendingMatch(messageId);
+
+  if ('error' in result) {
+    await replyEphemeral(interaction, result.error);
+    return;
+  }
+
+  if (!(await assertManagePendingOrReply(interaction, result.match))) {
+    return;
+  }
+
+  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`lobby:select:shuffle_scope:${messageId}`)
+      .setPlaceholder('Choose shuffle scope')
+      .addOptions(
+        { label: 'Within teams', value: 'team', description: 'Keep players on their current team' },
+        { label: 'Whole lobby', value: 'all', description: 'Players may switch teams' },
+      ),
+  );
+
+  await replyEphemeral(interaction, 'Shuffle unlocked seats:', [row]);
+}
+
+async function handleSelectShuffleScope(
+  interaction: StringSelectMenuInteraction,
+  messageId: string,
+): Promise<void> {
+  const scopeRaw = interaction.values[0];
+  const scope = scopeRaw === 'all' ? 'all' : 'team';
+
+  const pending = await requirePendingMatch(messageId);
+  if ('error' in pending) {
+    await updateEphemeral(interaction, pending.error);
+    return;
+  }
+
+  if (!(await assertManagePendingOrReply(interaction, pending.match))) {
+    return;
+  }
+
+  if (!interaction.guildId) {
+    return;
+  }
+
+  try {
+    const config = await resolveGuildConfig(interaction.guildId);
+    const result = await shuffleLobbyRoster({
+      client: interaction.client,
+      actorDiscordId: interaction.user.id,
+      matchId: pending.match.id,
+      scope,
+      memberRoleIds: memberRoleIds(interaction),
+      matchModRoleId: config.matchModRoleId,
+    });
+    await updateEphemeral(
+      interaction,
+      `Shuffled unlocked seats (${scope === 'all' ? 'whole lobby' : 'within teams'}) in match \`${result.match.id}\`.`,
+    );
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await updateEphemeral(interaction, error.message);
+      return;
+    }
+    throw error;
+  }
 }
 
 async function requirePendingMatch(messageId: string) {
@@ -1117,6 +1306,16 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
     return;
   }
 
+  if (customId === LOBBY_CUSTOM_IDS.lockToggle) {
+    await handleLockToggleEntry(interaction);
+    return;
+  }
+
+  if (customId === LOBBY_CUSTOM_IDS.shuffle) {
+    await handleShuffleEntry(interaction);
+    return;
+  }
+
   const parts = parseCustomId(customId);
   if (parts[1] === 'cancel' && parts[2] === 'ok' && parts[3]) {
     await handleCancelConfirm(interaction, parts[3]);
@@ -1172,6 +1371,16 @@ async function handleSelect(interaction: StringSelectMenuInteraction): Promise<v
 
   if (kind === 'claim') {
     await handleSelectClaim(interaction, messageId);
+    return;
+  }
+
+  if (kind === 'lock_slot') {
+    await handleSelectLockSlot(interaction, messageId);
+    return;
+  }
+
+  if (kind === 'shuffle_scope') {
+    await handleSelectShuffleScope(interaction, messageId);
     return;
   }
 

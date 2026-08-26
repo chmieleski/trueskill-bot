@@ -90,6 +90,20 @@ describe('formatTeamLinesFromPreview', () => {
     expect(secondLine).not.toContain('🚪');
   });
 
+  it('appends the soft-lock marker outside the code span', () => {
+    const value = formatTeamLinesFromPreview([
+      {
+        slot: 1,
+        nick: 'goku',
+        globalOrdinal: 1100,
+        heroOrdinal: 2200,
+        locked: true,
+        leagueGames: 8,
+      },
+    ]);
+    expect(value).toMatch(/`\s*1\s+goku\s+1100 \/ 2200`\s+🔒$/);
+  });
+
   it('appends New marker when isNewPlayer', () => {
     const value = formatTeamLinesFromPreview([
       {
@@ -572,15 +586,19 @@ describe('buildLobbyButtons', () => {
     expect(rosterCustomIds(rows)).not.toContain(LOBBY_CUSTOM_IDS.add);
   });
 
-  it('puts Cancel on its own last row', () => {
+  it('puts Lock, Shuffle, and Cancel on the last row', () => {
     const rows = buildLobbyButtons({
       canStart: true,
       playerCount: 2,
       playerClaimEnabled: false,
     });
 
-    expect(rowCustomIds(rows.at(-1))).toEqual([LOBBY_CUSTOM_IDS.cancel]);
-    expect(rows.at(-1)?.toJSON().components[0]).toMatchObject({
+    expect(rowCustomIds(rows.at(-1))).toEqual([
+      LOBBY_CUSTOM_IDS.lockToggle,
+      LOBBY_CUSTOM_IDS.shuffle,
+      LOBBY_CUSTOM_IDS.cancel,
+    ]);
+    expect(rows.at(-1)?.toJSON().components[2]).toMatchObject({
       custom_id: LOBBY_CUSTOM_IDS.cancel,
       label: 'Cancel',
       style: 2,
@@ -596,7 +614,11 @@ describe('buildLobbyButtons', () => {
 
     expect(ids).toContain(LOBBY_CUSTOM_IDS.cancel);
     expect(ids).not.toContain(LOBBY_CUSTOM_IDS.start);
-    expect(rowCustomIds(rows.at(-1))).toEqual([LOBBY_CUSTOM_IDS.cancel]);
+    expect(rowCustomIds(rows.at(-1))).toEqual([
+      LOBBY_CUSTOM_IDS.lockToggle,
+      LOBBY_CUSTOM_IDS.shuffle,
+      LOBBY_CUSTOM_IDS.cancel,
+    ]);
   });
 
   it('does not put Cancel on the Start / Refresh row', () => {
@@ -608,7 +630,11 @@ describe('buildLobbyButtons', () => {
     });
 
     expect(rowCustomIds(rows[0])).toEqual([LOBBY_CUSTOM_IDS.start, LOBBY_CUSTOM_IDS.refresh]);
-    expect(rowCustomIds(rows.at(-1))).toEqual([LOBBY_CUSTOM_IDS.cancel]);
+    expect(rowCustomIds(rows.at(-1))).toEqual([
+      LOBBY_CUSTOM_IDS.lockToggle,
+      LOBBY_CUSTOM_IDS.shuffle,
+      LOBBY_CUSTOM_IDS.cancel,
+    ]);
   });
 
   it('omits Cancel when the card is locked', () => {
