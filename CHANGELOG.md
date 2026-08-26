@@ -1,3 +1,10 @@
+# [1.27.0](https://github.com/chmieleski/trueskill-bot/compare/v1.26.1...v1.27.0) (2026-08-26)
+
+
+### Features
+
+* **lobby:** soft-lock slots and shuffle unlocked seats ([#101](https://github.com/chmieleski/trueskill-bot/issues/101)) ([5c19303](https://github.com/chmieleski/trueskill-bot/commit/5c193031f963b04684b98f5b10cd2456da4b6460))
+
 ## [1.26.1](https://github.com/chmieleski/trueskill-bot/compare/v1.26.0...v1.26.1) (2026-08-25)
 
 
