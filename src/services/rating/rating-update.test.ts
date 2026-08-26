@@ -120,7 +120,7 @@ describe('partitionRosterForRating', () => {
     expect(activeRateable.map((entry) => entry.slot).sort()).toEqual([2, 3, 8]);
   });
 
-  it('does not count New quitters toward k', () => {
+  it('freezes surviving New when the paired New quit (balanced 1v1)', () => {
     const { newNonQuit, activeRateable, quitters } = partitionRosterForRating([
       { slot: 1, team: 1 as const, isQuitter: true, wasNewPlayer: true },
       { slot: 2, team: 1 as const, isQuitter: false, wasNewPlayer: false },
@@ -129,8 +129,8 @@ describe('partitionRosterForRating', () => {
     ]);
 
     expect(quitters.map((entry) => entry.slot)).toEqual([1]);
-    expect(newNonQuit).toEqual([]);
-    expect(activeRateable.map((entry) => entry.slot).sort()).toEqual([2, 7, 8]);
+    expect(newNonQuit.map((entry) => entry.slot)).toEqual([7]);
+    expect(activeRateable.map((entry) => entry.slot).sort()).toEqual([2, 8]);
   });
 
   it('treats missing wasNewPlayer as not New', () => {
