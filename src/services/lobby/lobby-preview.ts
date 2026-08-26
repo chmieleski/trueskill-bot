@@ -30,6 +30,8 @@ export const LOBBY_CUSTOM_IDS = {
   leave: 'lobby:leave',
   refresh: 'lobby:refresh',
   cancel: 'lobby:cancel',
+  lockToggle: 'lobby:lock',
+  shuffle: 'lobby:shuffle',
   reportWinner: 'match:report',
   quitters: 'match:quitters',
   griefers: 'match:griefers',
@@ -131,7 +133,8 @@ export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): st
       const quitterMark = player.isQuitter ? ' 🚪' : '';
       const grieferMark = !player.isQuitter && player.isGriefer ? ' 🐛' : '';
       const newMark = player.isNewPlayer || player.wasNewPlayer ? NEW_PLAYER_ROSTER_MARKER : '';
-      const flagMark = `${habitualMark}${quitterMark}${grieferMark}${newMark}`;
+      const lockMark = player.locked ? ' 🔒' : '';
+      const flagMark = `${habitualMark}${quitterMark}${grieferMark}${newMark}${lockMark}`;
       if (player.showHero === false) {
         return `\`${slotLabel}  ${nick}   ${global}\`${flagMark}`;
       }
@@ -675,6 +678,16 @@ export function buildLobbyButtons(
 
   rows.push(
     new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(LOBBY_CUSTOM_IDS.lockToggle)
+        .setLabel('Lock / Unlock')
+        .setEmoji('🔒')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(LOBBY_CUSTOM_IDS.shuffle)
+        .setLabel('Shuffle')
+        .setEmoji('🎲')
+        .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(LOBBY_CUSTOM_IDS.cancel)
         .setLabel('Cancel')
