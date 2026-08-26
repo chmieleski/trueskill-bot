@@ -440,6 +440,7 @@ function successorLeagueCreateData(
     wc3statsHostPromptChannelId: source.wc3statsHostPromptChannelId,
     rankResetEnabled: source.rankResetEnabled,
     rankResetCooldownDays: source.rankResetCooldownDays,
+    showSideWinLoss: source.showSideWinLoss,
     seasonEndsAt: source.seasonEndsAt,
     crunchStartedAt: source.crunchStartedAt,
     decayEnabled: resetMode === 'continue' ? false : (source.decayEnabled ?? true),

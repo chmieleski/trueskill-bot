@@ -46,6 +46,16 @@ export function formatHeroTable(heroes: PlayerProfileHero[], leagueGames: number
   return `\`\`\`\n${lines.join('\n')}\n\`\`\``;
 }
 
+/** Format the optional /rank side W–L line (team labels from game profile). */
+export function formatSideWinLossRecordLine(
+  sideWinLoss: NonNullable<PlayerProfile['sideWinLoss']>,
+  teamNames: { 1: string; 2: string },
+): string {
+  const t1 = `${teamNames[1]} ${sideWinLoss.team1.wins}W · ${sideWinLoss.team1.losses}L`;
+  const t2 = `${teamNames[2]} ${sideWinLoss.team2.wins}W · ${sideWinLoss.team2.losses}L`;
+  return `${t1} · ${t2}`;
+}
+
 export function buildRankEmbed(
   profile: PlayerProfile,
   options?: {
@@ -54,6 +64,8 @@ export function buildRankEmbed(
     /** When false, never show the Heroes field (ACA / optional_in_game). Default true. */
     showHeroes?: boolean;
     teammates?: TeammateStats;
+    /** Required when profile.sideWinLoss is set; ignored otherwise. */
+    teamNames?: { 1: string; 2: string };
   },
 ): EmbedBuilder {
   const ratingLabel = options?.ratingLabel ?? 'ki';
@@ -67,8 +79,16 @@ export function buildRankEmbed(
       ? `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q · ${profile.griefs}G`
       : `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q · ${profile.griefs}G · ${profile.winRatePercent}% WR`;
 
+  const sideLine =
+    profile.sideWinLoss && options?.teamNames
+      ? formatSideWinLossRecordLine(profile.sideWinLoss, options.teamNames)
+      : null;
+
   // Mentions only resolve in description/fields — Discord footers are plain text.
-  const description = profile.discordId ? `${record}\n\nLinked · <@${profile.discordId}>` : record;
+  const recordBlock = sideLine ? `${record}\n${sideLine}` : record;
+  const description = profile.discordId
+    ? `${recordBlock}\n\nLinked · <@${profile.discordId}>`
+    : recordBlock;
 
   const embed = new EmbedBuilder()
     .setColor(RANK_GOLD)

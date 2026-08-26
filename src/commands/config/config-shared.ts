@@ -72,6 +72,10 @@ export function formatBalanceStaticSigmaLine(enabled: boolean): string {
     : '**Lobby balance σ:** dynamic';
 }
 
+export function formatSideWinLossLine(enabled: boolean): string {
+  return `**Rank side W–L:** \`${enabled ? 'on' : 'off'}\``;
+}
+
 export function formatDecayLine(
   decayEnabled: boolean,
   seasonEndsAt: Date | undefined,
@@ -229,6 +233,7 @@ export async function buildConfigViewContent(
     formatLobbyChannelConfigLine(leagueConfig.lobbyChannelEnabled, leagueConfig.lobbyChannelId),
     formatRankResetLine(leagueConfig.rankResetEnabled, leagueConfig.rankResetCooldownDays),
     formatBalanceStaticSigmaLine(leagueConfig.balanceStaticSigmaEnabled),
+    formatSideWinLossLine(leagueConfig.showSideWinLoss),
     formatDecayLine(
       leagueConfig.decayEnabled,
       leagueConfig.seasonEndsAt,

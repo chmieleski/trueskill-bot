@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildRankEmbed, formatGrieferPoolField, formatHeroTable } from './rank-embed.js';
+import {
+  buildRankEmbed,
+  formatGrieferPoolField,
+  formatHeroTable,
+  formatSideWinLossRecordLine,
+} from './rank-embed.js';
 import type { PlayerProfile } from './player-profile.js';
 import type { TeammateStats } from './teammate-stats.js';
 
@@ -35,6 +40,7 @@ const baseProfile: PlayerProfile = {
       winRatePercent: 50,
     },
   ],
+  sideWinLoss: null,
   decayFooter: null,
 };
 
@@ -109,6 +115,39 @@ describe('buildRankEmbed', () => {
     const description = buildRankEmbed(baseProfile).toJSON().description ?? '';
     expect(description).toContain('12W · 5L · 2Q · 1G · 70.6% WR');
     expect(description).not.toContain('tax ki');
+  });
+
+  it('appends side W–L under the overall record when enabled', () => {
+    const description =
+      buildRankEmbed(
+        {
+          ...baseProfile,
+          sideWinLoss: {
+            team1: { wins: 8, losses: 3 },
+            team2: { wins: 4, losses: 2 },
+          },
+        },
+        { teamNames: { 1: 'Z Fighters', 2: 'Evil' } },
+      ).toJSON().description ?? '';
+    expect(description).toContain('12W · 5L · 2Q · 1G · 70.6% WR');
+    expect(description).toContain('Z Fighters 8W · 3L · Evil 4W · 2L');
+  });
+
+  it('omits the side line when sideWinLoss is null', () => {
+    const description =
+      buildRankEmbed(baseProfile, { teamNames: { 1: 'Z Fighters', 2: 'Evil' } }).toJSON()
+        .description ?? '';
+    expect(description).not.toContain('Z Fighters');
+    expect(description).not.toContain('Evil');
+  });
+
+  it('formatSideWinLossRecordLine includes zero sides', () => {
+    expect(
+      formatSideWinLossRecordLine(
+        { team1: { wins: 0, losses: 0 }, team2: { wins: 1, losses: 2 } },
+        { 1: 'Team A', 2: 'Team B' },
+      ),
+    ).toBe('Team A 0W · 0L · Team B 1W · 2L');
   });
 
   it('shows griefer pool field with pending season-end ki loss', () => {

@@ -12,6 +12,7 @@ import {
   heroStatsFor,
   loadMatchDisplayStats,
   loadPendingGrieferKiTaxByPlayer,
+  sideStatsFor,
   winRatePercent,
 } from '../rating/rank-reset-display.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
@@ -55,6 +56,14 @@ export type PlayerProfile = {
   pendingGrieferKiTax: number;
   winRatePercent: number | null;
   heroes: PlayerProfileHero[];
+  /**
+   * Per-side W–L when League.showSideWinLoss is on; null when the line is hidden.
+   * team1 / team2 map to GameProfile.teamNames.
+   */
+  sideWinLoss: {
+    team1: { wins: number; losses: number };
+    team2: { wins: number; losses: number };
+  } | null;
   /** Idle/crunch decay hint for linked players; null when not shown. */
   decayFooter: string | null;
 };
@@ -174,6 +183,7 @@ export async function loadPlayerProfile(
           seasonEndsAt: true,
           crunchStartedAt: true,
           archivedAt: true,
+          showSideWinLoss: true,
           ...DECAY_SETTINGS_SELECT,
         },
       }),
@@ -256,6 +266,7 @@ export async function loadPlayerProfile(
     pendingGrieferKiTax,
     winRatePercent: winRatePercentValue,
     heroes,
+    sideWinLoss: league?.showSideWinLoss ? sideStatsFor(displayStats.bySide, player.id) : null,
     decayFooter,
   };
 }

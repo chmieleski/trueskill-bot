@@ -3,12 +3,14 @@ import { MatchResult } from '@prisma/client';
 import {
   aggregateHeroMatchDisplayStats,
   aggregateMatchDisplayStats,
+  aggregateSideMatchDisplayStats,
   countCompletedGamesThrough,
   gamesByPlayerFromStats,
   habitualQuitterFromStats,
   heroStatsFor,
   isHabitualQuitter,
   isMatchCountedAfterRankReset,
+  sideStatsFor,
   winRatePercent,
 } from './rank-reset-display.js';
 
@@ -321,6 +323,85 @@ describe('aggregateHeroMatchDisplayStats', () => {
     );
 
     expect(stats.get('p1')?.get(1)).toEqual({ wins: 0, losses: 1 });
+  });
+});
+
+describe('aggregateSideMatchDisplayStats', () => {
+  it('splits W/L by team and ignores quits without WIN/LOSS', () => {
+    const stats = aggregateSideMatchDisplayStats(
+      [
+        {
+          playerId: 'p1',
+          team: 1,
+          result: MatchResult.WIN,
+          isQuitter: false,
+          completedAt: AFTER,
+        },
+        {
+          playerId: 'p1',
+          team: 1,
+          result: MatchResult.LOSS,
+          isQuitter: false,
+          completedAt: AFTER,
+        },
+        {
+          playerId: 'p1',
+          team: 2,
+          result: MatchResult.WIN,
+          isQuitter: false,
+          completedAt: AFTER,
+        },
+        {
+          playerId: 'p1',
+          team: 2,
+          result: null,
+          isQuitter: true,
+          completedAt: AFTER,
+        },
+      ],
+      new Map(),
+    );
+
+    expect(stats.get('p1')).toEqual({
+      team1: { wins: 1, losses: 1 },
+      team2: { wins: 1, losses: 0 },
+    });
+  });
+
+  it('applies rank-reset cutoff per player', () => {
+    const stats = aggregateSideMatchDisplayStats(
+      [
+        {
+          playerId: 'p1',
+          team: 1,
+          result: MatchResult.WIN,
+          isQuitter: false,
+          completedAt: BEFORE,
+        },
+        {
+          playerId: 'p1',
+          team: 2,
+          result: MatchResult.LOSS,
+          isQuitter: false,
+          completedAt: AFTER,
+        },
+      ],
+      new Map([['p1', RESET]]),
+    );
+
+    expect(stats.get('p1')).toEqual({
+      team1: { wins: 0, losses: 0 },
+      team2: { wins: 0, losses: 1 },
+    });
+  });
+});
+
+describe('sideStatsFor', () => {
+  it('returns empty sides when the player is missing', () => {
+    expect(sideStatsFor(new Map(), 'p1')).toEqual({
+      team1: { wins: 0, losses: 0 },
+      team2: { wins: 0, losses: 0 },
+    });
   });
 });
 

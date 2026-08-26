@@ -1,5 +1,6 @@
 import type { League } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { getGameProfile } from '../../domain/game-profile.js';
 import { WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
 
 export type { League };
@@ -27,11 +28,13 @@ export async function createLeague(input: {
   gameId: string;
   name: string;
 }): Promise<League> {
+  const profile = getGameProfile(input.gameId);
   return prisma.league.create({
     data: {
       guildId: input.guildId,
       gameId: input.gameId,
       name: input.name,
+      showSideWinLoss: profile.sideWinLossDefault,
     },
   });
 }

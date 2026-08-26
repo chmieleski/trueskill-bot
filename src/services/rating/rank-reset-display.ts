@@ -9,6 +9,8 @@ export type MatchDisplayStatRow = {
   isGriefer: boolean;
   completedAt: Date | null;
   heroId?: number | null;
+  /** Persisted MatchPlayer.team (1 | 2) when present. */
+  team?: number | null;
 };
 
 /** Row shape for point-in-time completed-game counts (e.g. match history). */
@@ -31,9 +33,20 @@ export type PlayerHeroMatchDisplayStats = {
   losses: number;
 };
 
+export type PlayerSideMatchDisplayStats = {
+  wins: number;
+  losses: number;
+};
+
+export type PlayerSidesMatchDisplayStats = {
+  team1: PlayerSideMatchDisplayStats;
+  team2: PlayerSideMatchDisplayStats;
+};
+
 export type MatchDisplayStatsBundle = {
   byPlayer: Map<string, PlayerMatchDisplayStats>;
   byHero: Map<string, Map<number, PlayerHeroMatchDisplayStats>>;
+  bySide: Map<string, PlayerSidesMatchDisplayStats>;
 };
 
 type Db = Pick<PrismaClient, 'playerRankReset' | 'matchPlayer'>;
@@ -220,6 +233,57 @@ export function aggregateHeroMatchDisplayStats(
   return stats;
 }
 
+const EMPTY_SIDE_STATS = (): PlayerSidesMatchDisplayStats => ({
+  team1: { wins: 0, losses: 0 },
+  team2: { wins: 0, losses: 0 },
+});
+
+/** Look up per-side W/L; missing player is 0/0 on both sides. */
+export function sideStatsFor(
+  bySide: Map<string, PlayerSidesMatchDisplayStats>,
+  playerId: string,
+): PlayerSidesMatchDisplayStats {
+  return bySide.get(playerId) ?? EMPTY_SIDE_STATS();
+}
+
+/**
+ * Aggregate per-side (team 1 / team 2) W/L, applying each player's latest rank-reset cutoff.
+ * Quits without WIN/LOSS do not count toward side W/L.
+ */
+export function aggregateSideMatchDisplayStats(
+  rows: MatchDisplayStatRow[],
+  resetAtByPlayer: Map<string, Date>,
+): Map<string, PlayerSidesMatchDisplayStats> {
+  const stats = new Map<string, PlayerSidesMatchDisplayStats>();
+
+  for (const row of rows) {
+    if (row.team !== 1 && row.team !== 2) {
+      continue;
+    }
+    if (row.result !== MatchResult.WIN && row.result !== MatchResult.LOSS) {
+      continue;
+    }
+    const resetAt = resetAtByPlayer.get(row.playerId);
+    if (!isMatchCountedAfterRankReset(row.completedAt, resetAt)) {
+      continue;
+    }
+
+    let bucket = stats.get(row.playerId);
+    if (!bucket) {
+      bucket = EMPTY_SIDE_STATS();
+      stats.set(row.playerId, bucket);
+    }
+    const side = row.team === 1 ? bucket.team1 : bucket.team2;
+    if (row.result === MatchResult.WIN) {
+      side.wins += 1;
+    } else {
+      side.losses += 1;
+    }
+  }
+
+  return stats;
+}
+
 /** Latest PlayerRankReset.createdAt per player in a league. */
 export async function loadLatestRankResetAtByPlayer(
   leagueId: string,
@@ -280,6 +344,7 @@ async function loadMatchDisplayRows(
       select: {
         playerId: true,
         heroId: true,
+        team: true,
         result: true,
         isQuitter: true,
         isGriefer: true,
@@ -291,6 +356,7 @@ async function loadMatchDisplayRows(
   const rows: MatchDisplayStatRow[] = matchRows.map((row) => ({
     playerId: row.playerId,
     heroId: row.heroId,
+    team: row.team,
     result: row.result,
     isQuitter: row.isQuitter,
     isGriefer: row.isGriefer,
@@ -309,6 +375,7 @@ export async function loadMatchDisplayStats(
   return {
     byPlayer: aggregateMatchDisplayStats(rows, resetAtByPlayer),
     byHero: aggregateHeroMatchDisplayStats(rows, resetAtByPlayer),
+    bySide: aggregateSideMatchDisplayStats(rows, resetAtByPlayer),
   };
 }
 

@@ -33,6 +33,8 @@ model League {
   wc3statsHostPromptChannelId   String?
   rankResetEnabled              Boolean  @default(false)
   rankResetCooldownDays         Int      @default(30)
+  /// When true, /rank shows per-side (team 1 / team 2) W–L under the overall record.
+  showSideWinLoss               Boolean  @default(false)
   lobbyChannelEnabled           Boolean  @default(false)
   lobbyChannelId                String?
   status                        LeagueStatus @default(ACTIVE)

@@ -25,14 +25,14 @@ Z Fighters 8W · 3L · Evil 4W · 2L
 
 ## Data & defaults
 
-| Piece | Behavior |
-| --- | --- |
-| `League.showSideWinLoss` | Boolean, Prisma `@default(false)` |
-| Migration backfill | `true` where `gameId = 'warcraft3_udbr'` |
-| `GameProfile.sideWinLossDefault` | UDBR `true`, ACA `false` |
-| `createLeague` | Seeds from `sideWinLossDefault` |
-| Season rollover | Successor copies the flag |
-| Staff | `/league_config set side_win_loss enabled:true\|false` |
+| Piece                            | Behavior                                               |
+| -------------------------------- | ------------------------------------------------------ |
+| `League.showSideWinLoss`         | Boolean, Prisma `@default(false)`                      |
+| Migration backfill               | `true` where `gameId = 'warcraft3_udbr'`               |
+| `GameProfile.sideWinLossDefault` | UDBR `true`, ACA `false`                               |
+| `createLeague`                   | Seeds from `sideWinLossDefault`                        |
+| Season rollover                  | Successor copies the flag                              |
+| Staff                            | `/league_config set side_win_loss enabled:true\|false` |
 
 ## Architecture
 

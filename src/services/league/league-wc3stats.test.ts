@@ -66,6 +66,7 @@ describe('resolveLeagueConfig decay', () => {
     findUnique.mockResolvedValue(null);
     const resolved = await resolveLeagueConfig('league-1');
     expect(resolved.decayEnabled).toBe(true);
+    expect(resolved.showSideWinLoss).toBe(false);
     expect(resolved.seasonEndsAt).toBeUndefined();
     expect(resolved.decayInCrunch).toBe(false);
     expect(resolved.decaySettings.midGraceDays).toBe(10);
@@ -86,6 +87,7 @@ describe('resolveLeagueConfig decay', () => {
     const resolved = await resolveLeagueConfig('league-1');
     expect(resolved.decayEnabled).toBe(false);
     expect(resolved.balanceStaticSigmaEnabled).toBe(true);
+    expect(resolved.showSideWinLoss).toBe(false);
     expect(resolved.seasonEndsAt).toEqual(seasonEndsAt);
     expect(resolved.decayInCrunch).toBe(true);
     expect(resolved.decaySettings.midGraceDays).toBe(14);
