@@ -152,6 +152,67 @@ describe('simulatePostMatchRatings with New', () => {
     expect(globalByPlayer.get('newB')!.mu).not.toBe(25);
   });
 
+  it('keeps veteran Δμ unchanged when paired New quits instead of finishing', () => {
+    const mkVet = (playerId: string, slot: number, team: 1 | 2) => ({
+      playerId,
+      slot,
+      team,
+      heroId: slot,
+      isQuitter: false,
+      wasNewPlayer: false as const,
+    });
+    const base = [
+      mkVet('v1', 1, 1),
+      {
+        playerId: 'newA',
+        slot: 2,
+        team: 1 as const,
+        heroId: 2,
+        isQuitter: false,
+        wasNewPlayer: true,
+      },
+      mkVet('v3', 3, 1),
+      mkVet('v4', 4, 1),
+      mkVet('v5', 5, 1),
+      mkVet('v6', 6, 1),
+      mkVet('v7', 7, 2),
+      mkVet('v8', 8, 2),
+      mkVet('v9', 9, 2),
+      mkVet('v10', 10, 2),
+      {
+        playerId: 'newB',
+        slot: 11,
+        team: 2 as const,
+        heroId: 11,
+        isQuitter: false,
+        wasNewPlayer: true,
+      },
+      mkVet('v11', 12, 2),
+    ];
+    const vetIds = ['v1', 'v3', 'v4', 'v5', 'v6', 'v7', 'v8', 'v9', 'v10', 'v11'];
+    const startGlobal = new Map(
+      [...vetIds, 'newA', 'newB'].map((id) => [id, { mu: 30, sigma: 5 }] as const),
+    );
+    const startHero = new Map(
+      base.map((entry) => [`${entry.playerId}:${entry.heroId}`, { mu: 28, sigma: 6 }] as const),
+    );
+    const games = new Map(vetIds.map((id) => [id, 10] as const));
+
+    const noQuit = simulatePostMatchRatings(base, 1, startGlobal, startHero, games);
+    const oneQuit = simulatePostMatchRatings(
+      base.map((entry) => (entry.playerId === 'newA' ? { ...entry, isQuitter: true } : entry)),
+      1,
+      startGlobal,
+      startHero,
+      games,
+    );
+
+    for (const id of vetIds) {
+      expect(oneQuit.globalByPlayer.get(id)!.mu).toBeCloseTo(noQuit.globalByPlayer.get(id)!.mu);
+    }
+    expect(oneQuit.globalByPlayer.get('newB')!.mu).toBe(30);
+  });
+
   it('skips team rate when both sides are only New (quitters optional)', () => {
     const entries = [
       {

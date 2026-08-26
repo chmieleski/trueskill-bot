@@ -88,26 +88,49 @@ function applyIndependentSyntheticLosses(
   return { global: nextGlobal, hero: nextHero };
 }
 
+function entryPairKey<T extends { team: 1 | 2; slot: number }>(entry: T): string {
+  return `${entry.team}:${entry.slot}`;
+}
+
+/** New seats on a team, lowest slot first (quitters included for pair-off balance). */
+function newSeatsOnTeam<T extends { wasNewPlayer?: boolean; team: 1 | 2; slot: number }>(
+  entries: T[],
+  team: 1 | 2,
+): T[] {
+  return entries
+    .filter((entry) => entry.wasNewPlayer === true && entry.team === team)
+    .sort((left, right) => left.slot - right.slot);
+}
+
+/**
+ * Split roster for rating apply.
+ * Non-quit New freeze only when pairable across teams (`k = min(newA, newB)`);
+ * quit New still count toward k so a lone surviving New stays frozen when the
+ * other team's New quit. Excess / one-sided non-quit New rate normally.
+ */
 export function partitionRosterForRating<
   T extends { isQuitter: boolean; wasNewPlayer?: boolean; team: 1 | 2; slot: number },
 >(entries: T[]): { quitters: T[]; newNonQuit: T[]; activeRateable: T[] } {
   const quitters = entries.filter((entry) => entry.isQuitter);
   const nonQuit = entries.filter((entry) => !entry.isQuitter);
-  const nonQuitNew = nonQuit.filter((entry) => entry.wasNewPlayer === true);
 
-  const newOnTeam = (team: 1 | 2) =>
-    nonQuitNew.filter((entry) => entry.team === team).sort((a, b) => a.slot - b.slot);
-
-  const team1New = newOnTeam(1);
-  const team2New = newOnTeam(2);
+  const team1New = newSeatsOnTeam(entries, 1);
+  const team2New = newSeatsOnTeam(entries, 2);
   const k = Math.min(team1New.length, team2New.length);
 
-  const frozen = new Set<T>([...team1New.slice(0, k), ...team2New.slice(0, k)]);
+  const pairedNewKeys = new Set<string>();
+  for (let index = 0; index < k; index += 1) {
+    pairedNewKeys.add(entryPairKey(team1New[index]!));
+    pairedNewKeys.add(entryPairKey(team2New[index]!));
+  }
+
+  const isPairedNew = (entry: T): boolean =>
+    entry.wasNewPlayer === true && pairedNewKeys.has(entryPairKey(entry));
 
   return {
     quitters,
-    newNonQuit: nonQuitNew.filter((entry) => frozen.has(entry)),
-    activeRateable: nonQuit.filter((entry) => !frozen.has(entry)),
+    newNonQuit: nonQuit.filter(isPairedNew),
+    activeRateable: nonQuit.filter((entry) => !isPairedNew(entry)),
   };
 }
 
