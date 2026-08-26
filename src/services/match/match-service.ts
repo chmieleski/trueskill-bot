@@ -11,6 +11,7 @@ import {
 import { prisma } from '../../lib/prisma.js';
 import { createLogger } from '../../lib/logger.js';
 import type { LobbyPlayer } from '../lobby/lobby-ocr.js';
+import { matchPlayerLockPairKey, reconcileMatchPlayerLocked } from '../lobby/locked-slots.js';
 import { normalizeNick } from '../player/player-nick.js';
 import {
   assertHeroCatalogReady,
@@ -182,6 +183,7 @@ function toLobbyPlayers(match: MatchWithPlayers): LobbyPlayer[] {
     .map((entry) => ({
       slot: entry.slot,
       nick: normalizeNick(entry.player.username),
+      locked: entry.locked === true,
     }))
     .sort((a, b) => a.slot - b.slot);
 }
@@ -567,6 +569,49 @@ export async function getMatchById(matchId: string): Promise<MatchWithPlayers | 
   });
 }
 
+/**
+ * Soft-lock toggle on a PENDING MatchPlayer seat (no roster rewrite).
+ */
+export async function setMatchPlayerLocked(
+  matchId: string,
+  slot: number,
+  locked: boolean,
+): Promise<MatchWithPlayers> {
+  const match = await getMatchById(matchId);
+  if (!match) {
+    throw new MatchServiceError('This match lobby was not found.');
+  }
+  if (match.status !== 'PENDING') {
+    throw new MatchServiceError('This match can no longer be edited.');
+  }
+
+  const profile = await loadMatchProfileForTenant(match);
+  if (!isSlotInProfile(profile, slot)) {
+    throw new MatchServiceError(invalidSlotMessage(profile));
+  }
+
+  const occupant = match.players.find((player) => player.slot === slot);
+  if (!occupant) {
+    if (locked) {
+      throw new MatchServiceError('Nobody in that slot to lock.');
+    }
+    throw new MatchServiceError(`Slot ${slot} is empty.`);
+  }
+
+  await prisma.matchPlayer.update({
+    where: {
+      matchId_playerId: { matchId, playerId: occupant.playerId },
+    },
+    data: { locked },
+  });
+
+  const updated = await getMatchById(matchId);
+  if (!updated) {
+    throw new MatchServiceError('This match lobby was not found.');
+  }
+  return updated;
+}
+
 export async function findPendingMatchesByHost(hostDiscordId: string): Promise<MatchWithPlayers[]> {
   return prisma.match.findMany({
     where: {
@@ -648,6 +693,19 @@ export async function replaceMatchRoster(
       throw new MatchServiceError('This match can no longer be edited.');
     }
 
+    const previousRows = await tx.matchPlayer.findMany({
+      where: { matchId },
+      select: { playerId: true, slot: true, locked: true },
+    });
+    const previousLockedPairs = new Set(
+      previousRows
+        .filter((row) => row.locked)
+        .map((row) => matchPlayerLockPairKey(row.playerId, row.slot)),
+    );
+    const incomingLockedBySlot = new Map(
+      roster.map((player) => [player.slot, player.locked === true] as const),
+    );
+
     await tx.matchPlayer.deleteMany({ where: { matchId } });
 
     const resolved = await resolvePlayersInTx(tx, roster, existing.leagueId, profile);
@@ -663,6 +721,12 @@ export async function replaceMatchRoster(
           result: null,
           isQuitter: false,
           isGriefer: false,
+          locked: reconcileMatchPlayerLocked(
+            previousLockedPairs,
+            entry.playerId,
+            entry.slot,
+            incomingLockedBySlot.get(entry.slot) === true,
+          ),
         })),
       });
     }

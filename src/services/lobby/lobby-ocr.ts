@@ -9,6 +9,8 @@ const log = createLogger('lobby-ocr');
 export interface LobbyPlayer {
   slot: number;
   nick: string;
+  /** Soft lock for balance hints + shuffle; omitted/false = unlocked. */
+  locked?: boolean;
 }
 
 export interface ValidatedLobby {

@@ -296,6 +296,8 @@ model MatchPlayer {
   result    MatchResult? // Null until match ends
   isQuitter Boolean      @default(false) // Quitter penalty flag; excluded from team rating
   isGriefer Boolean      @default(false) // Bug-abuse penalty flag; stays in team rating
+  /// Soft lock: balance hints + shuffle leave this player↔slot pair alone.
+  locked Boolean @default(false)
   /// Deferred global ki tax for this griefer incident (null when not griefer).
   grieferKiAccrued Int?
   wasNewPlayer Boolean      @default(false) // Snapshot of PlayerRating.isNewPlayer at rating apply
