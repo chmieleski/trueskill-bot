@@ -1,3 +1,10 @@
+## [1.27.2](https://github.com/chmieleski/trueskill-bot/compare/v1.27.1...v1.27.2) (2026-08-26)
+
+
+### Bug Fixes
+
+* **rating:** keep paired New frozen when the other New quits ([#103](https://github.com/chmieleski/trueskill-bot/issues/103)) ([4f35121](https://github.com/chmieleski/trueskill-bot/commit/4f35121f7bc5f8eca9bbc86ac1ad6b9b50ad8adc))
+
 ## [1.27.1](https://github.com/chmieleski/trueskill-bot/compare/v1.27.0...v1.27.1) (2026-08-26)
 
 
