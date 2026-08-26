@@ -183,7 +183,7 @@ function toLobbyPlayers(match: MatchWithPlayers): LobbyPlayer[] {
     .map((entry) => ({
       slot: entry.slot,
       nick: normalizeNick(entry.player.username),
-      locked: entry.locked === true,
+      ...(entry.locked === true ? { locked: true as const } : {}),
     }))
     .sort((a, b) => a.slot - b.slot);
 }
