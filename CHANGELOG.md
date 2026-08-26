@@ -1,3 +1,10 @@
+## [1.27.1](https://github.com/chmieleski/trueskill-bot/compare/v1.27.0...v1.27.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* **rating:** freeze New only when pairable across teams ([#102](https://github.com/chmieleski/trueskill-bot/issues/102)) ([03fe0c8](https://github.com/chmieleski/trueskill-bot/commit/03fe0c85449fc57cef95d0e8e16dd13ca5905966))
+
 # [1.27.0](https://github.com/chmieleski/trueskill-bot/compare/v1.26.1...v1.27.0) (2026-08-26)
 
 
