@@ -175,18 +175,13 @@ export function formatTeammateTable(pairs: TeammatePairStats[]): string {
   return `\`\`\`\n${lines.join('\n')}\n\`\`\``;
 }
 
-/** Build the three top-3 lists from a shared pair pool. Win/Lose lists take priority; Played with skips those nicks. */
+/** Build the three top-3 lists from a shared pair pool. Played with owns most-games first; Win/Lose skip those nicks. */
 export function buildTeammateStatsFromPairs(pairs: TeammatePairStats[]): TeammateStats {
-  const winWith = pickTopTeammates(pairs, 'winRate');
-  const loseWith = pickTopTeammates(pairs, 'loseRate');
-  const reserved = new Set([
-    ...winWith.map((entry) => entry.playerId),
-    ...loseWith.map((entry) => entry.playerId),
-  ]);
-  const playedWith = pickTopTeammates(
-    pairs.filter((entry) => !reserved.has(entry.playerId)),
-    'games',
-  );
+  const playedWith = pickTopTeammates(pairs, 'games');
+  const reserved = new Set(playedWith.map((entry) => entry.playerId));
+  const remaining = pairs.filter((entry) => !reserved.has(entry.playerId));
+  const winWith = pickTopTeammates(remaining, 'winRate');
+  const loseWith = pickTopTeammates(remaining, 'loseRate');
   return { playedWith, winWith, loseWith };
 }
 
