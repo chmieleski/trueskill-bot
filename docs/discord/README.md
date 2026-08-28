@@ -35,6 +35,7 @@ Rendered posts must stay under Discord's 2000-character limit.
 5. `staff/a5-admin-cheat-sheet.md`
 6. `staff/a6-league-rollover.md`
 7. `staff/a7-rating-decay.md`
+8. `staff/a8-wos-hero-display-names.md`
 
 ## Tips
 

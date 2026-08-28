@@ -25,6 +25,9 @@ People with the **mod role** help when the host is gone or stuck.
 • `/unlink user:@Player`
 • `/player_new set` / `/player_new clear` — New-player isolation (excluded from team rate until 5 games; quit still hurts)
 • `/rank_reset user:@Player` — force reset (bypasses cooldown when enabled)
+{{#wosMatchStats}}
+• `/hero_config rename` — shorter WOS hero display names (see **a8**)
+{{/wosMatchStats}}
 
 Players still host their own lobbies with the create role.
 Mods are the safety net for reporting and account fixes.
