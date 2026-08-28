@@ -1,3 +1,15 @@
+# [1.33.0](https://github.com/chmieleski/trueskill-bot/compare/v1.32.0...v1.33.0) (2026-08-28)
+
+
+### Bug Fixes
+
+* **test:** align WOS docs placeholder test with teamNames ([#115](https://github.com/chmieleski/trueskill-bot/issues/115)) ([83d159b](https://github.com/chmieleski/trueskill-bot/commit/83d159b6a4cff353f50d7e636ce0549d0b8fabe3)), closes [#114](https://github.com/chmieleski/trueskill-bot/issues/114)
+
+
+### Features
+
+* **wos:** add wc3stats lobby import for Anime_WOS2 ([#114](https://github.com/chmieleski/trueskill-bot/issues/114)) ([317aac6](https://github.com/chmieleski/trueskill-bot/commit/317aac6da1c9f59a41772558798dc27895ded3d6))
+
 # [1.32.0](https://github.com/chmieleski/trueskill-bot/compare/v1.31.0...v1.32.0) (2026-08-28)
 
 
