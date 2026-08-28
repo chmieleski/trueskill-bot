@@ -1,8 +1,10 @@
 import type { MatchPlayerStats } from '@prisma/client';
 import {
+  inferSuggestedWinner,
   parseWos2BotReport,
   winningTeamFromWos2Rounds,
   Wos2BotReportParseError,
+  type SuggestedWinner,
   type Wos2BotReport,
   type Wos2BotReportPlayer,
 } from '../../games/warcraft3_wos/index.js';
@@ -10,6 +12,7 @@ import { getGameProfileForMatch, getMatchById, MatchServiceError } from './match
 import { assertCanManageMatch } from './match-auth.js';
 import { normalizeNick } from '../player/player-nick.js';
 import { prisma } from '../../lib/prisma.js';
+import { clearMatchStatsReport } from './match-stats-store.js';
 
 export type MatchPlayerStatsLine = MatchPlayerStats & {
   username: string;
@@ -28,6 +31,9 @@ export class MatchStatsUploadError extends Error {
     this.name = 'MatchStatsUploadError';
   }
 }
+
+export const WOS_MATCH_REPORT_REQUIRED_MESSAGE =
+  'Upload the WOS bot match report with `/match upload_report` before completing this match.';
 
 function mapParseError(error: unknown): never {
   if (error instanceof Wos2BotReportParseError) {
@@ -100,6 +106,13 @@ export async function hasMatchStatsReport(matchId: string): Promise<boolean> {
   return report !== null;
 }
 
+/** Throws when a WOS league/event match has no persisted bot report yet. */
+export async function assertWosMatchStatsReportPresent(matchId: string): Promise<void> {
+  if (!(await hasMatchStatsReport(matchId))) {
+    throw new MatchServiceError(WOS_MATCH_REPORT_REQUIRED_MESSAGE);
+  }
+}
+
 function matchReportPlayersToRoster(
   matchPlayers: Array<{ playerId: string; player: { username: string } }>,
   report: Wos2BotReport,
@@ -143,6 +156,98 @@ function matchReportPlayersToRoster(
   return { matched, warnings };
 }
 
+function buildSummaryLines(
+  matched: Array<{ playerId: string; reportPlayer: Wos2BotReportPlayer }>,
+): string[] {
+  return matched
+    .sort((left, right) => left.reportPlayer.index - right.reportPlayer.index)
+    .map(({ reportPlayer }) =>
+      formatKdaLine(
+        reportPlayer.name,
+        reportPlayer.kills,
+        reportPlayer.deaths,
+        reportPlayer.heroName,
+      ),
+    );
+}
+
+/** Persist WOS2 stats for a match that already has a matching roster (PENDING or IN_PROGRESS). */
+export async function persistWos2MatchStats(input: {
+  matchId: string;
+  actorDiscordId: string;
+  rawText: string;
+  report: Wos2BotReport;
+  matchPlayers: Array<{ playerId: string; player: { username: string } }>;
+}): Promise<{ externalId: string; summaryLines: string[]; warnings: string[] }> {
+  const { matched, warnings } = matchReportPlayersToRoster(input.matchPlayers, input.report);
+
+  await prisma.$transaction(async (tx) => {
+    await clearMatchStatsReport(input.matchId, tx);
+
+    await tx.matchStatsReport.create({
+      data: {
+        matchId: input.matchId,
+        format: input.report.format,
+        externalId: input.report.externalId,
+        rawText: input.rawText,
+        team1Rounds: input.report.team1Rounds,
+        team2Rounds: input.report.team2Rounds,
+        playerCount: input.report.playerCount,
+        uploadedByDiscordId: input.actorDiscordId,
+        playerStats: {
+          create: matched.map(({ playerId, reportPlayer }) => ({
+            ...buildPlayerStatsCreateInput(reportPlayer, playerId),
+          })),
+        },
+      },
+    });
+  });
+
+  const roundWinner = winningTeamFromWos2Rounds(input.report);
+  if (roundWinner !== null) {
+    warnings.push(`Report round score suggests Team ${roundWinner} won.`);
+  }
+
+  return {
+    externalId: input.report.externalId,
+    summaryLines: buildSummaryLines(matched),
+    warnings,
+  };
+}
+
+/** Load suggested winner from a stored WOS2 report, if any. */
+export async function loadSuggestedWinnerForMatch(
+  matchId: string,
+): Promise<{ suggested: SuggestedWinner | null; roundLine: string | null }> {
+  const stored = await prisma.matchStatsReport.findUnique({
+    where: { matchId },
+    select: {
+      rawText: true,
+      team1Rounds: true,
+      team2Rounds: true,
+    },
+  });
+
+  if (!stored?.rawText) {
+    return { suggested: null, roundLine: null };
+  }
+
+  let report: Wos2BotReport;
+  try {
+    report = parseWos2BotReport(stored.rawText);
+  } catch {
+    return { suggested: null, roundLine: null };
+  }
+
+  const suggested = inferSuggestedWinner(report);
+  const roundLine =
+    stored.team1Rounds !== null && stored.team2Rounds !== null
+      ? `${stored.team1Rounds}–${stored.team2Rounds} rounds`
+      : null;
+
+  return { suggested, roundLine };
+}
+
 /** Persist a WOS2 bot match report for an in-progress match. */
 export async function uploadMatchStatsReport(input: {
   matchId: string;
@@ -181,49 +286,19 @@ export async function uploadMatchStatsReport(input: {
 
   const { matched, warnings } = matchReportPlayersToRoster(match.players, report);
 
-  await prisma.$transaction(async (tx) => {
-    await tx.matchStatsReport.deleteMany({ where: { matchId: match.id } });
-
-    await tx.matchStatsReport.create({
-      data: {
-        matchId: match.id,
-        format: report.format,
-        externalId: report.externalId,
-        rawText: input.rawText,
-        team1Rounds: report.team1Rounds,
-        team2Rounds: report.team2Rounds,
-        playerCount: report.playerCount,
-        uploadedByDiscordId: input.actorDiscordId,
-        playerStats: {
-          create: matched.map(({ playerId, reportPlayer }) => ({
-            ...buildPlayerStatsCreateInput(reportPlayer, playerId),
-          })),
-        },
-      },
-    });
+  const persisted = await persistWos2MatchStats({
+    matchId: match.id,
+    actorDiscordId: input.actorDiscordId,
+    rawText: input.rawText,
+    report,
+    matchPlayers: match.players,
   });
-
-  const summaryLines = matched
-    .sort((left, right) => left.reportPlayer.index - right.reportPlayer.index)
-    .map(({ reportPlayer }) =>
-      formatKdaLine(
-        reportPlayer.name,
-        reportPlayer.kills,
-        reportPlayer.deaths,
-        reportPlayer.heroName,
-      ),
-    );
-
-  const roundWinner = winningTeamFromWos2Rounds(report);
-  if (roundWinner !== null) {
-    warnings.push(`Report round score suggests Team ${roundWinner} won.`);
-  }
 
   return {
     matchId: match.id,
-    externalId: report.externalId,
-    summaryLines,
-    warnings,
+    externalId: persisted.externalId,
+    summaryLines: persisted.summaryLines,
+    warnings: [...warnings, ...persisted.warnings.filter((w) => !warnings.includes(w))],
   };
 }
 

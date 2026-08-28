@@ -43,18 +43,7 @@ export const UDBR_WC3STATS_SLOT_MAP: ReadonlyArray<GuildWc3statsSlotMapping> = [
  * Team A (wc3 team 0): red, blue, teal, purple, yellow → slots 1–5
  * Team B (wc3 team 1): orange, green, pink, gray, light_blue → slots 6–10
  */
-export const WOS_WC3STATS_SLOT_MAP: ReadonlyArray<GuildWc3statsSlotMapping> = [
-  { wc3statsSlot: 0, heroId: 1 },
-  { wc3statsSlot: 1, heroId: 2 },
-  { wc3statsSlot: 2, heroId: 3 },
-  { wc3statsSlot: 3, heroId: 4 },
-  { wc3statsSlot: 4, heroId: 5 },
-  { wc3statsSlot: 5, heroId: 6 },
-  { wc3statsSlot: 6, heroId: 7 },
-  { wc3statsSlot: 7, heroId: 8 },
-  { wc3statsSlot: 8, heroId: 9 },
-  { wc3statsSlot: 9, heroId: 10 },
-];
+export { WOS_WC3STATS_SLOT_MAP } from '../../games/warcraft3_wos/wos-slot-map.js';
 
 /** Regex source copied into League by the WOS preset (not a process env default). */
 export const WOS_MAP_PATTERN = 'anime.?wos2';

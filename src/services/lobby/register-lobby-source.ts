@@ -6,6 +6,8 @@ import { MatchServiceError } from '../match/match-service.js';
 
 export const SCREENSHOT_UNSUPPORTED_MESSAGE =
   'Lobby screenshots are not supported for this game yet.';
+export const TEXT_REPORT_UNSUPPORTED_MESSAGE =
+  'Match file reports are not supported for this game.';
 export const WC3STATS_UNSUPPORTED_MESSAGE = 'Warcraft lobby import is not supported for this game.';
 export const WC3STATS_CONFIG_UNSUPPORTED_MESSAGE =
   "This league's game does not use wc3stats import.";
@@ -16,10 +18,13 @@ export const WC3STATS_CONFIG_UNSUPPORTED_MESSAGE =
  */
 export function assertRegisterLobbyAllowedForProfile(
   profile: GameProfile,
-  input: { hasScreenshot: boolean; hasWc3statsId: boolean },
+  input: { hasScreenshot: boolean; hasWc3statsId: boolean; hasReport?: boolean },
 ): void {
   if (input.hasScreenshot && profile.heroBinding !== 'slot_bound') {
     throw new MatchServiceError(SCREENSHOT_UNSUPPORTED_MESSAGE);
+  }
+  if (input.hasReport && profile.postMatchStats !== 'wos2_bot_v1') {
+    throw new MatchServiceError(TEXT_REPORT_UNSUPPORTED_MESSAGE);
   }
   if (input.hasWc3statsId && profile.import !== 'wc3stats') {
     throw new MatchServiceError(WC3STATS_UNSUPPORTED_MESSAGE);
@@ -60,6 +65,7 @@ export async function assertLeagueAllowsWc3statsImport(leagueId: string): Promis
 export type RegisterLobbySource =
   | { kind: 'empty' }
   | { kind: 'screenshot'; url: string; mimeType: string }
+  | { kind: 'wos2_report'; url: string }
   | { kind: 'wc3stats'; wc3statsId?: number };
 
 export function parseWc3statsId(raw?: string | null): number | null {
@@ -105,17 +111,23 @@ export function allowsEmptyMatchOnWc3statsFailure(code: Wc3statsImportFailureCod
  * Screenshot always wins for the roster. wc3stats_id may still be stored separately.
  */
 export function resolveRegisterLobbySource(input: {
-  attachmentUrl?: string | null;
-  mimeType?: string | null;
+  printAttachmentUrl?: string | null;
+  reportAttachmentUrl?: string | null;
+  printMimeType?: string | null;
   wc3statsEnabled?: boolean;
   wc3statsId?: number | null;
 }): RegisterLobbySource {
-  const url = input.attachmentUrl?.trim() ?? '';
-  if (url !== '') {
+  const reportUrl = input.reportAttachmentUrl?.trim() ?? '';
+  if (reportUrl !== '') {
+    return { kind: 'wos2_report', url: reportUrl };
+  }
+
+  const printUrl = input.printAttachmentUrl?.trim() ?? '';
+  if (printUrl !== '') {
     return {
       kind: 'screenshot',
-      url,
-      mimeType: input.mimeType?.trim() || 'image/png',
+      url: printUrl,
+      mimeType: input.printMimeType?.trim() || 'image/png',
     };
   }
 

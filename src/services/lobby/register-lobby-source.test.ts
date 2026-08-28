@@ -36,15 +36,41 @@ const udbr = getGameProfile(WARCRAFT3_UDBR_GAME_ID);
 describe('resolveRegisterLobbySource', () => {
   it('returns empty when no attachment url is given', () => {
     expect(resolveRegisterLobbySource({})).toEqual({ kind: 'empty' });
-    expect(resolveRegisterLobbySource({ attachmentUrl: null })).toEqual({ kind: 'empty' });
-    expect(resolveRegisterLobbySource({ attachmentUrl: '' })).toEqual({ kind: 'empty' });
+    expect(resolveRegisterLobbySource({ printAttachmentUrl: null })).toEqual({ kind: 'empty' });
+    expect(resolveRegisterLobbySource({ printAttachmentUrl: '' })).toEqual({ kind: 'empty' });
   });
 
-  it('returns screenshot when url and mime are present', () => {
+  it('returns wos2_report when report attachment url is present', () => {
     expect(
       resolveRegisterLobbySource({
-        attachmentUrl: 'https://cdn.discordapp.com/a.png',
-        mimeType: 'image/png',
+        reportAttachmentUrl: 'https://cdn.discordapp.com/a.txt',
+      }),
+    ).toEqual({
+      kind: 'wos2_report',
+      url: 'https://cdn.discordapp.com/a.txt',
+    });
+  });
+
+  it('prefers report over print and wc3stats', () => {
+    expect(
+      resolveRegisterLobbySource({
+        reportAttachmentUrl: 'https://cdn.discordapp.com/a.txt',
+        printAttachmentUrl: 'https://cdn.discordapp.com/a.png',
+        printMimeType: 'image/png',
+        wc3statsEnabled: true,
+        wc3statsId: 12,
+      }),
+    ).toEqual({
+      kind: 'wos2_report',
+      url: 'https://cdn.discordapp.com/a.txt',
+    });
+  });
+
+  it('returns screenshot when print url and mime are present', () => {
+    expect(
+      resolveRegisterLobbySource({
+        printAttachmentUrl: 'https://cdn.discordapp.com/a.png',
+        printMimeType: 'image/png',
       }),
     ).toEqual({
       kind: 'screenshot',
@@ -56,8 +82,8 @@ describe('resolveRegisterLobbySource', () => {
   it('prefers screenshot over wc3stats for the roster source', () => {
     expect(
       resolveRegisterLobbySource({
-        attachmentUrl: 'https://cdn.discordapp.com/a.png',
-        mimeType: 'image/png',
+        printAttachmentUrl: 'https://cdn.discordapp.com/a.png',
+        printMimeType: 'image/png',
         wc3statsEnabled: true,
         wc3statsId: 12,
       }),
@@ -127,9 +153,23 @@ describe('assertRegisterLobbyAllowedForProfile', () => {
     ).not.toThrow();
   });
 
-  it('allows empty Discord-only register without screenshot or wc3stats id', () => {
+  it('refuses text report when postMatchStats is none', () => {
     expect(() =>
-      assertRegisterLobbyAllowedForProfile(wos, { hasScreenshot: false, hasWc3statsId: false }),
+      assertRegisterLobbyAllowedForProfile(udbr, {
+        hasScreenshot: false,
+        hasWc3statsId: false,
+        hasReport: true,
+      }),
+    ).toThrow('Match file reports are not supported for this game.');
+  });
+
+  it('allows report on WOS', () => {
+    expect(() =>
+      assertRegisterLobbyAllowedForProfile(wos, {
+        hasScreenshot: false,
+        hasWc3statsId: false,
+        hasReport: true,
+      }),
     ).not.toThrow();
   });
 });

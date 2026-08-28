@@ -22,15 +22,15 @@ import {
   cancelInProgressMatch,
   completeMatch,
   formatMatchStatsSummaryLines,
-  hasMatchStatsReport,
-  loadMatchPlayerStatsLines,
-  setGriefers,
-  setQuitters,
-} from '../../services/match/index.js';
-import {
   getMatchById,
   getGameProfileForMatch,
+  hasMatchStatsReport,
+  loadMatchPlayerStatsLines,
+  loadSuggestedWinnerForMatch,
   MatchServiceError,
+  setGriefers,
+  setQuitters,
+  WOS_MATCH_REPORT_REQUIRED_MESSAGE,
   type MatchWithPlayers,
 } from '../../services/match/index.js';
 import { assertCanManageMatch } from '../../services/match/index.js';
@@ -267,6 +267,24 @@ async function showReportQuitterStep(
   );
 }
 
+function buildSuggestedWinnerContinueRow(
+  matchId: string,
+  grieferSlots: number[],
+  quitterSlots: number[],
+  suggestedTeam: 1 | 2,
+  profile: GameProfile,
+): ActionRowBuilder<ButtonBuilder> {
+  const grieferCsv = encodeSlots(grieferSlots);
+  const quitterCsv = encodeSlots(quitterSlots);
+
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`match:rw:win:${matchId}:${suggestedTeam}:${grieferCsv}:${quitterCsv}`)
+      .setLabel(`Continue with ${winnerLabel(suggestedTeam, profile)}`)
+      .setStyle(ButtonStyle.Success),
+  );
+}
+
 async function showReportWinnerStep(
   interaction: MessageComponentInteraction,
   match: MatchWithPlayers,
@@ -274,16 +292,40 @@ async function showReportWinnerStep(
   quitterSlots: number[],
 ): Promise<void> {
   const profile = await profileForMatch(match);
-  const content = [
+  const { suggested, roundLine } = await loadSuggestedWinnerForMatch(match.id);
+
+  const lines = [
     formatGrieferSummary(match, grieferSlots),
     formatQuitterSummary(match, quitterSlots),
     '',
-    'Choose the winner:',
-  ].join('\n');
+  ];
 
-  await updateEphemeral(interaction, content, [
-    buildWinnerRow(match.id, grieferSlots, quitterSlots, profile),
-  ]);
+  if (suggested) {
+    const roundSuffix = roundLine ? ` (${roundLine})` : '';
+    lines.push(
+      `Report suggests **${winnerLabel(suggested.team, profile)}** won${roundSuffix}.`,
+      '',
+      'Continue with the suggested winner or pick another team:',
+    );
+  } else {
+    lines.push('Choose the winner:');
+  }
+
+  const components: ComponentRow[] = [];
+  if (suggested) {
+    components.push(
+      buildSuggestedWinnerContinueRow(
+        match.id,
+        grieferSlots,
+        quitterSlots,
+        suggested.team,
+        profile,
+      ),
+    );
+  }
+  components.push(buildWinnerRow(match.id, grieferSlots, quitterSlots, profile));
+
+  await updateEphemeral(interaction, lines.join('\n'), components);
 }
 
 function buildReportQuitterSkipRow(
@@ -390,19 +432,13 @@ function buildConfirmRow(
   );
 }
 
-function buildReportStatsSkipRow(
+function buildReportStatsRefreshRow(
   matchId: string,
   winningTeam: 1 | 2,
   grieferSlots: number[],
   quitterSlots: number[],
 ): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(
-        `match:rw:statskip:${matchId}:${winningTeam}:${encodeSlots(grieferSlots)}:${encodeSlots(quitterSlots)}`,
-      )
-      .setLabel('Skip and confirm')
-      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(
         `match:rw:statrefresh:${matchId}:${winningTeam}:${encodeSlots(grieferSlots)}:${encodeSlots(quitterSlots)}`,
@@ -463,9 +499,9 @@ async function showReportStatsStep(
   } else {
     lines.push(
       'Upload the WOS bot match `.txt` report with `/match upload_report`, then tap **Refresh**.',
-      'You can skip stats and confirm without a report.',
+      'A match report is required before this match can be completed.',
     );
-    components.push(buildReportStatsSkipRow(match.id, winningTeam, grieferSlots, quitterSlots));
+    components.push(buildReportStatsRefreshRow(match.id, winningTeam, grieferSlots, quitterSlots));
   }
 
   await updateEphemeral(interaction, lines.join('\n'), components);
@@ -850,12 +886,12 @@ async function handleWinnerChoice(
 async function handleReportStatsSkip(
   interaction: ButtonInteraction,
   matchId: string,
-  winningTeam: 1 | 2,
-  grieferSlots: number[],
-  quitterSlots: number[],
+  _winningTeam: 1 | 2,
+  _grieferSlots: number[],
+  _quitterSlots: number[],
 ): Promise<void> {
-  const match = await resolveById(interaction, matchId);
-  await showReportConfirmStep(interaction, match, winningTeam, grieferSlots, quitterSlots);
+  await resolveById(interaction, matchId);
+  throw new MatchServiceError(WOS_MATCH_REPORT_REQUIRED_MESSAGE);
 }
 
 async function handleReportStatsRefresh(

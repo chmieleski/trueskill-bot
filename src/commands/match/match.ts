@@ -25,6 +25,7 @@ import {
   setGriefers,
   setQuitters,
   uploadMatchStatsReport,
+  WOS_MATCH_REPORT_REQUIRED_MESSAGE,
 } from '../../services/match/index.js';
 import {
   assertHasMatchModRole,
@@ -916,16 +917,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
 
       const profile = await getGameProfileForMatch(match);
+      if (profile.postMatchStats === 'wos2_bot_v1' && !(await hasMatchStatsReport(match.id))) {
+        throw new MatchServiceError(WOS_MATCH_REPORT_REQUIRED_MESSAGE);
+      }
+
       const completed = await completeMatch(match.id, winner, quitterSlots, grieferSlots);
       void refreshAllLeaderboardChannels(interaction.client).catch(() => undefined);
 
-      let completionMessage = `Match \`${completed.match.id}\` completed. Winner: **${winnerLabel(winner, profile)}**.`;
-      if (profile.postMatchStats !== 'none') {
-        const uploaded = await hasMatchStatsReport(match.id);
-        if (!uploaded) {
-          completionMessage += '\n_No match stats report uploaded._';
-        }
-      }
+      const completionMessage = `Match \`${completed.match.id}\` completed. Winner: **${winnerLabel(winner, profile)}**.`;
 
       await applyMatchMutation(interaction, completed.match, 'completed', completionMessage, {
         ratingPreview: completed.ratingPreview,

@@ -47,6 +47,12 @@ vi.mock('../../lib/prisma.js', () => ({
     matchPlayer: {
       update: matchPlayerUpdate,
     },
+    event: {
+      findUnique: vi.fn().mockResolvedValue({ gameId: 'warcraft3_udbr' }),
+    },
+    matchStatsReport: {
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
   },
 }));
 
@@ -146,6 +152,9 @@ describe('completeMatch event path', () => {
         },
         playerRating: {
           updateMany: vi.fn(),
+        },
+        matchStatsReport: {
+          findUnique: vi.fn().mockResolvedValue(null),
         },
       };
       matchFindUnique.mockResolvedValue(eventInProgressMatch());
