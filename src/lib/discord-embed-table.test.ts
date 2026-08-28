@@ -22,7 +22,7 @@ describe('formatMonospaceTable', () => {
           player: 'dragonnpx4',
           hero: 'Sawada Tsunayoshi',
           kda: '30/9',
-          dmg: '218k',
+          dmg: '217.7k',
         },
       ],
       [
