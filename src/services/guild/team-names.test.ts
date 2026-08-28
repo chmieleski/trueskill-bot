@@ -1,12 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { getGameProfile } from '../../domain/game-profile.js';
-import {
-  WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
-  WARCRAFT3_UDBR_GAME_ID,
-} from '../../domain/games.js';
+import { WARCRAFT3_WOS_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
 import { teamDisplayName, teamDisplayNameForSlot, winnerLabel } from './team-names.js';
 
-const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
+const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
 const udbr = getGameProfile(WARCRAFT3_UDBR_GAME_ID);
 
 describe('teamDisplayName', () => {
@@ -16,9 +13,9 @@ describe('teamDisplayName', () => {
   });
 
   it('uses profile teamNames when provided', () => {
-    expect(teamDisplayName(1, aca)).toBe('Team A');
-    expect(teamDisplayName(2, aca)).toBe('Team B');
-    expect(teamDisplayNameForSlot(6, aca)).toBe('Team B');
+    expect(teamDisplayName(1, wos)).toBe('Team A');
+    expect(teamDisplayName(2, wos)).toBe('Team B');
+    expect(teamDisplayNameForSlot(6, wos)).toBe('Team B');
   });
 
   it('keeps Z Fighters / Evil without a profile (slash + UDBR OCR)', () => {
@@ -27,9 +24,9 @@ describe('teamDisplayName', () => {
 });
 
 describe('winnerLabel', () => {
-  it('uses ACA Team A / Team B when a profile is passed', () => {
-    expect(winnerLabel(1, aca)).toBe('Team A');
-    expect(winnerLabel(2, aca)).toBe('Team B');
+  it('uses WOS Team A / Team B when a profile is passed', () => {
+    expect(winnerLabel(1, wos)).toBe('Team A');
+    expect(winnerLabel(2, wos)).toBe('Team B');
   });
 
   it('keeps UDBR Z Fighters / Evil when that profile is passed', () => {

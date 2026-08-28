@@ -23,6 +23,17 @@ export {
   type CompleteMatchResult,
 } from './match-report.js';
 export {
+  fetchTextAttachment,
+  formatMatchStatsFieldValue,
+  formatMatchStatsSummaryLines,
+  hasMatchStatsReport,
+  isTextReportAttachment,
+  loadMatchPlayerStatsLines,
+  uploadMatchStatsReport,
+  type MatchPlayerStatsLine,
+  type UploadMatchStatsResult,
+} from './match-stats-upload.js';
+export {
   assertCanCreateMatch,
   assertCanManageMatch,
   assertHasMatchModRole,

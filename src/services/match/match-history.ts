@@ -13,6 +13,7 @@ import {
   requireLeagueId,
   type MatchWithPlayers,
 } from './match-service.js';
+import { formatMatchStatsFieldValue, loadMatchPlayerStatsLines } from './match-stats-upload.js';
 import { compactUuidForCustomId, expandUuidFromCustomId } from './compact-custom-id.js';
 import {
   countCompletedGamesThrough,
@@ -458,6 +459,15 @@ export async function loadCompletedMatchShow(input: {
     timestamp: match.completedAt ?? match.createdAt,
     ...(ratingPreview ? { ratingPreview } : {}),
   });
+
+  const stats = await loadMatchPlayerStatsLines(match.id);
+  if (stats.length > 0) {
+    embed.addFields({
+      name: 'Match stats',
+      value: formatMatchStatsFieldValue(stats),
+      inline: false,
+    });
+  }
 
   return { match, embed };
 }

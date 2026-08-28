@@ -1,7 +1,8 @@
-import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from './games.js';
+import { WARCRAFT3_UDBR_GAME_ID, WARCRAFT3_WOS_GAME_ID } from './games.js';
 
 export type HeroBinding = 'slot_bound' | 'optional_in_game';
 export type GameImportKind = 'none' | 'wc3stats';
+export type PostMatchStatsKind = 'none' | 'wos2_bot_v1';
 /** Persisted MatchPlayer.team / winning team: 1 or 2. */
 export type TeamId = 1 | 2;
 
@@ -12,6 +13,8 @@ export type GameProfile = {
   teamAMaxSlot: number;
   heroBinding: HeroBinding;
   import: GameImportKind;
+  /** Post-match stats report format accepted for this game. */
+  postMatchStats: PostMatchStatsKind;
   /** User-facing rating unit (e.g. "ki"). Math unchanged; label is per game. */
   ratingLabel: string;
   teamNames: { 1: string; 2: string };
@@ -34,17 +37,19 @@ const GAME_PROFILES: Record<string, GameProfile> = {
     teamAMaxSlot: 6,
     heroBinding: 'slot_bound',
     import: 'wc3stats',
+    postMatchStats: 'none',
     ratingLabel: 'ki',
     teamNames: { 1: 'Z Fighters', 2: 'Evil' },
     sideWinLossDefault: true,
   },
-  [WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID]: {
-    gameId: WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
-    displayName: 'Anime Choice Arena',
+  [WARCRAFT3_WOS_GAME_ID]: {
+    gameId: WARCRAFT3_WOS_GAME_ID,
+    displayName: 'WOS',
     slotCount: 10,
     teamAMaxSlot: 5,
     heroBinding: 'optional_in_game',
     import: 'none',
+    postMatchStats: 'wos2_bot_v1',
     ratingLabel: 'ki',
     teamNames: { 1: 'Team A', 2: 'Team B' },
     sideWinLossDefault: false,

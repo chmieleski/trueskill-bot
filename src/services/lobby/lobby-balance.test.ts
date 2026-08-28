@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getGameProfile } from '../../domain/game-profile.js';
-import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID } from '../../domain/games.js';
+import { WARCRAFT3_WOS_GAME_ID } from '../../domain/games.js';
 import {
   compareSuggestions,
   dedupeEmptySlotMoves,
@@ -197,7 +197,7 @@ describe('suggestBalanceMove', () => {
   });
 
   it('never suggests ACA slots above 10', () => {
-    const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
+    const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
     const roster: BalanceRosterEntry[] = [
       { playerId: 'a1', slot: 1, team: 1, heroId: null, nick: 'A1' },
       { playerId: 'b1', slot: 6, team: 2, heroId: null, nick: 'B1' },
@@ -218,7 +218,7 @@ describe('suggestBalanceMove', () => {
       lookup,
       { teamAPercent: 20, teamBPercent: 80 },
       undefined,
-      aca,
+      wos,
     );
     if (suggestion) {
       expect(suggestion.toSlot).toBeLessThanOrEqual(10);

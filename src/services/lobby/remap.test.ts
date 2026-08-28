@@ -1,16 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { getGameProfile } from '../../domain/game-profile.js';
-import {
-  WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
-  WARCRAFT3_UDBR_GAME_ID,
-} from '../../domain/games.js';
+import { WARCRAFT3_WOS_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
 import { MatchServiceError } from '../match/match-service.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
 import { movePlayer } from './roster.js';
 import { applyRemapPairs, parseRemapPairs, resolveRemapSide, resolveSwapForm } from './remap.js';
 
 const udbr = getGameProfile(WARCRAFT3_UDBR_GAME_ID);
-const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
+const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
 
 function roster(...rows: Array<[number, string]>): LobbyPlayer[] {
   return rows.map(([slot, nick]) => ({ slot, nick }));
@@ -25,7 +22,7 @@ describe('resolveRemapSide', () => {
     expect(() => resolveRemapSide('99', roster([1, '99']), udbr)).toThrow(
       'Invalid slot. This game uses slots 1–12.',
     );
-    expect(() => resolveRemapSide('11', [], aca)).toThrow(
+    expect(() => resolveRemapSide('11', [], wos)).toThrow(
       'Invalid slot. This game uses slots 1–10.',
     );
   });
