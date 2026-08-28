@@ -1,3 +1,10 @@
+# [1.30.0](https://github.com/chmieleski/trueskill-bot/compare/v1.29.2...v1.30.0) (2026-08-28)
+
+
+### Features
+
+* **rating:** discount excess New μ in lobby win% and balance hints ([#111](https://github.com/chmieleski/trueskill-bot/issues/111)) ([79a3c02](https://github.com/chmieleski/trueskill-bot/commit/79a3c02fcd2bfa31a1d76f167fa0c658943d20fa))
+
 ## [1.29.2](https://github.com/chmieleski/trueskill-bot/compare/v1.29.1...v1.29.2) (2026-08-28)
 
 
