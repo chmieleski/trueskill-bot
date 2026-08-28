@@ -1,3 +1,11 @@
+## [1.33.1](https://github.com/chmieleski/trueskill-bot/compare/v1.33.0...v1.33.1) (2026-08-28)
+
+
+### Bug Fixes
+
+* **lobby:** allow match upload_report in lobby channel ([#116](https://github.com/chmieleski/trueskill-bot/issues/116)) ([95a82e1](https://github.com/chmieleski/trueskill-bot/commit/95a82e10c423b2ffd861a68ebce4825f510e9395))
+* **player:** strip Battle.net tags in normalizeNick ([#117](https://github.com/chmieleski/trueskill-bot/issues/117)) ([eb70148](https://github.com/chmieleski/trueskill-bot/commit/eb70148c0878d3b702a49859ddec19a4abc88c13)), closes [Chmieleski#1941](https://github.com/Chmieleski/issues/1941)
+
 # [1.33.0](https://github.com/chmieleski/trueskill-bot/compare/v1.32.0...v1.33.0) (2026-08-28)
 
 
