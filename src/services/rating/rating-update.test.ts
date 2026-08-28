@@ -17,8 +17,8 @@ import {
 } from './rating-update.js';
 
 describe('QUITTER_SYNTHETIC_LOSSES', () => {
-  it('uses one peer synthetic loss (heavier than a fair match loss in display ki)', () => {
-    expect(QUITTER_SYNTHETIC_LOSSES).toBe(1);
+  it('uses three peer synthetic losses (~3 fair solo losses in display ki)', () => {
+    expect(QUITTER_SYNTHETIC_LOSSES).toBe(3);
   });
 });
 
@@ -46,13 +46,14 @@ describe('applySyntheticLosses', () => {
     expect(after[1]!.mu).toBeLessThan(before[1]!.mu);
   });
 
-  it('drops cold-start mu more than the old strong-dummy N=3 path (~23.55)', () => {
+  it('drops cold-start mu roughly three peer losses (~μ 19.2)', () => {
     const before = [rating({ mu: 25, sigma: 8.333 }), rating({ mu: 25, sigma: 8.333 })];
 
     const after = applySyntheticLosses(before);
 
-    // Peer N=1 ≈ μ 23.04; strong dummy N=3 left ~23.55. Peer must hit harder.
-    expect(after[0]!.mu).toBeLessThan(23.55);
+    // Peer N=3 ≈ μ 19.23; old strong-dummy N=3 left ~23.55 (too light).
+    expect(after[0]!.mu).toBeLessThan(20);
+    expect(after[0]!.mu).toBeGreaterThan(18.5);
   });
 });
 
