@@ -13,7 +13,7 @@
 • `changelog_channel` · `changelog_draft_channel` (one draft channel bot-wide)
 
 **League config (Manage Server)**
-• `player_claim` · `lobby_channel` — when on, channel allows `/register_lobby`, `/lobby`, `/match complete|cancel|quitters|griefers`
+• `player_claim` · `lobby_channel` — when on, channel allows `/register_lobby`, `/lobby`, `/match complete|cancel|quitters|griefers|upload_report`
 • Overall board: `leaderboard_channel` / `size` · `/leaderboard setup`
 • `rank_reset` / `rank_reset_cooldown`
 • `wc3stats_map_preset` (UDBR) · `wc3stats_slot` / `map` · `wc3stats_host_prompt`
