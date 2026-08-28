@@ -175,14 +175,13 @@ export function formatTeammateTable(pairs: TeammatePairStats[]): string {
   return `\`\`\`\n${lines.join('\n')}\n\`\`\``;
 }
 
-/** Build the three top-3 lists from a shared pair pool. Played with owns most-games first; Win/Lose skip those nicks. */
+/** Build the three top-3 lists from a shared pair pool; the same partner may appear on multiple lists. */
 export function buildTeammateStatsFromPairs(pairs: TeammatePairStats[]): TeammateStats {
-  const playedWith = pickTopTeammates(pairs, 'games');
-  const reserved = new Set(playedWith.map((entry) => entry.playerId));
-  const remaining = pairs.filter((entry) => !reserved.has(entry.playerId));
-  const winWith = pickTopTeammates(remaining, 'winRate');
-  const loseWith = pickTopTeammates(remaining, 'loseRate');
-  return { playedWith, winWith, loseWith };
+  return {
+    playedWith: pickTopTeammates(pairs, 'games'),
+    winWith: pickTopTeammates(pairs, 'winRate'),
+    loseWith: pickTopTeammates(pairs, 'loseRate'),
+  };
 }
 
 /** Load top-3 teammate lists for a player in a league (post–rank-reset WIN/LOSS only). */

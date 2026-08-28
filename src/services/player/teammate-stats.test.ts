@@ -264,14 +264,12 @@ describe('buildTeammateStatsFromPairs', () => {
       pair({ playerId: 'e', username: 'Yamcha', games: 4, wins: 1, losses: 3 }), // 25%
     ];
     const stats = buildTeammateStatsFromPairs(pairs);
-    // Played with always owns the most-games partners
     expect(stats.playedWith.map((p) => p.username)).toEqual(['Ghost', 'Krillin', 'Piccolo']);
-    // Win/Lose fill from everyone else (Gohan is the only remaining ≥5G pair)
-    expect(stats.winWith.map((p) => p.username)).toEqual(['Gohan']);
-    expect(stats.loseWith.map((p) => p.username)).toEqual(['Gohan']);
+    expect(stats.winWith.map((p) => p.username)).toEqual(['Gohan', 'Ghost', 'Piccolo']);
+    expect(stats.loseWith.map((p) => p.username)).toEqual(['Krillin', 'Piccolo', 'Ghost']);
   });
 
-  it('does not repeat the same nick across Played with and Win/Lose with', () => {
+  it('allows the same nick on Played with and Win/Lose with when they qualify', () => {
     const pairs = [
       pair({ playerId: 'a', username: 'dragonnpx4', games: 5, wins: 4, losses: 1 }),
       pair({ playerId: 'b', username: 'grave', games: 5, wins: 3, losses: 2 }),
@@ -284,17 +282,11 @@ describe('buildTeammateStatsFromPairs', () => {
       'notverriegod',
       'dragonnpx4',
     ]);
-    const playedIds = new Set(stats.playedWith.map((p) => p.playerId));
-    const winLoseIds = new Set([
-      ...stats.winWith.map((p) => p.playerId),
-      ...stats.loseWith.map((p) => p.playerId),
-    ]);
-    for (const id of playedIds) {
-      expect(winLoseIds.has(id)).toBe(false);
-    }
-    // Only grave remains after Played with takes the top-3 by games
-    expect(stats.winWith.map((p) => p.username)).toEqual(['grave']);
-    expect(stats.loseWith.map((p) => p.username)).toEqual(['grave']);
+    expect(stats.winWith.map((p) => p.username)).toEqual(['dragonnpx4', 'grave', 'frequent']);
+    expect(stats.loseWith.map((p) => p.username)).toEqual(['notverriegod', 'frequent', 'grave']);
+    expect(stats.winWith.some((p) => stats.playedWith.some((q) => q.playerId === p.playerId))).toBe(
+      true,
+    );
   });
 });
 
