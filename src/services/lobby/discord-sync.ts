@@ -163,7 +163,7 @@ export async function syncLobbyDiscordMessage(
         );
     payload = {
       embeds: [buildMatchInProgressEmbed(match.id, players, { ratingPreview, profile, eventName })],
-      components: buildMatchReportButtons(),
+      components: buildMatchReportButtons(profile),
     };
   } else if (mode === 'completed') {
     const ratingPreview = isEvent

@@ -1,5 +1,7 @@
 # Adding a new game (IHL)
 
+> **Note:** The catalog id `warcraft3_anime_choice_arena` was renamed to **`warcraft3_wos`** (display name **WOS**). Historical specs may still mention the old id.
+
 **Audience:** engineers / agents implementing a second (or Nth) game on this Discord bot.  
 **Related design:** `docs/superpowers/specs/2026-08-15-multi-league-ihl-design.md`  
 **Scope label:** work for a new game is always `game:<gameId>` — see `.cursor/rules/feature-scope-game-vs-general.mdc`.
@@ -128,10 +130,12 @@ WC3 UDBR uses a global `Hero` table (slots 1–12). That is **not** universal.
 
 ## Known games
 
-| `gameId`         | Status                                                         | Module (current)                                                      |
-| ---------------- | -------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `warcraft3_udbr` | First game                                                     | `src/services/league/league-wc3stats.ts` + `src/services/wc3stats/**` |
-| `warcraft3_wos`  | Second game (v1: Discord-only, global rating, no in-game pick) | `src/domain/game-profile.ts`                                          |
+| `gameId`         | Status                                                | Module (current)                                                      |
+| ---------------- | ----------------------------------------------------- | --------------------------------------------------------------------- |
+| `warcraft3_udbr` | First game                                            | `src/services/league/league-wc3stats.ts` + `src/services/wc3stats/**` |
+| `warcraft3_wos`  | WOS (Discord-only lobby; WOS2 bot match stats upload) | `src/domain/game-profile.ts`, `src/games/warcraft3_wos/`              |
+
+`GameProfile.postMatchStats` gates post-match report upload (`none` vs `wos2_bot_v1`). Parser lives under the game module; upload use-case is `src/services/match/match-stats-upload.ts`.
 
 ## When to invest in “full” generalization
 

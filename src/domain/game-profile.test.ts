@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WARCRAFT3_UDBR_GAME_ID, WARCRAFT3_WOS_GAME_ID } from './games.js';
+import { WARCRAFT3_WOS_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from './games.js';
 import {
   assertTeam,
   getGameProfile,
@@ -17,12 +17,13 @@ describe('getGameProfile', () => {
     expect(profile.teamAMaxSlot).toBe(6);
     expect(profile.heroBinding).toBe('slot_bound');
     expect(profile.import).toBe('wc3stats');
+    expect(profile.postMatchStats).toBe('none');
     expect(profile.ratingLabel).toBe('ki');
     expect(profile.teamNames).toEqual({ 1: 'Z Fighters', 2: 'Evil' });
     expect(profile.sideWinLossDefault).toBe(true);
   });
 
-  it('returns WOS 10-slot optional_in_game none profile', () => {
+  it('returns WOS 10-slot optional_in_game none profile with post-match stats', () => {
     const profile = getGameProfile(WARCRAFT3_WOS_GAME_ID);
     expect(profile.gameId).toBe('warcraft3_wos');
     expect(profile.displayName).toBe('WOS');
@@ -30,6 +31,7 @@ describe('getGameProfile', () => {
     expect(profile.teamAMaxSlot).toBe(5);
     expect(profile.heroBinding).toBe('optional_in_game');
     expect(profile.import).toBe('none');
+    expect(profile.postMatchStats).toBe('wos2_bot_v1');
     expect(profile.ratingLabel).toBe('ki');
     expect(profile.teamNames).toEqual({ 1: 'Team A', 2: 'Team B' });
     expect(profile.sideWinLossDefault).toBe(false);

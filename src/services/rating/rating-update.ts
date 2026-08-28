@@ -18,10 +18,10 @@ const DEFAULT_SIGMA = 8.333;
 
 /**
  * Peer synthetic losses for quitters.
- * N=1 vs a mirrored team hits display ki harder than a fair match loss;
- * N=3 with a peer dummy is far too severe (~−764 ki at cold start).
+ * Each iteration is a fair solo loss vs a mirrored opponent; N=3 ≈ three such losses.
+ * Strong-dummy N=3 barely moved ki (expected loss); peer N=1 felt like ~1 loss to players.
  */
-export const QUITTER_SYNTHETIC_LOSSES = 1;
+export const QUITTER_SYNTHETIC_LOSSES = 3;
 
 export type RatingRosterEntry = {
   playerId: string;

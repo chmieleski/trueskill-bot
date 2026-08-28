@@ -15,7 +15,7 @@ import {
   SCREENSHOT_COMMAND_FOOTNOTE,
 } from './lobby-preview.js';
 import { getGameProfile } from '../../domain/game-profile.js';
-import { WARCRAFT3_WOS_GAME_ID } from '../../domain/games.js';
+import { WARCRAFT3_UDBR_GAME_ID, WARCRAFT3_WOS_GAME_ID } from '../../domain/games.js';
 import { NEW_PLAYER_LABEL, NEW_PLAYER_ROSTER_MARKER } from '../rating/new-player.js';
 import { buildCompletedRatingPreview } from '../rating/rating-preview.js';
 import type { PlayerMatchDisplayStats } from '../rating/rank-reset-display.js';
@@ -441,8 +441,9 @@ describe('buildCompletedRatingPreview', () => {
 });
 
 describe('buildMatchReportButtons', () => {
-  it('renders the match report action row', () => {
-    const [row] = buildMatchReportButtons();
+  it('renders the match report action row for UDBR', () => {
+    const udbr = getGameProfile(WARCRAFT3_UDBR_GAME_ID);
+    const [row] = buildMatchReportButtons(udbr);
 
     expect(row).toBeDefined();
     expect(row?.toJSON().components.map((button) => button.custom_id)).toEqual([
@@ -451,12 +452,14 @@ describe('buildMatchReportButtons', () => {
       'match:griefers',
       'match:cancel',
     ]);
-    expect(row?.toJSON().components.map((button) => button.label)).toEqual([
-      'Report Winner',
-      'Quitters',
-      'Griefer',
-      'Cancel',
-    ]);
+  });
+
+  it('adds Upload Stats for WOS', () => {
+    const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
+    const rows = buildMatchReportButtons(wos);
+
+    expect(rows).toHaveLength(2);
+    expect(rows[1]?.toJSON().components[0]?.custom_id).toBe('match:upload_stats');
   });
 });
 

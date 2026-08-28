@@ -1,3 +1,24 @@
+## [1.29.1](https://github.com/chmieleski/trueskill-bot/compare/v1.29.0...v1.29.1) (2026-08-28)
+
+
+### Bug Fixes
+
+* **wos:** order upload_report options for Discord deploy ([#109](https://github.com/chmieleski/trueskill-bot/issues/109)) ([485d7d5](https://github.com/chmieleski/trueskill-bot/commit/485d7d585768a3c3c1f9f4aadb48fceb4bae24db))
+
+# [1.29.0](https://github.com/chmieleski/trueskill-bot/compare/v1.28.1...v1.29.0) (2026-08-28)
+
+
+### Features
+
+* **wos:** upload bot match stats and rename game catalog ([#108](https://github.com/chmieleski/trueskill-bot/issues/108)) ([6c77790](https://github.com/chmieleski/trueskill-bot/commit/6c77790aeee960357a797b39102f9e78b568c6e1))
+
+## [1.28.1](https://github.com/chmieleski/trueskill-bot/compare/v1.28.0...v1.28.1) (2026-08-28)
+
+
+### Bug Fixes
+
+* **rating:** restore three peer synthetic losses for quitters ([#107](https://github.com/chmieleski/trueskill-bot/issues/107)) ([70ba425](https://github.com/chmieleski/trueskill-bot/commit/70ba4259140465ca5132245f7b8feefacd99a911))
+
 # [1.28.0](https://github.com/chmieleski/trueskill-bot/compare/v1.27.3...v1.28.0) (2026-08-26)
 
 

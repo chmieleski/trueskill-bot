@@ -19,8 +19,12 @@ import {
   clearMatchGriefers,
   clearMatchQuitters,
   completeMatch,
+  fetchTextAttachment,
+  hasMatchStatsReport,
+  isTextReportAttachment,
   setGriefers,
   setQuitters,
+  uploadMatchStatsReport,
 } from '../../services/match/index.js';
 import {
   assertHasMatchModRole,
@@ -466,6 +470,23 @@ export const data = new SlashCommandBuilder()
           .setName('match_id')
           .setDescription('In-progress match id (required if you have more than one)')
           .setRequired(false),
+      )
+      .addAttachmentOption((option) =>
+        option.setName('report').setDescription('WOS bot match report (.txt)').setRequired(false),
+      ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('upload_report')
+      .setDescription('Upload a WOS bot match stats report for an in-progress match')
+      .addAttachmentOption((option) =>
+        option.setName('report').setDescription('WOS bot match report (.txt)').setRequired(true),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('match_id')
+          .setDescription('In-progress match id (required if you have more than one)')
+          .setRequired(false),
       ),
   )
   .addSubcommand((subcommand) =>
@@ -811,6 +832,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     const match = await resolveMatchForCommand(interaction, matchId);
+    const guildConfig =
+      interaction.guildId !== null ? await resolveGuildConfig(interaction.guildId) : null;
 
     if (subcommand === 'quitters') {
       const quitterSlots = parseQuitterSlots(interaction.options.getString('slots'));
@@ -838,25 +861,75 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
 
+    if (subcommand === 'upload_report') {
+      const attachment = interaction.options.getAttachment('report', true);
+      if (!isTextReportAttachment(attachment)) {
+        throw new MatchServiceError('Please attach a .txt match report file.');
+      }
+
+      await interaction.editReply({ content: 'Uploading match stats…' });
+      const rawText = await fetchTextAttachment(attachment.url);
+      const result = await uploadMatchStatsReport({
+        matchId: match.id,
+        actorDiscordId: interaction.user.id,
+        memberRoleIds: memberRoleIds(interaction),
+        matchModRoleId: guildConfig?.matchModRoleId,
+        rawText,
+      });
+
+      const lines = [
+        `Match stats saved for \`${result.matchId}\` (report id \`${result.externalId}\`).`,
+        ...result.summaryLines.map((line) => `- ${line}`),
+      ];
+      if (result.warnings.length > 0) {
+        lines.push('', ...result.warnings.map((warning) => `⚠ ${warning}`));
+      }
+
+      await interaction.editReply({ content: lines.join('\n') });
+      return;
+    }
+
     if (subcommand === 'complete') {
       const winner = parseWinner(interaction.options.getString('winner', true));
       const quittersRaw = interaction.options.getString('quitters');
       const quitterSlots = quittersRaw === null ? undefined : parseQuitterSlots(quittersRaw);
       const griefersRaw = interaction.options.getString('griefers');
       const grieferSlots = griefersRaw === null ? undefined : parseGrieferSlots(griefersRaw);
+      const reportAttachment = interaction.options.getAttachment('report');
+
       await interaction.editReply({
         content: 'Updating ratings and completing the match… This can take a few seconds.',
       });
+
+      if (reportAttachment) {
+        if (!isTextReportAttachment(reportAttachment)) {
+          throw new MatchServiceError('Please attach a .txt match report file.');
+        }
+        const rawText = await fetchTextAttachment(reportAttachment.url);
+        await uploadMatchStatsReport({
+          matchId: match.id,
+          actorDiscordId: interaction.user.id,
+          memberRoleIds: memberRoleIds(interaction),
+          matchModRoleId: guildConfig?.matchModRoleId,
+          rawText,
+        });
+      }
+
       const profile = await getGameProfileForMatch(match);
       const completed = await completeMatch(match.id, winner, quitterSlots, grieferSlots);
       void refreshAllLeaderboardChannels(interaction.client).catch(() => undefined);
-      await applyMatchMutation(
-        interaction,
-        completed.match,
-        'completed',
-        `Match \`${completed.match.id}\` completed. Winner: **${winnerLabel(winner, profile)}**.`,
-        { ratingPreview: completed.ratingPreview },
-      );
+
+      let completionMessage = `Match \`${completed.match.id}\` completed. Winner: **${winnerLabel(winner, profile)}**.`;
+      if (profile.postMatchStats !== 'none') {
+        const uploaded = await hasMatchStatsReport(match.id);
+        if (!uploaded) {
+          completionMessage += '\n_No match stats report uploaded._';
+        }
+      }
+
+      await applyMatchMutation(interaction, completed.match, 'completed', completionMessage, {
+        ratingPreview: completed.ratingPreview,
+      });
       return;
     }
 

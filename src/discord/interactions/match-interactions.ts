@@ -21,6 +21,9 @@ import { refreshAllLeaderboardChannels } from '../../services/leaderboard/index.
 import {
   cancelInProgressMatch,
   completeMatch,
+  formatMatchStatsSummaryLines,
+  hasMatchStatsReport,
+  loadMatchPlayerStatsLines,
   setGriefers,
   setQuitters,
 } from '../../services/match/index.js';
@@ -385,6 +388,87 @@ function buildConfirmRow(
       .setLabel('Confirm Result')
       .setStyle(ButtonStyle.Success),
   );
+}
+
+function buildReportStatsSkipRow(
+  matchId: string,
+  winningTeam: 1 | 2,
+  grieferSlots: number[],
+  quitterSlots: number[],
+): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(
+        `match:rw:statskip:${matchId}:${winningTeam}:${encodeSlots(grieferSlots)}:${encodeSlots(quitterSlots)}`,
+      )
+      .setLabel('Skip and confirm')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(
+        `match:rw:statrefresh:${matchId}:${winningTeam}:${encodeSlots(grieferSlots)}:${encodeSlots(quitterSlots)}`,
+      )
+      .setLabel('Refresh')
+      .setStyle(ButtonStyle.Primary),
+  );
+}
+
+async function showReportConfirmStep(
+  interaction: MessageComponentInteraction,
+  match: MatchWithPlayers,
+  winningTeam: 1 | 2,
+  grieferSlots: number[],
+  quitterSlots: number[],
+): Promise<void> {
+  const profile = await profileForMatch(match);
+  const content = [
+    `Winner: **${winnerLabel(winningTeam, profile)}**`,
+    formatGrieferSummary(match, grieferSlots),
+    formatQuitterSummary(match, quitterSlots),
+    '',
+    'Confirm to complete the match and apply ratings.',
+  ].join('\n');
+
+  await updateEphemeral(interaction, content, [
+    buildConfirmRow(match.id, winningTeam, grieferSlots, quitterSlots),
+  ]);
+}
+
+async function showReportStatsStep(
+  interaction: MessageComponentInteraction,
+  match: MatchWithPlayers,
+  winningTeam: 1 | 2,
+  grieferSlots: number[],
+  quitterSlots: number[],
+): Promise<void> {
+  const profile = await profileForMatch(match);
+  const hasReport = await hasMatchStatsReport(match.id);
+  const lines = [
+    `Winner: **${winnerLabel(winningTeam, profile)}**`,
+    formatGrieferSummary(match, grieferSlots),
+    formatQuitterSummary(match, quitterSlots),
+    '',
+  ];
+
+  const components: ComponentRow[] = [];
+
+  if (hasReport) {
+    const stats = await loadMatchPlayerStatsLines(match.id);
+    lines.push(
+      '**Match stats**',
+      ...formatMatchStatsSummaryLines(stats),
+      '',
+      'Confirm to complete the match.',
+    );
+    components.push(buildConfirmRow(match.id, winningTeam, grieferSlots, quitterSlots));
+  } else {
+    lines.push(
+      'Upload the WOS bot match `.txt` report with `/match upload_report`, then tap **Refresh**.',
+      'You can skip stats and confirm without a report.',
+    );
+    components.push(buildReportStatsSkipRow(match.id, winningTeam, grieferSlots, quitterSlots));
+  }
+
+  await updateEphemeral(interaction, lines.join('\n'), components);
 }
 
 function buildCancelGrieferSkipRow(matchId: string): ActionRowBuilder<ButtonBuilder> {
@@ -754,17 +838,54 @@ async function handleWinnerChoice(
 ): Promise<void> {
   const match = await resolveById(interaction, matchId);
   const profile = await profileForMatch(match);
-  const content = [
-    `Winner: **${winnerLabel(winningTeam, profile)}**`,
-    formatGrieferSummary(match, grieferSlots),
-    formatQuitterSummary(match, quitterSlots),
-    '',
-    'Confirm to complete the match and apply ratings.',
-  ].join('\n');
 
-  await updateEphemeral(interaction, content, [
-    buildConfirmRow(matchId, winningTeam, grieferSlots, quitterSlots),
-  ]);
+  if (profile.postMatchStats !== 'none') {
+    await showReportStatsStep(interaction, match, winningTeam, grieferSlots, quitterSlots);
+    return;
+  }
+
+  await showReportConfirmStep(interaction, match, winningTeam, grieferSlots, quitterSlots);
+}
+
+async function handleReportStatsSkip(
+  interaction: ButtonInteraction,
+  matchId: string,
+  winningTeam: 1 | 2,
+  grieferSlots: number[],
+  quitterSlots: number[],
+): Promise<void> {
+  const match = await resolveById(interaction, matchId);
+  await showReportConfirmStep(interaction, match, winningTeam, grieferSlots, quitterSlots);
+}
+
+async function handleReportStatsRefresh(
+  interaction: ButtonInteraction,
+  matchId: string,
+  winningTeam: 1 | 2,
+  grieferSlots: number[],
+  quitterSlots: number[],
+): Promise<void> {
+  const match = await resolveById(interaction, matchId);
+  await showReportStatsStep(interaction, match, winningTeam, grieferSlots, quitterSlots);
+}
+
+async function handleUploadStatsEntry(interaction: ButtonInteraction): Promise<void> {
+  const match = await resolveByMessage(interaction);
+  const profile = await profileForMatch(match);
+
+  if (profile.postMatchStats === 'none') {
+    throw new MatchServiceError('This game does not accept match stats reports.');
+  }
+
+  await replyEphemeral(
+    interaction,
+    [
+      'Upload the WOS bot match report file while the match is in progress:',
+      `\`/match upload_report match_id:${match.id} report:<attachment>\``,
+      '',
+      'After uploading, continue **Report Winner** and tap **Refresh** on the stats step.',
+    ].join('\n'),
+  );
 }
 
 async function handleConfirmResult(
@@ -886,6 +1007,11 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
   log.debug({ customId: interaction.customId, userId: interaction.user.id }, 'Match button');
 
   await safeHandle(interaction, async () => {
+    if (interaction.customId === 'match:upload_stats') {
+      await handleUploadStatsEntry(interaction);
+      return;
+    }
+
     if (interaction.customId === 'match:report') {
       await handleReportEntry(interaction);
       return;
@@ -938,6 +1064,42 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
 
     if (parts[1] === 'gok' && parts[2] && parts[3]) {
       await handleGriefersKeep(interaction, parts[2], decodeSlots(parts[3]));
+      return;
+    }
+
+    if (
+      parts[1] === 'rw' &&
+      parts[2] === 'statskip' &&
+      parts[3] &&
+      parts[4] &&
+      parts[5] &&
+      parts[6]
+    ) {
+      await handleReportStatsSkip(
+        interaction,
+        parts[3],
+        decodeTeam(parts[4]),
+        decodeSlots(parts[5]),
+        decodeSlots(parts[6]),
+      );
+      return;
+    }
+
+    if (
+      parts[1] === 'rw' &&
+      parts[2] === 'statrefresh' &&
+      parts[3] &&
+      parts[4] &&
+      parts[5] &&
+      parts[6]
+    ) {
+      await handleReportStatsRefresh(
+        interaction,
+        parts[3],
+        decodeTeam(parts[4]),
+        decodeSlots(parts[5]),
+        decodeSlots(parts[6]),
+      );
       return;
     }
 
