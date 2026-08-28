@@ -20,6 +20,7 @@ import {
 import { assertCanManageMatch } from './match-auth.js';
 import { normalizeNick } from '../player/player-nick.js';
 import { upsertGameItems } from '../game/game-item-catalog.js';
+import { formatMonospaceTable, truncateDiscordFieldValue } from '../../lib/discord-embed-table.js';
 import { prisma } from '../../lib/prisma.js';
 import { clearMatchStatsReport } from './match-stats-store.js';
 
@@ -351,13 +352,6 @@ export function formatCompactStatNumber(value: number): string {
   return String(value);
 }
 
-function truncateDiscordFieldValue(value: string, max = 1024): string {
-  if (value.length <= max) {
-    return value;
-  }
-  return `${value.slice(0, max - 1)}…`;
-}
-
 /** One player line for log-channel match stats (hero, K/D, damage, heal, taken). */
 export function formatMatchStatsDetailedPlayerLine(row: MatchPlayerStatsLine): string {
   const hero = row.heroName ?? 'Unknown hero';
@@ -366,6 +360,48 @@ export function formatMatchStatsDetailedPlayerLine(row: MatchPlayerStatsLine): s
   const heal = formatCompactStatNumber(row.heal);
   const taken = formatCompactStatNumber(row.takenTotal);
   return `**${displayPlayerNick(row.username)}** · ${hero} · ${kda} · ${dmg} dmg · ${heal} heal · ${taken} taken`;
+}
+
+/** Monospace table for a team's match stats (Discord code block). */
+export function formatMatchStatsTeamTable(teamStats: MatchPlayerStatsLine[]): string {
+  return formatMonospaceTable(teamStats, [
+    {
+      header: 'Player',
+      align: 'left',
+      maxWidth: 10,
+      cell: (row) => displayPlayerNick(row.username),
+    },
+    {
+      header: 'Hero',
+      align: 'left',
+      maxWidth: 14,
+      cell: (row) => row.heroName ?? 'Unknown',
+    },
+    {
+      header: 'K/D',
+      align: 'right',
+      maxWidth: 5,
+      cell: (row) => `${row.kills}/${row.deaths}`,
+    },
+    {
+      header: 'Dmg',
+      align: 'right',
+      maxWidth: 5,
+      cell: (row) => formatCompactStatNumber(row.damageTotal),
+    },
+    {
+      header: 'Heal',
+      align: 'right',
+      maxWidth: 5,
+      cell: (row) => formatCompactStatNumber(row.heal),
+    },
+    {
+      header: 'Taken',
+      align: 'right',
+      maxWidth: 5,
+      cell: (row) => formatCompactStatNumber(row.takenTotal),
+    },
+  ]);
 }
 
 function sortStatsForTeam(
@@ -409,9 +445,7 @@ export function buildMatchStatsLogEmbedFields(
     const emoji = team === 1 ? TEAM_A_EMOJI : TEAM_B_EMOJI;
     fields.push({
       name: `${emoji} ${teamDisplayName(team, ctx.profile)} stats`,
-      value: truncateDiscordFieldValue(
-        teamStats.map(formatMatchStatsDetailedPlayerLine).join('\n'),
-      ),
+      value: truncateDiscordFieldValue(formatMatchStatsTeamTable(teamStats)),
       inline: false,
     });
   }

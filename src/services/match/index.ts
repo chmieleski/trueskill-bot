@@ -30,6 +30,7 @@ export {
   formatMatchStatsDetailedPlayerLine,
   formatMatchStatsFieldValue,
   formatMatchStatsSummaryLines,
+  formatMatchStatsTeamTable,
   hasMatchStatsReport,
   isTextReportAttachment,
   loadMatchPlayerStatsLines,
