@@ -1,3 +1,10 @@
+## [1.29.1](https://github.com/chmieleski/trueskill-bot/compare/v1.29.0...v1.29.1) (2026-08-28)
+
+
+### Bug Fixes
+
+* **wos:** order upload_report options for Discord deploy ([#109](https://github.com/chmieleski/trueskill-bot/issues/109)) ([485d7d5](https://github.com/chmieleski/trueskill-bot/commit/485d7d585768a3c3c1f9f4aadb48fceb4bae24db))
+
 # [1.29.0](https://github.com/chmieleski/trueskill-bot/compare/v1.28.1...v1.29.0) (2026-08-28)
 
 
