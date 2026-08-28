@@ -15,6 +15,19 @@ model Game {
   leagues     League[]
   events      Event[]
   players     Player[]
+  items       GameItem[]
+}
+
+model GameItem {
+  gameId    String
+  objectId  Int
+  name      String
+  updatedAt DateTime @updatedAt
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@id([gameId, objectId])
+  @@index([gameId])
 }
 
 model League {
