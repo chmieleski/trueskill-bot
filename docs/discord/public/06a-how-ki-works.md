@@ -28,7 +28,7 @@ That’s why two ~4000 ki players can split: one was the high man in a 3500 lobb
 
 **4) Special cases**
 
-• **Quitters** are scored apart (small solo loss). Everyone else still gets a normal team result.
+• **Quitters** are scored apart (about **three** solo losses). Everyone else still gets a normal team result.
 • **New player** marks don’t drag teammates’ ki until they finish calibration. Quits still hurt them.
 • First **5** finished games hide public ki (`Calibrating`) so early wild swings don’t look like a rank.
 

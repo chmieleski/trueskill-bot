@@ -9,7 +9,7 @@ Slots are **1–12**, comma-separated.
 /match complete winner:Evil quitters:2,8
 ```
 
-• Quitters take a **ki penalty** (like a small solo loss)
+• Quitters take a **ki penalty** (about **three** solo losses)
 • They are **not** in the normal team rating update
 • Everyone else still gets a normal win/loss when you complete
 • Cancel can still apply quitter penalties if already marked
