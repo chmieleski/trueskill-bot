@@ -34,8 +34,8 @@ describe('lobbyPlayersFromWos2Report', () => {
     const players = lobbyPlayersFromWos2Report(report, profile);
 
     expect(players).toEqual([
-      { slot: 1, nick: 'Chmieleski#1941' },
-      { slot: 6, nick: 'Tiny#11318' },
+      { slot: 1, nick: 'chmieleski' },
+      { slot: 6, nick: 'tiny' },
     ]);
   });
 
