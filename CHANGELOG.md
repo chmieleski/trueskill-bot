@@ -1,3 +1,10 @@
+# [1.34.0](https://github.com/chmieleski/trueskill-bot/compare/v1.33.1...v1.34.0) (2026-08-28)
+
+
+### Features
+
+* **league:** purge non-command chat in lobby and bound channels ([#118](https://github.com/chmieleski/trueskill-bot/issues/118)) ([00c5c7c](https://github.com/chmieleski/trueskill-bot/commit/00c5c7cc32c7e36c1b6a29a1b86109f095e9d8b1))
+
 ## [1.33.1](https://github.com/chmieleski/trueskill-bot/compare/v1.33.0...v1.33.1) (2026-08-28)
 
 
