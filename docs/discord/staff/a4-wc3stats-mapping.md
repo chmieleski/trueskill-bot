@@ -2,7 +2,7 @@
 
 Only needed if you import live lobbies from **wc3stats** and seats look wrong.
 
-The bot maps wc3stats color indexes → hero slots **1–12**.
+The bot maps wc3stats color indexes → hero slots **1–{{slotCount}}**.
 
 **Easiest (UDBR map)**
 
@@ -10,7 +10,7 @@ The bot maps wc3stats color indexes → hero slots **1–12**.
 /league_config set wc3stats_map_preset preset:UDBR
 ```
 
-Loads the built-in Z Fighters / Evil layout (referee unmapped).
+Loads the built-in {{team1}} / {{team2}} layout (referee unmapped).
 
 **One seat**
 

@@ -15,19 +15,19 @@ If the server turned on a **lobby channel**, run this there (the bot will tell y
 
 Optional extras:
 • `print` — a lobby screenshot (the bot tries to read names)
-• `wc3stats_id` — a live lobby id from wc3stats (if that feature is on)
-
+{{#wc3stats}}• `wc3stats_id` — a live lobby id from wc3stats (if that feature is on)
+{{/wc3stats}}
 **What you get**
 A message with the roster, win chances (when possible), and buttons.
 
 Pending lobbies **auto-cancel after about 2 hours** if nobody starts them.
 
 **Empty lobby?**
-That’s OK. Add people with buttons or `/lobby` commands.
-Or players can **Claim slot** if that is enabled.
-
-If host prompts are on, wc3stats may ping you with **Open lobby** / **Dismiss** when it finds your live WC3 lobby.
-
+That's OK. Add people with buttons or `/lobby` commands.
+{{#playerClaim}}Or players can **Claim slot** if that is enabled.
+{{/playerClaim}}
+{{#hostPrompts}}If host prompts are on, wc3stats may ping you with **Open lobby** / **Dismiss** when it finds your live WC3 lobby.
+{{/hostPrompts}}
 **Who is the host?**
 The person who ran `/register_lobby`. They own the lobby until the match starts.
 

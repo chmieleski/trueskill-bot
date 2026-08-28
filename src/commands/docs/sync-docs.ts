@@ -3,6 +3,7 @@ import {
   GuildMember,
   MessageFlags,
   SlashCommandBuilder,
+  type AutocompleteInteraction,
   type ChatInputCommandInteraction,
   type NewsChannel,
   type TextChannel,
@@ -12,9 +13,15 @@ import { resolveGuildConfig } from '../../services/guild/index.js';
 import {
   assertCanSyncDocs,
   DocsServiceError,
+  resolveDiscordDocsContext,
   syncDiscordDocsToChannel,
   type DiscordDocsKind,
 } from '../../services/docs/index.js';
+import {
+  getLeagueOption,
+  respondLeagueAutocomplete,
+  withSubcommandLeagueOption,
+} from '../../services/league/index.js';
 
 const log = createLogger('sync_docs_cmd');
 
@@ -78,6 +85,7 @@ function isSendableGuildText(channel: unknown): channel is TextChannel | NewsCha
     guild?: unknown;
     send?: unknown;
     type?: number;
+    parentId?: string | null;
   };
   if (typeof candidate.isTextBased !== 'function' || !candidate.isTextBased()) {
     return false;
@@ -96,30 +104,38 @@ function isSendableGuildText(channel: unknown): channel is TextChannel | NewsCha
 export const data = new SlashCommandBuilder()
   .setName('sync_docs')
   .setDescription('Wipe a channel and post the bot Discord guides')
-  .addSubcommand((sub) =>
-    sub
-      .setName('public')
-      .setDescription('Post public player guides into a channel')
-      .addChannelOption((opt) =>
-        opt
-          .setName('channel')
-          .setDescription('Channel to clear and fill')
-          .setRequired(true)
-          .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
-      ),
+  .addSubcommand((subcommand) =>
+    withSubcommandLeagueOption(
+      subcommand
+        .setName('public')
+        .setDescription('Post public player guides into a channel')
+        .addChannelOption((opt) =>
+          opt
+            .setName('channel')
+            .setDescription('Channel to clear and fill')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
+        ),
+    ),
   )
-  .addSubcommand((sub) =>
-    sub
-      .setName('staff')
-      .setDescription('Post staff guides into a channel')
-      .addChannelOption((opt) =>
-        opt
-          .setName('channel')
-          .setDescription('Channel to clear and fill')
-          .setRequired(true)
-          .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
-      ),
+  .addSubcommand((subcommand) =>
+    withSubcommandLeagueOption(
+      subcommand
+        .setName('staff')
+        .setDescription('Post staff guides into a channel')
+        .addChannelOption((opt) =>
+          opt
+            .setName('channel')
+            .setDescription('Channel to clear and fill')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
+        ),
+    ),
   );
+
+export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
+  await respondLeagueAutocomplete(interaction);
+}
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -159,10 +175,17 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
 
-    const result = await syncDiscordDocsToChannel({ kind, channel: target });
+    const context = await resolveDiscordDocsContext({
+      guildId: interaction.guildId,
+      channelId: target.id,
+      categoryId: target.parentId,
+      leagueIdOption: getLeagueOption(interaction),
+    });
+
+    const result = await syncDiscordDocsToChannel({ kind, channel: target, context });
 
     await interaction.editReply({
-      content: `Cleared #${target.name} and posted ${result.postedCount} ${kind} guide messages.`,
+      content: `Cleared #${target.name} and posted ${result.postedCount} ${kind} guide messages for league **${context.leagueName}**.`,
     });
   } catch (error) {
     if (error instanceof DocsServiceError) {

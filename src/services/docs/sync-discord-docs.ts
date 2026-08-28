@@ -1,5 +1,7 @@
 import type { GuildTextBasedChannel, NewsChannel, TextChannel } from 'discord.js';
 import { loadDiscordDocs, type DiscordDocsKind } from './load-discord-docs.js';
+import { renderDiscordDocPosts } from './render-discord-docs.js';
+import type { DiscordDocsRenderContext } from './resolve-discord-docs-context.js';
 import { wipeChannelMessages } from './wipe-channel-messages.js';
 
 export type SyncDiscordDocsResult = {
@@ -15,9 +17,11 @@ export type SyncDiscordDocsResult = {
 export async function syncDiscordDocsToChannel(input: {
   kind: DiscordDocsKind;
   channel: GuildTextBasedChannel;
+  context: DiscordDocsRenderContext;
   rootDir?: string;
 }): Promise<SyncDiscordDocsResult> {
-  const posts = loadDiscordDocs(input.kind, input.rootDir);
+  const templates = loadDiscordDocs(input.kind, input.rootDir);
+  const posts = renderDiscordDocPosts(templates, input.context);
   const deletedCount = await wipeChannelMessages(input.channel as TextChannel | NewsChannel);
 
   let postedCount = 0;

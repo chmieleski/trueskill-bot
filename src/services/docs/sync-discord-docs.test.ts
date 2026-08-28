@@ -3,6 +3,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DocsServiceError } from './docs-errors.js';
+import { getGameProfile } from '../../domain/game-profile.js';
+import { WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
+import { buildDiscordDocsRenderContext } from './resolve-discord-docs-context.js';
+import type { ResolvedLeagueConfig } from '../league/league-wc3stats.js';
+import { DEFAULT_DECAY_SETTINGS } from '../rating/decay-settings.js';
 
 const { wipeChannelMessages } = vi.hoisted(() => ({
   wipeChannelMessages: vi.fn(),
@@ -13,6 +18,36 @@ vi.mock('./wipe-channel-messages.js', () => ({
 }));
 
 import { syncDiscordDocsToChannel } from './sync-discord-docs.js';
+
+function testContext() {
+  const leagueConfig: ResolvedLeagueConfig = {
+    wc3statsEnabled: false,
+    wc3statsMapPattern: undefined,
+    wc3statsMapSha1: [],
+    leaderboardChannelId: undefined,
+    leaderboardMessageId: undefined,
+    leaderboardSize: 10,
+    lobbyPlayerClaimEnabled: true,
+    wc3statsHostPromptEnabled: false,
+    wc3statsHostPromptChannelId: undefined,
+    rankResetEnabled: false,
+    rankResetCooldownDays: 30,
+    lobbyChannelEnabled: false,
+    lobbyChannelId: undefined,
+    decayEnabled: true,
+    balanceStaticSigmaEnabled: false,
+    showSideWinLoss: false,
+    seasonEndsAt: undefined,
+    decayInCrunch: false,
+    decaySettings: DEFAULT_DECAY_SETTINGS,
+  };
+
+  return buildDiscordDocsRenderContext(
+    { id: 'league-1', name: 'Test League' },
+    getGameProfile(WARCRAFT3_UDBR_GAME_ID),
+    leagueConfig,
+  );
+}
 
 describe('syncDiscordDocsToChannel', () => {
   let rootDir: string;
@@ -32,14 +67,14 @@ describe('syncDiscordDocsToChannel', () => {
     fs.writeFileSync(path.join(dir, name), body, 'utf8');
   }
 
-  it('does not wipe when a doc is invalid', async () => {
+  it('does not wipe when a rendered doc is invalid', async () => {
     writePublic('01-big.md', 'x'.repeat(2001));
     const send = vi.fn();
     const channel = { send } as never;
 
-    await expect(syncDiscordDocsToChannel({ kind: 'public', channel, rootDir })).rejects.toThrow(
-      DocsServiceError,
-    );
+    await expect(
+      syncDiscordDocsToChannel({ kind: 'public', channel, rootDir, context: testContext() }),
+    ).rejects.toThrow(DocsServiceError);
 
     expect(wipeChannelMessages).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
@@ -57,6 +92,7 @@ describe('syncDiscordDocsToChannel', () => {
       kind: 'public',
       channel,
       rootDir,
+      context: testContext(),
     });
 
     expect(wipeChannelMessages).toHaveBeenCalledOnce();

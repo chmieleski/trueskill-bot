@@ -9,8 +9,6 @@ export type DiscordDocPost = {
   content: string;
 };
 
-const DISCORD_MESSAGE_LIMIT = 2000;
-
 export function loadDiscordDocs(
   kind: DiscordDocsKind,
   rootDir: string = process.cwd(),
@@ -31,11 +29,6 @@ export function loadDiscordDocs(
     const content = raw.trim();
     if (!content) {
       throw new DocsServiceError(`Discord doc is empty: ${filename}`);
-    }
-    if (content.length > DISCORD_MESSAGE_LIMIT) {
-      throw new DocsServiceError(
-        `Discord doc exceeds ${DISCORD_MESSAGE_LIMIT} characters: ${filename} (${content.length})`,
-      );
     }
     posts.push({ filename, content });
   }
