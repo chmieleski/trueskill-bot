@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
+import { WARCRAFT3_UDBR_GAME_ID, WARCRAFT3_WOS_GAME_ID } from '../../domain/games.js';
 import { getGameProfile } from '../../domain/game-profile.js';
 import { buildDiscordDocsRenderContext, formatSlotRange } from './resolve-discord-docs-context.js';
 import type { ResolvedLeagueConfig } from '../league/league-wc3stats.js';
@@ -57,6 +57,19 @@ describe('buildDiscordDocsRenderContext', () => {
     expect(context.sideWinLoss).toBe(true);
     expect(context.heroLeaderboards).toBe(true);
     expect(context.slotBound).toBe(true);
+    expect(context.wosMatchStats).toBe(false);
+  });
+
+  it('enables wosMatchStats for WOS leagues', () => {
+    const context = buildDiscordDocsRenderContext(
+      { id: 'l-wos', name: 'WOS' },
+      getGameProfile(WARCRAFT3_WOS_GAME_ID),
+      baseLeagueConfig(),
+    );
+
+    expect(context.wosMatchStats).toBe(true);
+    expect(context.heroLeaderboards).toBe(false);
+    expect(context.ratingLabel).toBe('sp');
   });
 
   it('requires map pattern for wc3stats flag', () => {

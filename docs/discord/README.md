@@ -11,7 +11,7 @@ Bind the target channel to a league (or pass `league:` when the server has more 
 Markdown files use simple placeholders and flags resolved at sync time:
 
 - `{{team1}}`, `{{team2}}`, `{{team1Slots}}`, `{{team2Slots}}`, `{{ratingLabel}}`, `{{gameName}}`, `{{slotCount}}`
-- `{{#wc3stats}}…{{/wc3stats}}`, `{{#playerClaim}}…{{/playerClaim}}`, `{{#rankReset}}…{{/rankReset}}`, `{{#sideWinLoss}}…{{/sideWinLoss}}`, `{{#heroLeaderboards}}…{{/heroLeaderboards}}`, `{{#slotBound}}…{{/slotBound}}`, `{{#hostPrompts}}…{{/hostPrompts}}`
+- `{{#wc3stats}}…{{/wc3stats}}`, `{{#playerClaim}}…{{/playerClaim}}`, `{{#rankReset}}…{{/rankReset}}`, `{{#sideWinLoss}}…{{/sideWinLoss}}`, `{{#heroLeaderboards}}…{{/heroLeaderboards}}`, `{{#slotBound}}…{{/slotBound}}`, `{{#hostPrompts}}…{{/hostPrompts}}`, `{{#wosMatchStats}}…{{/wosMatchStats}}`
 
 Rendered posts must stay under Discord's 2000-character limit.
 

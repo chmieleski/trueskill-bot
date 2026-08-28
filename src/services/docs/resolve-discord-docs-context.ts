@@ -30,6 +30,8 @@ export type DiscordDocsRenderContext = {
   rankReset: boolean;
   sideWinLoss: boolean;
   heroLeaderboards: boolean;
+  /** WOS leagues with uploaded bot match reports (`/hero`, `/items`). */
+  wosMatchStats: boolean;
 };
 
 /** Format an inclusive slot range for docs (e.g. 1–6). */
@@ -64,6 +66,7 @@ export function buildDiscordDocsRenderContext(
     rankReset: leagueConfig.rankResetEnabled,
     sideWinLoss: leagueConfig.showSideWinLoss,
     heroLeaderboards: profile.heroBinding === 'slot_bound',
+    wosMatchStats: profile.postMatchStats === 'wos2_bot_v1',
   };
 }
 

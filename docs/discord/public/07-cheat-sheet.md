@@ -26,7 +26,11 @@
 • Same {{ratingLabel}} ≠ same points — who was in the lobby matters
 • `/leaderboard show` — overall
 {{#heroLeaderboards}}• `/leaderboard heroes` / `hero` — heroes
-{{/heroLeaderboards}}• `/leaderboard quitters` / `griefers` — if the server set them up
+{{/heroLeaderboards}}{{#wosMatchStats}}
+**WOS stats** (uploaded match reports)
+• `/hero hero:` — hero averages + top players (`user`/`nick`, `window`)
+• `/items` — item buy rate & WR (`hero:`, `window`)
+{{/wosMatchStats}}• `/leaderboard quitters` / `griefers` — if the server set them up
 
 **Teams**
 • Slots {{team1Slots}} = **{{team1}}**
