@@ -14,6 +14,7 @@ const CONTEXT_FLAGS: Array<keyof DiscordDocsRenderContext> = [
   'sideWinLoss',
   'heroLeaderboards',
   'slotBound',
+  'wosMatchStats',
 ];
 
 /** Collapse extra blank lines after conditional blocks are removed. */

@@ -15,7 +15,20 @@ Your strength is shown as **{{ratingLabel}}**.
 ```
 
 Profiles also show your **top teammates** when you have shared completed matches.
+{{#wosMatchStats}}
+WOS `/rank` lists **most-played heroes** from uploaded match reports.
 
+```
+/hero hero:<name>
+/hero hero:<name> user:@Friend
+/items
+/items hero:<name>
+```
+
+`/hero` — hero averages (last 10 + overall) and top players; add `user:`/`nick:` for one player.
+`/items` — item buy rate & WR; optional `hero:`.
+
+{{/wosMatchStats}}
 **Leaderboards**
 
 ```

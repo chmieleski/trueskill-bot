@@ -70,6 +70,20 @@ describe('renderDiscordDocContent', () => {
     expect(rendered).toBe('before after end');
   });
 
+  it('keeps wosMatchStats blocks for WOS leagues', () => {
+    const wosContext = buildDiscordDocsRenderContext(
+      { id: 'league-2', name: 'WOS' },
+      getGameProfile(WARCRAFT3_WOS_GAME_ID),
+      baseLeagueConfig(),
+    );
+
+    const rendered = renderDiscordDocContent(
+      'a{{#wosMatchStats}} /hero{{/wosMatchStats}}b',
+      wosContext,
+    );
+    expect(rendered).toBe('a /herob');
+  });
+
   it('throws on unknown placeholder or conditional', () => {
     expect(() => renderDiscordDocContent('{{nope}}', udbrContext)).toThrow(DocsServiceError);
     expect(() => renderDiscordDocContent('{{#nope}}x{{/nope}}', udbrContext)).toThrow(

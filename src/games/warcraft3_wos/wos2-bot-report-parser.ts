@@ -1,5 +1,10 @@
 export const WOS2_BOT_REPORT_FORMAT = 'WOS2_BOT_V1' as const;
 
+export type Wos2BotReportItemRate = {
+  objectId: number;
+  name: string;
+};
+
 export type Wos2BotReportPlayer = {
   index: number;
   pid: number;
@@ -27,6 +32,7 @@ export type Wos2BotReport = {
   team2Rounds: number | null;
   playerCount: number | null;
   players: Wos2BotReportPlayer[];
+  itemRates: Wos2BotReportItemRate[];
 };
 
 export class Wos2BotReportParseError extends Error {
@@ -242,6 +248,7 @@ export function parseWos2BotReport(rawText: string): Wos2BotReport {
   let playerCount: number | null = null;
   let endId: string | null = null;
   const partialPlayers = new Map<string, PartialPlayer>();
+  const itemRates: Wos2BotReportItemRate[] = [];
 
   for (const line of lines) {
     const type = line.split('|', 1)[0];
@@ -293,8 +300,14 @@ export function parseWos2BotReport(rawText: string): Wos2BotReport {
         player.itemSlots = parseItemSlots(fields, 'ITEMS');
         break;
       }
-      case 'ITEM_RATE':
+      case 'ITEM_RATE': {
+        const objectId = requireInt(fields, 'item_id', 'ITEM_RATE');
+        const name = fields.get('item_name')?.trim();
+        if (name) {
+          itemRates.push({ objectId, name });
+        }
         break;
+      }
       case 'END': {
         endId = fields.get('id') ?? null;
         break;
@@ -333,6 +346,7 @@ export function parseWos2BotReport(rawText: string): Wos2BotReport {
     team2Rounds,
     playerCount,
     players,
+    itemRates,
   };
 }
 

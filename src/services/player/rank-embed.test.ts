@@ -77,6 +77,28 @@ describe('formatHeroTable', () => {
     expect(table).not.toContain('· 8');
   });
 
+  it('shows leadingColumn instead of ki for stats-sourced heroes', () => {
+    const table = formatHeroTable(
+      [
+        {
+          heroId: 1,
+          name: 'Raiden Ei',
+          ki: 0,
+          leadingColumn: '12G',
+          matchesPlayed: 12,
+          wins: 8,
+          losses: 4,
+          winRatePercent: 66.7,
+        },
+      ],
+      17,
+    );
+    expect(table).toContain('Raiden Ei');
+    expect(table).toContain('12G');
+    expect(table).toContain('8W 4L · 66.7%');
+    expect(table).not.toContain('Calibrating');
+  });
+
   it('omits percent when the hero has no counted games', () => {
     const table = formatHeroTable(
       [

@@ -16,9 +16,13 @@ import {
   winRatePercent,
 } from '../rating/rank-reset-display.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
+import { loadRankHeroesFromMatchStats } from './player-match-stats-heroes.js';
 
 const DEFAULT_MU = 25;
 const DEFAULT_SIGMA = 8.333;
+
+/** Max hero rows on `/rank` (most-played first). */
+export const RANK_HERO_TOP = 10;
 
 export class PlayerServiceError extends Error {
   readonly ephemeral: boolean;
@@ -38,6 +42,8 @@ export type PlayerProfileHero = {
   wins: number;
   losses: number;
   winRatePercent: number | null;
+  /** When set (WOS stats heroes), shown instead of public ki in the hero table. */
+  leadingColumn?: string;
 };
 
 export type PlayerProfile = {
@@ -87,6 +93,15 @@ export function competitionRank(targetKi: number, allKis: number[]): number {
 
 export function coldStartKi(): number {
   return displayOrdinal(DEFAULT_MU, DEFAULT_SIGMA);
+}
+
+/** Rank profile heroes: most games first, then ki, then name; capped at {@link RANK_HERO_TOP}. */
+export function sortRankProfileHeroes(heroes: PlayerProfileHero[]): PlayerProfileHero[] {
+  return [...heroes]
+    .sort(
+      (a, b) => b.matchesPlayed - a.matchesPlayed || b.ki - a.ki || a.name.localeCompare(b.name),
+    )
+    .slice(0, RANK_HERO_TOP);
 }
 
 export function parseRankOptions(input: {
@@ -168,12 +183,13 @@ export async function loadPlayerProfile(
     throw new PlayerServiceError('Player not found.');
   }
 
-  const includeHeroes = gameProfile.heroBinding === 'slot_bound';
+  const includeHeroRatings = gameProfile.heroBinding === 'slot_bound';
+  const includeStatsHeroes = gameProfile.postMatchStats !== 'none';
 
   // Catch up idle decay for the looked-up player before μ → ki / rank.
   await applyPendingDecayForPlayers(leagueId, [player.id]);
 
-  const [league, rating, allRatings, heroRatings, displayStats, pendingTaxByPlayer] =
+  const [league, rating, allRatings, heroRatings, statsHeroes, displayStats, pendingTaxByPlayer] =
     await Promise.all([
       prisma.league.findUnique({
         where: { id: leagueId },
@@ -194,12 +210,13 @@ export async function loadPlayerProfile(
         where: { leagueId },
         select: { playerId: true, mu: true, sigma: true },
       }),
-      includeHeroes
+      includeHeroRatings
         ? prisma.playerHeroRating.findMany({
             where: { leagueId, playerId: player.id, matchesPlayed: { gt: 0 } },
             include: { hero: true },
           })
         : Promise.resolve([]),
+      includeStatsHeroes ? loadRankHeroesFromMatchStats(leagueId, player.id) : Promise.resolve([]),
       // W/L/games/quits and soft-ki z restart after the player's latest rank reset.
       loadMatchDisplayStats(leagueId),
       loadPendingGrieferKiTaxByPlayer(leagueId, [player.id]),
@@ -238,20 +255,22 @@ export async function loadPlayerProfile(
         })
       : null;
   const winRatePercentValue = winRatePercent(wins, losses);
-  const heroes: PlayerProfileHero[] = heroRatings
-    .map((row) => {
-      const heroWl = heroStatsFor(displayStats.byHero, player.id, row.heroId);
-      return {
-        heroId: row.heroId,
-        name: row.hero.name,
-        ki: displayOrdinal(row.mu, row.sigma, row.matchesPlayed),
-        matchesPlayed: row.matchesPlayed,
-        wins: heroWl.wins,
-        losses: heroWl.losses,
-        winRatePercent: winRatePercent(heroWl.wins, heroWl.losses),
-      };
-    })
-    .sort((a, b) => b.ki - a.ki || a.name.localeCompare(b.name));
+  const heroes = includeStatsHeroes
+    ? statsHeroes
+    : sortRankProfileHeroes(
+        heroRatings.map((row) => {
+          const heroWl = heroStatsFor(displayStats.byHero, player.id, row.heroId);
+          return {
+            heroId: row.heroId,
+            name: row.hero.name,
+            ki: displayOrdinal(row.mu, row.sigma, row.matchesPlayed),
+            matchesPlayed: row.matchesPlayed,
+            wins: heroWl.wins,
+            losses: heroWl.losses,
+            winRatePercent: winRatePercent(heroWl.wins, heroWl.losses),
+          };
+        }),
+      );
 
   return {
     playerId: player.id,
