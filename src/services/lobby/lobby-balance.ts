@@ -7,9 +7,10 @@ import {
 } from '../../domain/game-profile.js';
 import { WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
 import {
-  ratingEntitiesForBalance,
+  balanceEntitiesForSeat,
   type BalancePredictWinOptions,
 } from '../rating/rating-entities.js';
+import { classifyNewSeatsForBalance, entryPairKey } from '../rating/new-player-partition.js';
 import { roundWinPercents, splitRosterByTeam, toOpenSkillRatings } from '../rating/rating-math.js';
 
 export type MuSigma = { mu: number; sigma: number };
@@ -22,6 +23,10 @@ export type BalanceRosterEntry = {
   nick: string;
   /** Soft lock: exclude this seat from balance suggestions. */
   locked?: boolean;
+  /** Live lobby New flag for win% / swap hints. */
+  isNewPlayer?: boolean;
+  /** Completed-match snapshot New flag. */
+  wasNewPlayer?: boolean;
 };
 
 export type BalanceRatingLookup = {
@@ -73,17 +78,33 @@ function winChanceForRoster(
   }
 
   const { teamA, teamB } = splitRosterByTeam(roster);
+  const newClassification = classifyNewSeatsForBalance(roster);
   const entities = (team: BalanceRosterEntry[]) => {
     const list: MuSigma[] = [];
     for (const entry of team) {
       const global = lookup.global(entry.playerId);
       const hero = entry.heroId == null ? global : lookup.hero(entry.playerId, entry.heroId);
-      list.push(...ratingEntitiesForBalance(global, hero, entry.heroId, options));
+      list.push(
+        ...balanceEntitiesForSeat(
+          global,
+          hero,
+          entry.heroId,
+          entryPairKey(entry),
+          newClassification,
+          options,
+        ),
+      );
     }
     return toOpenSkillRatings(list);
   };
 
-  const [pA, pB] = predictWin([entities(teamA), entities(teamB)]);
+  const teamAEntities = entities(teamA);
+  const teamBEntities = entities(teamB);
+  if (teamAEntities.length === 0 || teamBEntities.length === 0) {
+    return undefined;
+  }
+
+  const [pA, pB] = predictWin([teamAEntities, teamBEntities]);
   return roundWinPercents(pA ?? 0.5, pB ?? 0.5);
 }
 

@@ -10,6 +10,7 @@ import {
 import { computeLobbyAvgKi, kisForLobbyAverage, scaleAppliedMu } from './lobby-relative-scale.js';
 import { displayOrdinal, splitRosterByTeam, toOpenSkillRatings } from './rating-math.js';
 import { computeGrieferKiAccrual } from './griefer-tax.js';
+import { computePairedNewKeys, entryPairKey } from './new-player-partition.js';
 import { ensurePlayerRatings } from './rating-preview.js';
 import { gamesByPlayerFromStats, loadMatchDisplayStatsByPlayer } from './rank-reset-display.js';
 
@@ -88,20 +89,6 @@ function applyIndependentSyntheticLosses(
   return { global: nextGlobal, hero: nextHero };
 }
 
-function entryPairKey<T extends { team: 1 | 2; slot: number }>(entry: T): string {
-  return `${entry.team}:${entry.slot}`;
-}
-
-/** New seats on a team, lowest slot first (quitters included for pair-off balance). */
-function newSeatsOnTeam<T extends { wasNewPlayer?: boolean; team: 1 | 2; slot: number }>(
-  entries: T[],
-  team: 1 | 2,
-): T[] {
-  return entries
-    .filter((entry) => entry.wasNewPlayer === true && entry.team === team)
-    .sort((left, right) => left.slot - right.slot);
-}
-
 /**
  * Split roster for rating apply.
  * Non-quit New freeze only when pairable across teams (`k = min(newA, newB)`);
@@ -113,16 +100,7 @@ export function partitionRosterForRating<
 >(entries: T[]): { quitters: T[]; newNonQuit: T[]; activeRateable: T[] } {
   const quitters = entries.filter((entry) => entry.isQuitter);
   const nonQuit = entries.filter((entry) => !entry.isQuitter);
-
-  const team1New = newSeatsOnTeam(entries, 1);
-  const team2New = newSeatsOnTeam(entries, 2);
-  const k = Math.min(team1New.length, team2New.length);
-
-  const pairedNewKeys = new Set<string>();
-  for (let index = 0; index < k; index += 1) {
-    pairedNewKeys.add(entryPairKey(team1New[index]!));
-    pairedNewKeys.add(entryPairKey(team2New[index]!));
-  }
+  const pairedNewKeys = computePairedNewKeys(entries, (entry) => entry.wasNewPlayer === true);
 
   const isPairedNew = (entry: T): boolean =>
     entry.wasNewPlayer === true && pairedNewKeys.has(entryPairKey(entry));

@@ -9,6 +9,17 @@ export const BALANCE_HERO_WEIGHT = 0.2;
 /** Fixed σ for predictWin when a league enables static balance certainty. */
 export const BALANCE_STATIC_SIGMA = 6;
 
+/** Fraction of blended μ for excess / one-sided New in predictWin / balance hints. */
+export const BALANCE_NEW_MU_WEIGHT = 0.1;
+
+/** Ceiling so a mis-flagged high-μ vet cannot dominate win%. */
+export const BALANCE_NEW_MU_CAP = 5;
+
+/** Discounted μ for excess / one-sided New on the balance path only. */
+export function effectiveBalanceMuForExcessNew(mu: number): number {
+  return Math.min(mu * BALANCE_NEW_MU_WEIGHT, BALANCE_NEW_MU_CAP);
+}
+
 /** Options for lobby win% / balance hints only (not `rate()`). */
 export type BalancePredictWinOptions = {
   /** When true, every seat uses {@link BALANCE_STATIC_SIGMA} instead of persisted σ. */
@@ -65,6 +76,32 @@ export function ratingEntitiesForBalance(
     return [{ mu: global.mu, sigma: balanceSigmaForEntity(global.sigma, options) }];
   }
   return [blendedRatingForBalance(global, hero, options)];
+}
+
+/**
+ * Balance entities for one seat after New pair-off: omit frozen, discount excess.
+ */
+export function balanceEntitiesForSeat(
+  global: MuSigma,
+  hero: MuSigma,
+  heroId: number | null,
+  entryKey: string,
+  classification: { frozenKeys: Set<string>; excessKeys: Set<string> },
+  options?: BalancePredictWinOptions,
+): MuSigma[] {
+  if (classification.frozenKeys.has(entryKey)) {
+    return [];
+  }
+
+  const entities = ratingEntitiesForBalance(global, hero, heroId, options);
+  if (!classification.excessKeys.has(entryKey)) {
+    return entities;
+  }
+
+  return entities.map((entity) => ({
+    ...entity,
+    mu: effectiveBalanceMuForExcessNew(entity.mu),
+  }));
 }
 
 /**

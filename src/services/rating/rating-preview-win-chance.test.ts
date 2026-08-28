@@ -1,6 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { computeWinChanceFromRatings } from './rating-preview.js';
 
+const VET_MU = 20;
+const NEW_MU = 25;
+const SIGMA = 3;
+
+function makeVet(playerId: string, slot: number, team: 1 | 2) {
+  return { playerId, slot, team, heroId: slot };
+}
+
+function vetMaps(entries: Array<{ playerId: string; slot: number }>) {
+  const globals = new Map(entries.map(({ playerId }) => [playerId, { mu: VET_MU, sigma: SIGMA }]));
+  const heroes = new Map(
+    entries.map(({ playerId, slot }) => [`${playerId}:${slot}`, { mu: VET_MU, sigma: SIGMA }]),
+  );
+  return { globals, heroes };
+}
+
 describe('computeWinChanceFromRatings', () => {
   it('returns undefined when a team is empty', () => {
     expect(
@@ -112,5 +128,96 @@ describe('computeWinChanceFromRatings', () => {
     });
 
     expect(dynamic!.teamAPercent).not.toBe(staticSigma!.teamAPercent);
+  });
+
+  it('discounts one-sided excess New so the short side is under 45%', () => {
+    const vetsA = ['a1', 'a2', 'a3', 'a4'];
+    const vetsB = ['b1', 'b2', 'b3', 'b4', 'b5'];
+    const entries = [
+      ...vetsA.map((id, index) => makeVet(id, index + 1, 1)),
+      makeVet('newbie', 5, 1),
+      ...vetsB.map((id, index) => makeVet(id, index + 7, 2)),
+    ].map((entry) =>
+      entry.playerId === 'newbie' ? { ...entry, isNewPlayer: true as const } : entry,
+    );
+    const { globals, heroes } = vetMaps(entries);
+    globals.set('newbie', { mu: NEW_MU, sigma: SIGMA });
+    heroes.set('newbie:5', { mu: NEW_MU, sigma: SIGMA });
+
+    const winChance = computeWinChanceFromRatings(entries, globals, heroes);
+    expect(winChance).toBeDefined();
+    expect(winChance!.teamAPercent).toBeLessThan(45);
+    expect(winChance!.teamAPercent + winChance!.teamBPercent).toBe(100);
+  });
+
+  it('omits paired New so win% matches vet-only 5v5', () => {
+    const vetsA = ['a1', 'a2', 'a3', 'a4', 'a5'];
+    const vetsB = ['b1', 'b2', 'b3', 'b4', 'b5'];
+    const vetOnlyEntries = [
+      ...vetsA.map((id, index) => makeVet(id, index + 1, 1)),
+      ...vetsB.map((id, index) => makeVet(id, index + 7, 2)),
+    ];
+    const pairedNewEntries = [
+      ...vetOnlyEntries,
+      { ...makeVet('newA', 6, 1), isNewPlayer: true as const },
+      { ...makeVet('newB', 12, 2), isNewPlayer: true as const },
+    ];
+    const { globals, heroes } = vetMaps(pairedNewEntries);
+    globals.set('newA', { mu: NEW_MU, sigma: SIGMA });
+    globals.set('newB', { mu: NEW_MU, sigma: SIGMA });
+    heroes.set('newA:6', { mu: NEW_MU, sigma: SIGMA });
+    heroes.set('newB:12', { mu: NEW_MU, sigma: SIGMA });
+
+    const vetOnly = computeWinChanceFromRatings(vetOnlyEntries, globals, heroes);
+    const pairedNew = computeWinChanceFromRatings(pairedNewEntries, globals, heroes);
+
+    expect(vetOnly).toEqual(pairedNew);
+    expect(vetOnly!.teamAPercent).toBe(50);
+  });
+
+  it('omits paired New and discounts excess (2 New vs 1 New)', () => {
+    const entries = [
+      ...['a1', 'a2', 'a4', 'a5'].map((id, index) => makeVet(id, [1, 2, 4, 5][index]!, 1)),
+      { ...makeVet('newA1', 3, 1), isNewPlayer: true as const },
+      { ...makeVet('newA2', 6, 1), isNewPlayer: true as const },
+      ...['b1', 'b2', 'b3', 'b4', 'b5'].map((id, index) => makeVet(id, index + 7, 2)),
+      { ...makeVet('newB', 12, 2), isNewPlayer: true as const },
+    ];
+    const { globals, heroes } = vetMaps(entries);
+    for (const id of ['newA1', 'newA2', 'newB']) {
+      globals.set(id, { mu: NEW_MU, sigma: SIGMA });
+    }
+    heroes.set('newA1:3', { mu: NEW_MU, sigma: SIGMA });
+    heroes.set('newA2:6', { mu: NEW_MU, sigma: SIGMA });
+    heroes.set('newB:12', { mu: NEW_MU, sigma: SIGMA });
+
+    const flagged = computeWinChanceFromRatings(entries, globals, heroes);
+    const unmarkedNew = computeWinChanceFromRatings(
+      entries.map(({ isNewPlayer: _ignored, ...entry }) => entry),
+      globals,
+      heroes,
+    );
+
+    expect(flagged!.teamAPercent).toBeLessThan(45);
+    expect(flagged!.teamAPercent).toBeLessThan(unmarkedNew!.teamAPercent);
+  });
+
+  it('uses full μ for unmarked calibrating players', () => {
+    const winChance = computeWinChanceFromRatings(
+      [
+        { playerId: 'cold', slot: 1, team: 1, heroId: 1 },
+        { playerId: 'vet', slot: 7, team: 2, heroId: 7 },
+      ],
+      new Map([
+        ['cold', { mu: NEW_MU, sigma: SIGMA }],
+        ['vet', { mu: VET_MU, sigma: SIGMA }],
+      ]),
+      new Map([
+        ['cold:1', { mu: NEW_MU, sigma: SIGMA }],
+        ['vet:7', { mu: VET_MU, sigma: SIGMA }],
+      ]),
+    );
+
+    expect(winChance!.teamAPercent).toBeGreaterThan(50);
   });
 });

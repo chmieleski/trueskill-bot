@@ -7,11 +7,12 @@ import { resolveLeagueConfig } from '../league/league-wc3stats.js';
 import { prisma } from '../../lib/prisma.js';
 import { createLogger } from '../../lib/logger.js';
 import {
-  ratingEntitiesForBalance,
+  balanceEntitiesForSeat,
   rosterEntriesWithHeroId,
   type BalancePredictWinOptions,
   type MuSigma,
 } from './rating-entities.js';
+import { classifyNewSeatsForBalance, entryPairKey } from './new-player-partition.js';
 import {
   displayOrdinal,
   roundWinPercents,
@@ -85,6 +86,9 @@ export type RatingPreviewRosterEntry = {
   nick: string;
   isQuitter?: boolean;
   isGriefer?: boolean;
+  /** Live PENDING/in-progress lobby (`PlayerRating.isNewPlayer`). */
+  isNewPlayer?: boolean;
+  /** Completed/history snapshot (`MatchPlayer.wasNewPlayer`). */
   wasNewPlayer?: boolean;
   locked?: boolean;
 };
@@ -152,16 +156,21 @@ function defaultMuSigma(): MuSigma {
  * Returns undefined when either team has no humans.
  */
 export function computeWinChanceFromRatings(
-  entries: Pick<RatingPreviewRosterEntry, 'playerId' | 'slot' | 'team' | 'heroId'>[],
+  entries: Pick<
+    RatingPreviewRosterEntry,
+    'playerId' | 'slot' | 'team' | 'heroId' | 'isNewPlayer' | 'wasNewPlayer' | 'isQuitter'
+  >[],
   globalByPlayer: Map<string, MuSigma>,
   heroByKey: Map<string, MuSigma>,
   options?: BalancePredictWinOptions,
 ): WinChancePercents | undefined {
-  const { teamA, teamB } = splitRosterByTeam([...entries].sort((a, b) => a.slot - b.slot));
+  const sorted = [...entries].sort((a, b) => a.slot - b.slot);
+  const { teamA, teamB } = splitRosterByTeam(sorted);
   if (teamA.length === 0 || teamB.length === 0) {
     return undefined;
   }
 
+  const newClassification = classifyNewSeatsForBalance(sorted);
   const heroKey = (playerId: string, heroId: number) => `${playerId}:${heroId}`;
   const teamEntities = (team: typeof teamA) =>
     toOpenSkillRatings(
@@ -171,11 +180,24 @@ export function computeWinChanceFromRatings(
           entry.heroId == null
             ? defaultMuSigma()
             : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultMuSigma());
-        return ratingEntitiesForBalance(global, hero, entry.heroId, options);
+        return balanceEntitiesForSeat(
+          global,
+          hero,
+          entry.heroId,
+          entryPairKey(entry),
+          newClassification,
+          options,
+        );
       }),
     );
 
-  const [pA, pB] = predictWin([teamEntities(teamA), teamEntities(teamB)]);
+  const teamAEntities = teamEntities(teamA);
+  const teamBEntities = teamEntities(teamB);
+  if (teamAEntities.length === 0 || teamBEntities.length === 0) {
+    return undefined;
+  }
+
+  const [pA, pB] = predictWin([teamAEntities, teamBEntities]);
   return roundWinPercents(pA ?? 0.5, pB ?? 0.5);
 }
 
@@ -452,8 +474,14 @@ export async function loadLobbyRatingPreview(
     const heroMuSigma = new Map(
       [...heroByKey.entries()].map(([key, row]) => [key, { mu: row.mu, sigma: row.sigma }]),
     );
+    const entriesForBalance = sorted.map((entry) => ({
+      ...entry,
+      ...(globalByPlayer.get(entry.playerId)?.isNewPlayer === true
+        ? { isNewPlayer: true as const }
+        : {}),
+    }));
     const winChance = computeWinChanceFromRatings(
-      sorted,
+      entriesForBalance,
       globalMuSigma,
       heroMuSigma,
       balanceOptions,
@@ -474,13 +502,15 @@ export async function loadLobbyRatingPreview(
     };
 
     const profile = await getGameProfileForLeague(leagueId);
-    const balanceRoster = sorted.map((entry) => ({
+    const balanceRoster = entriesForBalance.map((entry) => ({
       playerId: entry.playerId,
       slot: entry.slot,
       team: entry.team,
       heroId: entry.heroId,
       nick: entry.nick,
       locked: entry.locked === true,
+      ...(entry.isNewPlayer === true ? { isNewPlayer: true as const } : {}),
+      ...(entry.wasNewPlayer === true ? { wasNewPlayer: true as const } : {}),
     }));
 
     let balanceSuggestions: BalanceSuggestion[] | undefined;
