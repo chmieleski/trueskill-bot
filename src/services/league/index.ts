@@ -92,6 +92,15 @@ export {
 } from './league-rollover.js';
 
 export {
+  getMessageCategoryId,
+  isGuildLeagueCommandChannel,
+  isGuildModeratedBotChannel,
+  isModeratableGuildTextChannel,
+  purgeNonCommandMessage,
+  shouldDeleteNonCommandMessage,
+} from './league-channel-moderation.js';
+
+export {
   LOBBY_CHANNEL_CHANNEL_ONLY_WHILE_DISABLED,
   LOBBY_CHANNEL_ENABLE_NEEDS_CHANNEL,
   LOBBY_CHANNEL_HOST_PROMPT_MISMATCH,
