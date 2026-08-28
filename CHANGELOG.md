@@ -1,3 +1,10 @@
+# [1.38.0](https://github.com/chmieleski/trueskill-bot/compare/v1.37.0...v1.38.0) (2026-08-28)
+
+
+### Features
+
+* **wos:** WOS rank heroes and /hero /items stats commands ([#123](https://github.com/chmieleski/trueskill-bot/issues/123)) ([436ae39](https://github.com/chmieleski/trueskill-bot/commit/436ae39bffb1c2a6e2cd35bd89e96d84cff6ba9e))
+
 # [1.37.0](https://github.com/chmieleski/trueskill-bot/compare/v1.36.0...v1.37.0) (2026-08-28)
 
 
