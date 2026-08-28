@@ -1,3 +1,10 @@
+# [1.31.0](https://github.com/chmieleski/trueskill-bot/compare/v1.30.0...v1.31.0) (2026-08-28)
+
+
+### Features
+
+* **config:** mirror completed matches to a guild log channel ([#112](https://github.com/chmieleski/trueskill-bot/issues/112)) ([078df0b](https://github.com/chmieleski/trueskill-bot/commit/078df0bda52dc83704f2c5032687b24ff3e8553b))
+
 # [1.30.0](https://github.com/chmieleski/trueskill-bot/compare/v1.29.2...v1.30.0) (2026-08-28)
 
 
