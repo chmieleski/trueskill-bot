@@ -29,7 +29,7 @@ export {
   resolveInProgressMatchByMessageId,
   resolveHostPendingMatchByMessageId,
 } from './resolve.js';
-export { syncLobbyDiscordMessage } from './discord-sync.js';
+export { syncLobbyDiscordMessage, postCompletedMatchLog } from './discord-sync.js';
 export { startLobbyMatch, startLobbyMatchByMessageId, cancelLobbyMatch } from './lifecycle.js';
 export {
   attachRecreatedLobbyMessage,

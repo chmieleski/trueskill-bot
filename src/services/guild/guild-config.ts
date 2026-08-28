@@ -61,6 +61,7 @@ export interface ResolvedGuildConfig {
   grieferLeaderboardSort: GrieferLeaderboardSortValue;
   changelogChannelId: string | undefined;
   changelogDraftChannelId: string | undefined;
+  completedMatchLogChannelId: string | undefined;
 }
 
 function resolveField(
@@ -108,7 +109,27 @@ export async function resolveGuildConfig(guildId: string): Promise<ResolvedGuild
     grieferLeaderboardSort: row?.grieferLeaderboardSort ?? GRIEFER_LEADERBOARD_DEFAULT_SORT,
     changelogChannelId: trimOptionalId(row?.changelogChannelId),
     changelogDraftChannelId: trimOptionalId(row?.changelogDraftChannelId),
+    completedMatchLogChannelId: trimOptionalId(row?.completedMatchLogChannelId),
   };
+}
+
+export async function setCompletedMatchLogChannel(
+  guildId: string,
+  channelId: string,
+): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: { guildId, completedMatchLogChannelId: channelId },
+    update: { completedMatchLogChannelId: channelId },
+  });
+}
+
+export async function clearCompletedMatchLogChannel(guildId: string): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: { guildId },
+    update: { completedMatchLogChannelId: null },
+  });
 }
 
 export async function setMatchCreateRole(guildId: string, roleId: string): Promise<void> {

@@ -327,7 +327,7 @@ async function applyMatchMutation(
   match: MatchWithPlayers,
   mode: 'started' | 'completed' | 'cancelled',
   replyMessage: string,
-  options: { ratingPreview?: LobbyRatingPreview } = {},
+  options: { ratingPreview?: LobbyRatingPreview; postToMatchLog?: boolean } = {},
 ): Promise<void> {
   await syncLobbyDiscordMessage(interaction.client, match, mode, options);
   await interaction.editReply({ content: replyMessage });
@@ -929,6 +929,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
       await applyMatchMutation(interaction, completed.match, 'completed', completionMessage, {
         ratingPreview: completed.ratingPreview,
+        postToMatchLog: true,
       });
       return;
     }

@@ -47,6 +47,7 @@ const quitterDefaults = {
   quitterLeaderboardSort: 'count' as const,
   changelogChannelId: undefined,
   changelogDraftChannelId: undefined,
+  completedMatchLogChannelId: undefined,
 };
 
 const grieferDefaults = {
