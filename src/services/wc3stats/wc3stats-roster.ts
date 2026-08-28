@@ -5,7 +5,6 @@ import type { Wc3statsHeroSlotMap } from './wc3stats-slot-map.js';
 
 const log = createLogger('wc3stats-roster');
 
-const TAG_SUFFIX = /^(.*)#\d+$/;
 const MAX_SLOT = 12;
 
 export type Wc3statsSlot = {
@@ -38,8 +37,7 @@ export function nickFromWc3statsPlayer(player: {
     return '';
   }
 
-  const stripped = TAG_SUFFIX.exec(raw)?.[1] ?? raw;
-  return normalizeNick(stripped);
+  return normalizeNick(raw);
 }
 
 function isOccupiedHuman(slot: Wc3statsSlot): boolean {
