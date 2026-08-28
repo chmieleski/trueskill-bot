@@ -1,3 +1,10 @@
+# [1.41.0](https://github.com/chmieleski/trueskill-bot/compare/v1.40.0...v1.41.0) (2026-08-28)
+
+
+### Features
+
+* **wos:** add GameHero catalog and staff hero rename command ([#128](https://github.com/chmieleski/trueskill-bot/issues/128)) ([a9570d2](https://github.com/chmieleski/trueskill-bot/commit/a9570d21c408501195a710a023c01ed7c3b5845d))
+
 # [1.40.0](https://github.com/chmieleski/trueskill-bot/compare/v1.39.0...v1.40.0) (2026-08-28)
 
 
