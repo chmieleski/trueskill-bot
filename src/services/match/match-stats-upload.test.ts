@@ -49,6 +49,7 @@ import {
   enrichCompletedMatchLogEmbeds,
   formatCompactStatNumber,
   formatMatchStatsDetailedPlayerLine,
+  formatMatchStatsTeamTable,
   formatMatchStatsFieldValue,
 } from './match-stats-upload.js';
 import type { MatchWithPlayers } from './match-service.js';
@@ -104,6 +105,34 @@ describe('formatMatchStatsDetailedPlayerLine', () => {
   });
 });
 
+describe('formatMatchStatsTeamTable', () => {
+  it('renders aligned columns in a code block', () => {
+    const table = formatMatchStatsTeamTable([
+      sampleStat(),
+      sampleStat({
+        playerId: 'p2',
+        username: 'Tiny#11318',
+        heroName: 'Frieren',
+        kills: 0,
+        deaths: 2,
+        damageTotal: 151_000,
+        heal: 11_200,
+        takenTotal: 154_500,
+      }),
+    ]);
+
+    expect(table).toMatch(/^```\n/);
+    expect(table).toMatch(/```$/);
+    expect(table).toContain('Player');
+    expect(table).toContain('Hero');
+    expect(table).toContain('K/D');
+    expect(table).toContain('chmieleski');
+    expect(table).toContain('tiny');
+    expect(table).toContain('Raiden Ei');
+    expect(table).toContain('Frieren');
+  });
+});
+
 describe('buildMatchStatsLogEmbedFields', () => {
   const profile = getGameProfile(WARCRAFT3_WOS_GAME_ID);
 
@@ -133,6 +162,7 @@ describe('buildMatchStatsLogEmbedFields', () => {
     expect(fields[0]?.name).toBe('Round score');
     expect(fields[0]?.value).toContain('WOS Enjoyers **2** – **10** WOS Haters');
     expect(fields[1]?.name).toContain('WOS Enjoyers stats');
+    expect(fields[1]?.value).toContain('```');
     expect(fields[1]?.value).toContain('chmieleski');
     expect(fields[2]?.name).toContain('WOS Haters stats');
     expect(fields[2]?.value).toContain('tiny');
@@ -188,6 +218,7 @@ describe('enrichCompletedMatchLogEmbeds', () => {
     expect(enriched?.data.fields?.some((field) => field.name?.includes('WOS Enjoyers stats'))).toBe(
       true,
     );
+    expect(enriched?.data.fields?.[1]?.value).toContain('```');
     expect(enriched?.data.fields?.[1]?.value).toContain('Raiden Ei');
   });
 });

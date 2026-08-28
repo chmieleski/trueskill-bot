@@ -1,18 +1,47 @@
 import { EmbedBuilder } from 'discord.js';
+import { formatMonospaceTable, truncateDiscordFieldValue } from '../../lib/discord-embed-table.js';
 import type { ItemStatsResult, ItemWindowEntry, StatsWindow } from './item-stats.js';
 
 const ITEM_STATS_BLUE = 0x5865f2;
 
-function formatItemRow(entry: ItemWindowEntry): string {
-  const wr = entry.winRatePercent === null ? '—' : `${entry.winRatePercent}%`;
-  return `${entry.displayName} · ${entry.buyRatePercent}% buy · ${wr} WR · ${entry.gamesWithItem}G`;
+function formatWinRatePercent(winRatePercent: number | null): string {
+  return winRatePercent === null ? '—' : `${winRatePercent}%`;
+}
+
+function formatItemStatsTable(entries: ItemWindowEntry[]): string {
+  return formatMonospaceTable(entries, [
+    {
+      header: 'Item',
+      align: 'left',
+      maxWidth: 26,
+      cell: (entry) => entry.displayName,
+    },
+    {
+      header: 'Buy',
+      align: 'right',
+      maxWidth: 5,
+      cell: (entry) => `${entry.buyRatePercent}%`,
+    },
+    {
+      header: 'WR',
+      align: 'right',
+      maxWidth: 6,
+      cell: (entry) => formatWinRatePercent(entry.winRatePercent),
+    },
+    {
+      header: 'G',
+      align: 'right',
+      maxWidth: 4,
+      cell: (entry) => String(entry.gamesWithItem),
+    },
+  ]);
 }
 
 function formatItemsList(entries: ItemWindowEntry[]): string {
   if (entries.length === 0) {
     return '_No item data yet — stats appear after matches with uploaded reports._';
   }
-  return entries.map(formatItemRow).join('\n');
+  return truncateDiscordFieldValue(formatItemStatsTable(entries));
 }
 
 /** Build the Discord embed for `/items` results. */
@@ -48,3 +77,5 @@ export function buildItemStatsEmbed(
 
   return embed;
 }
+
+export { formatItemStatsTable };

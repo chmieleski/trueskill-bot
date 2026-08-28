@@ -1,5 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { buildItemStatsEmbed } from './item-stats-embed.js';
+import { buildItemStatsEmbed, formatItemStatsTable } from './item-stats-embed.js';
+
+describe('formatItemStatsTable', () => {
+  it('renders buy rate, win rate, and games in columns', () => {
+    const table = formatItemStatsTable([
+      {
+        objectId: 1,
+        displayName: 'Prison Realm (Active)',
+        buyRatePercent: 50,
+        winRatePercent: 60,
+        gamesWithItem: 5,
+      },
+    ]);
+
+    expect(table).toContain('```');
+    expect(table).toContain('Prison Realm (Active)');
+    expect(table).toContain('50%');
+    expect(table).toContain('60%');
+    expect(table).toContain('5');
+  });
+});
 
 describe('buildItemStatsEmbed', () => {
   it('includes item rows per window', () => {
@@ -18,7 +38,9 @@ describe('buildItemStatsEmbed', () => {
     });
 
     const fields = embed.toJSON().fields ?? [];
+    expect(fields[0]?.value).toContain('```');
     expect(fields[0]?.value).toContain('Oken');
-    expect(fields[0]?.value).toContain('38% buy');
+    expect(fields[0]?.value).toContain('38%');
+    expect(fields[0]?.value).toContain('55%');
   });
 });
