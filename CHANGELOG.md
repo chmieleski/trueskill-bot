@@ -1,3 +1,10 @@
+## [1.28.1](https://github.com/chmieleski/trueskill-bot/compare/v1.28.0...v1.28.1) (2026-08-28)
+
+
+### Bug Fixes
+
+* **rating:** restore three peer synthetic losses for quitters ([#107](https://github.com/chmieleski/trueskill-bot/issues/107)) ([70ba425](https://github.com/chmieleski/trueskill-bot/commit/70ba4259140465ca5132245f7b8feefacd99a911))
+
 # [1.28.0](https://github.com/chmieleski/trueskill-bot/compare/v1.27.3...v1.28.0) (2026-08-26)
 
 
