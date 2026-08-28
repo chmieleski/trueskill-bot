@@ -479,14 +479,14 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('upload_report')
       .setDescription('Upload a WOS bot match stats report for an in-progress match')
+      .addAttachmentOption((option) =>
+        option.setName('report').setDescription('WOS bot match report (.txt)').setRequired(true),
+      )
       .addStringOption((option) =>
         option
           .setName('match_id')
           .setDescription('In-progress match id (required if you have more than one)')
           .setRequired(false),
-      )
-      .addAttachmentOption((option) =>
-        option.setName('report').setDescription('WOS bot match report (.txt)').setRequired(true),
       ),
   )
   .addSubcommand((subcommand) =>
