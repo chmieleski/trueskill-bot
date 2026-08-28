@@ -1,3 +1,10 @@
+# [1.35.0](https://github.com/chmieleski/trueskill-bot/compare/v1.34.0...v1.35.0) (2026-08-28)
+
+
+### Features
+
+* **wos:** fill lobby from match file and require report to complete ([#120](https://github.com/chmieleski/trueskill-bot/issues/120)) ([6aa551e](https://github.com/chmieleski/trueskill-bot/commit/6aa551e288b405eee3df0dd9b832664278065055))
+
 # [1.34.0](https://github.com/chmieleski/trueskill-bot/compare/v1.33.1...v1.34.0) (2026-08-28)
 
 
