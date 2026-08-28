@@ -103,7 +103,7 @@ describe('applyDiscordDocPlaceholders', () => {
 
   it('uses WOS team names', () => {
     expect(applyDiscordDocPlaceholders('{{team1}} vs {{team2}} on {{gameName}}', context)).toBe(
-      'Team A vs Team B on WOS',
+      'WOS Enjoyers vs WOS Haters on WOS',
     );
   });
 });
