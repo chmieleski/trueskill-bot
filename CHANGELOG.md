@@ -1,3 +1,10 @@
+## [1.29.2](https://github.com/chmieleski/trueskill-bot/compare/v1.29.1...v1.29.2) (2026-08-28)
+
+
+### Bug Fixes
+
+* **rank:** allow teammates to appear on multiple /rank lists ([#110](https://github.com/chmieleski/trueskill-bot/issues/110)) ([f314490](https://github.com/chmieleski/trueskill-bot/commit/f3144902e312e5489d5f23e9b76eaee4becb3e29))
+
 ## [1.29.1](https://github.com/chmieleski/trueskill-bot/compare/v1.29.0...v1.29.1) (2026-08-28)
 
 
