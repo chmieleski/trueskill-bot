@@ -1,3 +1,10 @@
+# [1.40.0](https://github.com/chmieleski/trueskill-bot/compare/v1.39.0...v1.40.0) (2026-08-28)
+
+
+### Features
+
+* **wos:** render match and item stats as Discord-safe tables ([#127](https://github.com/chmieleski/trueskill-bot/issues/127)) ([044f227](https://github.com/chmieleski/trueskill-bot/commit/044f22792295b6c3ea7de1ff1fc2a3b43b520294))
+
 # [1.39.0](https://github.com/chmieleski/trueskill-bot/compare/v1.38.2...v1.39.0) (2026-08-28)
 
 
