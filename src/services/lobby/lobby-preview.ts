@@ -32,6 +32,7 @@ export const LOBBY_CUSTOM_IDS = {
   cancel: 'lobby:cancel',
   lockToggle: 'lobby:lock',
   shuffle: 'lobby:shuffle',
+  reportFromFile: 'lobby:report_file',
   reportWinner: 'match:report',
   quitters: 'match:quitters',
   griefers: 'match:griefers',
@@ -710,6 +711,18 @@ export function buildLobbyButtons(
         .setStyle(ButtonStyle.Secondary),
     ),
   );
+
+  if (resolvedProfile(options.profile).postMatchStats !== 'none') {
+    rows.push(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(LOBBY_CUSTOM_IDS.reportFromFile)
+          .setLabel('Report from file')
+          .setEmoji('📄')
+          .setStyle(ButtonStyle.Primary),
+      ),
+    );
+  }
 
   return rows;
 }

@@ -35,6 +35,7 @@ import {
   resolvePendingMatchByMessageId,
   shuffleLobbyRoster,
   startLobbyMatchByMessageId,
+  syncLobbyDiscordMessage,
   toggleLobbySlotLock,
 } from '../../services/lobby/index.js';
 import { claimSlotSelectOptions, LOBBY_CUSTOM_IDS } from '../../services/lobby/index.js';
@@ -56,6 +57,8 @@ import {
 } from '../../domain/game-profile.js';
 import type { LobbyActionResult } from '../../services/lobby/index.js';
 import { sendNewPlayerSuggestPrompts } from './new-player-interactions.js';
+import { fillLobbyFromWos2Report } from '../../services/match/match-from-wos-report.js';
+import { collectNewPlayerSuggestionsForPendingCreate } from '../../services/rating/index.js';
 
 const log = createLogger('lobby');
 
@@ -1257,9 +1260,149 @@ async function handleModalAdd(
   }
 }
 
+async function handleReportFromFile(interaction: ButtonInteraction): Promise<void> {
+  const messageId = interaction.message.id;
+  const result = await requirePendingMatch(messageId);
+
+  if ('error' in result) {
+    await replyEphemeral(interaction, result.error);
+    return;
+  }
+
+  if (!(await assertManagePendingOrReply(interaction, result.match))) {
+    return;
+  }
+
+  const profile = await getGameProfileForMatch(result.match);
+  if (profile.postMatchStats === 'none') {
+    await replyEphemeral(interaction, 'This game does not accept match file reports.');
+    return;
+  }
+
+  const modal = new ModalBuilder()
+    .setCustomId(`lobby:modal:report_file:${messageId}`)
+    .setTitle('Paste WOS match report');
+
+  const reportInput = new TextInputBuilder()
+    .setCustomId('report_text')
+    .setLabel('WOS2 bot report text')
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(true)
+    .setMaxLength(4000)
+    .setPlaceholder(
+      'Paste the contents of the .txt export, or use /register_lobby report: for large files.',
+    );
+
+  modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(reportInput));
+
+  await interaction.showModal(modal);
+}
+
+async function handleModalReportFile(
+  interaction: ModalSubmitInteraction,
+  messageId: string,
+): Promise<void> {
+  if (interaction.channelId) {
+    await deletePreviousEphemeral(interaction.client, interaction.user.id, interaction.channelId);
+  }
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  if (interaction.channelId) {
+    rememberEphemeral(interaction.user.id, interaction.channelId, {
+      applicationId: interaction.applicationId,
+      token: interaction.token,
+      messageId: '@original',
+    });
+  }
+
+  const pending = await requirePendingMatch(messageId);
+  if ('error' in pending) {
+    await interaction.editReply({ content: pending.error });
+    return;
+  }
+
+  if (!interaction.guildId || !interaction.channelId) {
+    await interaction.editReply({ content: 'This action can only be used in a server channel.' });
+    return;
+  }
+
+  const config = await resolveGuildConfig(interaction.guildId);
+  try {
+    assertCanManageMatch({
+      hostDiscordId: pending.match.hostDiscordId,
+      actorDiscordId: interaction.user.id,
+      memberRoleIds: memberRoleIds(interaction),
+      matchModRoleId: config.matchModRoleId,
+    });
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await interaction.editReply({ content: error.message });
+      return;
+    }
+    throw error;
+  }
+
+  const rawText = interaction.fields.getTextInputValue('report_text');
+
+  try {
+    const filled = await fillLobbyFromWos2Report({
+      guildId: interaction.guildId,
+      leagueId: pending.match.leagueId ?? undefined,
+      eventId: pending.match.eventId ?? undefined,
+      hostDiscordId: interaction.user.id,
+      discordChannelId: interaction.channelId,
+      memberRoleIds: memberRoleIds(interaction),
+      matchModRoleId: config.matchModRoleId,
+      rawText,
+      existingMatchId: pending.match.id,
+    });
+
+    await syncLobbyDiscordMessage(interaction.client, filled.match, 'pending');
+
+    const warningNote = filled.warnings.length > 0 ? `\n_${filled.warnings.join(' · ')}_` : '';
+
+    await interaction.editReply({
+      content: `Lobby filled from match report.${warningNote}`,
+    });
+
+    if (filled.match.leagueId && filled.match.players.length > 0) {
+      const suggestions = await collectNewPlayerSuggestionsForPendingCreate({
+        leagueId: filled.match.leagueId,
+        matchId: filled.matchId,
+        players: filled.match.players.map((player) => ({
+          playerId: player.playerId,
+          username: player.player.username,
+        })),
+      });
+      await sendNewPlayerSuggestPrompts({
+        interaction,
+        match: {
+          id: filled.match.id,
+          hostDiscordId: filled.match.hostDiscordId,
+          leagueId: filled.match.leagueId,
+        },
+        suggestions,
+        matchModRoleId: config.matchModRoleId,
+      });
+    }
+  } catch (error) {
+    if (error instanceof MatchServiceError) {
+      await interaction.editReply({ content: error.message });
+      return;
+    }
+    throw error;
+  }
+}
+
 async function handleButton(interaction: ButtonInteraction): Promise<void> {
   const customId = interaction.customId;
   log.debug({ customId, userId: interaction.user.id }, 'Lobby button interaction');
+
+  if (customId === LOBBY_CUSTOM_IDS.reportFromFile) {
+    await handleReportFromFile(interaction);
+    return;
+  }
 
   if (customId === LOBBY_CUSTOM_IDS.start) {
     await handleStart(interaction);
@@ -1408,6 +1551,11 @@ async function handleModal(interaction: ModalSubmitInteraction): Promise<void> {
     const teamFromSelect =
       teamPart === '1' || teamPart === '2' ? (Number(teamPart) as TeamId) : null;
     await handleModalAdd(interaction, messageId, teamFromSelect);
+    return;
+  }
+
+  if (kind === 'report_file') {
+    await handleModalReportFile(interaction, messageId);
     return;
   }
 

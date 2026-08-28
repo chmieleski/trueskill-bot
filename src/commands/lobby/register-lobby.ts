@@ -51,6 +51,11 @@ import {
 import { importWc3statsLobby } from '../../services/wc3stats/index.js';
 import { loadLeagueWc3statsHeroSlotMap } from '../../services/wc3stats/index.js';
 import { sendNewPlayerSuggestPrompts } from '../../discord/interactions/new-player-interactions.js';
+import {
+  fetchTextAttachment,
+  isTextReportAttachment,
+} from '../../services/match/match-stats-upload.js';
+import { fillLobbyFromWos2Report } from '../../services/match/match-from-wos-report.js';
 
 const log = createLogger('register_lobby');
 
@@ -94,6 +99,12 @@ export const data = withOptionalLeagueOption(
     .addAttachmentOption((option) =>
       option.setName('print').setDescription('Lobby screenshot (optional)').setRequired(false),
     )
+    .addAttachmentOption((option) =>
+      option
+        .setName('report')
+        .setDescription('WOS bot match report .txt (optional, WOS only)')
+        .setRequired(false),
+    )
     .addStringOption((option) =>
       option
         .setName('wc3stats_id')
@@ -104,6 +115,91 @@ export const data = withOptionalLeagueOption(
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
   await respondLeagueAutocomplete(interaction);
+}
+
+async function replyWithWos2ReportLobby(
+  interaction: ChatInputCommandInteraction,
+  input: {
+    guildId: string;
+    leagueId?: string;
+    eventId?: string;
+    eventName?: string | null;
+    guildConfig: ResolvedGuildConfig;
+    reportUrl: string;
+    wc3statsReady?: boolean;
+    playerClaimEnabled?: boolean;
+  },
+): Promise<void> {
+  const rawText = await fetchTextAttachment(input.reportUrl);
+  const filled = await fillLobbyFromWos2Report({
+    guildId: input.guildId,
+    leagueId: input.leagueId,
+    eventId: input.eventId,
+    hostDiscordId: interaction.user.id,
+    discordChannelId: interaction.channelId!,
+    memberRoleIds: memberRoleIds(interaction),
+    matchModRoleId: input.guildConfig.matchModRoleId,
+    rawText,
+    bypassHostLobbyCap: hasMatchModRole({
+      actorDiscordId: interaction.user.id,
+      memberRoleIds: memberRoleIds(interaction),
+      matchModRoleId: input.guildConfig.matchModRoleId,
+    }),
+  });
+
+  const ratingPreview =
+    filled.match.leagueId != null
+      ? await loadLobbyRatingPreview(
+          filled.match.leagueId,
+          matchPlayersToRatingEntries(filled.match.players),
+        )
+      : undefined;
+
+  const warningNote = filled.warnings.length > 0 ? `\n_${filled.warnings.join(' · ')}_` : '';
+
+  await interaction.editReply({
+    content: `Lobby filled from match report.${warningNote}`,
+    embeds: [
+      buildMatchLobbyEmbed(filled.matchId, filled.players, {
+        canStart: filled.canStart,
+        createdAt: filled.createdAt,
+        ratingPreview,
+        profile: filled.profile,
+        eventName: input.eventName,
+      }),
+    ],
+    components: buildLobbyButtons({
+      canStart: filled.canStart,
+      playerCount: filled.players.length,
+      playerClaimEnabled: input.playerClaimEnabled ?? false,
+      wc3statsEnabled: input.wc3statsReady ?? false,
+      profile: filled.profile,
+    }),
+  });
+
+  const previewMessage = await interaction.fetchReply();
+  await attachDiscordMessage(filled.matchId, previewMessage.id, interaction.channelId!);
+
+  if (filled.match.players.length > 0 && filled.match.leagueId) {
+    const suggestions = await collectNewPlayerSuggestionsForPendingCreate({
+      leagueId: filled.match.leagueId,
+      matchId: filled.matchId,
+      players: filled.match.players.map((player) => ({
+        playerId: player.playerId,
+        username: player.player.username,
+      })),
+    });
+    await sendNewPlayerSuggestPrompts({
+      interaction,
+      match: {
+        id: filled.match.id,
+        hostDiscordId: filled.match.hostDiscordId,
+        leagueId: filled.match.leagueId,
+      },
+      suggestions,
+      matchModRoleId: input.guildConfig.matchModRoleId,
+    });
+  }
 }
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -146,8 +242,66 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     const event = eventResolved.event;
     const profile = getGameProfile(event.gameId);
-    const attachment = interaction.options.getAttachment('print');
-    if (attachment && !isImageAttachment(attachment)) {
+    const printAttachment = interaction.options.getAttachment('print');
+    const reportAttachment = interaction.options.getAttachment('report');
+
+    if (printAttachment && reportAttachment) {
+      await interaction.editReply(
+        'Attach either a screenshot (`print`) or a match report (`report`), not both.',
+      );
+      return;
+    }
+
+    if (reportAttachment) {
+      if (
+        !isTextReportAttachment({
+          contentType: reportAttachment.contentType,
+          name: reportAttachment.name,
+        })
+      ) {
+        await interaction.editReply('Please attach a valid WOS bot match report (.txt or .log).');
+        return;
+      }
+
+      try {
+        assertRegisterLobbyAllowedForProfile(profile, {
+          hasScreenshot: false,
+          hasWc3statsId: false,
+          hasReport: true,
+        });
+      } catch (error) {
+        if (error instanceof MatchServiceError) {
+          await interaction.editReply(error.message);
+          return;
+        }
+        throw error;
+      }
+
+      try {
+        await replyWithWos2ReportLobby(interaction, {
+          guildId: interaction.guildId,
+          eventId: event.id,
+          eventName: event.name,
+          guildConfig: guildConfig!,
+          reportUrl: reportAttachment.url,
+        });
+      } catch (error) {
+        if (error instanceof MatchServiceError) {
+          await interaction.editReply(error.message);
+          return;
+        }
+        log.error(
+          { err: error, userId: interaction.user.id },
+          'Failed to register event lobby from report',
+        );
+        await interaction.editReply(
+          'Could not create the match lobby from the report. Please try again.',
+        );
+      }
+      return;
+    }
+
+    if (printAttachment && !isImageAttachment(printAttachment)) {
       await interaction.editReply(
         'Please attach a valid lobby screenshot image (PNG, JPG, WEBP, or GIF).',
       );
@@ -155,14 +309,15 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     let players: LobbyPlayer[] = [];
-    if (attachment) {
-      players = await tryExtractLobbyPlayers(attachment.url, resolveMimeType(attachment));
+    if (printAttachment) {
+      players = await tryExtractLobbyPlayers(printAttachment.url, resolveMimeType(printAttachment));
     }
 
     try {
       assertRegisterLobbyAllowedForProfile(profile, {
-        hasScreenshot: Boolean(attachment),
+        hasScreenshot: Boolean(printAttachment),
         hasWc3statsId: false,
+        hasReport: false,
       });
     } catch (error) {
       if (error instanceof MatchServiceError) {
@@ -180,7 +335,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         hostDiscordId: interaction.user.id,
         discordChannelId: interaction.channelId,
         players,
-        lobbyRosterAuthorityAt: attachment ? new Date() : undefined,
+        lobbyRosterAuthorityAt: printAttachment ? new Date() : undefined,
         bypassHostLobbyCap: hasMatchModRole({
           actorDiscordId: interaction.user.id,
           memberRoleIds: memberRoleIds(interaction),
@@ -257,8 +412,16 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const playerClaimEnabled = leagueConfig.lobbyPlayerClaimEnabled;
 
   // ── Parse options ────────────────────────────────────────────────────────────
-  const attachment = interaction.options.getAttachment('print');
+  const printAttachment = interaction.options.getAttachment('print');
+  const reportAttachment = interaction.options.getAttachment('report');
   let wc3statsId: number | null = null;
+
+  if (printAttachment && reportAttachment) {
+    await interaction.editReply(
+      'Attach either a screenshot (`print`) or a match report (`report`), not both.',
+    );
+    return;
+  }
 
   try {
     wc3statsId = parseWc3statsId(interaction.options.getString('wc3stats_id'));
@@ -270,10 +433,69 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     throw error;
   }
 
+  if (reportAttachment) {
+    if (
+      !isTextReportAttachment({
+        contentType: reportAttachment.contentType,
+        name: reportAttachment.name,
+      })
+    ) {
+      await interaction.editReply('Please attach a valid WOS bot match report (.txt or .log).');
+      return;
+    }
+
+    try {
+      assertRegisterLobbyAllowedForProfile(profile, {
+        hasScreenshot: false,
+        hasWc3statsId: wc3statsId != null,
+        hasReport: true,
+      });
+    } catch (error) {
+      if (error instanceof MatchServiceError) {
+        await interaction.editReply(error.message);
+        return;
+      }
+      throw error;
+    }
+
+    try {
+      await replyWithWos2ReportLobby(interaction, {
+        guildId: interaction.guildId,
+        leagueId,
+        guildConfig: guildConfig!,
+        reportUrl: reportAttachment.url,
+        wc3statsReady,
+        playerClaimEnabled,
+      });
+      log.info(
+        {
+          userId: interaction.user.id,
+          guildId: interaction.guildId,
+          leagueId,
+        },
+        'Match lobby registered from WOS report',
+      );
+    } catch (error) {
+      if (error instanceof MatchServiceError) {
+        await interaction.editReply(error.message);
+        return;
+      }
+      log.error(
+        { err: error, userId: interaction.user.id },
+        'Failed to register lobby from report',
+      );
+      await interaction.editReply(
+        'Could not create the match lobby from the report. Please try again.',
+      );
+    }
+    return;
+  }
+
   try {
     assertRegisterLobbyAllowedForProfile(profile, {
-      hasScreenshot: Boolean(attachment),
+      hasScreenshot: Boolean(printAttachment),
       hasWc3statsId: wc3statsId != null,
+      hasReport: false,
     });
   } catch (error) {
     if (error instanceof MatchServiceError) {
@@ -288,19 +510,23 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       userId: interaction.user.id,
       guildId: interaction.guildId,
       channelId: interaction.channelId,
-      hasScreenshot: Boolean(attachment),
+      hasScreenshot: Boolean(printAttachment),
       wc3statsId,
       wc3statsEnabled: wc3statsReady,
-      attachmentName: attachment?.name,
-      contentType: attachment?.contentType,
-      size: attachment?.size,
+      attachmentName: printAttachment?.name,
+      contentType: printAttachment?.contentType,
+      size: printAttachment?.size,
     },
     'Register lobby started',
   );
 
-  if (attachment && !isImageAttachment(attachment)) {
+  if (printAttachment && !isImageAttachment(printAttachment)) {
     log.warn(
-      { userId: interaction.user.id, contentType: attachment.contentType, name: attachment.name },
+      {
+        userId: interaction.user.id,
+        contentType: printAttachment.contentType,
+        name: printAttachment.name,
+      },
       'Rejected non-image attachment',
     );
     await interaction.editReply(
@@ -310,8 +536,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
 
   const source = resolveRegisterLobbySource({
-    attachmentUrl: attachment?.url,
-    mimeType: attachment ? resolveMimeType(attachment) : null,
+    printAttachmentUrl: printAttachment?.url,
+    reportAttachmentUrl: null,
+    printMimeType: printAttachment ? resolveMimeType(printAttachment) : null,
     wc3statsEnabled: wc3statsReady,
     wc3statsId,
   });
@@ -382,7 +609,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       discordChannelId: interaction.channelId,
       players,
       wc3statsGameId,
-      lobbyRosterAuthorityAt: attachment ? new Date() : undefined,
+      lobbyRosterAuthorityAt: printAttachment ? new Date() : undefined,
       bypassHostLobbyCap: hasMatchModRole({
         actorDiscordId: interaction.user.id,
         memberRoleIds: memberRoleIds(interaction),

@@ -29,7 +29,11 @@ export {
   hasMatchStatsReport,
   isTextReportAttachment,
   loadMatchPlayerStatsLines,
+  loadSuggestedWinnerForMatch,
+  persistWos2MatchStats,
   uploadMatchStatsReport,
+  WOS_MATCH_REPORT_REQUIRED_MESSAGE,
+  assertWosMatchStatsReportPresent,
   type MatchPlayerStatsLine,
   type UploadMatchStatsResult,
 } from './match-stats-upload.js';

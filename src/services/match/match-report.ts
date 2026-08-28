@@ -3,6 +3,7 @@ import { createLogger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   getMatchById,
+  getGameProfileForMatch,
   isEventMatch,
   MatchServiceError,
   requireLeagueId,
@@ -38,6 +39,7 @@ import {
   loadMatchDisplayStatsByPlayer,
 } from '../rating/rank-reset-display.js';
 import { loadIsNewPlayerByPlayerId, playerIdsToClearNewFlag } from '../rating/new-player.js';
+import { WOS_MATCH_REPORT_REQUIRED_MESSAGE } from './match-stats-upload.js';
 
 const log = createLogger('match-report');
 
@@ -235,6 +237,16 @@ export async function completeMatch(
 
   await prisma.$transaction(async (tx) => {
     const match = await lockInProgressMatch(tx, matchId);
+    const profile = await getGameProfileForMatch(match);
+    if (profile.postMatchStats === 'wos2_bot_v1') {
+      const report = await tx.matchStatsReport.findUnique({
+        where: { matchId },
+        select: { id: true },
+      });
+      if (!report) {
+        throw new MatchServiceError(WOS_MATCH_REPORT_REQUIRED_MESSAGE);
+      }
+    }
     resolvedQuitterSlots = resolveQuitterSlots(match.players, quitterSlots);
     resolvedGrieferSlots = resolveGrieferSlots(match.players, grieferSlots);
     const quitterSet = new Set(resolvedQuitterSlots);

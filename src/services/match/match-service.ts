@@ -10,6 +10,7 @@ import {
 } from '../../domain/game-profile.js';
 import { prisma } from '../../lib/prisma.js';
 import { createLogger } from '../../lib/logger.js';
+import { clearMatchStatsReport, clearMatchStatsReports } from './match-stats-store.js';
 import type { LobbyPlayer } from '../lobby/lobby-ocr.js';
 import { matchPlayerLockPairKey, reconcileMatchPlayerLocked } from '../lobby/locked-slots.js';
 import { normalizeNick } from '../player/player-nick.js';
@@ -843,15 +844,18 @@ export async function cancelMatch(matchId: string): Promise<MatchWithPlayers> {
     throw new MatchServiceError('This match can no longer be cancelled.');
   }
 
-  const updated = await prisma.match.update({
-    where: { id: matchId },
-    data: { status: 'CANCELLED' },
-    include: {
-      players: {
-        include: { player: true },
-        orderBy: { slot: 'asc' },
+  const updated = await prisma.$transaction(async (tx) => {
+    await clearMatchStatsReport(matchId, tx);
+    return tx.match.update({
+      where: { id: matchId },
+      data: { status: 'CANCELLED' },
+      include: {
+        players: {
+          include: { player: true },
+          orderBy: { slot: 'asc' },
+        },
       },
-    },
+    });
   });
 
   log.info({ matchId, playerCount: updated.players.length }, 'Match cancelled');
@@ -881,12 +885,17 @@ export async function cancelStalePendingMatches(
     return [];
   }
 
-  await prisma.match.updateMany({
-    where: {
-      id: { in: stale.map((match) => match.id) },
-      status: 'PENDING',
-    },
-    data: { status: 'CANCELLED' },
+  const staleIds = stale.map((match) => match.id);
+
+  await prisma.$transaction(async (tx) => {
+    await clearMatchStatsReports(staleIds, tx);
+    await tx.match.updateMany({
+      where: {
+        id: { in: staleIds },
+        status: 'PENDING',
+      },
+      data: { status: 'CANCELLED' },
+    });
   });
 
   log.info(
