@@ -1,8 +1,8 @@
 import { MatchResult, MatchStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { formatItemDisplayName, resolveItemNames } from '../game/game-item-catalog.js';
+import { resolveHeroSelection, statsRowMatchesHeroSelection } from '../game/game-hero-catalog.js';
 import { winRatePercent } from '../rating/rank-reset-display.js';
-import { normalizeHeroNameKey } from './hero-stats.js';
 
 export type StatsWindow = 'last10' | 'overall';
 
@@ -111,7 +111,9 @@ export async function loadItemStats(input: {
   heroName?: string;
   windows: StatsWindow[];
 }): Promise<ItemStatsResult> {
-  const heroKey = input.heroName ? normalizeHeroNameKey(input.heroName) : null;
+  const heroSelection = input.heroName
+    ? await resolveHeroSelection(input.gameId, input.leagueId, input.heroName)
+    : null;
 
   const rows = await prisma.matchPlayer.findMany({
     where: {
@@ -126,6 +128,7 @@ export async function loadItemStats(input: {
       stats: {
         select: {
           heroName: true,
+          heroObjectId: true,
           itemSlot1: true,
           itemSlot2: true,
           itemSlot3: true,
@@ -138,7 +141,6 @@ export async function loadItemStats(input: {
   });
 
   const mapped: ItemStatsRow[] = [];
-  let heroDisplayName: string | undefined;
 
   for (const row of rows) {
     if (row.result !== MatchResult.WIN && row.result !== MatchResult.LOSS) {
@@ -149,12 +151,8 @@ export async function loadItemStats(input: {
       continue;
     }
 
-    if (heroKey) {
-      const rowHero = stats.heroName?.trim();
-      if (!rowHero || normalizeHeroNameKey(rowHero) !== heroKey) {
-        continue;
-      }
-      heroDisplayName ??= rowHero;
+    if (heroSelection && !statsRowMatchesHeroSelection(stats, heroSelection)) {
+      continue;
     }
 
     mapped.push({
@@ -178,7 +176,7 @@ export async function loadItemStats(input: {
   }
 
   return {
-    heroDisplayName: heroKey ? (heroDisplayName ?? input.heroName?.trim()) : undefined,
+    heroDisplayName: heroSelection?.displayName,
     windows,
   };
 }

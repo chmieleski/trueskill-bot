@@ -20,6 +20,11 @@ import {
 import { assertCanManageMatch } from './match-auth.js';
 import { normalizeNick } from '../player/player-nick.js';
 import { upsertGameItems } from '../game/game-item-catalog.js';
+import {
+  formatHeroDisplayName,
+  resolveHeroDisplayNames,
+  upsertGameHeroesFromReport,
+} from '../game/game-hero-catalog.js';
 import { formatMonospaceTable, truncateDiscordFieldValue } from '../../lib/discord-embed-table.js';
 import { prisma } from '../../lib/prisma.js';
 import { clearMatchStatsReport } from './match-stats-store.js';
@@ -99,17 +104,37 @@ export function formatMatchStatsSummaryLines(stats: MatchPlayerStatsLine[]): str
     .map((row) => formatKdaLine(row.username, row.kills, row.deaths, row.heroName));
 }
 
-/** Load persisted match stats with usernames for display. */
+/** Load persisted match stats with usernames and resolved hero display names. */
 export async function loadMatchPlayerStatsLines(matchId: string): Promise<MatchPlayerStatsLine[]> {
   const rows = await prisma.matchPlayerStats.findMany({
     where: { matchId },
-    include: { player: { select: { username: true } } },
+    include: {
+      player: { select: { username: true } },
+      matchPlayer: {
+        select: {
+          match: {
+            select: {
+              league: { select: { gameId: true } },
+              event: { select: { gameId: true } },
+            },
+          },
+        },
+      },
+    },
     orderBy: { reportIndex: 'asc' },
   });
+
+  const gameId =
+    rows[0]?.matchPlayer?.match?.league?.gameId ?? rows[0]?.matchPlayer?.match?.event?.gameId;
+  const objectIds = rows.map((row) => row.heroObjectId).filter((id): id is number => id != null);
+  const heroNames = gameId ? await resolveHeroDisplayNames(gameId, objectIds) : new Map();
 
   return rows.map((row) => ({
     ...row,
     username: row.player.username,
+    heroName: gameId
+      ? formatHeroDisplayName(row.heroObjectId, heroNames, row.heroName)
+      : row.heroName,
   }));
 }
 
@@ -222,8 +247,18 @@ export async function persistWos2MatchStats(input: {
     where: { id: input.matchId },
     select: { league: { select: { gameId: true } } },
   });
-  if (match?.league?.gameId && input.report.itemRates.length > 0) {
-    await upsertGameItems(match.league.gameId, input.report.itemRates);
+  if (match?.league?.gameId) {
+    const gameId = match.league.gameId;
+    if (input.report.itemRates.length > 0) {
+      await upsertGameItems(gameId, input.report.itemRates);
+    }
+    await upsertGameHeroesFromReport(
+      gameId,
+      input.report.players.map((player) => ({
+        objectId: player.heroObjectId,
+        name: player.heroName,
+      })),
+    );
   }
 
   const roundWinner = winningTeamFromWos2Rounds(input.report);

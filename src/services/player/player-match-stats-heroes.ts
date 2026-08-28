@@ -1,5 +1,6 @@
 import { MatchResult, MatchStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { formatHeroDisplayName, resolveHeroDisplayNames } from '../game/game-hero-catalog.js';
 import {
   isMatchCountedAfterRankReset,
   loadLatestRankResetAtByPlayer,
@@ -26,11 +27,25 @@ function normalizeHeroKey(heroName: string): string {
 }
 
 function heroIdFromKey(key: string): number {
+  if (key.startsWith('id:')) {
+    const parsed = Number.parseInt(key.slice(3), 10);
+    if (Number.isInteger(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  const name = key.startsWith('name:') ? key.slice(5) : key;
   let hash = 0;
-  for (const char of key) {
+  for (const char of name) {
     hash = (hash * 31 + char.charCodeAt(0)) | 0;
   }
   return Math.abs(hash) || 1;
+}
+
+function heroBucketKey(row: MatchStatsHeroRow): string {
+  if (row.heroObjectId != null) {
+    return `id:${row.heroObjectId}`;
+  }
+  return `name:${normalizeHeroKey(row.heroName)}`;
 }
 
 /**
@@ -52,7 +67,7 @@ export function aggregateRankHeroesFromMatchRows(
       continue;
     }
 
-    const key = normalizeHeroKey(heroName);
+    const key = heroBucketKey(row);
     let bucket = buckets.get(key);
     if (!bucket) {
       bucket = {
@@ -94,6 +109,7 @@ export function aggregateRankHeroesFromMatchRows(
 export async function loadRankHeroesFromMatchStats(
   leagueId: string,
   playerId: string,
+  gameId: string,
 ): Promise<PlayerProfileHero[]> {
   const [resetAtByPlayer, rows] = await Promise.all([
     loadLatestRankResetAtByPlayer(leagueId, [playerId]),
@@ -131,5 +147,12 @@ export async function loadRankHeroesFromMatchStats(
     });
   }
 
-  return aggregateRankHeroesFromMatchRows(heroRows, resetAt);
+  const heroes = aggregateRankHeroesFromMatchRows(heroRows, resetAt);
+  const objectIds = heroes.map((hero) => hero.heroId);
+  const catalogNames = await resolveHeroDisplayNames(gameId, objectIds);
+
+  return heroes.map((hero) => ({
+    ...hero,
+    name: formatHeroDisplayName(hero.heroId, catalogNames, hero.name),
+  }));
 }
