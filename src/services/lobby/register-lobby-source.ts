@@ -11,19 +11,17 @@ export const WC3STATS_CONFIG_UNSUPPORTED_MESSAGE =
   "This league's game does not use wc3stats import.";
 
 /**
- * Games with `import: none` cannot start from a screenshot or wc3stats id.
+ * Games without slot-bound heroes cannot OCR lobby screenshots.
+ * Games without wc3stats import cannot pass wc3stats_id on register.
  */
 export function assertRegisterLobbyAllowedForProfile(
   profile: GameProfile,
   input: { hasScreenshot: boolean; hasWc3statsId: boolean },
 ): void {
-  if (profile.import !== 'none') {
-    return;
-  }
-  if (input.hasScreenshot) {
+  if (input.hasScreenshot && profile.heroBinding !== 'slot_bound') {
     throw new MatchServiceError(SCREENSHOT_UNSUPPORTED_MESSAGE);
   }
-  if (input.hasWc3statsId) {
+  if (input.hasWc3statsId && profile.import !== 'wc3stats') {
     throw new MatchServiceError(WC3STATS_UNSUPPORTED_MESSAGE);
   }
 }

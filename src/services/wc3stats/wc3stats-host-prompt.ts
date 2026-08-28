@@ -1,6 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { nickFromWc3statsPlayer } from './wc3stats-roster.js';
-import { isUdbrMap, type Wc3statsMapConfig } from './wc3stats-map.js';
+import { isWc3statsMap, type Wc3statsMapConfig } from './wc3stats-map.js';
 
 export type HostPromptAction = 'open' | 'dismiss';
 
@@ -69,7 +69,7 @@ export function filterGamelistForHostPrompt(input: {
   const matches: HostPromptMatch[] = [];
 
   for (const game of input.games) {
-    if (!isUdbrMap({ map: game.map }, input.mapConfig)) {
+    if (!isWc3statsMap({ map: game.map }, input.mapConfig)) {
       continue;
     }
 

@@ -48,10 +48,10 @@ const GAME_PROFILES: Record<string, GameProfile> = {
     slotCount: 10,
     teamAMaxSlot: 5,
     heroBinding: 'optional_in_game',
-    import: 'none',
+    import: 'wc3stats',
     postMatchStats: 'wos2_bot_v1',
-    ratingLabel: 'ki',
-    teamNames: { 1: 'Team A', 2: 'Team B' },
+    ratingLabel: 'sp',
+    teamNames: { 1: 'WOS Enjoyers', 2: 'WOS Haters' },
     sideWinLossDefault: false,
   },
 };

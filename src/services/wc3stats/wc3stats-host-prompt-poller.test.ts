@@ -49,15 +49,15 @@ describe('loadLinkedPlayersByNick', () => {
 });
 
 describe('listHostPromptReadyLeagues', () => {
-  it('drops leagues whose game does not use wc3stats import', async () => {
+  it('includes WOS and UDBR leagues when both use wc3stats import', async () => {
     const leagueFindMany = vi.mocked(prisma.league.findMany);
     leagueFindMany.mockResolvedValue([
       {
-        id: 'aca',
+        id: 'wos',
         guildId: 'g1',
         gameId: WARCRAFT3_WOS_GAME_ID,
-        wc3statsHostPromptChannelId: 'ch-aca',
-        wc3statsMapPattern: 'x',
+        wc3statsHostPromptChannelId: 'ch-wos',
+        wc3statsMapPattern: 'wos',
         wc3statsMapSha1: null,
         wc3statsEnabled: true,
         wc3statsHostPromptEnabled: true,
@@ -75,8 +75,7 @@ describe('listHostPromptReadyLeagues', () => {
     ] as never);
 
     const ready = await listHostPromptReadyLeagues();
-    expect(ready.map((league) => league.id)).toEqual(['udbr']);
-    expect(ready[0]?.gameId).toBe(WARCRAFT3_UDBR_GAME_ID);
+    expect(ready.map((league) => league.id).sort()).toEqual(['udbr', 'wos']);
   });
 
   it('skips leagues with an unknown gameId without failing the tick', async () => {

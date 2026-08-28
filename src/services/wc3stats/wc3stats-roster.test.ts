@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { WOS_WC3STATS_SLOT_MAP } from './wc3stats-slot-map.js';
 import { extractWc3statsRoster, nickFromWc3statsPlayer } from './wc3stats-roster.js';
 
 describe('nickFromWc3statsPlayer', () => {
@@ -112,5 +113,32 @@ describe('extractWc3statsRoster', () => {
     expect(result.usable).toBe(true);
     expect(result.players).toEqual([{ slot: 1, nick: 'alice' }]);
     expect(result.occupiedCount).toBe(1);
+  });
+
+  it('maps Anime_WOS2_0.30 host in red (wc3 slot 0) to bot slot 1', () => {
+    const result = extractWc3statsRoster(
+      {
+        numPlayers: 1,
+        numSlots: 10,
+        slots: [
+          { status: 'occupied', player: { name: 'Chmieleski', battleTag: 'Chmieleski#1941' } },
+          { status: 'open', player: null },
+          { status: 'open', player: null },
+          { status: 'open', player: null },
+          { status: 'open', player: null },
+          { status: 'open', player: null },
+          { status: 'open', player: null },
+          { status: 'open', player: null },
+          { status: 'open', player: null },
+          { status: 'open', player: null },
+        ],
+      },
+      {
+        slotMap: new Map(WOS_WC3STATS_SLOT_MAP.map((entry) => [entry.wc3statsSlot, entry.heroId])),
+      },
+    );
+
+    expect(result.usable).toBe(true);
+    expect(result.players).toEqual([{ slot: 1, nick: 'chmieleski' }]);
   });
 });

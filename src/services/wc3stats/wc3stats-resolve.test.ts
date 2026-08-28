@@ -225,7 +225,7 @@ describe('pickUdbrLobbiesContainingNick', () => {
 });
 
 describe('WC3STATS_NOT_UDBR', () => {
-  it('uses the spec English copy', () => {
-    expect(WC3STATS_NOT_UDBR).toBe('That lobby is not Ultimate Dragon Ball Reborn.');
+  it('uses generic wrong-map copy', () => {
+    expect(WC3STATS_NOT_UDBR).toBe('That lobby is not on the configured map for this league.');
   });
 });

@@ -1,3 +1,5 @@
+import { WARCRAFT3_UDBR_GAME_ID, WARCRAFT3_WOS_GAME_ID } from '../../domain/games.js';
+import { getGameProfileForLeague } from './league-profile.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   clearAllLeagueWc3statsSlotMaps,
@@ -6,6 +8,9 @@ import {
   UDBR_MAP_PATTERN,
   UDBR_MAP_SHA1,
   UDBR_WC3STATS_SLOT_MAP,
+  WOS_MAP_PATTERN,
+  WOS_MAP_SHA1,
+  WOS_WC3STATS_SLOT_MAP,
 } from '../wc3stats/wc3stats-slot-map.js';
 import {
   LIVE_LEADERBOARD_DEFAULT_SIZE,
@@ -19,12 +24,35 @@ import {
 } from '../rating/rating-decay.js';
 import type { ResolvedDecaySettings } from '../rating/decay-settings.js';
 import { assertLeagueAllowsWc3stats } from '../lobby/register-lobby-source.js';
+import { MatchServiceError } from '../match/match-service.js';
 import { assertLobbyHostPromptChannelsCompatible } from './league-lobby-channel.js';
 
 export {
   assertLeagueAllowsWc3stats,
   WC3STATS_CONFIG_UNSUPPORTED_MESSAGE,
 } from '../lobby/register-lobby-source.js';
+
+export type Wc3statsMapPresetId = 'udbr' | 'wos';
+
+const WC3STATS_PRESET_GAME_ID: Record<Wc3statsMapPresetId, string> = {
+  udbr: WARCRAFT3_UDBR_GAME_ID,
+  wos: WARCRAFT3_WOS_GAME_ID,
+};
+
+/** Thrown when staff pick a preset that does not match the league's game catalog id. */
+export const WC3STATS_PRESET_GAME_MISMATCH =
+  'That wc3stats preset does not match this league’s game.';
+
+async function assertLeagueMatchesWc3statsPreset(
+  leagueId: string,
+  preset: Wc3statsMapPresetId,
+): Promise<void> {
+  await assertLeagueAllowsWc3stats(leagueId);
+  const profile = await getGameProfileForLeague(leagueId);
+  if (profile.gameId !== WC3STATS_PRESET_GAME_ID[preset]) {
+    throw new MatchServiceError(WC3STATS_PRESET_GAME_MISMATCH);
+  }
+}
 
 /** All IHL settings stored on the League row. */
 export interface ResolvedLeagueConfig {
@@ -119,7 +147,7 @@ export function isLeagueWc3statsHostPromptReady(
  * enables import, sets map filter, loads the UDBR slot layout.
  */
 export async function applyUdbrWc3statsPreset(leagueId: string): Promise<void> {
-  await assertLeagueAllowsWc3stats(leagueId);
+  await assertLeagueMatchesWc3statsPreset(leagueId, 'udbr');
   await prisma.league.update({
     where: { id: leagueId },
     data: {
@@ -129,6 +157,35 @@ export async function applyUdbrWc3statsPreset(leagueId: string): Promise<void> {
     },
   });
   await replaceLeagueWc3statsSlotMaps(leagueId, [...UDBR_WC3STATS_SLOT_MAP]);
+}
+
+/**
+ * Apply the built-in WOS wc3stats preset to a league:
+ * enables import, sets map filter, loads the WOS slot layout.
+ */
+export async function applyWosWc3statsPreset(leagueId: string): Promise<void> {
+  await assertLeagueMatchesWc3statsPreset(leagueId, 'wos');
+  await prisma.league.update({
+    where: { id: leagueId },
+    data: {
+      wc3statsEnabled: true,
+      wc3statsMapPattern: WOS_MAP_PATTERN,
+      wc3statsMapSha1: WOS_MAP_SHA1 || null,
+    },
+  });
+  await replaceLeagueWc3statsSlotMaps(leagueId, [...WOS_WC3STATS_SLOT_MAP]);
+}
+
+/** Apply a built-in wc3stats preset after validating it matches the league game. */
+export async function applyWc3statsMapPreset(
+  leagueId: string,
+  preset: Wc3statsMapPresetId,
+): Promise<void> {
+  if (preset === 'udbr') {
+    await applyUdbrWc3statsPreset(leagueId);
+    return;
+  }
+  await applyWosWc3statsPreset(leagueId);
 }
 
 /**

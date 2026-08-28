@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MatchServiceError } from '../match/match-service.js';
+import { compileWc3statsMapConfig, isWc3statsMap } from './wc3stats-map.js';
 import {
   assertUniqueHeroTargets,
   formatWc3statsSlotMapLines,
@@ -9,6 +10,9 @@ import {
   UDBR_MAP_PATTERN,
   UDBR_MAP_SHA1,
   UDBR_WC3STATS_SLOT_MAP,
+  WOS_MAP_PATTERN,
+  WOS_MAP_SHA1,
+  WOS_WC3STATS_SLOT_MAP,
 } from './wc3stats-slot-map.js';
 
 describe('parseWc3statsSlotMapEntries', () => {
@@ -63,6 +67,38 @@ describe('parseWc3statsMapSha1', () => {
 
   it('splits, trims, and lowercases', () => {
     expect(parseWc3statsMapSha1('ABC, def ,')).toEqual(['abc', 'def']);
+  });
+});
+
+describe('WOS_WC3STATS_SLOT_MAP', () => {
+  it('maps ten sequential player colors to slots 1–10', () => {
+    assertUniqueHeroTargets([...WOS_WC3STATS_SLOT_MAP]);
+    const map = toWc3statsHeroSlotMap(WOS_WC3STATS_SLOT_MAP);
+    expect(map.size).toBe(10);
+    expect(map.get(0)).toBe(1);
+    expect(map.get(4)).toBe(5);
+    expect(map.get(5)).toBe(6);
+    expect(map.get(9)).toBe(10);
+    expect(map.has(10)).toBe(false);
+  });
+});
+
+describe('WOS filter constants', () => {
+  it('matches Anime_WOS2_0.30 from wc3stats', () => {
+    expect(WOS_MAP_SHA1).toBe('ee61b21fca7333db0531c8eee5e33b1acafd61ed');
+    const config = compileWc3statsMapConfig(WOS_MAP_PATTERN, parseWc3statsMapSha1(WOS_MAP_SHA1));
+    expect(isWc3statsMap({ map: 'Anime_WOS2_0.30.w3x' }, config)).toBe(true);
+    expect(
+      isWc3statsMap(
+        {
+          normalizedName: 'Anime_WOS2_0.30',
+          path: 'Maps/Download/Anime_WOS2_0.30.w3x',
+          sha1: WOS_MAP_SHA1,
+        },
+        config,
+      ),
+    ).toBe(true);
+    expect(isWc3statsMap({ map: 'UltimateDragonBallReborn.w3x' }, config)).toBe(false);
   });
 });
 

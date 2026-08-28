@@ -109,13 +109,16 @@ describe('parseWc3statsId', () => {
 });
 
 describe('assertRegisterLobbyAllowedForProfile', () => {
-  it('refuses screenshot and wc3stats id on import none', () => {
+  it('refuses screenshot when hero binding is optional_in_game', () => {
     expect(() =>
       assertRegisterLobbyAllowedForProfile(wos, { hasScreenshot: true, hasWc3statsId: false }),
     ).toThrow(SCREENSHOT_UNSUPPORTED_MESSAGE);
+  });
+
+  it('allows wc3stats id on WOS', () => {
     expect(() =>
       assertRegisterLobbyAllowedForProfile(wos, { hasScreenshot: false, hasWc3statsId: true }),
-    ).toThrow(WC3STATS_UNSUPPORTED_MESSAGE);
+    ).not.toThrow();
   });
 
   it('allows screenshot on UDBR', () => {
@@ -124,7 +127,7 @@ describe('assertRegisterLobbyAllowedForProfile', () => {
     ).not.toThrow();
   });
 
-  it('allows empty Discord-only register on import none', () => {
+  it('allows empty Discord-only register without screenshot or wc3stats id', () => {
     expect(() =>
       assertRegisterLobbyAllowedForProfile(wos, { hasScreenshot: false, hasWc3statsId: false }),
     ).not.toThrow();
@@ -153,8 +156,8 @@ describe('assertLeagueAllowsWc3statsImport', () => {
 });
 
 describe('assertProfileAllowsWc3statsImport', () => {
-  it('throws the import refuse string for WOS', () => {
-    expect(() => assertProfileAllowsWc3statsImport(wos)).toThrow(WC3STATS_UNSUPPORTED_MESSAGE);
+  it('does not throw for WOS', () => {
+    expect(() => assertProfileAllowsWc3statsImport(wos)).not.toThrow();
   });
 
   it('does not throw for UDBR', () => {

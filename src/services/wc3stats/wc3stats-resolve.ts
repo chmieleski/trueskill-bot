@@ -8,7 +8,7 @@ import {
   type Wc3statsGameDetail,
   type Wc3statsListGame,
 } from './wc3stats-client.js';
-import { compileWc3statsMapConfig, isUdbrMap, type Wc3statsMapConfig } from './wc3stats-map.js';
+import { compileWc3statsMapConfig, isWc3statsMap, type Wc3statsMapConfig } from './wc3stats-map.js';
 import {
   extractWc3statsRoster,
   nickFromWc3statsPlayer,
@@ -19,12 +19,12 @@ import type { Wc3statsHeroSlotMap } from './wc3stats-slot-map.js';
 const log = createLogger('wc3stats-resolve');
 
 export const WC3STATS_NOT_FOUND =
-  'No Ultimate Dragon Ball Reborn lobby found. Pass wc3stats_id or add players manually.';
+  'No matching Warcraft lobby found. Pass wc3stats_id or add players manually.';
 export const WC3STATS_NICK_NOT_IN_LOBBY =
-  'No Ultimate Dragon Ball Reborn lobby found with your linked nick. Sit in the Warcraft lobby or pass wc3stats_id.';
+  'No matching lobby found with your linked nick. Sit in the Warcraft lobby or pass wc3stats_id.';
 export const WC3STATS_AMBIGUOUS =
   'Several matching lobbies are live. Pass wc3stats_id to choose one.';
-export const WC3STATS_NOT_UDBR = 'That lobby is not Ultimate Dragon Ball Reborn.';
+export const WC3STATS_NOT_UDBR = 'That lobby is not on the configured map for this league.';
 
 export type ResolveWc3statsLobbyInput = {
   wc3statsId?: number | null;
@@ -95,18 +95,19 @@ export function wc3statsLobbyContainsNick(
   return extractWc3statsRoster(input.detail).players.some((player) => player.nick === nick);
 }
 
-function isUdbrListOrDetail(
+function isMatchingListOrDetail(
   game: Wc3statsListGame,
   detail: Wc3statsGameDetail,
   mapConfig: Wc3statsMapConfig,
 ): boolean {
   return (
-    isUdbrMap(mapInputFromDetail(detail), mapConfig) || isUdbrMap({ map: game.map }, mapConfig)
+    isWc3statsMap(mapInputFromDetail(detail), mapConfig) ||
+    isWc3statsMap({ map: game.map }, mapConfig)
   );
 }
 
 /**
- * Pick live UDBR games whose host or published roster contains `nick`.
+ * Pick live map-matching games whose host or published roster contains `nick`.
  * Fail closed when zero or more than one match.
  */
 export function pickUdbrLobbiesContainingNick(input: {
@@ -126,7 +127,7 @@ export function pickUdbrLobbiesContainingNick(input: {
 
   const matching = input.entries.filter(
     (entry) =>
-      isUdbrListOrDetail(entry.game, entry.detail, input.mapConfig) &&
+      isMatchingListOrDetail(entry.game, entry.detail, input.mapConfig) &&
       wc3statsLobbyContainsNick(nick, { listHost: entry.game.host, detail: entry.detail }),
   );
 
@@ -168,23 +169,23 @@ function mapInputFromDetail(detail: Wc3statsGameDetail) {
 }
 
 /**
- * Auto-pick a live UDBR lobby from the gamelist.
+ * Auto-pick a live map-matching lobby from the gamelist.
  * Explicit `wc3stats_id` skips this and goes straight to fetchGameDetail.
  */
 export function resolveWc3statsLobby(input: ResolveWc3statsLobbyInput): ResolveWc3statsLobbyResult {
-  const udbr = input.games.filter((game) => isUdbrMap({ map: game.map }, input.mapConfig));
+  const matching = input.games.filter((game) => isWc3statsMap({ map: game.map }, input.mapConfig));
 
-  if (udbr.length === 0) {
+  if (matching.length === 0) {
     return { ok: false, code: 'not_found', message: WC3STATS_NOT_FOUND, candidates: [] };
   }
 
-  if (udbr.length === 1) {
-    return { ok: true, game: udbr[0]! };
+  if (matching.length === 1) {
+    return { ok: true, game: matching[0]! };
   }
 
   const hostNick = input.hostNick ? nickFromWc3statsPlayer({ name: input.hostNick }) : '';
   if (hostNick !== '') {
-    const byHost = udbr.filter((game) => hostNickFromListGame(game) === hostNick);
+    const byHost = matching.filter((game) => hostNickFromListGame(game) === hostNick);
     if (byHost.length === 1) {
       return { ok: true, game: byHost[0]! };
     }
@@ -194,7 +195,7 @@ export function resolveWc3statsLobby(input: ResolveWc3statsLobbyInput): ResolveW
     ok: false,
     code: 'ambiguous',
     message: WC3STATS_AMBIGUOUS,
-    candidates: udbr,
+    candidates: matching,
   };
 }
 
@@ -204,7 +205,7 @@ function importFromLoadedDetail(
   slotMap?: Wc3statsHeroSlotMap | null,
 ): ImportWc3statsLobbyResult {
   const mapInput = mapInputFromDetail(detail);
-  if (!isUdbrMap(mapInput, mapConfig)) {
+  if (!isWc3statsMap(mapInput, mapConfig)) {
     log.info(
       { id: detail.id, path: mapInput.path, sha1: mapInput.sha1, map: mapInput.map },
       'Rejected wc3stats lobby map',
@@ -246,15 +247,15 @@ async function importByLinkedNickInLiveLobby(
   slotMap?: Wc3statsHeroSlotMap | null,
 ): Promise<ImportWc3statsLobbyResult> {
   const games = await fetchGamelist(timeoutMs);
-  const udbr = games.filter((game) => isUdbrMap({ map: game.map }, mapConfig));
+  const matching = games.filter((game) => isWc3statsMap({ map: game.map }, mapConfig));
 
-  if (udbr.length === 0) {
+  if (matching.length === 0) {
     return { ok: false, code: 'not_found', message: WC3STATS_NICK_NOT_IN_LOBBY };
   }
 
   const entries: Array<{ game: Wc3statsListGame; detail: Wc3statsGameDetail }> = [];
   const loaded = await Promise.all(
-    udbr.map(async (game) => {
+    matching.map(async (game) => {
       try {
         const detail = await fetchGameDetail(game.id, timeoutMs);
         return { game, detail };
@@ -292,7 +293,7 @@ async function importByLinkedNickInLiveLobby(
 }
 
 /**
- * Resolve + fetch a UDBR lobby for /register_lobby. Client failures are `unavailable`.
+ * Resolve + fetch a map-matching lobby for /register_lobby. Client failures are `unavailable`.
  */
 export async function importWc3statsLobby(input: {
   wc3statsId?: number | null;
