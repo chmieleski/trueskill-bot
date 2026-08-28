@@ -1,3 +1,10 @@
+## [1.38.1](https://github.com/chmieleski/trueskill-bot/compare/v1.38.0...v1.38.1) (2026-08-28)
+
+
+### Bug Fixes
+
+* **ci:** allow acronyms in commitlint PR titles ([#124](https://github.com/chmieleski/trueskill-bot/issues/124)) ([d53f863](https://github.com/chmieleski/trueskill-bot/commit/d53f86323d27ccc29814a35903e8901d4c6b0e9a))
+
 # [1.38.0](https://github.com/chmieleski/trueskill-bot/compare/v1.37.0...v1.38.0) (2026-08-28)
 
 
