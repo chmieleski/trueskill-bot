@@ -1,3 +1,10 @@
+# [1.36.0](https://github.com/chmieleski/trueskill-bot/compare/v1.35.0...v1.36.0) (2026-08-28)
+
+
+### Features
+
+* **wos:** hide team in /match history rows ([#121](https://github.com/chmieleski/trueskill-bot/issues/121)) ([4cda94e](https://github.com/chmieleski/trueskill-bot/commit/4cda94e14846fac950f8914f29722478199af9cf))
+
 # [1.35.0](https://github.com/chmieleski/trueskill-bot/compare/v1.34.0...v1.35.0) (2026-08-28)
 
 
