@@ -39,7 +39,7 @@ Default **off**. When on, `/register_lobby` and wc3stats **Open lobby** only in 
 /league_config clear lobby_channel
 ```
 
-In that channel, only `/register_lobby`, `/lobby`, and `/match complete|cancel|quitters|griefers` are allowed.
+In that channel, only `/register_lobby`, `/lobby`, and `/match complete|cancel|quitters|griefers|upload_report` are allowed.
 Host prompts (if on) **must** use this channel. `/league bind` separately for auto league pick.
 
 **5) Live overall board** — `/league_config set leaderboard_channel` or `/leaderboard setup`. Size: `/league_config set|clear leaderboard_size` (default 10, max 100).

@@ -274,13 +274,14 @@ describe('isLobbyChannelAllowedCommand', () => {
     expect(isLobbyChannelAllowedCommand('lobby', null)).toBe(true);
   });
 
-  it('allows match complete, cancel, quitters, griefers, void, and unquit', () => {
+  it('allows match complete, cancel, quitters, griefers, void, unquit, and upload_report', () => {
     expect(isLobbyChannelAllowedCommand('match', 'complete')).toBe(true);
     expect(isLobbyChannelAllowedCommand('match', 'cancel')).toBe(true);
     expect(isLobbyChannelAllowedCommand('match', 'quitters')).toBe(true);
     expect(isLobbyChannelAllowedCommand('match', 'griefers')).toBe(true);
     expect(isLobbyChannelAllowedCommand('match', 'void')).toBe(true);
     expect(isLobbyChannelAllowedCommand('match', 'unquit')).toBe(true);
+    expect(isLobbyChannelAllowedCommand('match', 'upload_report')).toBe(true);
     expect(isLobbyChannelAllowedCommand('match', 'abusers')).toBe(false);
     expect(isLobbyChannelAllowedCommand('match', 'history')).toBe(false);
     expect(isLobbyChannelAllowedCommand('match', 'list')).toBe(false);
@@ -353,6 +354,9 @@ describe('getLobbyChannelSlashDenial', () => {
     await expect(getLobbyChannelSlashDenial('g', 'lobby', 'match', 'complete')).resolves.toBeNull();
     await expect(getLobbyChannelSlashDenial('g', 'lobby', 'match', 'void')).resolves.toBeNull();
     await expect(getLobbyChannelSlashDenial('g', 'lobby', 'match', 'unquit')).resolves.toBeNull();
+    await expect(
+      getLobbyChannelSlashDenial('g', 'lobby', 'match', 'upload_report'),
+    ).resolves.toBeNull();
     await expect(getLobbyChannelSlashDenial('g', 'lobby', 'player_new', 'set')).resolves.toBeNull();
     await expect(
       getLobbyChannelSlashDenial('g', 'lobby', 'player_new', 'clear'),

@@ -176,6 +176,7 @@ const LOBBY_CHANNEL_ALLOWED_MATCH_SUBCOMMANDS = new Set([
   'griefers',
   'void',
   'unquit',
+  'upload_report',
 ]);
 
 const LOBBY_CHANNEL_ALLOWED_PLAYER_NEW_SUBCOMMANDS = new Set(['set', 'clear']);
