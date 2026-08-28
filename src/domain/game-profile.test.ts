@@ -6,6 +6,7 @@ import {
   invalidSlotMessage,
   isSlotInProfile,
   rosterHeroId,
+  showsRankHeroes,
   teamForSlot,
   UnknownGameIdError,
 } from './game-profile.js';
@@ -48,6 +49,13 @@ describe('getGameProfile', () => {
     expect(() => {
       (profile as { slotCount: number }).slotCount = 99;
     }).toThrow();
+  });
+});
+
+describe('showsRankHeroes', () => {
+  it('is true for UDBR slot-bound and WOS stats games', () => {
+    expect(showsRankHeroes(getGameProfile(WARCRAFT3_UDBR_GAME_ID))).toBe(true);
+    expect(showsRankHeroes(getGameProfile(WARCRAFT3_WOS_GAME_ID))).toBe(true);
   });
 });
 

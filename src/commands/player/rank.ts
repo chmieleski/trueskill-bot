@@ -8,6 +8,7 @@ import {
   PlayerServiceError,
 } from '../../services/player/index.js';
 import { buildRankEmbed } from '../../services/player/index.js';
+import { showsRankHeroes } from '../../domain/game-profile.js';
 import {
   getGameProfileForLeague,
   getLeagueOption,
@@ -91,7 +92,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         buildRankEmbed(profile, {
           avatarUrl,
           ratingLabel: gameProfile.ratingLabel,
-          showHeroes: gameProfile.heroBinding === 'slot_bound',
+          showHeroes: showsRankHeroes(gameProfile),
           teammates,
           teamNames: gameProfile.teamNames,
         }),

@@ -3,7 +3,9 @@ import {
   coldStartKi,
   competitionRank,
   parseRankOptions,
-  PlayerServiceError,
+  RANK_HERO_TOP,
+  sortRankProfileHeroes,
+  type PlayerProfileHero,
 } from './player-profile.js';
 import { displayOrdinal } from '../rating/rating-math.js';
 
@@ -23,6 +25,43 @@ describe('competitionRank', () => {
 describe('coldStartKi', () => {
   it('matches displayOrdinal defaults', () => {
     expect(coldStartKi()).toBe(displayOrdinal(25, 8.333));
+  });
+});
+
+function hero(
+  heroId: number,
+  matchesPlayed: number,
+  ki: number,
+  name = `Hero${heroId}`,
+): PlayerProfileHero {
+  return {
+    heroId,
+    name,
+    ki,
+    matchesPlayed,
+    wins: 0,
+    losses: 0,
+    winRatePercent: null,
+  };
+}
+
+describe('sortRankProfileHeroes', () => {
+  it(`returns at most ${RANK_HERO_TOP} heroes sorted by matches played`, () => {
+    const rows = Array.from({ length: 12 }, (_, index) =>
+      hero(index + 1, 12 - index, 3000 + index),
+    );
+    const sorted = sortRankProfileHeroes(rows);
+    expect(sorted).toHaveLength(RANK_HERO_TOP);
+    expect(sorted.map((row) => row.heroId)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  });
+
+  it('tie-breaks equal matches by ki desc then name', () => {
+    const sorted = sortRankProfileHeroes([
+      hero(1, 5, 3900, 'Vegeta'),
+      hero(2, 5, 4200, 'Goku'),
+      hero(3, 5, 4200, 'Bardock'),
+    ]);
+    expect(sorted.map((row) => row.name)).toEqual(['Bardock', 'Goku', 'Vegeta']);
   });
 });
 

@@ -107,3 +107,8 @@ export function rosterHeroId(profile: GameProfile, slot: number): number | null 
 export function invalidSlotMessage(profile: GameProfile): string {
   return `Invalid slot. This game uses slots 1–${profile.slotCount}.`;
 }
+
+/** Whether `/rank` may show a Heroes field for this game. */
+export function showsRankHeroes(profile: GameProfile): boolean {
+  return profile.heroBinding === 'slot_bound' || profile.postMatchStats !== 'none';
+}
