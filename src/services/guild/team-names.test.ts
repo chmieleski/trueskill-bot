@@ -13,9 +13,9 @@ describe('teamDisplayName', () => {
   });
 
   it('uses profile teamNames when provided', () => {
-    expect(teamDisplayName(1, wos)).toBe('Team A');
-    expect(teamDisplayName(2, wos)).toBe('Team B');
-    expect(teamDisplayNameForSlot(6, wos)).toBe('Team B');
+    expect(teamDisplayName(1, wos)).toBe('WOS Enjoyers');
+    expect(teamDisplayName(2, wos)).toBe('WOS Haters');
+    expect(teamDisplayNameForSlot(6, wos)).toBe('WOS Haters');
   });
 
   it('keeps Z Fighters / Evil without a profile (slash + UDBR OCR)', () => {
@@ -24,9 +24,9 @@ describe('teamDisplayName', () => {
 });
 
 describe('winnerLabel', () => {
-  it('uses WOS Team A / Team B when a profile is passed', () => {
-    expect(winnerLabel(1, wos)).toBe('Team A');
-    expect(winnerLabel(2, wos)).toBe('Team B');
+  it('uses WOS team names when a profile is passed', () => {
+    expect(winnerLabel(1, wos)).toBe('WOS Enjoyers');
+    expect(winnerLabel(2, wos)).toBe('WOS Haters');
   });
 
   it('keeps UDBR Z Fighters / Evil when that profile is passed', () => {

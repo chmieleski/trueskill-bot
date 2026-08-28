@@ -3,6 +3,8 @@ import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'disco
 import { createLogger } from '../../lib/logger.js';
 import {
   applyUdbrWc3statsPreset,
+  applyWc3statsMapPreset,
+  applyWosWc3statsPreset,
   clearLeagueLeaderboardSize,
   clearLeagueWc3statsHostPrompt,
   clearLeagueWc3statsPackage,
@@ -240,7 +242,10 @@ export const data = new SlashCommandBuilder()
                 .setName('preset')
                 .setDescription('Built-in layout')
                 .setRequired(true)
-                .addChoices({ name: 'UDBR (Z Fighters / Evils)', value: 'udbr' }),
+                .addChoices(
+                  { name: 'UDBR (Z Fighters / Evils)', value: 'udbr' },
+                  { name: 'WOS (Team A / Team B)', value: 'wos' },
+                ),
             ),
         ),
       )
@@ -665,8 +670,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const leagueId = await requireWc3statsLeague(interaction);
       if (!leagueId) return;
 
-      const preset = interaction.options.getString('preset', true);
-      if (preset !== 'udbr') {
+      const preset = interaction.options.getString('preset', true) as 'udbr' | 'wos';
+      if (preset !== 'udbr' && preset !== 'wos') {
         await interaction.reply({
           content: 'Unknown preset.',
           flags: MessageFlags.Ephemeral,
@@ -674,13 +679,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         return;
       }
 
-      await applyUdbrWc3statsPreset(leagueId);
+      await applyWc3statsMapPreset(leagueId, preset);
       log.info(
         { guildId: interaction.guildId, leagueId, preset, userId: interaction.user.id },
         'wc3stats package preset applied',
       );
+      const presetLabel = preset === 'udbr' ? 'UDBR' : 'WOS';
       await interaction.reply({
-        content: 'Applied UDBR preset: import enabled, map filter set, slot layout applied.',
+        content: `Applied ${presetLabel} preset: import enabled, map filter set, slot layout applied.`,
         flags: MessageFlags.Ephemeral,
       });
       return;

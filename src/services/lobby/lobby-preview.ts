@@ -203,10 +203,10 @@ export const SCREENSHOT_COMMAND_FOOTNOTE = '_Replace the roster with_ `/lobby sc
 
 /**
  * Full-width lead field for the screenshot command. Omitted when the game
- * refuses screenshots (`import: none`).
+ * refuses screenshots (non slot-bound hero games).
  */
 function screenshotCommandLeadField(profile: GameProfile): LobbyEmbedField | undefined {
-  if (profile.import === 'none') {
+  if (profile.heroBinding !== 'slot_bound') {
     return undefined;
   }
   return {

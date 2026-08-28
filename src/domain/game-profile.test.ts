@@ -23,17 +23,17 @@ describe('getGameProfile', () => {
     expect(profile.sideWinLossDefault).toBe(true);
   });
 
-  it('returns WOS 10-slot optional_in_game none profile with post-match stats', () => {
+  it('returns WOS 10-slot optional_in_game wc3stats profile with post-match stats', () => {
     const profile = getGameProfile(WARCRAFT3_WOS_GAME_ID);
     expect(profile.gameId).toBe('warcraft3_wos');
     expect(profile.displayName).toBe('WOS');
     expect(profile.slotCount).toBe(10);
     expect(profile.teamAMaxSlot).toBe(5);
     expect(profile.heroBinding).toBe('optional_in_game');
-    expect(profile.import).toBe('none');
+    expect(profile.import).toBe('wc3stats');
     expect(profile.postMatchStats).toBe('wos2_bot_v1');
-    expect(profile.ratingLabel).toBe('ki');
-    expect(profile.teamNames).toEqual({ 1: 'Team A', 2: 'Team B' });
+    expect(profile.ratingLabel).toBe('sp');
+    expect(profile.teamNames).toEqual({ 1: 'WOS Enjoyers', 2: 'WOS Haters' });
     expect(profile.sideWinLossDefault).toBe(false);
   });
 

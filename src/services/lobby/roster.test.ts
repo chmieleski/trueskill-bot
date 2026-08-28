@@ -35,7 +35,9 @@ describe('parseTeamInput', () => {
 
   it('rejects unknown team text', () => {
     expect(() => parseTeamInput('mid', wos)).toThrow(MatchServiceError);
-    expect(() => parseTeamInput('mid', wos)).toThrow(/Enter 1 \(Team A\) or 2 \(Team B\)/);
+    expect(() => parseTeamInput('mid', wos)).toThrow(
+      /Enter 1 \(WOS Enjoyers\) or 2 \(WOS Haters\)/,
+    );
   });
 });
 
@@ -48,7 +50,7 @@ describe('nextEmptySlotOnTeam', () => {
 
   it('throws when the team is full', () => {
     const fullA = [1, 2, 3, 4, 5].map((slot) => ({ slot, nick: `n${slot}` }));
-    expect(() => nextEmptySlotOnTeam(fullA, wos, 1)).toThrow('Team A is full.');
+    expect(() => nextEmptySlotOnTeam(fullA, wos, 1)).toThrow('WOS Enjoyers is full.');
   });
 });
 

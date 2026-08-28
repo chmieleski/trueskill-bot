@@ -677,10 +677,10 @@ describe('claimSlotSelectOptions', () => {
     expect(options).toHaveLength(8);
     expect(options.map((option) => option.value)).not.toContain('11');
     expect(options.map((option) => option.value)).not.toContain('12');
-    expect(options[0]).toEqual({ label: 'Slot 2 · Team A', value: '2' });
+    expect(options[0]).toEqual({ label: 'Slot 2 · WOS Enjoyers', value: '2' });
     expect(options.find((option) => option.value === '6')).toBeUndefined();
     expect(options.find((option) => option.value === '7')).toEqual({
-      label: 'Slot 7 · Team B',
+      label: 'Slot 7 · WOS Haters',
       value: '7',
     });
   });
@@ -1053,7 +1053,7 @@ describe('buildMatchCompletedEmbed', () => {
     expect(winFields[1]?.value).toContain('38%');
   });
 
-  it('uses Team A / Team B and a global-only footer for WOS', () => {
+  it('uses WOS Enjoyers / WOS Haters and a global-only footer for WOS', () => {
     const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
     const embed = buildMatchCompletedEmbed(
       'match-wos',
@@ -1088,11 +1088,11 @@ describe('buildMatchCompletedEmbed', () => {
     );
     const json = embed.toJSON();
 
-    expect(json.description).toBe('Team B won the match.');
-    expect(json.fields?.[0]?.name).toContain('Team A');
-    expect(json.fields?.[1]?.name).toContain('Team B');
+    expect(json.description).toBe('WOS Haters won the match.');
+    expect(json.fields?.[0]?.name).toContain('WOS Enjoyers');
+    expect(json.fields?.[1]?.name).toContain('WOS Haters');
     expect(json.fields?.[1]?.value).toMatch(/`\s*6\s+bob/);
-    expect(json.footer?.text).toBe('Per player: slot  nick  global (ki)');
+    expect(json.footer?.text).toBe('Per player: slot  nick  global (sp)');
   });
 
   it('uses a global-only footer for empty WOS lobbies with an empty preview', () => {
@@ -1101,7 +1101,7 @@ describe('buildMatchCompletedEmbed', () => {
       profile: wos,
       ratingPreview: { players: [] },
     });
-    expect(embed.toJSON().footer?.text).toBe('Per player: slot  nick  global (ki)');
+    expect(embed.toJSON().footer?.text).toBe('Per player: slot  nick  global (sp)');
   });
 });
 

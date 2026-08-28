@@ -10,8 +10,8 @@ export interface Wc3statsMapConfig {
   sha1Allowlist: Set<string>;
 }
 
-/** True when the lobby is Ultimate Dragon Ball Reborn (name regex or map.sha1 allowlist). */
-export function isUdbrMap(input: Wc3statsMapInput, config: Wc3statsMapConfig): boolean {
+/** True when the lobby matches the league map filter (name regex or map.sha1 allowlist). */
+export function isWc3statsMap(input: Wc3statsMapInput, config: Wc3statsMapConfig): boolean {
   // Use GET /gamelist/{id} `map.sha1`, never the list item `hash`.
   const sha1 = input.sha1?.trim().toLowerCase();
   if (sha1 && config.sha1Allowlist.has(sha1)) {
@@ -24,6 +24,9 @@ export function isUdbrMap(input: Wc3statsMapInput, config: Wc3statsMapConfig): b
 
   return haystack !== '' && config.pattern.test(haystack);
 }
+
+/** @deprecated Use {@link isWc3statsMap}. */
+export const isUdbrMap = isWc3statsMap;
 
 /** Compile map filter from guild config strings. Throws if the pattern is not a valid regex. */
 export function compileWc3statsMapConfig(

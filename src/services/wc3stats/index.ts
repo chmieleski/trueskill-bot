@@ -12,6 +12,9 @@ export {
   UDBR_MAP_PATTERN,
   UDBR_MAP_SHA1,
   UDBR_WC3STATS_SLOT_MAP,
+  WOS_MAP_PATTERN,
+  WOS_MAP_SHA1,
+  WOS_WC3STATS_SLOT_MAP,
 } from './wc3stats-slot-map.js';
 export {
   buildHostPromptButtons,
