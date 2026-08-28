@@ -43,6 +43,17 @@ describe('parseWos2BotReport', () => {
     });
   });
 
+  it('parses ITEM_RATE lines into itemRates', () => {
+    const report = parseWos2BotReport(sampleRaw);
+    expect(report.itemRates).toEqual(
+      expect.arrayContaining([
+        { objectId: 1227894850, name: 'Oken' },
+        { objectId: 1227894873, name: "Angel's Blessing" },
+      ]),
+    );
+    expect(report.itemRates).toHaveLength(8);
+  });
+
   it('derives team 2 as winner from round scores', () => {
     const report = parseWos2BotReport(sampleRaw);
     expect(winningTeamFromWos2Rounds(report)).toBe(2);

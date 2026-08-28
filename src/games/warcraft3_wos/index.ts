@@ -5,6 +5,7 @@ export {
   parseWos2BotReport,
   winningTeamFromWos2Rounds,
   type Wos2BotReport,
+  type Wos2BotReportItemRate,
   type Wos2BotReportPlayer,
 } from './wos2-bot-report-parser.js';
 export {

@@ -19,6 +19,7 @@ import {
 } from './match-service.js';
 import { assertCanManageMatch } from './match-auth.js';
 import { normalizeNick } from '../player/player-nick.js';
+import { upsertGameItems } from '../game/game-item-catalog.js';
 import { prisma } from '../../lib/prisma.js';
 import { clearMatchStatsReport } from './match-stats-store.js';
 
@@ -215,6 +216,14 @@ export async function persistWos2MatchStats(input: {
       },
     });
   });
+
+  const match = await prisma.match.findUnique({
+    where: { id: input.matchId },
+    select: { league: { select: { gameId: true } } },
+  });
+  if (match?.league?.gameId && input.report.itemRates.length > 0) {
+    await upsertGameItems(match.league.gameId, input.report.itemRates);
+  }
 
   const roundWinner = winningTeamFromWos2Rounds(input.report);
   if (roundWinner !== null) {
