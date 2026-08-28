@@ -53,7 +53,7 @@ export function blendedRatingForBalance(
 
 /**
  * `predictWin` team entities: one 80/20 blend when the slot has a hero,
- * otherwise global only (ACA).
+ * otherwise global only (WOS).
  */
 export function ratingEntitiesForBalance(
   global: MuSigma,

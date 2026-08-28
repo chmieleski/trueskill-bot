@@ -153,7 +153,7 @@ describe('assertLeagueAllowsWc3statsImport', () => {
 });
 
 describe('assertProfileAllowsWc3statsImport', () => {
-  it('throws the import refuse string for ACA', () => {
+  it('throws the import refuse string for WOS', () => {
     expect(() => assertProfileAllowsWc3statsImport(wos)).toThrow(WC3STATS_UNSUPPORTED_MESSAGE);
   });
 

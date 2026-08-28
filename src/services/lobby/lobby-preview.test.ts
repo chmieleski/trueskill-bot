@@ -663,7 +663,7 @@ describe('claimSlotSelectOptions', () => {
     expect(options.map((option) => option.value)).not.toContain('7');
   });
 
-  it('labels ACA empty slots with team names and stops at slot 10', () => {
+  it('labels WOS empty slots with team names and stops at slot 10', () => {
     const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
     const options = claimSlotSelectOptions(
       [
@@ -1053,7 +1053,7 @@ describe('buildMatchCompletedEmbed', () => {
     expect(winFields[1]?.value).toContain('38%');
   });
 
-  it('uses Team A / Team B and a global-only footer for ACA', () => {
+  it('uses Team A / Team B and a global-only footer for WOS', () => {
     const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
     const embed = buildMatchCompletedEmbed(
       'match-wos',
@@ -1095,7 +1095,7 @@ describe('buildMatchCompletedEmbed', () => {
     expect(json.footer?.text).toBe('Per player: slot  nick  global (ki)');
   });
 
-  it('uses a global-only footer for empty ACA lobbies with an empty preview', () => {
+  it('uses a global-only footer for empty WOS lobbies with an empty preview', () => {
     const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
     const embed = buildMatchLobbyEmbed('match-wos-empty', [], {
       profile: wos,
@@ -1121,7 +1121,7 @@ describe('canStartLobby', () => {
     ).toBe(false);
   });
 
-  it('allows ACA 1+6 because slot 6 is Team B', () => {
+  it('allows WOS 1+6 because slot 6 is Team B', () => {
     const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
     expect(
       canStartLobby(

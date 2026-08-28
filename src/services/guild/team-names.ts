@@ -11,7 +11,7 @@ export function teamDisplayName(team: 1 | 2, profile?: GameProfile): string {
 }
 
 /**
- * Runtime winner copy for report / complete / flip. Profile is required so ACA
+ * Runtime winner copy for report / complete / flip. Profile is required so WOS
  * uses Team A / Team B instead of the UDBR slash-choice defaults.
  */
 export function winnerLabel(team: 1 | 2, profile: GameProfile): string {

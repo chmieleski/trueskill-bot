@@ -15,7 +15,7 @@ const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
 const udbr = getGameProfile(WARCRAFT3_UDBR_GAME_ID);
 
 describe('addPlayer slot range', () => {
-  it('rejects slot 11 on ACA with locked copy', () => {
+  it('rejects slot 11 on WOS with locked copy', () => {
     expect(() => addPlayer([], 'n', 11, wos)).toThrow(MatchServiceError);
     expect(() => addPlayer([], 'n', 11, wos)).toThrow('Invalid slot. This game uses slots 1–10.');
   });

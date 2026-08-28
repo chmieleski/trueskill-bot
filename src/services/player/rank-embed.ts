@@ -61,7 +61,7 @@ export function buildRankEmbed(
   options?: {
     avatarUrl?: string | null;
     ratingLabel?: string;
-    /** When false, never show the Heroes field (ACA / optional_in_game). Default true. */
+    /** When false, never show the Heroes field (WOS / optional_in_game). Default true. */
     showHeroes?: boolean;
     teammates?: TeammateStats;
     /** Required when profile.sideWinLoss is set; ignored otherwise. */
@@ -101,7 +101,7 @@ export function buildRankEmbed(
     embed.addFields({ name: 'Griefer pool', value: grieferPool });
   }
 
-  // Omit when empty (ACA has no hero ratings; UDBR players may also have none yet).
+  // Omit when empty (WOS has no hero ratings; UDBR players may also have none yet).
   if (showHeroes && profile.heroes.length > 0) {
     embed.addFields({
       name: 'Heroes',

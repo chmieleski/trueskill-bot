@@ -196,7 +196,7 @@ describe('suggestBalanceMove', () => {
     );
   });
 
-  it('never suggests ACA slots above 10', () => {
+  it('never suggests WOS slots above 10', () => {
     const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
     const roster: BalanceRosterEntry[] = [
       { playerId: 'a1', slot: 1, team: 1, heroId: null, nick: 'A1' },
