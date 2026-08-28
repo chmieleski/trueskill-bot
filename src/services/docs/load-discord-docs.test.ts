@@ -44,8 +44,10 @@ describe('loadDiscordDocs', () => {
     expect(() => loadDiscordDocs('public', rootDir)).toThrow(/01-empty\.md/);
   });
 
-  it('throws when a file exceeds 2000 characters', () => {
+  it('allows templates longer than 2000 characters before render', () => {
     writePublic('01-big.md', 'x'.repeat(2001));
-    expect(() => loadDiscordDocs('public', rootDir)).toThrow(/2000/);
+    expect(loadDiscordDocs('public', rootDir)).toEqual([
+      { filename: '01-big.md', content: 'x'.repeat(2001) },
+    ]);
   });
 });

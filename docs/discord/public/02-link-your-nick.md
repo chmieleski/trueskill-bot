@@ -1,6 +1,6 @@
 🔗 **Step 1 — Link your nick**
 
-The bot needs to know who you are in Warcraft.
+The bot needs to know who you are in-game.
 
 **Link yourself**
 
@@ -8,7 +8,7 @@ The bot needs to know who you are in Warcraft.
 /link nick:YourInGameNick
 ```
 
-That’s it. Discord ↔ your WC3 nick are connected.
+That's it. Discord ↔ your in-game nick are connected.
 
 **Unlink yourself**
 
@@ -25,16 +25,17 @@ Use `/link` in a channel bound to the right league (or pass `league:` if you hav
 
 **Why link?**
 • Your name shows correctly in lobbies
-• You can **Claim slot** / **Leave** (if the server allows it)
-• `/rank` finds you easily
+{{#playerClaim}}• You can **Claim slot** / **Leave** (if the server allows it)
+{{/playerClaim}}• `/rank` finds you easily
 • Hosts can add you with your Discord user, not only your nick
-• Optional: the server may ping you when wc3stats finds your Warcraft lobby — turn that off below
+{{#hostPrompts}}• Optional: the server may ping you when wc3stats finds your live lobby — turn that off below
+{{/hostPrompts}}
 
-**Personal settings**
+{{#hostPrompts}}**Personal settings**
 
 ```
 /settings view
 /settings set host_prompt_pings enabled:False
 ```
 
-Tip: use the **exact** nick you use in Warcraft.
+{{/hostPrompts}}Tip: use the **exact** nick you use in-game.

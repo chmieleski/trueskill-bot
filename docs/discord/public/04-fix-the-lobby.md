@@ -4,15 +4,15 @@ The lobby message has buttons. Use them to fix the board.
 
 **On the message**
 • ➕ **Add** · ✏️ **Edit** · 🔀 **Move** · 🗑️ **Remove**
-• 🔄 **Refresh** — pull from wc3stats when that feature is on (**host or mod**)
-• ▶️ **Start Match** — only when the lobby is valid
+{{#wc3stats}}• 🔄 **Refresh** — pull from wc3stats when that feature is on (**host or mod**)
+{{/wc3stats}}• ▶️ **Start Match** — only when the lobby is valid
 • **Cancel** — close a pending lobby (**host or mod**; asks **Cancel Lobby** / **Keep Lobby**)
 
-**Players (if claim is on)**
-• **Claim slot** — sit in an empty hero seat (you must be linked)
+{{#playerClaim}}**Players (if claim is on)**
+• **Claim slot** — sit in an empty seat (you must be linked)
 • **Leave** — leave your seat
 
-**Slash commands (host; mods can help with `match_id`)**
+{{/playerClaim}}**Slash commands (host; mods can help with `match_id`)**
 
 ```
 /lobby add slot:3 nick:SomeNick
@@ -22,8 +22,8 @@ The lobby message has buttons. Use them to fix the board.
 /lobby swap slot_a:1 slot_b:7
 /lobby swap pairs:1-7,5-Gohan
 /lobby screenshot print:<attach lobby image>
-/lobby sync
-/lobby start
+{{#wc3stats}}/lobby sync
+{{/wc3stats}}/lobby start
 /lobby cancel
 ```
 

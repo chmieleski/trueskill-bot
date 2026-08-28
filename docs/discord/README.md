@@ -2,7 +2,18 @@
 
 Use `/sync_docs public channel:#…` or `/sync_docs staff channel:#…` (Manage Server or match mod role).
 
-The command **deletes all messages** in that channel, then posts these files in order.
+The command **deletes all messages** in that channel, then posts these files in order. Guides are **personalized per league** — team names, rating label, slot layout, and optional features come from that league's settings when you sync.
+
+Bind the target channel to a league (or pass `league:` when the server has more than one). Re-sync after changing league config so players see up-to-date commands and labels.
+
+## Template syntax (repo authors)
+
+Markdown files use simple placeholders and flags resolved at sync time:
+
+- `{{team1}}`, `{{team2}}`, `{{team1Slots}}`, `{{team2Slots}}`, `{{ratingLabel}}`, `{{gameName}}`, `{{slotCount}}`
+- `{{#wc3stats}}…{{/wc3stats}}`, `{{#playerClaim}}…{{/playerClaim}}`, `{{#rankReset}}…{{/rankReset}}`, `{{#sideWinLoss}}…{{/sideWinLoss}}`, `{{#heroLeaderboards}}…{{/heroLeaderboards}}`, `{{#slotBound}}…{{/slotBound}}`, `{{#hostPrompts}}…{{/hostPrompts}}`
+
+Rendered posts must stay under Discord's 2000-character limit.
 
 ## Public channel (everyone)
 
