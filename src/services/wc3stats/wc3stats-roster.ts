@@ -1,18 +1,14 @@
 import { createLogger } from '../../lib/logger.js';
 import type { LobbyPlayer } from '../lobby/lobby-ocr.js';
 import { normalizeNick } from '../player/player-nick.js';
+import type { Wc3statsSlot } from './wc3stats-client.js';
 import type { Wc3statsHeroSlotMap } from './wc3stats-slot-map.js';
 
 const log = createLogger('wc3stats-roster');
 
 const MAX_SLOT = 12;
 
-export type Wc3statsSlot = {
-  status?: string;
-  isComputer?: boolean;
-  isObserver?: boolean;
-  player?: { name?: string | null; battleTag?: string | null } | null;
-};
+export type { Wc3statsSlot };
 
 export type Wc3statsRosterResult = {
   usable: boolean;
@@ -24,21 +20,6 @@ export type ExtractWc3statsRosterOptions = {
   /** When set, only mapped indices are imported. When null/undefined, legacy index+1 for 0–11. */
   slotMap?: Wc3statsHeroSlotMap | null;
 };
-
-/**
- * Canonical nick from a wc3stats slot player. Strips `#digits`; never stores battle tags.
- */
-export function nickFromWc3statsPlayer(player: {
-  name?: string | null;
-  battleTag?: string | null;
-}): string {
-  const raw = (player.name ?? player.battleTag ?? '').trim();
-  if (raw === '') {
-    return '';
-  }
-
-  return normalizeNick(raw);
-}
 
 function isOccupiedHuman(slot: Wc3statsSlot): boolean {
   return slot.status === 'occupied' && slot.isComputer !== true && slot.isObserver !== true;
@@ -88,7 +69,7 @@ export function extractWc3statsRoster(
       continue;
     }
 
-    const nick = nickFromWc3statsPlayer(slot.player ?? {});
+    const nick = normalizeNick(slot.player?.name ?? '');
     if (nick === '') {
       continue;
     }

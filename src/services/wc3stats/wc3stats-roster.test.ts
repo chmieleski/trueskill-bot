@@ -1,17 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { WOS_WC3STATS_SLOT_MAP } from './wc3stats-slot-map.js';
-import { extractWc3statsRoster, nickFromWc3statsPlayer } from './wc3stats-roster.js';
-
-describe('nickFromWc3statsPlayer', () => {
-  it('uses name and strips battle tag discriminator', () => {
-    expect(nickFromWc3statsPlayer({ name: 'Goku', battleTag: 'Goku#1234' })).toBe('goku');
-    expect(nickFromWc3statsPlayer({ name: null, battleTag: 'Vegeta#99' })).toBe('vegeta');
-  });
-
-  it('returns empty for missing player fields', () => {
-    expect(nickFromWc3statsPlayer({})).toBe('');
-  });
-});
+import { extractWc3statsRoster } from './wc3stats-roster.js';
 
 describe('extractWc3statsRoster', () => {
   it('maps occupied humans to slot = index + 1', () => {
@@ -121,7 +110,7 @@ describe('extractWc3statsRoster', () => {
         numPlayers: 1,
         numSlots: 10,
         slots: [
-          { status: 'occupied', player: { name: 'Chmieleski', battleTag: 'Chmieleski#1941' } },
+          { status: 'occupied', player: { name: 'Chmieleski#1941' } },
           { status: 'open', player: null },
           { status: 'open', player: null },
           { status: 'open', player: null },
