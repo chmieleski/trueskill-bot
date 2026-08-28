@@ -2,6 +2,7 @@ import { GuildMember, MessageFlags } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import {
   assertCanConfigureBot,
+  canConfigureBot,
   resolveGuildConfig,
   type RoleConfigSource,
 } from '../../services/guild/index.js';
@@ -25,6 +26,7 @@ import {
   listLeagueWc3statsSlotMaps,
 } from '../../services/wc3stats/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
+import { assertHasMatchModRole } from '../../services/match/match-auth.js';
 
 /** Read member permissions from a slash interaction. */
 export function memberPermissions(interaction: ChatInputCommandInteraction) {
@@ -41,11 +43,45 @@ export function memberPermissions(interaction: ChatInputCommandInteraction) {
   return null;
 }
 
+/** Collect Discord role snowflakes from a slash interaction member. */
+export function memberRoleIds(interaction: { member: unknown }): string[] {
+  const member = interaction.member;
+  if (!(member instanceof GuildMember)) {
+    return [];
+  }
+  return [...member.roles.cache.keys()];
+}
+
 /** Reject users who may not change bot configuration. */
 export function assertConfigStaff(interaction: ChatInputCommandInteraction): void {
   assertCanConfigureBot({
     userId: interaction.user.id,
     memberPermissions: memberPermissions(interaction),
+  });
+}
+
+/** Allow server admins or match moderators to configure the completed-match log channel. */
+export async function assertCanSetMatchLogChannel(
+  interaction: ChatInputCommandInteraction,
+): Promise<void> {
+  if (
+    canConfigureBot({
+      userId: interaction.user.id,
+      memberPermissions: memberPermissions(interaction),
+    })
+  ) {
+    return;
+  }
+
+  if (!interaction.guildId) {
+    throw new MatchServiceError('This command can only be used in a server.');
+  }
+
+  const config = await resolveGuildConfig(interaction.guildId);
+  assertHasMatchModRole({
+    actorDiscordId: interaction.user.id,
+    memberRoleIds: memberRoleIds(interaction),
+    matchModRoleId: config.matchModRoleId,
   });
 }
 
@@ -181,6 +217,12 @@ export function formatChangelogDraftLine(channelId: string | undefined): string 
     : '**Changelog draft channel:** `unset`';
 }
 
+export function formatCompletedMatchLogLine(channelId: string | undefined): string {
+  return channelId
+    ? `**Completed match log:** <#${channelId}>`
+    : '**Completed match log:** `unset`';
+}
+
 export function formatLeagueLine(name: string | undefined): string {
   return `**League:** ${name ? `\`${name}\`` : '`unset`'}`;
 }
@@ -224,6 +266,7 @@ export async function buildConfigViewContent(
     ),
     formatChangelogChannelLine(resolved.changelogChannelId),
     formatChangelogDraftLine(resolved.changelogDraftChannelId),
+    formatCompletedMatchLogLine(resolved.completedMatchLogChannelId),
     formatLeaderboardLine(
       leagueConfig.leaderboardChannelId,
       leagueConfig.leaderboardMessageId,

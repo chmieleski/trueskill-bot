@@ -25,6 +25,7 @@ import { prisma } from '../../lib/prisma.js';
 import { isLeagueWc3statsImportReady } from '../league/league-wc3stats.js';
 import { getGameProfileForMatch, isEventMatch, requireLeagueId } from '../match/match-service.js';
 import { getEventById } from '../event/event.js';
+import { resolveGuildConfig } from '../guild/guild-config.js';
 
 const log = createLogger('lobby-discord-sync');
 
@@ -100,7 +101,11 @@ export async function syncLobbyDiscordMessage(
   client: Client,
   match: MatchWithPlayers,
   mode: LobbySyncMode,
-  options: { ratingPreview?: LobbyRatingPreview; cancelReason?: string } = {},
+  options: {
+    ratingPreview?: LobbyRatingPreview;
+    cancelReason?: string;
+    postToMatchLog?: boolean;
+  } = {},
 ): Promise<void> {
   if (!match.discordMessageId || !match.discordChannelId) {
     log.warn({ matchId: match.id, mode }, 'Match has no Discord message to sync');
@@ -198,6 +203,54 @@ export async function syncLobbyDiscordMessage(
     { matchId: match.id, messageId: match.discordMessageId, mode, playerCount: players.length },
     'Lobby Discord message synced',
   );
+
+  if (mode === 'completed' && options.postToMatchLog) {
+    await postCompletedMatchLog(client, match, payload);
+  }
+}
+
+/** Post a fresh completed-match embed to the guild log channel when configured. */
+export async function postCompletedMatchLog(
+  client: Client,
+  match: MatchWithPlayers,
+  payload: { embeds: EmbedBuilder[] },
+): Promise<void> {
+  if (!match.discordChannelId) {
+    return;
+  }
+
+  const sourceChannel = await client.channels.fetch(match.discordChannelId);
+  const guildId = sourceChannel ? guildIdFromChannel(sourceChannel) : undefined;
+  if (!guildId) {
+    return;
+  }
+
+  const { completedMatchLogChannelId } = await resolveGuildConfig(guildId);
+  if (!completedMatchLogChannelId || completedMatchLogChannelId === match.discordChannelId) {
+    return;
+  }
+
+  const logChannel = await client.channels.fetch(completedMatchLogChannelId);
+  if (!logChannel || !('send' in logChannel) || typeof logChannel.send !== 'function') {
+    log.warn(
+      { matchId: match.id, guildId, channelId: completedMatchLogChannelId },
+      'Completed match log channel is missing or cannot receive messages',
+    );
+    return;
+  }
+
+  try {
+    await logChannel.send({ embeds: payload.embeds });
+    log.debug(
+      { matchId: match.id, guildId, channelId: completedMatchLogChannelId },
+      'Completed match posted to log channel',
+    );
+  } catch (error) {
+    log.warn(
+      { err: error, matchId: match.id, guildId, channelId: completedMatchLogChannelId },
+      'Failed to post completed match to log channel',
+    );
+  }
 }
 
 /** Persist a new roster then sync the Discord embed. */

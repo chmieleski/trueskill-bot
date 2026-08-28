@@ -8,6 +8,7 @@ import {
   clearGrieferLeaderboardDisplay,
   clearGrieferLeaderboardSize,
   clearGrieferLeaderboardSort,
+  clearCompletedMatchLogChannel,
   setMatchCreateRole,
   setMatchModRole,
   setQuitterLeaderboardDisplay,
@@ -16,6 +17,7 @@ import {
   setGrieferLeaderboardDisplay,
   setGrieferLeaderboardSize,
   setGrieferLeaderboardSort,
+  setCompletedMatchLogChannel,
   type GrieferLeaderboardDisplayValue,
   type GrieferLeaderboardSortValue,
   type QuitterLeaderboardDisplayValue,
@@ -45,7 +47,11 @@ import {
   setChangelogChannel,
   setChangelogDraftChannel,
 } from '../../services/release/index.js';
-import { assertConfigStaff, buildConfigViewContent } from './config-shared.js';
+import {
+  assertConfigStaff,
+  assertCanSetMatchLogChannel,
+  buildConfigViewContent,
+} from './config-shared.js';
 
 const log = createLogger('config_cmd');
 
@@ -208,6 +214,17 @@ export const data = new SlashCommandBuilder()
               .setDescription('Channel where staff changelog drafts are posted')
               .setRequired(true),
           ),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('completed_match_log_channel')
+          .setDescription('Set the channel that receives a copy of each completed match')
+          .addChannelOption((option) =>
+            option
+              .setName('channel')
+              .setDescription('Channel where completed matches are logged')
+              .setRequired(true),
+          ),
       ),
   )
   .addSubcommandGroup((group) =>
@@ -263,6 +280,11 @@ export const data = new SlashCommandBuilder()
         subcommand
           .setName('changelog_draft_channel')
           .setDescription('Remove the staff changelog draft channel'),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('completed_match_log_channel')
+          .setDescription('Remove the completed match log channel'),
       ),
   );
 
@@ -279,8 +301,18 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
+  const subcommandGroup = interaction.options.getSubcommandGroup(false);
+  const subcommand = interaction.options.getSubcommand(true);
+  const isMatchLogConfig =
+    (subcommandGroup === 'set' || subcommandGroup === 'clear') &&
+    subcommand === 'completed_match_log_channel';
+
   try {
-    assertConfigStaff(interaction);
+    if (isMatchLogConfig) {
+      await assertCanSetMatchLogChannel(interaction);
+    } else {
+      assertConfigStaff(interaction);
+    }
   } catch (error) {
     if (error instanceof MatchServiceError) {
       await interaction.reply({
@@ -291,9 +323,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
     throw error;
   }
-
-  const subcommandGroup = interaction.options.getSubcommandGroup(false);
-  const subcommand = interaction.options.getSubcommand(true);
 
   try {
     if (subcommand === 'view') {
@@ -572,6 +601,37 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         await postPendingStaffCards(interaction.client);
         return;
       }
+
+      if (subcommand === 'completed_match_log_channel') {
+        const channel = interaction.options.getChannel('channel', true);
+        const allowedTypes = new Set([
+          ChannelType.GuildText,
+          ChannelType.GuildAnnouncement,
+          ChannelType.GuildForum,
+        ]);
+        if (!allowedTypes.has(channel.type)) {
+          await interaction.reply({
+            content: 'Choose a server text channel for the completed match log.',
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
+        await setCompletedMatchLogChannel(interaction.guildId, channel.id);
+        log.info(
+          {
+            guildId: interaction.guildId,
+            channelId: channel.id,
+            userId: interaction.user.id,
+          },
+          'Completed match log channel updated',
+        );
+        await interaction.reply({
+          content: `Completed match log channel set to <#${channel.id}>. New completions will also post there.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
     }
 
     if (subcommandGroup === 'clear') {
@@ -706,6 +766,19 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         );
         await interaction.reply({
           content: 'Changelog draft channel cleared.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'completed_match_log_channel') {
+        await clearCompletedMatchLogChannel(interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, userId: interaction.user.id },
+          'Completed match log channel cleared',
+        );
+        await interaction.reply({
+          content: 'Completed match log channel cleared.',
           flags: MessageFlags.Ephemeral,
         });
         return;

@@ -447,6 +447,7 @@ model GuildConfig {
   grieferLeaderboardSort       GrieferLeaderboardSort     @default(count)
   changelogChannelId           String?
   changelogDraftChannelId      String?
+  completedMatchLogChannelId   String?
   createdAt                    DateTime                   @default(now())
   updatedAt                    DateTime                   @updatedAt
 }

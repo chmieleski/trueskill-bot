@@ -906,6 +906,7 @@ async function handleConfirmResult(
   void refreshAllLeaderboardChannels(interaction.client).catch(() => undefined);
   await syncLobbyDiscordMessage(interaction.client, completed.match, 'completed', {
     ratingPreview: completed.ratingPreview,
+    postToMatchLog: true,
   });
   await interaction.editReply({
     content: `Match \`${matchId}\` completed. Winner: **${winnerLabel(winningTeam, profile)}**.`,
