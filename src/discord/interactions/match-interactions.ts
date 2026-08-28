@@ -39,6 +39,8 @@ import { resolveGuildConfig, winnerLabel } from '../../services/guild/index.js';
 import {
   buildReportConfirmCustomId,
   buildReportQuitterSelectOptions,
+  buildReportSuggestedWinnerCustomId,
+  buildReportWinnerCustomId,
   decodeReportSlots,
   encodeReportSlots,
 } from './match-report-wizard.js';
@@ -274,12 +276,11 @@ function buildSuggestedWinnerContinueRow(
   suggestedTeam: 1 | 2,
   profile: GameProfile,
 ): ActionRowBuilder<ButtonBuilder> {
-  const grieferCsv = encodeSlots(grieferSlots);
-  const quitterCsv = encodeSlots(quitterSlots);
-
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(`match:rw:win:${matchId}:${suggestedTeam}:${grieferCsv}:${quitterCsv}`)
+      .setCustomId(
+        buildReportSuggestedWinnerCustomId(matchId, suggestedTeam, grieferSlots, quitterSlots),
+      )
       .setLabel(`Continue with ${winnerLabel(suggestedTeam, profile)}`)
       .setStyle(ButtonStyle.Success),
   );
@@ -403,16 +404,13 @@ function buildWinnerRow(
   quitterSlots: number[],
   profile: GameProfile,
 ): ActionRowBuilder<ButtonBuilder> {
-  const grieferCsv = encodeSlots(grieferSlots);
-  const quitterCsv = encodeSlots(quitterSlots);
-
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(`match:rw:win:${matchId}:1:${grieferCsv}:${quitterCsv}`)
+      .setCustomId(buildReportWinnerCustomId(matchId, 1, grieferSlots, quitterSlots))
       .setLabel(`${winnerLabel(1, profile)} Won`)
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
-      .setCustomId(`match:rw:win:${matchId}:2:${grieferCsv}:${quitterCsv}`)
+      .setCustomId(buildReportWinnerCustomId(matchId, 2, grieferSlots, quitterSlots))
       .setLabel(`${winnerLabel(2, profile)} Won`)
       .setStyle(ButtonStyle.Primary),
   );
@@ -1131,6 +1129,24 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
       parts[6]
     ) {
       await handleReportStatsRefresh(
+        interaction,
+        parts[3],
+        decodeTeam(parts[4]),
+        decodeSlots(parts[5]),
+        decodeSlots(parts[6]),
+      );
+      return;
+    }
+
+    if (
+      parts[1] === 'rw' &&
+      parts[2] === 'suggested' &&
+      parts[3] &&
+      parts[4] &&
+      parts[5] &&
+      parts[6]
+    ) {
+      await handleWinnerChoice(
         interaction,
         parts[3],
         decodeTeam(parts[4]),
