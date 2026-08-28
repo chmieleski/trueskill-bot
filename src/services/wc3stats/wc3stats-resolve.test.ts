@@ -110,7 +110,7 @@ describe('wc3statsLobbyContainsNick', () => {
           id: 1,
           slots: [
             { status: 'occupied', player: { name: 'Goku' } },
-            { status: 'occupied', player: { battleTag: 'Vegeta#99' } },
+            { status: 'occupied', player: { name: 'Vegeta#99' } },
           ],
         },
       }),
@@ -148,7 +148,7 @@ describe('pickUdbrLobbiesContainingNick', () => {
           detail: {
             id: 1,
             map: udbrMap,
-            host: { battleTag: 'Other#1' },
+            host: 'Other#1',
             slots: [{ status: 'occupied', player: { name: 'Vegeta' } }],
           },
         },
@@ -157,7 +157,7 @@ describe('pickUdbrLobbiesContainingNick', () => {
           detail: {
             id: 2,
             map: udbrMap,
-            host: { battleTag: 'Tiny#1' },
+            host: 'Tiny#1',
             slots: [
               { status: 'occupied', player: { name: 'Tiny' } },
               { status: 'occupied', player: { name: 'Goku' } },
@@ -179,7 +179,7 @@ describe('pickUdbrLobbiesContainingNick', () => {
           detail: {
             id: 1,
             map: udbrMap,
-            host: { battleTag: 'Tiny#1' },
+            host: 'Tiny#1',
             slots: [{ status: 'occupied', player: { name: 'Goku' } }],
           },
         },

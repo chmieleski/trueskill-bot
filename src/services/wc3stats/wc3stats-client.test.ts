@@ -87,8 +87,30 @@ describe('wc3stats client', () => {
       sha1: 'abc',
       name: undefined,
     });
+    expect(detail.host).toBe('Host');
     expect(detail.slots).toHaveLength(1);
+    expect(detail.slots?.[0]?.player).toEqual({ name: 'Alice' });
     expect(detail.rosterObservedAt?.toISOString()).toBe('2026-08-19T18:30:00.000Z');
+  });
+
+  it('merges battleTag into player name when name is missing', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          body: {
+            id: 99,
+            host: 'Tiny#11318',
+            slots: [{ status: 'occupied', player: { battleTag: 'Vegeta#99' } }],
+          },
+        }),
+      }),
+    );
+
+    const detail = await fetchGameDetail(99, 4000);
+    expect(detail.host).toBe('Tiny#11318');
+    expect(detail.slots?.[0]?.player).toEqual({ name: 'Vegeta#99' });
   });
 
   it('throws on non-OK responses', async () => {

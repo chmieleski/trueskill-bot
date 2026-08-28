@@ -1,5 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { nickFromWc3statsPlayer } from './wc3stats-roster.js';
+import { normalizeNick } from '../player/player-nick.js';
 import { isWc3statsMap, type Wc3statsMapConfig } from './wc3stats-map.js';
 
 export type HostPromptAction = 'open' | 'dismiss';
@@ -73,7 +73,7 @@ export function filterGamelistForHostPrompt(input: {
       continue;
     }
 
-    const hostNick = nickFromWc3statsPlayer({ name: game.host, battleTag: game.host });
+    const hostNick = normalizeNick(game.host);
     if (!hostNick) {
       continue;
     }

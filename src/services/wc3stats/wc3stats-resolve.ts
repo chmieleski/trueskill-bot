@@ -9,11 +9,8 @@ import {
   type Wc3statsListGame,
 } from './wc3stats-client.js';
 import { compileWc3statsMapConfig, isWc3statsMap, type Wc3statsMapConfig } from './wc3stats-map.js';
-import {
-  extractWc3statsRoster,
-  nickFromWc3statsPlayer,
-  type Wc3statsRosterResult,
-} from './wc3stats-roster.js';
+import { normalizeNick } from '../player/player-nick.js';
+import { extractWc3statsRoster, type Wc3statsRosterResult } from './wc3stats-roster.js';
 import type { Wc3statsHeroSlotMap } from './wc3stats-slot-map.js';
 
 const log = createLogger('wc3stats-resolve');
@@ -51,19 +48,11 @@ export type ImportWc3statsLobbyResult =
     };
 
 function hostNickFromListGame(game: Wc3statsListGame): string {
-  return nickFromWc3statsPlayer({ name: game.host, battleTag: game.host });
+  return normalizeNick(game.host);
 }
 
 function hostNickFromDetail(detail: Wc3statsGameDetail): string {
-  if (!detail.host) {
-    return '';
-  }
-
-  if (typeof detail.host === 'string') {
-    return nickFromWc3statsPlayer({ name: detail.host, battleTag: detail.host });
-  }
-
-  return nickFromWc3statsPlayer(detail.host);
+  return normalizeNick(detail.host ?? '');
 }
 
 /**
@@ -73,16 +62,13 @@ export function wc3statsLobbyContainsNick(
   nickRaw: string,
   input: { listHost?: string; detail: Wc3statsGameDetail },
 ): boolean {
-  const nick = nickFromWc3statsPlayer({ name: nickRaw });
+  const nick = normalizeNick(nickRaw);
   if (nick === '') {
     return false;
   }
 
   if (input.listHost) {
-    const listHostNick = nickFromWc3statsPlayer({
-      name: input.listHost,
-      battleTag: input.listHost,
-    });
+    const listHostNick = normalizeNick(input.listHost);
     if (listHostNick === nick) {
       return true;
     }
@@ -115,7 +101,7 @@ export function pickUdbrLobbiesContainingNick(input: {
   entries: Array<{ game: Wc3statsListGame; detail: Wc3statsGameDetail }>;
   mapConfig: Wc3statsMapConfig;
 }): ResolveWc3statsLobbyResult {
-  const nick = nickFromWc3statsPlayer({ name: input.nick });
+  const nick = normalizeNick(input.nick);
   if (nick === '') {
     return {
       ok: false,
@@ -183,7 +169,7 @@ export function resolveWc3statsLobby(input: ResolveWc3statsLobbyInput): ResolveW
     return { ok: true, game: matching[0]! };
   }
 
-  const hostNick = input.hostNick ? nickFromWc3statsPlayer({ name: input.hostNick }) : '';
+  const hostNick = input.hostNick ? normalizeNick(input.hostNick) : '';
   if (hostNick !== '') {
     const byHost = matching.filter((game) => hostNickFromListGame(game) === hostNick);
     if (byHost.length === 1) {

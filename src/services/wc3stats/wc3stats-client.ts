@@ -17,10 +17,21 @@ export type Wc3statsListGame = {
   server?: string;
 };
 
+export type Wc3statsSlotPlayer = {
+  name?: string | null;
+};
+
+export type Wc3statsSlot = {
+  status?: string;
+  isComputer?: boolean;
+  isObserver?: boolean;
+  player?: Wc3statsSlotPlayer | null;
+};
+
 export type Wc3statsGameDetail = {
   id: number;
   name?: string;
-  host?: { battleTag?: string | null; name?: string | null } | string | null;
+  host?: string | null;
   map?:
     | {
         path?: string;
@@ -33,12 +44,7 @@ export type Wc3statsGameDetail = {
   numPlayers?: number;
   slotsTaken?: number;
   numSlots?: number;
-  slots?: Array<{
-    status?: string;
-    isComputer?: boolean;
-    isObserver?: boolean;
-    player?: { name?: string | null; battleTag?: string | null } | null;
-  }>;
+  slots?: Wc3statsSlot[];
   rosterObservedAt?: Date | null;
 };
 
@@ -127,17 +133,56 @@ function parseDetailMap(value: unknown): Wc3statsGameDetail['map'] {
   };
 }
 
+/** Prefer wc3stats `name`; fall back to battleTag when name is empty. */
+function pickRawNick(name: unknown, battleTag: unknown): string | null {
+  const trimmedName = asString(name).trim();
+  if (trimmedName !== '') {
+    return trimmedName;
+  }
+  const trimmedBattleTag = asString(battleTag).trim();
+  return trimmedBattleTag !== '' ? trimmedBattleTag : null;
+}
+
 function parseDetailHost(value: unknown): Wc3statsGameDetail['host'] {
   if (typeof value === 'string') {
-    return { name: value, battleTag: value };
+    const trimmed = value.trim();
+    return trimmed !== '' ? trimmed : null;
   }
   const row = asRecord(value);
   if (!row) {
     return null;
   }
+  return pickRawNick(row.name, row.battleTag ?? row.battletag);
+}
+
+function parseSlotPlayer(value: unknown): Wc3statsSlotPlayer | null {
+  const row = asRecord(value);
+  if (!row) {
+    return null;
+  }
+  const name = pickRawNick(row.name, row.battleTag ?? row.battletag);
+  return name ? { name } : null;
+}
+
+function parseSlot(value: unknown): Wc3statsSlot {
+  const row = asRecord(value);
+  if (!row) {
+    return {};
+  }
+
+  const playerValue = row.player;
+  const player =
+    playerValue === null || playerValue === undefined
+      ? playerValue === null
+        ? null
+        : undefined
+      : parseSlotPlayer(playerValue);
+
   return {
-    name: asString(row.name) || null,
-    battleTag: asString(row.battleTag ?? row.battletag) || null,
+    status: asString(row.status) || undefined,
+    isComputer: row.isComputer === true ? true : undefined,
+    isObserver: row.isObserver === true ? true : undefined,
+    player,
   };
 }
 
@@ -152,7 +197,7 @@ function parseGameDetail(value: unknown): Wc3statsGameDetail | null {
     return null;
   }
 
-  const slots = Array.isArray(row.slots) ? row.slots : [];
+  const slots = Array.isArray(row.slots) ? row.slots.map(parseSlot) : [];
 
   return {
     id,
