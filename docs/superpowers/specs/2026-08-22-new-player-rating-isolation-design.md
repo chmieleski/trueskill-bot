@@ -180,5 +180,5 @@ Commands and buttons stay thin: confirm handler writes the flag; rating service 
 ## Open follow-ups (not v1)
 
 - Host/mod manual toggle after decline
-- Exclude New from win-chance / balance display
+- ~~Exclude New from win-chance / balance display~~ — implemented: [`2026-08-28-new-player-balance-mu-discount-design.md`](./2026-08-28-new-player-balance-mu-discount-design.md) (paired omit, excess ~10% μ)
 - Progress copy (`New 2/5`)

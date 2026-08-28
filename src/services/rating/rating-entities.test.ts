@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BALANCE_STATIC_SIGMA,
   blendedRatingForBalance,
+  effectiveBalanceMuForExcessNew,
   ratingEntitiesForBalance,
   ratingEntitiesForHero,
   ratingEntitiesForOverall,
@@ -56,6 +57,20 @@ describe('ratingEntitiesForBalance', () => {
     expect(ratingEntitiesForBalance(G, H, null, { staticSigma: true })).toEqual([
       { mu: G.mu, sigma: BALANCE_STATIC_SIGMA },
     ]);
+  });
+});
+
+describe('effectiveBalanceMuForExcessNew', () => {
+  it('applies 10% weight for cold-start New μ', () => {
+    expect(effectiveBalanceMuForExcessNew(25)).toBe(2.5);
+  });
+
+  it('caps discounted μ at 5', () => {
+    expect(effectiveBalanceMuForExcessNew(60)).toBe(5);
+  });
+
+  it('applies weight without cap for typical vet blend', () => {
+    expect(effectiveBalanceMuForExcessNew(20)).toBe(2);
   });
 });
 
