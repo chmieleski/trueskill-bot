@@ -8,6 +8,7 @@ const {
   matchRatingSnapshotFindMany,
   matchPlayerGroupBy,
   matchPlayerFindMany,
+  matchPlayerStatsFindMany,
   playerRankResetFindMany,
   leagueFindUnique,
   getMatchById,
@@ -21,6 +22,7 @@ const {
   matchRatingSnapshotFindMany: vi.fn(),
   matchPlayerGroupBy: vi.fn(),
   matchPlayerFindMany: vi.fn(),
+  matchPlayerStatsFindMany: vi.fn(),
   playerRankResetFindMany: vi.fn(),
   leagueFindUnique: vi.fn(),
   getMatchById: vi.fn(),
@@ -42,6 +44,7 @@ vi.mock('../../lib/prisma.js', () => ({
       findMany: matchPlayerFindMany,
       update: vi.fn(),
     },
+    matchPlayerStats: { findMany: matchPlayerStatsFindMany },
     playerRankReset: { findMany: playerRankResetFindMany },
   },
 }));
@@ -647,6 +650,7 @@ describe('loadCompletedMatchShow', () => {
     matchRatingSnapshotFindMany.mockReset();
     matchPlayerGroupBy.mockReset();
     matchPlayerFindMany.mockReset();
+    matchPlayerStatsFindMany.mockReset();
     playerRankResetFindMany.mockReset();
     leagueFindUnique.mockReset();
     leagueFindUnique.mockResolvedValue(null);
@@ -667,6 +671,7 @@ describe('loadCompletedMatchShow', () => {
       },
     ]);
     playerRankResetFindMany.mockResolvedValue([]);
+    matchPlayerStatsFindMany.mockResolvedValue([]);
     buildMatchCompletedEmbed.mockImplementation(() => {
       const { EmbedBuilder } = require('discord.js');
       return new EmbedBuilder().setTitle('Match Completed');

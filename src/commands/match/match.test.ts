@@ -35,6 +35,7 @@ describe('match command data', () => {
       'quitters',
       'griefers',
       'complete',
+      'upload_report',
       'cancel',
       'flip',
       'void',
