@@ -26,6 +26,7 @@ import { isLeagueWc3statsImportReady } from '../league/league-wc3stats.js';
 import { getGameProfileForMatch, isEventMatch, requireLeagueId } from '../match/match-service.js';
 import { getEventById } from '../event/event.js';
 import { resolveGuildConfig } from '../guild/guild-config.js';
+import { enrichCompletedMatchLogEmbeds } from '../match/match-stats-upload.js';
 
 const log = createLogger('lobby-discord-sync');
 
@@ -240,7 +241,8 @@ export async function postCompletedMatchLog(
   }
 
   try {
-    await logChannel.send({ embeds: payload.embeds });
+    const embeds = await enrichCompletedMatchLogEmbeds(match, payload.embeds);
+    await logChannel.send({ embeds });
     log.debug(
       { matchId: match.id, guildId, channelId: completedMatchLogChannelId },
       'Completed match posted to log channel',

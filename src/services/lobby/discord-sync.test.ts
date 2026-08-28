@@ -1,9 +1,10 @@
 import { EmbedBuilder } from 'discord.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { findUnique, channelsFetch } = vi.hoisted(() => ({
+const { findUnique, channelsFetch, enrichCompletedMatchLogEmbeds } = vi.hoisted(() => ({
   findUnique: vi.fn(),
   channelsFetch: vi.fn(),
+  enrichCompletedMatchLogEmbeds: vi.fn(),
 }));
 
 vi.mock('../../lib/prisma.js', () => ({
@@ -19,6 +20,10 @@ vi.mock('../../config/env.js', () => ({
     matchCreateRoleId: undefined,
     matchModRoleId: undefined,
   },
+}));
+
+vi.mock('../match/match-stats-upload.js', () => ({
+  enrichCompletedMatchLogEmbeds: enrichCompletedMatchLogEmbeds,
 }));
 
 import { postCompletedMatchLog } from './discord-sync.js';
@@ -48,6 +53,8 @@ describe('postCompletedMatchLog', () => {
     findUnique.mockReset();
     channelsFetch.mockReset();
     send.mockReset();
+    enrichCompletedMatchLogEmbeds.mockReset();
+    enrichCompletedMatchLogEmbeds.mockImplementation(async (_match, embeds) => embeds);
   });
 
   it('skips when no log channel is configured', async () => {
@@ -78,6 +85,7 @@ describe('postCompletedMatchLog', () => {
       embeds: [new EmbedBuilder().setTitle('Done')],
     });
 
+    expect(enrichCompletedMatchLogEmbeds).toHaveBeenCalledOnce();
     expect(send).toHaveBeenCalledWith({
       embeds: expect.arrayContaining([expect.objectContaining({ data: expect.any(Object) })]),
     });

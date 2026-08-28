@@ -1,4 +1,6 @@
 import type { MatchPlayerStats } from '@prisma/client';
+import { EmbedBuilder } from 'discord.js';
+import type { GameProfile } from '../../domain/game-profile.js';
 import {
   inferSuggestedWinner,
   parseWos2BotReport,
@@ -8,7 +10,13 @@ import {
   type Wos2BotReport,
   type Wos2BotReportPlayer,
 } from '../../games/warcraft3_wos/index.js';
-import { getGameProfileForMatch, getMatchById, MatchServiceError } from './match-service.js';
+import { teamDisplayName } from '../guild/team-names.js';
+import {
+  getGameProfileForMatch,
+  getMatchById,
+  MatchServiceError,
+  type MatchWithPlayers,
+} from './match-service.js';
 import { assertCanManageMatch } from './match-auth.js';
 import { normalizeNick } from '../player/player-nick.js';
 import { prisma } from '../../lib/prisma.js';
@@ -68,6 +76,11 @@ function buildPlayerStatsCreateInput(reportPlayer: Wos2BotReportPlayer, playerId
   };
 }
 
+/** Public nick for stats lines — never show Battle.net `#1234` suffixes. */
+function displayPlayerNick(name: string): string {
+  return normalizeNick(name);
+}
+
 function formatKdaLine(
   username: string,
   kills: number,
@@ -75,7 +88,7 @@ function formatKdaLine(
   heroName: string | null,
 ): string {
   const heroSuffix = heroName ? ` · ${heroName}` : '';
-  return `${username}: ${kills}/${deaths}${heroSuffix}`;
+  return `${displayPlayerNick(username)}: ${kills}/${deaths}${heroSuffix}`;
 }
 
 export function formatMatchStatsSummaryLines(stats: MatchPlayerStatsLine[]): string[] {
@@ -305,11 +318,135 @@ export async function uploadMatchStatsReport(input: {
 /** Discord field value for completed match stats (truncated). */
 export function formatMatchStatsFieldValue(stats: MatchPlayerStatsLine[]): string {
   const lines = formatMatchStatsSummaryLines(stats);
-  const body = lines.join('\n');
-  if (body.length <= 1024) {
-    return body;
+  return truncateDiscordFieldValue(lines.join('\n'));
+}
+
+const TEAM_A_EMOJI = '🟥';
+const TEAM_B_EMOJI = '🟦';
+
+export type MatchStatsLogContext = {
+  profile: GameProfile;
+  roster: Array<{ playerId: string; team: number; slot: number }>;
+  team1Rounds?: number | null;
+  team2Rounds?: number | null;
+};
+
+/** Compact stat numbers for Discord embed lines (e.g. 9834 → 9.8k). */
+export function formatCompactStatNumber(value: number): string {
+  if (value >= 10_000 || value <= -10_000) {
+    return `${(value / 1000).toFixed(1)}k`;
   }
-  return `${body.slice(0, 1020)}…`;
+  if (value >= 1_000 || value <= -1_000) {
+    return `${(value / 1000).toFixed(1)}k`;
+  }
+  return String(value);
+}
+
+function truncateDiscordFieldValue(value: string, max = 1024): string {
+  if (value.length <= max) {
+    return value;
+  }
+  return `${value.slice(0, max - 1)}…`;
+}
+
+/** One player line for log-channel match stats (hero, K/D, damage, heal, taken). */
+export function formatMatchStatsDetailedPlayerLine(row: MatchPlayerStatsLine): string {
+  const hero = row.heroName ?? 'Unknown hero';
+  const kda = `${row.kills}/${row.deaths}`;
+  const dmg = formatCompactStatNumber(row.damageTotal);
+  const heal = formatCompactStatNumber(row.heal);
+  const taken = formatCompactStatNumber(row.takenTotal);
+  return `**${displayPlayerNick(row.username)}** · ${hero} · ${kda} · ${dmg} dmg · ${heal} heal · ${taken} taken`;
+}
+
+function sortStatsForTeam(
+  stats: MatchPlayerStatsLine[],
+  roster: MatchStatsLogContext['roster'],
+  team: 1 | 2,
+): MatchPlayerStatsLine[] {
+  const slotByPlayerId = new Map(
+    roster.filter((entry) => entry.team === team).map((entry) => [entry.playerId, entry.slot]),
+  );
+
+  return stats
+    .filter((row) => slotByPlayerId.has(row.playerId))
+    .sort(
+      (left, right) =>
+        (slotByPlayerId.get(left.playerId) ?? 0) - (slotByPlayerId.get(right.playerId) ?? 0),
+    );
+}
+
+/** Embed fields for WOS-style match stats on the completed-match log channel. */
+export function buildMatchStatsLogEmbedFields(
+  stats: MatchPlayerStatsLine[],
+  ctx: MatchStatsLogContext,
+): Array<{ name: string; value: string; inline: boolean }> {
+  const fields: Array<{ name: string; value: string; inline: boolean }> = [];
+
+  if (ctx.team1Rounds != null && ctx.team2Rounds != null) {
+    fields.push({
+      name: 'Round score',
+      value: `${teamDisplayName(1, ctx.profile)} **${ctx.team1Rounds}** – **${ctx.team2Rounds}** ${teamDisplayName(2, ctx.profile)}`,
+      inline: false,
+    });
+  }
+
+  for (const team of [1, 2] as const) {
+    const teamStats = sortStatsForTeam(stats, ctx.roster, team);
+    if (teamStats.length === 0) {
+      continue;
+    }
+
+    const emoji = team === 1 ? TEAM_A_EMOJI : TEAM_B_EMOJI;
+    fields.push({
+      name: `${emoji} ${teamDisplayName(team, ctx.profile)} stats`,
+      value: truncateDiscordFieldValue(
+        teamStats.map(formatMatchStatsDetailedPlayerLine).join('\n'),
+      ),
+      inline: false,
+    });
+  }
+
+  return fields;
+}
+
+/** Add persisted WOS match stats to completed-match log embeds; no-op when stats are absent. */
+export async function enrichCompletedMatchLogEmbeds(
+  match: MatchWithPlayers,
+  embeds: EmbedBuilder[],
+): Promise<EmbedBuilder[]> {
+  if (embeds.length === 0) {
+    return embeds;
+  }
+
+  const stats = await loadMatchPlayerStatsLines(match.id);
+  if (stats.length === 0) {
+    return embeds;
+  }
+
+  const profile = await getGameProfileForMatch(match);
+  const report = await prisma.matchStatsReport.findUnique({
+    where: { matchId: match.id },
+    select: { team1Rounds: true, team2Rounds: true },
+  });
+
+  const fields = buildMatchStatsLogEmbedFields(stats, {
+    profile,
+    roster: match.players.map((player) => ({
+      playerId: player.playerId,
+      team: player.team,
+      slot: player.slot,
+    })),
+    team1Rounds: report?.team1Rounds,
+    team2Rounds: report?.team2Rounds,
+  });
+
+  if (fields.length === 0) {
+    return embeds;
+  }
+
+  const enriched = EmbedBuilder.from(embeds[0]!.data).addFields(...fields);
+  return [enriched, ...embeds.slice(1)];
 }
 
 /** Fetch plain-text report content from a Discord attachment URL. */

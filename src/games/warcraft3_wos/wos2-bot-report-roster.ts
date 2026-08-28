@@ -1,6 +1,7 @@
 import type { GameProfile } from '../../domain/game-profile.js';
 import { teamForSlot } from '../../domain/game-profile.js';
 import type { LobbyPlayer } from '../../services/lobby/lobby-ocr.js';
+import { normalizeNick } from '../../services/player/player-nick.js';
 import type { Wos2BotReport } from './wos2-bot-report-parser.js';
 import { WOS_WC3STATS_SLOT_MAP } from './wos-slot-map.js';
 
@@ -38,7 +39,7 @@ export function lobbyPlayersFromWos2Report(
       throw new Wos2ReportRosterError(`Duplicate slot ${slot} in report.`);
     }
     seenSlots.add(slot);
-    players.push({ slot, nick: reportPlayer.name.trim() });
+    players.push({ slot, nick: normalizeNick(reportPlayer.name) });
   }
 
   if (players.length === 0) {

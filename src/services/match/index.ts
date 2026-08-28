@@ -23,7 +23,11 @@ export {
   type CompleteMatchResult,
 } from './match-report.js';
 export {
+  buildMatchStatsLogEmbedFields,
+  enrichCompletedMatchLogEmbeds,
   fetchTextAttachment,
+  formatCompactStatNumber,
+  formatMatchStatsDetailedPlayerLine,
   formatMatchStatsFieldValue,
   formatMatchStatsSummaryLines,
   hasMatchStatsReport,
@@ -35,6 +39,7 @@ export {
   WOS_MATCH_REPORT_REQUIRED_MESSAGE,
   assertWosMatchStatsReportPresent,
   type MatchPlayerStatsLine,
+  type MatchStatsLogContext,
   type UploadMatchStatsResult,
 } from './match-stats-upload.js';
 export {
