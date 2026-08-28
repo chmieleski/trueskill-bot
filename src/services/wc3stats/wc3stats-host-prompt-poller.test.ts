@@ -20,10 +20,7 @@ import {
   listHostPromptReadyLeagues,
 } from './wc3stats-host-prompt-poller.js';
 import { prisma } from '../../lib/prisma.js';
-import {
-  WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
-  WARCRAFT3_UDBR_GAME_ID,
-} from '../../domain/games.js';
+import { WARCRAFT3_WOS_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
 
 describe('loadLinkedPlayersByNick', () => {
   beforeEach(() => {
@@ -58,7 +55,7 @@ describe('listHostPromptReadyLeagues', () => {
       {
         id: 'aca',
         guildId: 'g1',
-        gameId: WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
+        gameId: WARCRAFT3_WOS_GAME_ID,
         wc3statsHostPromptChannelId: 'ch-aca',
         wc3statsMapPattern: 'x',
         wc3statsMapSha1: null,

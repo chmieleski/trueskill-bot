@@ -277,19 +277,19 @@ describe('linkPlayer', () => {
       id: 'p2',
       username: 'Vegeta',
       discordId: 'd1',
-      gameId: 'warcraft3_anime_choice_arena',
+      gameId: 'warcraft3_wos',
     });
 
     const linked = await linkPlayer({
-      gameId: 'warcraft3_anime_choice_arena',
+      gameId: 'warcraft3_wos',
       nick: 'Vegeta',
       discordId: 'd1',
     });
 
-    expect(linked.gameId).toBe('warcraft3_anime_choice_arena');
+    expect(linked.gameId).toBe('warcraft3_wos');
     expect(create).toHaveBeenCalledWith({
       data: {
-        gameId: 'warcraft3_anime_choice_arena',
+        gameId: 'warcraft3_wos',
         username: 'vegeta',
         discordId: 'd1',
       },

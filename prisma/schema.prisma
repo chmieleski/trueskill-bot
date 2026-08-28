@@ -180,6 +180,7 @@ model Player {
   heroRatings                    PlayerHeroRating[]
   rankResets                     PlayerRankReset[]
   ratingSnapshots                MatchRatingSnapshot[]
+  matchStats                     MatchPlayerStats[]
 
   @@unique([gameId, username])
   @@unique([gameId, discordId])
@@ -275,6 +276,7 @@ model Match {
   event            Event?        @relation(fields: [eventId], references: [id], onDelete: Restrict)
   players          MatchPlayer[]
   ratingSnapshots  MatchRatingSnapshot[]
+  statsReport      MatchStatsReport?
 
   @@index([status])
   @@index([createdAt])
@@ -314,10 +316,59 @@ model MatchPlayer {
 
   match  Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  stats  MatchPlayerStats?
 
   @@id([matchId, playerId])
   @@index([matchId])
   @@index([playerId])
+}
+
+model MatchStatsReport {
+  id                  String   @id @default(cuid())
+  matchId             String   @unique
+  format              String
+  externalId          String
+  rawText             String   @db.Text
+  team1Rounds         Int?
+  team2Rounds         Int?
+  playerCount         Int?
+  uploadedAt          DateTime @default(now())
+  uploadedByDiscordId String
+
+  match       Match              @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  playerStats MatchPlayerStats[]
+}
+
+model MatchPlayerStats {
+  matchId      String
+  playerId     String
+  reportIndex  Int
+  reportPid    Int
+  reportWin    Boolean?
+  kills        Int
+  deaths       Int
+  damagePhys   Int
+  damageMagic  Int
+  damageTotal  Int
+  heal         Int
+  takenPhys    Int
+  takenMagic   Int
+  takenTotal   Int
+  heroObjectId Int?
+  heroName     String?
+  itemSlot1    Int      @default(0)
+  itemSlot2    Int      @default(0)
+  itemSlot3    Int      @default(0)
+  itemSlot4    Int      @default(0)
+  itemSlot5    Int      @default(0)
+  itemSlot6    Int      @default(0)
+
+  matchPlayer MatchPlayer      @relation(fields: [matchId, playerId], references: [matchId, playerId], onDelete: Cascade)
+  player      Player           @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  report      MatchStatsReport @relation(fields: [matchId], references: [matchId], onDelete: Cascade)
+
+  @@id([matchId, playerId])
+  @@index([matchId])
 }
 
 enum MatchRatingEntityKind {

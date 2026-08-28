@@ -15,7 +15,7 @@ import {
   SCREENSHOT_COMMAND_FOOTNOTE,
 } from './lobby-preview.js';
 import { getGameProfile } from '../../domain/game-profile.js';
-import { WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID } from '../../domain/games.js';
+import { WARCRAFT3_UDBR_GAME_ID, WARCRAFT3_WOS_GAME_ID } from '../../domain/games.js';
 import { NEW_PLAYER_LABEL, NEW_PLAYER_ROSTER_MARKER } from '../rating/new-player.js';
 import { buildCompletedRatingPreview } from '../rating/rating-preview.js';
 import type { PlayerMatchDisplayStats } from '../rating/rank-reset-display.js';
@@ -441,8 +441,9 @@ describe('buildCompletedRatingPreview', () => {
 });
 
 describe('buildMatchReportButtons', () => {
-  it('renders the match report action row', () => {
-    const [row] = buildMatchReportButtons();
+  it('renders the match report action row for UDBR', () => {
+    const udbr = getGameProfile(WARCRAFT3_UDBR_GAME_ID);
+    const [row] = buildMatchReportButtons(udbr);
 
     expect(row).toBeDefined();
     expect(row?.toJSON().components.map((button) => button.custom_id)).toEqual([
@@ -451,12 +452,14 @@ describe('buildMatchReportButtons', () => {
       'match:griefers',
       'match:cancel',
     ]);
-    expect(row?.toJSON().components.map((button) => button.label)).toEqual([
-      'Report Winner',
-      'Quitters',
-      'Griefer',
-      'Cancel',
-    ]);
+  });
+
+  it('adds Upload Stats for WOS', () => {
+    const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
+    const rows = buildMatchReportButtons(wos);
+
+    expect(rows).toHaveLength(2);
+    expect(rows[1]?.toJSON().components[0]?.custom_id).toBe('match:upload_stats');
   });
 });
 
@@ -575,12 +578,12 @@ describe('buildLobbyButtons', () => {
   });
 
   it('omits Add when the profile slot count is filled', () => {
-    const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
+    const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
     const rows = buildLobbyButtons({
       canStart: true,
       playerCount: 10,
       playerClaimEnabled: false,
-      profile: aca,
+      profile: wos,
     });
 
     expect(rosterCustomIds(rows)).not.toContain(LOBBY_CUSTOM_IDS.add);
@@ -661,14 +664,14 @@ describe('claimSlotSelectOptions', () => {
   });
 
   it('labels ACA empty slots with team names and stops at slot 10', () => {
-    const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
+    const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
     const options = claimSlotSelectOptions(
       [
         { slot: 1, nick: 'alice' },
         { slot: 6, nick: 'bob' },
       ],
       () => 'unused',
-      aca,
+      wos,
     );
 
     expect(options).toHaveLength(8);
@@ -861,15 +864,15 @@ describe('buildMatchLobbyEmbed', () => {
   });
 
   it('omits the screenshot command footnote when the game refuses screenshots', () => {
-    const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
+    const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
     const embed = buildMatchLobbyEmbed(
-      'match-aca',
+      'match-wos',
       [
         { nick: 'alice', slot: 1 },
         { nick: 'bob', slot: 6 },
       ],
       {
-        profile: aca,
+        profile: wos,
         ratingPreview: {
           players: [
             {
@@ -1051,16 +1054,16 @@ describe('buildMatchCompletedEmbed', () => {
   });
 
   it('uses Team A / Team B and a global-only footer for ACA', () => {
-    const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
+    const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
     const embed = buildMatchCompletedEmbed(
-      'match-aca',
+      'match-wos',
       [
         { slot: 1, nick: 'alice' },
         { slot: 6, nick: 'bob' },
       ],
       {
         winningTeam: 2,
-        profile: aca,
+        profile: wos,
         ratingPreview: {
           players: [
             {
@@ -1093,9 +1096,9 @@ describe('buildMatchCompletedEmbed', () => {
   });
 
   it('uses a global-only footer for empty ACA lobbies with an empty preview', () => {
-    const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
-    const embed = buildMatchLobbyEmbed('match-aca-empty', [], {
-      profile: aca,
+    const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
+    const embed = buildMatchLobbyEmbed('match-wos-empty', [], {
+      profile: wos,
       ratingPreview: { players: [] },
     });
     expect(embed.toJSON().footer?.text).toBe('Per player: slot  nick  global (ki)');
@@ -1119,14 +1122,14 @@ describe('canStartLobby', () => {
   });
 
   it('allows ACA 1+6 because slot 6 is Team B', () => {
-    const aca = getGameProfile(WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID);
+    const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
     expect(
       canStartLobby(
         [
           { slot: 1, nick: 'a' },
           { slot: 6, nick: 'b' },
         ],
-        aca,
+        wos,
       ),
     ).toBe(true);
     expect(
@@ -1135,7 +1138,7 @@ describe('canStartLobby', () => {
           { slot: 1, nick: 'a' },
           { slot: 5, nick: 'b' },
         ],
-        aca,
+        wos,
       ),
     ).toBe(false);
   });

@@ -36,6 +36,7 @@ export const LOBBY_CUSTOM_IDS = {
   quitters: 'match:quitters',
   griefers: 'match:griefers',
   cancelInProgress: 'match:cancel',
+  uploadStats: 'match:upload_stats',
 } as const;
 
 /** Must match stale PENDING cleanup TTL in match-cleanup / match-service. */
@@ -458,30 +459,45 @@ export function buildMatchInProgressEmbed(
   });
 }
 
-export function buildMatchReportButtons(): ActionRowBuilder<ButtonBuilder>[] {
-  return [
-    new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(LOBBY_CUSTOM_IDS.reportWinner)
-        .setLabel('Report Winner')
-        .setEmoji('🏆')
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId(LOBBY_CUSTOM_IDS.quitters)
-        .setLabel('Quitters')
-        .setEmoji('🚪')
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId(LOBBY_CUSTOM_IDS.griefers)
-        .setLabel('Griefer')
-        .setEmoji('🐛')
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId(LOBBY_CUSTOM_IDS.cancelInProgress)
-        .setLabel('Cancel')
-        .setStyle(ButtonStyle.Secondary),
-    ),
-  ];
+export function buildMatchReportButtons(profile?: GameProfile): ActionRowBuilder<ButtonBuilder>[] {
+  const resolved = resolvedProfile(profile);
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(LOBBY_CUSTOM_IDS.reportWinner)
+      .setLabel('Report Winner')
+      .setEmoji('🏆')
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(LOBBY_CUSTOM_IDS.quitters)
+      .setLabel('Quitters')
+      .setEmoji('🚪')
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId(LOBBY_CUSTOM_IDS.griefers)
+      .setLabel('Griefer')
+      .setEmoji('🐛')
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId(LOBBY_CUSTOM_IDS.cancelInProgress)
+      .setLabel('Cancel')
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  const rows = [row];
+
+  if (resolved.postMatchStats !== 'none') {
+    rows.push(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(LOBBY_CUSTOM_IDS.uploadStats)
+          .setLabel('Upload Stats')
+          .setEmoji('📊')
+          .setStyle(ButtonStyle.Primary),
+      ),
+    );
+  }
+
+  return rows;
 }
 
 export function buildMatchCompletedEmbed(

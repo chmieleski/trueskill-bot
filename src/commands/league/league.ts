@@ -1,9 +1,6 @@
 import { ChannelType, GuildMember, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'discord.js';
-import {
-  WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID,
-  WARCRAFT3_UDBR_GAME_ID,
-} from '../../domain/games.js';
+import { WARCRAFT3_WOS_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
 import { getGameProfile, UnknownGameIdError } from '../../domain/game-profile.js';
 import { createLogger } from '../../lib/logger.js';
 import { assertCanConfigureBot } from '../../services/guild/index.js';
@@ -162,7 +159,7 @@ export const data = new SlashCommandBuilder()
           .setRequired(true)
           .addChoices(
             { name: 'UDBR (Warcraft III)', value: WARCRAFT3_UDBR_GAME_ID },
-            { name: 'Anime Choice Arena', value: WARCRAFT3_ANIME_CHOICE_ARENA_GAME_ID },
+            { name: 'WOS', value: WARCRAFT3_WOS_GAME_ID },
           ),
       )
       .addStringOption((option) =>
