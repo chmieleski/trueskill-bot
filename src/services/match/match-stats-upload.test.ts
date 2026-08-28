@@ -86,21 +86,21 @@ function sampleStat(overrides: Partial<MatchPlayerStatsLine> = {}): MatchPlayerS
 describe('formatCompactStatNumber', () => {
   it('uses k suffix from 1000 upward', () => {
     expect(formatCompactStatNumber(606)).toBe('606');
-    expect(formatCompactStatNumber(9834)).toBe('9.8k');
-    expect(formatCompactStatNumber(12_500)).toBe('12.5k');
+    expect(formatCompactStatNumber(9834)).toBe('10k');
+    expect(formatCompactStatNumber(12_500)).toBe('13k');
   });
 });
 
 describe('formatMatchStatsDetailedPlayerLine', () => {
   it('includes hero, K/D, and combat totals', () => {
     expect(formatMatchStatsDetailedPlayerLine(sampleStat())).toBe(
-      '**chmieleski** · Raiden Ei · 1/10 · 9.8k dmg · 606 heal · 4.4k taken',
+      '**chmieleski** · Raiden Ei · 1/10 · 10k dmg · 606 heal · 4k taken',
     );
   });
 
   it('strips Battle.net tags from the username', () => {
     expect(formatMatchStatsDetailedPlayerLine(sampleStat({ username: 'Chmieleski#1941' }))).toBe(
-      '**chmieleski** · Raiden Ei · 1/10 · 9.8k dmg · 606 heal · 4.4k taken',
+      '**chmieleski** · Raiden Ei · 1/10 · 10k dmg · 606 heal · 4k taken',
     );
   });
 });
@@ -123,11 +123,9 @@ describe('formatMatchStatsTeamTable', () => {
 
     expect(table).toMatch(/^```\n/);
     expect(table).toMatch(/```$/);
-    expect(table).toContain('Player');
     expect(table).toContain('Hero');
     expect(table).toContain('K/D');
-    expect(table).toContain('chmieleski');
-    expect(table).toContain('tiny');
+    expect(table).not.toContain('Player');
     expect(table).toContain('Raiden Ei');
     expect(table).toContain('Frieren');
   });
@@ -163,9 +161,9 @@ describe('buildMatchStatsLogEmbedFields', () => {
     expect(fields[0]?.value).toContain('WOS Enjoyers **2** – **10** WOS Haters');
     expect(fields[1]?.name).toContain('WOS Enjoyers stats');
     expect(fields[1]?.value).toContain('```');
-    expect(fields[1]?.value).toContain('chmieleski');
+    expect(fields[1]?.value).toContain('Raiden Ei');
     expect(fields[2]?.name).toContain('WOS Haters stats');
-    expect(fields[2]?.value).toContain('tiny');
+    expect(fields[2]?.value).toContain('Frieren');
   });
 });
 

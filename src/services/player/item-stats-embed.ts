@@ -29,9 +29,9 @@ function formatItemStatsTable(entries: ItemWindowEntry[]): string {
       cell: (entry) => formatWinRatePercent(entry.winRatePercent),
     },
     {
-      header: 'G',
+      header: 'Picks',
       align: 'right',
-      maxWidth: 4,
+      maxWidth: 5,
       cell: (entry) => String(entry.gamesWithItem),
     },
   ]);

@@ -341,13 +341,10 @@ export type MatchStatsLogContext = {
   team2Rounds?: number | null;
 };
 
-/** Compact stat numbers for Discord embed lines (e.g. 9834 → 9.8k). */
+/** Compact stat numbers for Discord embed lines (e.g. 9834 → 10k). */
 export function formatCompactStatNumber(value: number): string {
-  if (value >= 10_000 || value <= -10_000) {
-    return `${(value / 1000).toFixed(1)}k`;
-  }
   if (value >= 1_000 || value <= -1_000) {
-    return `${(value / 1000).toFixed(1)}k`;
+    return `${Math.round(value / 1000)}k`;
   }
   return String(value);
 }
@@ -365,12 +362,6 @@ export function formatMatchStatsDetailedPlayerLine(row: MatchPlayerStatsLine): s
 /** Monospace table for a team's match stats (Discord code block). */
 export function formatMatchStatsTeamTable(teamStats: MatchPlayerStatsLine[]): string {
   return formatMonospaceTable(teamStats, [
-    {
-      header: 'Player',
-      align: 'left',
-      maxWidth: 10,
-      cell: (row) => displayPlayerNick(row.username),
-    },
     {
       header: 'Hero',
       align: 'left',
