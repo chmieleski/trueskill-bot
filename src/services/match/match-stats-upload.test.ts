@@ -123,9 +123,11 @@ describe('formatMatchStatsTeamTable', () => {
 
     expect(table).toMatch(/^```\n/);
     expect(table).toMatch(/```$/);
+    expect(table).toContain('Player');
     expect(table).toContain('Hero');
     expect(table).toContain('K/D');
-    expect(table).not.toContain('Player');
+    expect(table).toContain('chmieleski');
+    expect(table).toContain('tiny');
     expect(table).toContain('Raiden Ei');
     expect(table).toContain('Frieren');
   });
@@ -161,9 +163,9 @@ describe('buildMatchStatsLogEmbedFields', () => {
     expect(fields[0]?.value).toContain('WOS Enjoyers **2** – **10** WOS Haters');
     expect(fields[1]?.name).toContain('WOS Enjoyers stats');
     expect(fields[1]?.value).toContain('```');
-    expect(fields[1]?.value).toContain('Raiden Ei');
+    expect(fields[1]?.value).toContain('chmieleski');
     expect(fields[2]?.name).toContain('WOS Haters stats');
-    expect(fields[2]?.value).toContain('Frieren');
+    expect(fields[2]?.value).toContain('tiny');
   });
 });
 

@@ -363,6 +363,12 @@ export function formatMatchStatsDetailedPlayerLine(row: MatchPlayerStatsLine): s
 export function formatMatchStatsTeamTable(teamStats: MatchPlayerStatsLine[]): string {
   return formatMonospaceTable(teamStats, [
     {
+      header: 'Player',
+      align: 'left',
+      maxWidth: 10,
+      cell: (row) => displayPlayerNick(row.username),
+    },
+    {
       header: 'Hero',
       align: 'left',
       maxWidth: 14,
