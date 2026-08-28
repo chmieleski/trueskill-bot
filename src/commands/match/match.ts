@@ -648,8 +648,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         page: pageNum,
         griefersOnly,
       });
-      const embed = buildMatchHistoryEmbed(pageData, resolved.leagueId, (team) =>
-        teamDisplayName(team, gameProfile),
+      const embed = buildMatchHistoryEmbed(
+        pageData,
+        resolved.leagueId,
+        (team) => teamDisplayName(team, gameProfile),
+        { showTeam: gameProfile.matchHistoryShowsTeam },
       );
       const components = buildMatchHistoryPageButtons({
         invokerId: interaction.user.id,

@@ -216,6 +216,27 @@ describe('formatMatchHistoryField', () => {
     expect(field.name).toBe('Vegeta · 🚫 cancelled');
     expect(field.value).toContain('Cancelled · Griefer (−80 ki pool)');
   });
+
+  it('omits team from the value when team label is empty', () => {
+    const field = formatMatchHistoryField(
+      {
+        matchId: 'm-wos',
+        completedAt: new Date('2026-08-16T12:00:00.000Z'),
+        result: 'WIN',
+        team: 2,
+        heroName: null,
+        isQuitter: false,
+        isGriefer: false,
+        grieferKiAccrued: null,
+        globalDelta: 12,
+        leagueGames: 8,
+      },
+      '',
+    );
+
+    expect(field.value).toBe('Win · <t:1786881600:D>\n`m-wos`');
+    expect(field.value).not.toContain('WOS');
+  });
 });
 
 describe('clampMatchHistoryPage', () => {
@@ -625,6 +646,38 @@ describe('buildMatchHistoryEmbed', () => {
     expect(embed.data.fields?.[0]?.value).toContain('`mid1`');
     expect(embed.data.fields?.[0]?.value).toContain('Win · Griefer');
     expect(embed.data.fields?.[0]?.value).toContain('Z Fighters');
+  });
+
+  it('omits team from rows when showTeam is false', () => {
+    const embed = buildMatchHistoryEmbed(
+      {
+        targetPlayerId: 'P1',
+        targetUsername: 'tiny',
+        page: 1,
+        totalPages: 1,
+        totalMatches: 1,
+        griefersOnly: false,
+        rows: [
+          {
+            matchId: 'cmtdf28gg00013cqn26q89e4y',
+            completedAt: new Date('2026-08-28T00:00:00.000Z'),
+            result: 'WIN',
+            team: 2,
+            heroName: null,
+            isQuitter: false,
+            isGriefer: false,
+            grieferKiAccrued: null,
+            globalDelta: undefined,
+            leagueGames: 3,
+          },
+        ],
+      },
+      'L1',
+      (t) => (t === 1 ? 'WOS Enjoyers' : 'WOS Haters'),
+      { showTeam: false },
+    );
+    expect(embed.data.fields?.[0]?.value).not.toContain('WOS Haters');
+    expect(embed.data.fields?.[0]?.value).toContain('Win · <t:');
   });
 });
 
