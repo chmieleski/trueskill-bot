@@ -86,21 +86,21 @@ function sampleStat(overrides: Partial<MatchPlayerStatsLine> = {}): MatchPlayerS
 describe('formatCompactStatNumber', () => {
   it('uses k suffix from 1000 upward', () => {
     expect(formatCompactStatNumber(606)).toBe('606');
-    expect(formatCompactStatNumber(9834)).toBe('9.8k');
-    expect(formatCompactStatNumber(12_500)).toBe('12.5k');
+    expect(formatCompactStatNumber(9834)).toBe('10k');
+    expect(formatCompactStatNumber(12_500)).toBe('13k');
   });
 });
 
 describe('formatMatchStatsDetailedPlayerLine', () => {
   it('includes hero, K/D, and combat totals', () => {
     expect(formatMatchStatsDetailedPlayerLine(sampleStat())).toBe(
-      '**chmieleski** · Raiden Ei · 1/10 · 9.8k dmg · 606 heal · 4.4k taken',
+      '**chmieleski** · Raiden Ei · 1/10 · 10k dmg · 606 heal · 4k taken',
     );
   });
 
   it('strips Battle.net tags from the username', () => {
     expect(formatMatchStatsDetailedPlayerLine(sampleStat({ username: 'Chmieleski#1941' }))).toBe(
-      '**chmieleski** · Raiden Ei · 1/10 · 9.8k dmg · 606 heal · 4.4k taken',
+      '**chmieleski** · Raiden Ei · 1/10 · 10k dmg · 606 heal · 4k taken',
     );
   });
 });

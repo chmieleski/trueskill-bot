@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildItemStatsEmbed, formatItemStatsTable } from './item-stats-embed.js';
 
 describe('formatItemStatsTable', () => {
-  it('renders buy rate, win rate, and games in columns', () => {
+  it('renders buy rate, win rate, and picks in columns', () => {
     const table = formatItemStatsTable([
       {
         objectId: 1,
