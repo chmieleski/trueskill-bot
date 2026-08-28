@@ -1,3 +1,10 @@
+# [1.32.0](https://github.com/chmieleski/trueskill-bot/compare/v1.31.0...v1.32.0) (2026-08-28)
+
+
+### Features
+
+* **docs:** personalize Discord guides from league settings ([#113](https://github.com/chmieleski/trueskill-bot/issues/113)) ([03f38df](https://github.com/chmieleski/trueskill-bot/commit/03f38df5ab689af2753cbbd4fe7623a8156bf8bf))
+
 # [1.31.0](https://github.com/chmieleski/trueskill-bot/compare/v1.30.0...v1.31.0) (2026-08-28)
 
 
