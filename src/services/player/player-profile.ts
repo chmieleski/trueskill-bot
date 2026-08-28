@@ -216,7 +216,9 @@ export async function loadPlayerProfile(
             include: { hero: true },
           })
         : Promise.resolve([]),
-      includeStatsHeroes ? loadRankHeroesFromMatchStats(leagueId, player.id) : Promise.resolve([]),
+      includeStatsHeroes
+        ? loadRankHeroesFromMatchStats(leagueId, player.id, gameId)
+        : Promise.resolve([]),
       // W/L/games/quits and soft-ki z restart after the player's latest rank reset.
       loadMatchDisplayStats(leagueId),
       loadPendingGrieferKiTaxByPlayer(leagueId, [player.id]),

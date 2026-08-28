@@ -68,18 +68,20 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
     return;
   }
 
+  let gameId: string;
   try {
     const profile = await getGameProfileForLeague(resolved.leagueId);
     if (profile.postMatchStats !== 'wos2_bot_v1') {
       await interaction.respond([]);
       return;
     }
+    gameId = profile.gameId;
   } catch {
     await interaction.respond([]);
     return;
   }
 
-  const heroes = await listWosHeroNamesForLeague(resolved.leagueId);
+  const heroes = await listWosHeroNamesForLeague(resolved.leagueId, gameId);
   const query = focused.value.toLowerCase();
   const choices = heroes
     .filter((hero) => hero.toLowerCase().includes(query))
@@ -153,6 +155,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     const stats = await loadHeroStats({
       leagueId: resolved.leagueId,
+      gameId: profile.gameId,
       heroName,
       playerId,
       windows,

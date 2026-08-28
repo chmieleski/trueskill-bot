@@ -1,6 +1,11 @@
 import { MatchResult, MatchStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
+  resolveHeroSelection,
+  statsRowMatchesHeroSelection,
+  type HeroSelection,
+} from '../game/game-hero-catalog.js';
+import {
   isMatchCountedAfterRankReset,
   loadLatestRankResetAtByPlayer,
   winRatePercent,
@@ -166,6 +171,7 @@ function mapPrismaRows(
     match: { completedAt: Date | null };
     stats: {
       heroName: string | null;
+      heroObjectId: number | null;
       damageTotal: number;
       takenTotal: number;
       heal: number;
@@ -173,7 +179,7 @@ function mapPrismaRows(
       deaths: number;
     } | null;
   }>,
-  heroKey: string,
+  selection: HeroSelection,
   resetAt: Date | undefined,
 ): HeroStatsRow[] {
   const mapped: HeroStatsRow[] = [];
@@ -182,8 +188,8 @@ function mapPrismaRows(
     if (row.result !== MatchResult.WIN && row.result !== MatchResult.LOSS) {
       continue;
     }
-    const heroName = row.stats?.heroName?.trim();
-    if (!heroName || normalizeHeroNameKey(heroName) !== heroKey) {
+    const stats = row.stats;
+    if (!stats || !statsRowMatchesHeroSelection(stats, selection)) {
       continue;
     }
     if (resetAt !== undefined && !isMatchCountedAfterRankReset(row.match.completedAt, resetAt)) {
@@ -196,11 +202,11 @@ function mapPrismaRows(
       username: row.player.username,
       result: row.result,
       completedAt: row.match.completedAt,
-      damageTotal: row.stats!.damageTotal,
-      takenTotal: row.stats!.takenTotal,
-      heal: row.stats!.heal,
-      kills: row.stats!.kills,
-      deaths: row.stats!.deaths,
+      damageTotal: stats.damageTotal,
+      takenTotal: stats.takenTotal,
+      heal: stats.heal,
+      kills: stats.kills,
+      deaths: stats.deaths,
     });
   }
 
@@ -210,12 +216,13 @@ function mapPrismaRows(
 /** Load hero stats for a league, optionally scoped to one player. */
 export async function loadHeroStats(input: {
   leagueId: string;
+  gameId: string;
   heroName: string;
   playerId?: string;
   windows: StatsWindow[];
 }): Promise<HeroStatsResult | null> {
-  const heroKey = normalizeHeroNameKey(input.heroName);
-  if (!heroKey) {
+  const selection = await resolveHeroSelection(input.gameId, input.leagueId, input.heroName);
+  if (!selection) {
     return null;
   }
 
@@ -241,6 +248,7 @@ export async function loadHeroStats(input: {
       stats: {
         select: {
           heroName: true,
+          heroObjectId: true,
           damageTotal: true,
           takenTotal: true,
           heal: true,
@@ -251,15 +259,10 @@ export async function loadHeroStats(input: {
     },
   });
 
-  const allRows = mapPrismaRows(rows, heroKey, resetAt);
+  const allRows = mapPrismaRows(rows, selection, resetAt);
   if (allRows.length === 0) {
     return null;
   }
-
-  const displayName =
-    rows
-      .find((row) => row.stats?.heroName && normalizeHeroNameKey(row.stats.heroName) === heroKey)
-      ?.stats?.heroName?.trim() ?? input.heroName.trim();
 
   const windows: Partial<Record<StatsWindow, HeroWindowStats>> = {};
   const includeTopPlayers = input.playerId === undefined;
@@ -274,7 +277,7 @@ export async function loadHeroStats(input: {
   }
 
   return {
-    heroDisplayName: displayName,
+    heroDisplayName: selection.displayName,
     windows,
     playerUsername: input.playerId ? allRows[0]!.username : undefined,
     rankResetAt: resetAt,
