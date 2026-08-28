@@ -49,7 +49,9 @@ export async function handleMatchHistoryInteraction(interaction: Interaction): P
   const profile = await getGameProfileForLeague(parsed.leagueId);
   await interaction.editReply({
     embeds: [
-      buildMatchHistoryEmbed(pageData, parsed.leagueId, (team) => teamDisplayName(team, profile)),
+      buildMatchHistoryEmbed(pageData, parsed.leagueId, (team) => teamDisplayName(team, profile), {
+        showTeam: profile.matchHistoryShowsTeam,
+      }),
     ],
     components: buildMatchHistoryPageButtons({
       invokerId: parsed.invokerId,

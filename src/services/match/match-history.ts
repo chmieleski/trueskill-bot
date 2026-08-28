@@ -99,9 +99,11 @@ export function formatMatchHistoryField(
         ? ' · Griefer'
         : '';
 
+  const teamBit = teamLabel ? ` · ${teamLabel}` : '';
+
   return {
     name: `${hero} · ${emoji} ${ratingBit}`,
-    value: `${outcome}${quit}${griefer} · ${teamLabel} · <t:${unix}:D>\n\`${row.matchId}\``,
+    value: `${outcome}${quit}${griefer}${teamBit} · <t:${unix}:D>\n\`${row.matchId}\``,
     inline: false,
   };
 }
@@ -340,7 +342,9 @@ export function buildMatchHistoryEmbed(
   page: MatchHistoryPage,
   _leagueId: string,
   teamLabelFor: (team: 1 | 2) => string,
+  options?: { showTeam?: boolean },
 ): EmbedBuilder {
+  const showTeam = options?.showTeam !== false;
   const embed = new EmbedBuilder()
     .setColor(0xf0b232)
     .setAuthor({ name: page.targetUsername })
@@ -360,7 +364,9 @@ export function buildMatchHistoryEmbed(
     });
   } else {
     embed.addFields(
-      ...page.rows.map((row) => formatMatchHistoryField(row, teamLabelFor(row.team))),
+      ...page.rows.map((row) =>
+        formatMatchHistoryField(row, showTeam ? teamLabelFor(row.team) : ''),
+      ),
     );
   }
 

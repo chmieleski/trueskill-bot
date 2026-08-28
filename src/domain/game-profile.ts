@@ -20,6 +20,8 @@ export type GameProfile = {
   teamNames: { 1: string; 2: string };
   /** Default for League.showSideWinLoss when creating a league of this game. */
   sideWinLossDefault: boolean;
+  /** When false, /match history omits the player's team from each row. */
+  matchHistoryShowsTeam: boolean;
 };
 
 export class UnknownGameIdError extends Error {
@@ -41,6 +43,7 @@ const GAME_PROFILES: Record<string, GameProfile> = {
     ratingLabel: 'ki',
     teamNames: { 1: 'Z Fighters', 2: 'Evil' },
     sideWinLossDefault: true,
+    matchHistoryShowsTeam: true,
   },
   [WARCRAFT3_WOS_GAME_ID]: {
     gameId: WARCRAFT3_WOS_GAME_ID,
@@ -53,6 +56,7 @@ const GAME_PROFILES: Record<string, GameProfile> = {
     ratingLabel: 'sp',
     teamNames: { 1: 'WOS Enjoyers', 2: 'WOS Haters' },
     sideWinLossDefault: false,
+    matchHistoryShowsTeam: false,
   },
 };
 
