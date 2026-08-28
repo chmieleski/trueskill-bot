@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   buildReportConfirmCustomId,
   buildReportQuitterSelectOptions,
+  buildReportSuggestedWinnerCustomId,
+  buildReportWinnerCustomId,
   decodeReportSlots,
   encodeReportSlots,
   parseReportConfirmCustomId,
+  parseReportSuggestedWinnerCustomId,
+  parseReportWinnerCustomId,
 } from './match-report-wizard.js';
 
 describe('encodeReportSlots / decodeReportSlots', () => {
@@ -32,6 +36,35 @@ describe('buildReportConfirmCustomId / parseReportConfirmCustomId', () => {
 
   it('returns null for unrelated custom ids', () => {
     expect(parseReportConfirmCustomId('match:rw:win:abc:1:-:-')).toBeNull();
+  });
+});
+
+describe('buildReportWinnerCustomId / buildReportSuggestedWinnerCustomId', () => {
+  it('uses distinct custom ids for the same winning team', () => {
+    const winner = buildReportWinnerCustomId('match-abc', 2, [], []);
+    const suggested = buildReportSuggestedWinnerCustomId('match-abc', 2, [], []);
+
+    expect(winner).toBe('match:rw:win:match-abc:2:-:-');
+    expect(suggested).toBe('match:rw:suggested:match-abc:2:-:-');
+    expect(winner).not.toBe(suggested);
+  });
+
+  it('parses winner and suggested custom ids', () => {
+    const payload = {
+      matchId: 'match-abc',
+      winningTeam: 2 as const,
+      grieferSlots: [2, 8],
+      quitterSlots: [1, 7],
+    };
+
+    expect(
+      parseReportWinnerCustomId(buildReportWinnerCustomId('match-abc', 2, [2, 8], [1, 7])),
+    ).toEqual(payload);
+    expect(
+      parseReportSuggestedWinnerCustomId(
+        buildReportSuggestedWinnerCustomId('match-abc', 2, [2, 8], [1, 7]),
+      ),
+    ).toEqual(payload);
   });
 });
 
