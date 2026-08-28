@@ -1,3 +1,10 @@
+# [1.37.0](https://github.com/chmieleski/trueskill-bot/compare/v1.36.0...v1.37.0) (2026-08-28)
+
+
+### Features
+
+* **wos:** enrich completed-match log with stats and strip battletags ([#122](https://github.com/chmieleski/trueskill-bot/issues/122)) ([5bdc460](https://github.com/chmieleski/trueskill-bot/commit/5bdc460bfc62e62cd2e7f0865f006f2147046429))
+
 # [1.36.0](https://github.com/chmieleski/trueskill-bot/compare/v1.35.0...v1.36.0) (2026-08-28)
 
 
