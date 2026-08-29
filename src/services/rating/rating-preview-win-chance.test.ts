@@ -202,6 +202,37 @@ describe('computeWinChanceFromRatings', () => {
     expect(flagged!.teamAPercent).toBeLessThan(unmarkedNew!.teamAPercent);
   });
 
+  it('omits quitters so paired New win% is unchanged after a quit flag', () => {
+    const vetsA = ['a1', 'a2', 'a3', 'a4'];
+    const vetsB = ['b1', 'b2', 'b3', 'b4', 'b5'];
+    const baseEntries = [
+      ...vetsA.map((id, index) => makeVet(id, [1, 2, 3, 4][index]!, 1)),
+      { ...makeVet('newA', 5, 1), wasNewPlayer: true as const },
+      ...vetsB.map((id, index) => makeVet(id, index + 7, 2)),
+      { ...makeVet('newB', 12, 2), wasNewPlayer: true as const },
+    ];
+    const { globals, heroes } = vetMaps(baseEntries);
+    globals.set('newA', { mu: NEW_MU, sigma: SIGMA });
+    globals.set('newB', { mu: NEW_MU, sigma: SIGMA });
+    heroes.set('newA:5', { mu: NEW_MU, sigma: SIGMA });
+    heroes.set('newB:12', { mu: NEW_MU, sigma: SIGMA });
+
+    const preMatch = computeWinChanceFromRatings(baseEntries, globals, heroes, {
+      staticSigma: true,
+    });
+    const withQuitter = computeWinChanceFromRatings(
+      baseEntries.map((entry) =>
+        entry.playerId === 'newA' ? { ...entry, isQuitter: true as const } : entry,
+      ),
+      globals,
+      heroes,
+      { staticSigma: true },
+    );
+
+    expect(preMatch).toEqual(withQuitter);
+    expect(preMatch!.teamAPercent + preMatch!.teamBPercent).toBe(100);
+  });
+
   it('uses full μ for unmarked calibrating players', () => {
     const winChance = computeWinChanceFromRatings(
       [
