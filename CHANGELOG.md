@@ -1,3 +1,10 @@
+## [1.41.1](https://github.com/chmieleski/trueskill-bot/compare/v1.41.0...v1.41.1) (2026-08-29)
+
+
+### Bug Fixes
+
+* **rating:** omit quitters from pre-match win odds ([#129](https://github.com/chmieleski/trueskill-bot/issues/129)) ([b9ddd03](https://github.com/chmieleski/trueskill-bot/commit/b9ddd0329eeaf31137af0bba092fd4f2163556b5))
+
 # [1.41.0](https://github.com/chmieleski/trueskill-bot/compare/v1.40.0...v1.41.0) (2026-08-28)
 
 
