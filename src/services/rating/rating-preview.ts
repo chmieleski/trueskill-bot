@@ -175,6 +175,10 @@ export function computeWinChanceFromRatings(
   const teamEntities = (team: typeof teamA) =>
     toOpenSkillRatings(
       team.flatMap((entry) => {
+        // Quitters never contribute to pre-match win% (live lobby has none; history must not re-inject them).
+        if (entry.isQuitter) {
+          return [];
+        }
         const global = globalByPlayer.get(entry.playerId) ?? defaultMuSigma();
         const hero =
           entry.heroId == null
