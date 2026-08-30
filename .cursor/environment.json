@@ -6,7 +6,7 @@
   "terminals": [
     {
       "name": "bot",
-      "command": "bash -lc 'export NVM_DIR=$HOME/.nvm; [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\" && nvm use default >/dev/null 2>&1; npm run dev'"
+      "command": "bash -lc 'export NVM_DIR=$HOME/.nvm; [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\" && nvm use default >/dev/null 2>&1; bash .cursor/start.sh; npm run dev'"
     }
   ]
 }
