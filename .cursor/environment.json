@@ -1,0 +1,12 @@
+{
+  "name": "dbz-wc3-bot",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "bot",
+      "command": "bash -lc 'export NVM_DIR=$HOME/.nvm; [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\" && nvm use default >/dev/null 2>&1; bash .cursor/start.sh; npm run dev'"
+    }
+  ]
+}

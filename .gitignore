@@ -17,6 +17,7 @@ ruvector.db
 .swarm/
 .local/
 .env.prod
+.env.production
 
 # Brainstorm / visual companion artifacts
 .superpowers/
