@@ -24,10 +24,48 @@ export type ItemWindowEntry = {
 
 export type ItemStatsResult = {
   heroDisplayName?: string;
+  sort: ItemSort;
   windows: Partial<Record<StatsWindow, ItemWindowEntry[]>>;
 };
 
+export type ItemSort = 'buy_rate' | 'win_rate' | 'picks';
+
 const TOP_ITEMS_LIMIT = 10;
+
+function compareItemDisplayNames(left: ItemWindowEntry, right: ItemWindowEntry): number {
+  return left.displayName.localeCompare(right.displayName);
+}
+
+function sortItemWindowEntries(entries: ItemWindowEntry[], sort: ItemSort): ItemWindowEntry[] {
+  const ranked = [...entries];
+  ranked.sort((left, right) => {
+    switch (sort) {
+      case 'win_rate': {
+        const leftWr = left.winRatePercent ?? -1;
+        const rightWr = right.winRatePercent ?? -1;
+        return (
+          rightWr - leftWr ||
+          right.gamesWithItem - left.gamesWithItem ||
+          compareItemDisplayNames(left, right)
+        );
+      }
+      case 'picks':
+        return (
+          right.gamesWithItem - left.gamesWithItem ||
+          right.buyRatePercent - left.buyRatePercent ||
+          compareItemDisplayNames(left, right)
+        );
+      case 'buy_rate':
+      default:
+        return (
+          right.buyRatePercent - left.buyRatePercent ||
+          right.gamesWithItem - left.gamesWithItem ||
+          compareItemDisplayNames(left, right)
+        );
+    }
+  });
+  return ranked;
+}
 
 function itemSlotsFromRow(row: {
   itemSlot1: number;
@@ -44,6 +82,7 @@ function itemSlotsFromRow(row: {
 export function aggregateItemWindowStats(
   rows: ItemStatsRow[],
   names: Map<number, string>,
+  sort: ItemSort = 'buy_rate',
 ): ItemWindowEntry[] {
   const totalGames = rows.length;
   if (totalGames === 0) {
@@ -67,21 +106,15 @@ export function aggregateItemWindowStats(
     }
   }
 
-  return [...buckets.entries()]
-    .map(([objectId, bucket]) => ({
-      objectId,
-      displayName: formatItemDisplayName(objectId, names),
-      buyRatePercent: Math.round((bucket.gamesWithItem / totalGames) * 1000) / 10,
-      winRatePercent: winRatePercent(bucket.wins, bucket.gamesWithItem - bucket.wins),
-      gamesWithItem: bucket.gamesWithItem,
-    }))
-    .sort(
-      (left, right) =>
-        right.buyRatePercent - left.buyRatePercent ||
-        right.gamesWithItem - left.gamesWithItem ||
-        left.displayName.localeCompare(right.displayName),
-    )
-    .slice(0, TOP_ITEMS_LIMIT);
+  const entries = [...buckets.entries()].map(([objectId, bucket]) => ({
+    objectId,
+    displayName: formatItemDisplayName(objectId, names),
+    buyRatePercent: Math.round((bucket.gamesWithItem / totalGames) * 1000) / 10,
+    winRatePercent: winRatePercent(bucket.wins, bucket.gamesWithItem - bucket.wins),
+    gamesWithItem: bucket.gamesWithItem,
+  }));
+
+  return sortItemWindowEntries(entries, sort).slice(0, TOP_ITEMS_LIMIT);
 }
 
 function filterRowsToLast10Matches(rows: ItemStatsRow[]): ItemStatsRow[] {
@@ -110,6 +143,7 @@ export async function loadItemStats(input: {
   gameId: string;
   heroName?: string;
   windows: StatsWindow[];
+  sort?: ItemSort;
 }): Promise<ItemStatsResult> {
   const heroSelection = input.heroName
     ? await resolveHeroSelection(input.gameId, input.leagueId, input.heroName)
@@ -167,16 +201,18 @@ export async function loadItemStats(input: {
   const objectIds = mapped.flatMap((row) => row.itemSlots);
   const names = await resolveItemNames(input.gameId, objectIds);
 
+  const sort = input.sort ?? 'buy_rate';
   const windows: Partial<Record<StatsWindow, ItemWindowEntry[]>> = {};
   if (input.windows.includes('overall')) {
-    windows.overall = aggregateItemWindowStats(mapped, names);
+    windows.overall = aggregateItemWindowStats(mapped, names, sort);
   }
   if (input.windows.includes('last10')) {
-    windows.last10 = aggregateItemWindowStats(filterRowsToLast10Matches(mapped), names);
+    windows.last10 = aggregateItemWindowStats(filterRowsToLast10Matches(mapped), names, sort);
   }
 
   return {
     heroDisplayName: heroSelection?.displayName,
+    sort,
     windows,
   };
 }

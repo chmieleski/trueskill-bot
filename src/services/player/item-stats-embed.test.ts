@@ -24,6 +24,7 @@ describe('formatItemStatsTable', () => {
 describe('buildItemStatsEmbed', () => {
   it('includes item rows per window', () => {
     const embed = buildItemStatsEmbed({
+      sort: 'buy_rate',
       windows: {
         overall: [
           {
