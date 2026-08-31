@@ -23,6 +23,16 @@ export {
   type CompleteMatchResult,
 } from './match-report.js';
 export {
+  addManualSanction,
+  findLatestManualSanctionMatchId,
+  removeManualSanction,
+  type AddManualSanctionInput,
+  type AddManualSanctionResult,
+  type ManualSanctionType,
+  type RemoveManualSanctionInput,
+  type RemoveManualSanctionResult,
+} from './manual-sanction.js';
+export {
   buildMatchStatsLogEmbedFields,
   enrichCompletedMatchLogEmbeds,
   fetchTextAttachment,
