@@ -310,17 +310,11 @@ function mapPrismaRows(
   return mapped;
 }
 
-async function loadHeroStatsRows(input: {
+async function loadHeroStatsRowsForSelection(input: {
   leagueId: string;
-  gameId: string;
-  heroName: string;
+  selection: HeroSelection;
   playerId?: string;
-}): Promise<{ selection: HeroSelection; allRows: HeroStatsRow[]; resetAt?: Date } | null> {
-  const selection = await resolveHeroSelection(input.gameId, input.leagueId, input.heroName);
-  if (!selection) {
-    return null;
-  }
-
+}): Promise<{ allRows: HeroStatsRow[]; resetAt?: Date }> {
   const resetAtByPlayer =
     input.playerId !== undefined
       ? await loadLatestRankResetAtByPlayer(input.leagueId, [input.playerId])
@@ -354,12 +348,40 @@ async function loadHeroStatsRows(input: {
     },
   });
 
-  const allRows = mapPrismaRows(rows, selection, resetAt);
+  return { allRows: mapPrismaRows(rows, input.selection, resetAt), resetAt };
+}
+
+async function loadHeroStatsRows(input: {
+  leagueId: string;
+  gameId: string;
+  heroName: string;
+  playerId?: string;
+}): Promise<{ selection: HeroSelection; allRows: HeroStatsRow[]; resetAt?: Date } | null> {
+  const selection = await resolveHeroSelection(input.gameId, input.leagueId, input.heroName);
+  if (!selection) {
+    return null;
+  }
+
+  const { allRows, resetAt } = await loadHeroStatsRowsForSelection({
+    leagueId: input.leagueId,
+    selection,
+    playerId: input.playerId,
+  });
   if (allRows.length === 0) {
     return null;
   }
 
   return { selection, allRows, resetAt };
+}
+
+/** Load all completed player-game rows for one hero (empty array when none). */
+export async function loadHeroGameRowsBySelection(input: {
+  leagueId: string;
+  selection: HeroSelection;
+  playerId: string;
+}): Promise<{ rows: HeroStatsRow[]; resetAt?: Date }> {
+  const { allRows, resetAt } = await loadHeroStatsRowsForSelection(input);
+  return { rows: allRows, resetAt };
 }
 
 /** Load hero stats for a league, optionally scoped to one player. */
