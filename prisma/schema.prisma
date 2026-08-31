@@ -509,3 +509,31 @@ model BotReleasePost {
   @@id([version, guildId])
   @@index([guildId])
 }
+
+model CaptainDraft {
+  id              String   @id @default(cuid())
+  guildId         String
+  channelId       String
+  hostDiscordId   String
+  leagueId        String?
+  status          String
+  state           Json
+  draftMessageId  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  display CaptainDraftDisplay?
+
+  @@index([guildId, channelId, status])
+  @@index([guildId, status])
+}
+
+model CaptainDraftDisplay {
+  id         String   @id @default(cuid())
+  draftId    String   @unique
+  channelId  String
+  messageIds Json
+  updatedAt  DateTime @updatedAt
+
+  draft CaptainDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+}

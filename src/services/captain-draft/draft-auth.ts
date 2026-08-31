@@ -1,0 +1,109 @@
+import { GuildMember, type ChatInputCommandInteraction } from 'discord.js';
+import type { ResolvedGuildConfig } from '../guild/guild-config.js';
+import { resolveGuildConfig } from '../guild/guild-config.js';
+import { assertHasMatchModRole } from '../match/match-auth.js';
+import { currentCaptainKey, findParticipant } from './draft-logic.js';
+import type { DraftState } from './draft-types.js';
+import { CaptainDraftError } from './draft-types.js';
+
+/** Collect Discord role snowflakes from a slash interaction member. */
+function memberRoleIds(interaction: { member: unknown }): string[] {
+  const member = interaction.member;
+  if (!(member instanceof GuildMember)) {
+    return [];
+  }
+
+  return [...member.roles.cache.keys()];
+}
+
+/** Resolve role context for match-mod checks on captain-draft commands. */
+export async function resolveModContext(interaction: ChatInputCommandInteraction): Promise<{
+  memberRoleIds: string[];
+  matchModRoleId: string | undefined;
+}> {
+  if (!interaction.guildId) {
+    throw new CaptainDraftError('This command can only be used in a server.');
+  }
+
+  const config = await resolveGuildConfig(interaction.guildId);
+
+  return {
+    memberRoleIds: memberRoleIds(interaction),
+    matchModRoleId: config.matchModRoleId,
+  };
+}
+
+/** Require match moderator role (or universal mod) for setup and mod actions. */
+export function assertCaptainDraftMod(
+  interaction: ChatInputCommandInteraction,
+  guildConfig: ResolvedGuildConfig,
+): void {
+  assertHasMatchModRole({
+    actorDiscordId: interaction.user.id,
+    memberRoleIds: memberRoleIds(interaction),
+    matchModRoleId: guildConfig.matchModRoleId,
+  });
+}
+
+const TEXT_ONLY_CAPTAIN_PICK_MESSAGE =
+  'The current captain was added as text only (not linked to Discord). A moderator must run `/captain_draft force_pick`.';
+
+/**
+ * Require the actor to be the Discord-linked current captain (slash `/captain_draft pick`).
+ * Text-only captains cannot self-pick on Discord; mods use `force_pick` instead.
+ */
+export function assertCurrentCaptainPick(state: DraftState, actorDiscordId: string): void {
+  const captainKey = currentCaptainKey(state);
+  if (!captainKey) {
+    throw new CaptainDraftError('The draft is not waiting for a pick.');
+  }
+
+  const captain = findParticipant(state, captainKey);
+  if (!captain?.discordId) {
+    throw new CaptainDraftError(TEXT_ONLY_CAPTAIN_PICK_MESSAGE);
+  }
+
+  if (captain.discordId !== actorDiscordId) {
+    throw new CaptainDraftError(`It is not your turn. ${captain.label} is on the clock.`);
+  }
+}
+
+/** Require a Discord-linked current captain for embed pick buttons. */
+export function assertCurrentCaptainPickForButton(state: DraftState, actorDiscordId: string): void {
+  const captainKey = currentCaptainKey(state);
+  if (!captainKey) {
+    throw new CaptainDraftError('The draft is not waiting for a pick.');
+  }
+
+  const captain = findParticipant(state, captainKey);
+  if (!captain?.discordId) {
+    throw new CaptainDraftError(
+      'The current captain was added as text only. Pick buttons are unavailable; a moderator must run `/captain_draft force_pick`.',
+    );
+  }
+
+  if (captain.discordId !== actorDiscordId) {
+    throw new CaptainDraftError(`It is not your turn. ${captain.label} is on the clock.`);
+  }
+}
+
+/** Require the actor to be the Discord-linked captain for a team rename. */
+export function assertTeamCaptainRename(
+  state: DraftState,
+  actorDiscordId: string,
+  captainKey: string,
+): void {
+  const team = state.teams.find((entry) => entry.captainKey === captainKey);
+  if (!team) {
+    throw new CaptainDraftError('Team not found.');
+  }
+
+  const captain = findParticipant(state, captainKey);
+  if (!captain?.discordId) {
+    throw new CaptainDraftError('Only Discord-linked captains can rename their team.');
+  }
+
+  if (captain.discordId !== actorDiscordId) {
+    throw new CaptainDraftError('Only the team captain can rename this team.');
+  }
+}
