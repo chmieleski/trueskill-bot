@@ -211,6 +211,25 @@ function buildSummaryLines(
     );
 }
 
+/** Reject when another match already stored this WOS bot report id. */
+export async function assertWos2ReportExternalIdUnused(
+  externalId: string,
+  matchId: string,
+): Promise<void> {
+  const existing = await prisma.matchStatsReport.findFirst({
+    where: {
+      externalId,
+      matchId: { not: matchId },
+    },
+    select: { matchId: true },
+  });
+  if (existing) {
+    throw new MatchServiceError(
+      `This match report (\`${externalId}\`) was already uploaded for match \`${existing.matchId}\`.`,
+    );
+  }
+}
+
 /** Persist WOS2 stats for a match that already has a matching roster (PENDING or IN_PROGRESS). */
 export async function persistWos2MatchStats(input: {
   matchId: string;
@@ -220,6 +239,8 @@ export async function persistWos2MatchStats(input: {
   matchPlayers: Array<{ playerId: string; player: { username: string } }>;
 }): Promise<{ externalId: string; summaryLines: string[]; warnings: string[] }> {
   const { matched, warnings } = matchReportPlayersToRoster(input.matchPlayers, input.report);
+
+  await assertWos2ReportExternalIdUnused(input.report.externalId, input.matchId);
 
   await prisma.$transaction(async (tx) => {
     await clearMatchStatsReport(input.matchId, tx);

@@ -353,7 +353,7 @@ model MatchStatsReport {
   id                  String   @id @default(cuid())
   matchId             String   @unique
   format              String
-  externalId          String
+  externalId          String   @unique
   rawText             String   @db.Text
   team1Rounds         Int?
   team2Rounds         Int?
