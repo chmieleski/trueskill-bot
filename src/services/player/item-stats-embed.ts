@@ -1,8 +1,14 @@
 import { EmbedBuilder } from 'discord.js';
 import { formatMonospaceTable, truncateDiscordFieldValue } from '../../lib/discord-embed-table.js';
-import type { ItemStatsResult, ItemWindowEntry, StatsWindow } from './item-stats.js';
+import type { ItemSort, ItemStatsResult, ItemWindowEntry, StatsWindow } from './item-stats.js';
 
 const ITEM_STATS_BLUE = 0x5865f2;
+
+const SORT_LABELS: Record<ItemSort, string> = {
+  buy_rate: 'Buy rate',
+  win_rate: 'Win rate',
+  picks: 'Picks',
+};
 
 function formatWinRatePercent(winRatePercent: number | null): string {
   return winRatePercent === null ? '—' : `${winRatePercent}%`;
@@ -49,11 +55,13 @@ export function buildItemStatsEmbed(
   result: ItemStatsResult,
   options?: { leagueName?: string },
 ): EmbedBuilder {
-  const title = result.heroDisplayName
+  const titleBase = result.heroDisplayName
     ? `Item stats on ${result.heroDisplayName}`
     : 'Item stats — league-wide';
 
-  const embed = new EmbedBuilder().setColor(ITEM_STATS_BLUE).setTitle(title);
+  const embed = new EmbedBuilder()
+    .setColor(ITEM_STATS_BLUE)
+    .setTitle(`${titleBase} — sorted by ${SORT_LABELS[result.sort]}`);
 
   if (options?.leagueName) {
     embed.setDescription(options.leagueName);

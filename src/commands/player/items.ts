@@ -18,6 +18,17 @@ const log = createLogger('items_cmd');
 
 const WOS_STATS_ONLY_MESSAGE = 'Hero/item stats are only available for WOS leagues.';
 
+const ITEM_SORT_CHOICES = [
+  { name: 'Buy rate', value: 'buy_rate' },
+  { name: 'Win rate', value: 'win_rate' },
+  { name: 'Picks', value: 'picks' },
+] as const;
+
+function parseItemSort(raw: string | null): 'buy_rate' | 'win_rate' | 'picks' {
+  const match = ITEM_SORT_CHOICES.find((choice) => choice.value === raw);
+  return match?.value ?? 'buy_rate';
+}
+
 export const data = withOptionalLeagueOption(
   new SlashCommandBuilder()
     .setName('items')
@@ -28,6 +39,13 @@ export const data = withOptionalLeagueOption(
         .setDescription('Filter to one hero')
         .setRequired(false)
         .setAutocomplete(true),
+    )
+    .addStringOption((option) =>
+      option
+        .setName('sort')
+        .setDescription('Sort items by')
+        .setRequired(false)
+        .addChoices(...ITEM_SORT_CHOICES),
     )
     .addStringOption((option) =>
       option
@@ -87,6 +105,7 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const heroName = interaction.options.getString('hero');
+  const sort = parseItemSort(interaction.options.getString('sort'));
   const windowRaw = interaction.options.getString('window');
   const windows = parseStatsWindows(windowRaw === 'both' ? null : windowRaw);
 
@@ -122,6 +141,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       gameId: league.gameId,
       heroName: heroName ?? undefined,
       windows,
+      sort,
     });
 
     const hasData = Object.values(stats.windows).some((entries) => entries && entries.length > 0);

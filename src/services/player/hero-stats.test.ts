@@ -3,9 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   aggregateHeroWindowStats,
   filterRowsToLast10Matches,
+  filterRowsToLastNMatches,
   normalizeHeroNameKey,
+  parseHeroAllStatsWindows,
   pickRecentHeroGames,
+  rankAllHeroes,
   rankHeroPlayers,
+  type HeroAllEntry,
   type HeroStatsRow,
 } from './hero-stats.js';
 
@@ -43,6 +47,71 @@ describe('filterRowsToLast10Matches', () => {
     expect(matchIds.size).toBe(10);
     expect(matchIds.has('m11')).toBe(true);
     expect(matchIds.has('m0')).toBe(false);
+  });
+});
+describe('filterRowsToLastNMatches', () => {
+  it('keeps only rows from the N newest match ids', () => {
+    const rows = Array.from({ length: 25 }, (_, index) =>
+      row({
+        matchId: `m${index}`,
+        completedAt: new Date(`2026-01-${String(index + 1).padStart(2, '0')}T00:00:00Z`),
+      }),
+    );
+    const filtered = filterRowsToLastNMatches(rows, 20);
+    const matchIds = new Set(filtered.map((entry) => entry.matchId));
+    expect(matchIds.size).toBe(20);
+    expect(matchIds.has('m24')).toBe(true);
+    expect(matchIds.has('m0')).toBe(false);
+  });
+});
+
+describe('parseHeroAllStatsWindows', () => {
+  it('defaults to both windows', () => {
+    expect(parseHeroAllStatsWindows(null)).toEqual(['last20', 'overall']);
+  });
+
+  it('parses last20 only', () => {
+    expect(parseHeroAllStatsWindows('last20')).toEqual(['last20']);
+  });
+});
+
+describe('rankAllHeroes', () => {
+  const entries: HeroAllEntry[] = [
+    {
+      heroDisplayName: 'Alpha',
+      games: 10,
+      wins: 6,
+      losses: 4,
+      winRatePercent: 60,
+      avgDamage: 5000,
+      avgTaken: 2000,
+      avgHeal: 100,
+    },
+    {
+      heroDisplayName: 'Beta',
+      games: 20,
+      wins: 10,
+      losses: 10,
+      winRatePercent: 50,
+      avgDamage: 9000,
+      avgTaken: 3000,
+      avgHeal: 200,
+    },
+  ];
+
+  it('sorts by win_rate desc', () => {
+    expect(rankAllHeroes(entries, 'win_rate').map((entry) => entry.heroDisplayName)).toEqual([
+      'Alpha',
+      'Beta',
+    ]);
+  });
+
+  it('sorts by games desc', () => {
+    expect(rankAllHeroes(entries, 'games')[0]!.heroDisplayName).toBe('Beta');
+  });
+
+  it('sorts by damage desc', () => {
+    expect(rankAllHeroes(entries, 'damage')[0]!.heroDisplayName).toBe('Beta');
   });
 });
 

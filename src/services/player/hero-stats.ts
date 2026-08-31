@@ -3,8 +3,11 @@ import { prisma } from '../../lib/prisma.js';
 import {
   resolveHeroSelection,
   statsRowMatchesHeroSelection,
+  formatHeroDisplayName,
+  resolveHeroDisplayNames,
   type HeroSelection,
 } from '../game/game-hero-catalog.js';
+import { clampMatchHistoryPage } from '../match/match-history.js';
 import {
   isMatchCountedAfterRankReset,
   loadLatestRankResetAtByPlayer,
@@ -82,6 +85,47 @@ export type HeroPlayersResult = {
   windows: Partial<Record<StatsWindow, HeroRankedPlayer[]>>;
 };
 
+export type HeroAllStatsWindow = 'last20' | 'overall';
+
+export type HeroAllSort = 'win_rate' | 'games' | 'damage' | 'taken' | 'heal';
+
+export type HeroAllEntry = {
+  heroDisplayName: string;
+  games: number;
+  wins: number;
+  losses: number;
+  winRatePercent: number;
+  avgDamage: number;
+  avgTaken: number;
+  avgHeal: number;
+};
+
+export type HeroAllRankingsResult = {
+  sort: HeroAllSort;
+  page: number;
+  totalPages: number;
+  totalHeroes: number;
+  windows: Partial<Record<HeroAllStatsWindow, HeroAllEntry[]>>;
+};
+
+export const HERO_ALL_PAGE_SIZE = 15;
+
+export type HeroAllStatsRow = HeroStatsRow & {
+  heroDisplayName: string;
+  heroNameKey: string;
+};
+
+/** Parse the optional `window` slash option for `/hero_all`. */
+export function parseHeroAllStatsWindows(raw: string | null): HeroAllStatsWindow[] {
+  if (raw === 'last20') {
+    return ['last20'];
+  }
+  if (raw === 'overall') {
+    return ['overall'];
+  }
+  return ['last20', 'overall'];
+}
+
 const TOP_PLAYERS_LIMIT = 5;
 const TOP_PLAYERS_MIN_GAMES = 3;
 
@@ -90,8 +134,8 @@ export function normalizeHeroNameKey(name: string): string {
   return name.trim().toLowerCase();
 }
 
-/** Keep rows from the 10 most recent distinct matches in the set. */
-export function filterRowsToLast10Matches(rows: HeroStatsRow[]): HeroStatsRow[] {
+/** Keep rows from the N most recent distinct matches in the set. */
+export function filterRowsToLastNMatches(rows: HeroStatsRow[], matchCount: number): HeroStatsRow[] {
   const matchCompletedAt = new Map<string, number>();
   for (const row of rows) {
     const ms = row.completedAt?.getTime() ?? 0;
@@ -101,14 +145,19 @@ export function filterRowsToLast10Matches(rows: HeroStatsRow[]): HeroStatsRow[] 
     }
   }
 
-  const last10MatchIds = new Set(
+  const lastMatchIds = new Set(
     [...matchCompletedAt.entries()]
       .sort((left, right) => right[1] - left[1])
-      .slice(0, 10)
+      .slice(0, matchCount)
       .map(([matchId]) => matchId),
   );
 
-  return rows.filter((row) => last10MatchIds.has(row.matchId));
+  return rows.filter((row) => lastMatchIds.has(row.matchId));
+}
+
+/** Keep rows from the 10 most recent distinct matches in the set. */
+export function filterRowsToLast10Matches(rows: HeroStatsRow[]): HeroStatsRow[] {
+  return filterRowsToLastNMatches(rows, 10);
 }
 
 function formatKda(kills: number, deaths: number): string {
@@ -451,6 +500,241 @@ export async function loadHeroPlayerRankings(input: {
   return {
     heroDisplayName: selection.displayName,
     sort: input.sort,
+    windows,
+  };
+}
+
+/** Bucket league-wide rows by hero display name key. */
+export function bucketRowsByHero(rows: HeroAllStatsRow[]): Map<string, HeroAllStatsRow[]> {
+  const buckets = new Map<string, HeroAllStatsRow[]>();
+  for (const row of rows) {
+    const bucket = buckets.get(row.heroNameKey);
+    if (bucket) {
+      bucket.push(row);
+    } else {
+      buckets.set(row.heroNameKey, [row]);
+    }
+  }
+  return buckets;
+}
+
+/** Aggregate combat stats for one hero's player-game rows. */
+export function aggregateHeroAllEntry(
+  heroDisplayName: string,
+  rows: HeroStatsRow[],
+): HeroAllEntry | null {
+  if (rows.length === 0) {
+    return null;
+  }
+
+  let wins = 0;
+  let losses = 0;
+  for (const row of rows) {
+    if (row.result === MatchResult.WIN) {
+      wins += 1;
+    } else {
+      losses += 1;
+    }
+  }
+
+  const games = wins + losses;
+  return {
+    heroDisplayName,
+    games,
+    wins,
+    losses,
+    winRatePercent: winRatePercent(wins, losses) ?? 0,
+    avgDamage: Math.round(mean(rows.map((entry) => entry.damageTotal))),
+    avgTaken: Math.round(mean(rows.map((entry) => entry.takenTotal))),
+    avgHeal: Math.round(mean(rows.map((entry) => entry.heal))),
+  };
+}
+
+function compareHeroDisplayNames(left: HeroAllEntry, right: HeroAllEntry): number {
+  return left.heroDisplayName.localeCompare(right.heroDisplayName);
+}
+
+/** Rank heroes for one stats window. */
+export function rankAllHeroes(entries: HeroAllEntry[], sort: HeroAllSort): HeroAllEntry[] {
+  const ranked = [...entries];
+  ranked.sort((left, right) => {
+    switch (sort) {
+      case 'games':
+        return (
+          right.games - left.games ||
+          right.winRatePercent - left.winRatePercent ||
+          compareHeroDisplayNames(left, right)
+        );
+      case 'damage':
+        return (
+          right.avgDamage - left.avgDamage ||
+          right.games - left.games ||
+          compareHeroDisplayNames(left, right)
+        );
+      case 'taken':
+        return (
+          right.avgTaken - left.avgTaken ||
+          right.games - left.games ||
+          compareHeroDisplayNames(left, right)
+        );
+      case 'heal':
+        return (
+          right.avgHeal - left.avgHeal ||
+          right.games - left.games ||
+          compareHeroDisplayNames(left, right)
+        );
+      case 'win_rate':
+      default:
+        return (
+          right.winRatePercent - left.winRatePercent ||
+          right.games - left.games ||
+          compareHeroDisplayNames(left, right)
+        );
+    }
+  });
+  return ranked;
+}
+
+function aggregateAllHeroEntries(rows: HeroAllStatsRow[]): HeroAllEntry[] {
+  const entries: HeroAllEntry[] = [];
+  for (const [, heroRows] of bucketRowsByHero(rows)) {
+    const entry = aggregateHeroAllEntry(heroRows[0]!.heroDisplayName, heroRows);
+    if (entry && entry.games >= 1) {
+      entries.push(entry);
+    }
+  }
+  return entries;
+}
+
+function paginateHeroAllEntries(
+  entries: HeroAllEntry[],
+  page: number,
+): { page: number; totalPages: number; totalHeroes: number; entries: HeroAllEntry[] } {
+  const totalHeroes = entries.length;
+  const totalPages = Math.max(1, Math.ceil(totalHeroes / HERO_ALL_PAGE_SIZE));
+  const safePage = clampMatchHistoryPage(page, totalPages);
+  const start = (safePage - 1) * HERO_ALL_PAGE_SIZE;
+  return {
+    page: safePage,
+    totalPages,
+    totalHeroes,
+    entries: entries.slice(start, start + HERO_ALL_PAGE_SIZE),
+  };
+}
+
+async function loadLeagueHeroAllRows(input: {
+  leagueId: string;
+  gameId: string;
+}): Promise<HeroAllStatsRow[]> {
+  const rows = await prisma.matchPlayer.findMany({
+    where: {
+      result: { in: [MatchResult.WIN, MatchResult.LOSS] },
+      match: { leagueId: input.leagueId, status: MatchStatus.COMPLETED },
+      stats: { heroName: { not: null } },
+    },
+    select: {
+      playerId: true,
+      result: true,
+      matchId: true,
+      player: { select: { username: true } },
+      match: { select: { completedAt: true } },
+      stats: {
+        select: {
+          heroName: true,
+          heroObjectId: true,
+          damageTotal: true,
+          takenTotal: true,
+          heal: true,
+          kills: true,
+          deaths: true,
+        },
+      },
+    },
+  });
+
+  const objectIds = new Set<number>();
+  for (const row of rows) {
+    const objectId = row.stats?.heroObjectId;
+    if (objectId != null) {
+      objectIds.add(objectId);
+    }
+  }
+  const catalogNames = await resolveHeroDisplayNames(input.gameId, [...objectIds]);
+
+  const mapped: HeroAllStatsRow[] = [];
+  for (const row of rows) {
+    if (row.result !== MatchResult.WIN && row.result !== MatchResult.LOSS) {
+      continue;
+    }
+    const stats = row.stats;
+    if (!stats?.heroName?.trim()) {
+      continue;
+    }
+
+    const heroDisplayName = formatHeroDisplayName(stats.heroObjectId, catalogNames, stats.heroName);
+    mapped.push({
+      matchId: row.matchId,
+      playerId: row.playerId,
+      username: row.player.username,
+      result: row.result,
+      completedAt: row.match.completedAt,
+      damageTotal: stats.damageTotal,
+      takenTotal: stats.takenTotal,
+      heal: stats.heal,
+      kills: stats.kills,
+      deaths: stats.deaths,
+      heroDisplayName,
+      heroNameKey: normalizeHeroNameKey(heroDisplayName),
+    });
+  }
+
+  return mapped;
+}
+
+/** Load sortable, paginated league-wide hero rankings. */
+export async function loadAllHeroRankings(input: {
+  leagueId: string;
+  gameId: string;
+  sort: HeroAllSort;
+  windows: HeroAllStatsWindow[];
+  page: number;
+}): Promise<HeroAllRankingsResult> {
+  const allRows = await loadLeagueHeroAllRows(input);
+  const windowRows: Partial<Record<HeroAllStatsWindow, HeroAllStatsRow[]>> = {};
+
+  if (input.windows.includes('overall')) {
+    windowRows.overall = allRows;
+  }
+  if (input.windows.includes('last20')) {
+    windowRows.last20 = filterRowsToLastNMatches(allRows, 20) as HeroAllStatsRow[];
+  }
+
+  const windows: Partial<Record<HeroAllStatsWindow, HeroAllEntry[]>> = {};
+  let page = 1;
+  let totalPages = 1;
+  let totalHeroes = 0;
+
+  const metadataWindow: HeroAllStatsWindow = input.windows.includes('overall')
+    ? 'overall'
+    : (input.windows[0] ?? 'overall');
+
+  for (const window of input.windows) {
+    const rows = windowRows[window] ?? [];
+    const ranked = rankAllHeroes(aggregateAllHeroEntries(rows), input.sort);
+    const paginated = paginateHeroAllEntries(ranked, input.page);
+    windows[window] = paginated.entries;
+    if (window === metadataWindow) {
+      page = paginated.page;
+      totalPages = paginated.totalPages;
+      totalHeroes = paginated.totalHeroes;
+    }
+  }
+
+  return {
+    sort: input.sort,
+    page,
+    totalPages,
+    totalHeroes,
     windows,
   };
 }

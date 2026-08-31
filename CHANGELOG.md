@@ -1,3 +1,9 @@
+## [Unreleased]
+
+### Features
+
+* **wos:** `/hero_all` — league-wide sortable hero rankings (last 20 / overall, paginated); `/items` gains `sort` (buy / WR / picks)
+
 ## [1.44.2](https://github.com/chmieleski/trueskill-bot/compare/v1.44.1...v1.44.2) (2026-08-31)
 
 
