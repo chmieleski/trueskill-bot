@@ -1,3 +1,11 @@
+## [1.47.1](https://github.com/chmieleski/trueskill-bot/compare/v1.47.0...v1.47.1) (2026-08-31)
+
+
+### Bug Fixes
+
+* **match:** align /match show stats UI with completed log embeds ([#148](https://github.com/chmieleski/trueskill-bot/issues/148)) ([4f3e48b](https://github.com/chmieleski/trueskill-bot/commit/4f3e48baa40b5fe24cb1fe922875558ed86303f3))
+* **match:** post void updates to completed match log channel ([#147](https://github.com/chmieleski/trueskill-bot/issues/147)) ([ec54e10](https://github.com/chmieleski/trueskill-bot/commit/ec54e105018ced63413816b62f9dc2f0c41eaa58))
+
 # [1.47.0](https://github.com/chmieleski/trueskill-bot/compare/v1.46.0...v1.47.0) (2026-08-31)
 
 
