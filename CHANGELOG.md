@@ -1,3 +1,10 @@
+## [1.43.1](https://github.com/chmieleski/trueskill-bot/compare/v1.43.0...v1.43.1) (2026-08-31)
+
+
+### Bug Fixes
+
+* **wos:** reject duplicate WOS bot report uploads ([#135](https://github.com/chmieleski/trueskill-bot/issues/135)) ([d595a21](https://github.com/chmieleski/trueskill-bot/commit/d595a21cc8bb41ccfcbcdd684e9b004bcc01e543))
+
 # [1.43.0](https://github.com/chmieleski/trueskill-bot/compare/v1.42.0...v1.43.0) (2026-08-31)
 
 
