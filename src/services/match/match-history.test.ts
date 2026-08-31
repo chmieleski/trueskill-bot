@@ -14,6 +14,7 @@ const {
   getMatchById,
   listLeaguesForGuild,
   buildMatchCompletedEmbed,
+  resolveHeroDisplayNames,
 } = vi.hoisted(() => ({
   playerFindUnique: vi.fn(),
   playerFindMany: vi.fn(),
@@ -28,6 +29,7 @@ const {
   getMatchById: vi.fn(),
   listLeaguesForGuild: vi.fn(),
   buildMatchCompletedEmbed: vi.fn(),
+  resolveHeroDisplayNames: vi.fn(),
 }));
 
 vi.mock('../../lib/prisma.js', () => ({
@@ -51,6 +53,24 @@ vi.mock('../../lib/prisma.js', () => ({
 
 vi.mock('../guild/hero-catalog.js', () => ({
   loadHeroCatalog: vi.fn(async () => [{ id: 1, name: 'Goku', color: null }]),
+}));
+
+vi.mock('../game/game-hero-catalog.js', () => ({
+  formatHeroDisplayName: (
+    objectId: number | null | undefined,
+    names: Map<number, string>,
+    fallback: string | null | undefined,
+  ) => {
+    if (objectId != null) {
+      const catalogName = names.get(objectId);
+      if (catalogName) {
+        return catalogName;
+      }
+    }
+    const trimmed = fallback?.trim();
+    return trimmed && trimmed.length > 0 ? trimmed : 'Unknown hero';
+  },
+  resolveHeroDisplayNames,
 }));
 
 vi.mock('../league/league-profile.js', () => ({
@@ -105,6 +125,7 @@ import {
   loadMatchHistoryPage,
   parseMatchHistoryPageCustomId,
   resolveHistoryPlayer,
+  resolveMatchHistoryHeroName,
   winningTeamFromPlayers,
 } from './match-history.js';
 import { CALIBRATING_LABEL } from '../rating/rating-math.js';
@@ -388,6 +409,31 @@ describe('resolveHistoryPlayer', () => {
   });
 });
 
+describe('resolveMatchHistoryHeroName', () => {
+  const heroNameById = new Map([[1, 'Goku']]);
+  const gameHeroNames = new Map([[1211117616, 'Raiden']]);
+
+  it('prefers uploaded stats over slot-bound catalog', () => {
+    expect(
+      resolveMatchHistoryHeroName(
+        {
+          heroId: 1,
+          stats: { heroName: 'Raiden Ei', heroObjectId: 1211117616 },
+        },
+        heroNameById,
+        gameHeroNames,
+        'warcraft3_wos',
+      ),
+    ).toBe('Raiden');
+  });
+
+  it('falls back to Hero catalog when stats are absent', () => {
+    expect(
+      resolveMatchHistoryHeroName({ heroId: 1, stats: null }, heroNameById, gameHeroNames, null),
+    ).toBe('Goku');
+  });
+});
+
 describe('loadMatchHistoryPage', () => {
   beforeEach(() => {
     matchFindMany.mockReset();
@@ -396,10 +442,14 @@ describe('loadMatchHistoryPage', () => {
     matchPlayerGroupBy.mockReset();
     matchPlayerFindMany.mockReset();
     playerRankResetFindMany.mockReset();
+    leagueFindUnique.mockReset();
+    resolveHeroDisplayNames.mockReset();
     matchRatingSnapshotFindMany.mockResolvedValue([]);
     matchPlayerGroupBy.mockResolvedValue([]);
     matchPlayerFindMany.mockResolvedValue([]);
     playerRankResetFindMany.mockResolvedValue([]);
+    leagueFindUnique.mockResolvedValue(null);
+    resolveHeroDisplayNames.mockResolvedValue(new Map());
   });
 
   it('returns empty page 1 when no matches', async () => {
@@ -521,6 +571,49 @@ describe('loadMatchHistoryPage', () => {
       heroName: 'Goku',
       globalDelta: undefined,
     });
+  });
+
+  it('uses match stats hero name for WOS when heroId is null', async () => {
+    leagueFindUnique.mockResolvedValue({ gameId: 'warcraft3_wos' });
+    resolveHeroDisplayNames.mockResolvedValue(new Map([[1211117616, 'Raiden']]));
+    matchCount.mockResolvedValue(1);
+    matchFindMany.mockResolvedValue([
+      {
+        id: 'm-wos',
+        leagueId: 'L-wos',
+        status: 'COMPLETED',
+        completedAt: new Date('2026-08-10T00:00:00.000Z'),
+        updatedAt: new Date('2026-08-10T00:00:00.000Z'),
+        createdAt: new Date('2026-08-10T00:00:00.000Z'),
+        players: [
+          {
+            playerId: 'P1',
+            team: 1,
+            result: 'WIN',
+            heroId: null,
+            isQuitter: false,
+            isGriefer: false,
+            grieferKiAccrued: null,
+            slot: 3,
+            player: { username: 'alice' },
+            stats: {
+              heroName: 'Raiden Ei',
+              heroObjectId: 1211117616,
+            },
+          },
+        ],
+      },
+    ]);
+
+    const page = await loadMatchHistoryPage({
+      leagueId: 'L-wos',
+      playerId: 'P1',
+      username: 'alice',
+      page: 1,
+    });
+
+    expect(page.rows[0]?.heroName).toBe('Raiden');
+    expect(resolveHeroDisplayNames).toHaveBeenCalledWith('warcraft3_wos', [1211117616]);
   });
 
   it('uses post-reset game count so calibrating rows hide ki delta', async () => {
