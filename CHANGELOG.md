@@ -1,3 +1,15 @@
+# [1.47.0](https://github.com/chmieleski/trueskill-bot/compare/v1.46.0...v1.47.0) (2026-08-31)
+
+
+### Bug Fixes
+
+* **league:** keep match moderator chat in moderated channels ([#146](https://github.com/chmieleski/trueskill-bot/issues/146)) ([3ea07be](https://github.com/chmieleski/trueskill-bot/commit/3ea07beedba47700cf51eb004d9992504bd58b84))
+
+
+### Features
+
+* **wos:** widen hero and item stats window to last 20 games ([#145](https://github.com/chmieleski/trueskill-bot/issues/145)) ([0a66e96](https://github.com/chmieleski/trueskill-bot/commit/0a66e9688ba9f88a36d0a94955d39406e75fc659))
+
 # [1.46.0](https://github.com/chmieleski/trueskill-bot/compare/v1.45.1...v1.46.0) (2026-08-31)
 
 
