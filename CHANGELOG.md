@@ -3,6 +3,12 @@
 ### Features
 
 * **wos:** `/hero_all` — league-wide sortable hero rankings (last 20 / overall, paginated); `/items` gains `sort` (buy / WR / picks)
+## [1.44.3](https://github.com/chmieleski/trueskill-bot/compare/v1.44.2...v1.44.3) (2026-08-31)
+
+
+### Bug Fixes
+
+* **rating:** count excess New at 80% strength in lobby win% ([#141](https://github.com/chmieleski/trueskill-bot/issues/141)) ([b940ce3](https://github.com/chmieleski/trueskill-bot/commit/b940ce379bac58fab446a06d909656a516e294f5))
 
 ## [1.44.2](https://github.com/chmieleski/trueskill-bot/compare/v1.44.1...v1.44.2) (2026-08-31)
 
