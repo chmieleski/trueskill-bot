@@ -57,7 +57,7 @@ function assertBothTeamsInReport(report: Wos2BotReport): void {
   }
 }
 
-/** Build lobby roster from a parsed WOS2 bot report (team-aware; quitters pre-flagged). */
+/** Build lobby roster from a parsed WOS2 bot report (team-aware slot mapping). */
 export function lobbyPlayersFromWos2Report(
   report: Wos2BotReport,
   profile: GameProfile,
@@ -76,7 +76,6 @@ export function lobbyPlayersFromWos2Report(
     players.push({
       slot,
       nick: normalizeNick(reportPlayer.name),
-      ...(reportPlayer.left ? { isQuitter: true } : {}),
     });
   }
 

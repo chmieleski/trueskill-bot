@@ -11,7 +11,7 @@ export interface LobbyPlayer {
   nick: string;
   /** Soft lock for balance hints + shuffle; omitted/false = unlocked. */
   locked?: boolean;
-  /** Pre-flag quitter from bot report (`left=1`); omitted/false = not a quitter. */
+  /** Quitter flag when creating a roster; host/mods set via report flow. */
   isQuitter?: boolean;
 }
 
