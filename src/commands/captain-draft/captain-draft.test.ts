@@ -105,4 +105,18 @@ describe('captain_draft command data', () => {
     expect(channel?.required).toBeFalsy();
     expect(channel?.type).toBe(ApplicationCommandOptionType.Channel);
   });
+
+  it('exposes optional league autocomplete on start, captains, and members', () => {
+    const json = data.toJSON();
+
+    for (const subcommandName of ['start', 'captains', 'members'] as const) {
+      const subcommand = json.options?.find((option) => option.name === subcommandName);
+      const options = subcommand && 'options' in subcommand ? (subcommand.options ?? []) : [];
+      const league = options.find((option) => option.name === 'league');
+
+      expect(league?.autocomplete).toBe(true);
+      expect(league?.required).toBeFalsy();
+      expect(league?.type).toBe(ApplicationCommandOptionType.String);
+    }
+  });
 });

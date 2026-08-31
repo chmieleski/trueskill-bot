@@ -33,13 +33,19 @@ import {
 } from '../../services/captain-draft/index.js';
 import { assertCaptainDraftMod } from '../../services/captain-draft/draft-auth.js';
 import { resolveGuildConfig } from '../../services/guild/index.js';
-import { resolveLeagueFromInteraction } from '../../services/league/index.js';
+import {
+  getLeagueOption,
+  resolveLeagueIdFromInteraction,
+  respondLeagueAutocomplete,
+  withSubcommandLeagueOption,
+} from '../../services/league/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
 import type { DraftParticipant, DraftState } from '../../services/captain-draft/index.js';
 
 const log = createLogger('captain_draft_cmd');
 
 const PLAYER_AUTOCOMPLETE_LIMIT = 25;
+const POOL_ONLY_PLAYER_SUBCOMMANDS = new Set(['pick', 'force_pick']);
 
 function configurePlayerOption(
   option: SlashCommandStringOption,
@@ -58,31 +64,37 @@ export const data = new SlashCommandBuilder()
   .setName('captain_draft')
   .setDescription('Run a captain snake draft for tournament team picking')
   .addSubcommand((subcommand) =>
-    subcommand
-      .setName('start')
-      .setDescription('Create a captain draft in this channel (mods only)'),
+    withSubcommandLeagueOption(
+      subcommand
+        .setName('start')
+        .setDescription('Create a captain draft in this channel (mods only)'),
+    ),
   )
   .addSubcommand((subcommand) =>
-    subcommand
-      .setName('captains')
-      .setDescription('Set the captain list during setup (mods only)')
-      .addStringOption((option) =>
-        option
-          .setName('players')
-          .setDescription('Captains: @mentions and/or comma-separated nicks')
-          .setRequired(true),
-      ),
+    withSubcommandLeagueOption(
+      subcommand
+        .setName('captains')
+        .setDescription('Set the captain list during setup (mods only)')
+        .addStringOption((option) =>
+          option
+            .setName('players')
+            .setDescription('Captains: @mentions and/or comma-separated nicks')
+            .setRequired(true),
+        ),
+    ),
   )
   .addSubcommand((subcommand) =>
-    subcommand
-      .setName('members')
-      .setDescription('Set the member pool during setup (mods only)')
-      .addStringOption((option) =>
-        option
-          .setName('players')
-          .setDescription('Members: @mentions and/or comma-separated nicks')
-          .setRequired(true),
-      ),
+    withSubcommandLeagueOption(
+      subcommand
+        .setName('members')
+        .setDescription('Set the member pool during setup (mods only)')
+        .addStringOption((option) =>
+          option
+            .setName('players')
+            .setDescription('Members: @mentions and/or comma-separated nicks')
+            .setRequired(true),
+        ),
+    ),
   )
   .addSubcommand((subcommand) =>
     subcommand
@@ -166,11 +178,30 @@ export const data = new SlashCommandBuilder()
       .addStringOption((option) => configurePlayerOption(option, 'player', 'Player to draft')),
   );
 
-async function resolveLeagueId(
+async function resolveLeagueIdOrThrow(
   interaction: ChatInputCommandInteraction,
 ): Promise<string | undefined> {
-  const resolved = await resolveLeagueFromInteraction(interaction);
-  return resolved.ok ? resolved.league.id : undefined;
+  const resolved = await resolveLeagueIdFromInteraction(interaction, getLeagueOption(interaction));
+  if (!resolved.ok) {
+    throw new CaptainDraftError(resolved.message);
+  }
+  return resolved.leagueId;
+}
+
+async function resolveGameIdForSetup(
+  interaction: ChatInputCommandInteraction,
+  draftLeagueId: string | null,
+): Promise<string | null> {
+  const leagueOpt = getLeagueOption(interaction);
+  if (leagueOpt) {
+    const resolved = await resolveLeagueIdFromInteraction(interaction, leagueOpt);
+    if (!resolved.ok) {
+      throw new CaptainDraftError(resolved.message);
+    }
+    return gameIdForLeague(resolved.leagueId);
+  }
+
+  return gameIdForLeague(draftLeagueId);
 }
 
 async function gameIdForLeague(leagueId: string | null | undefined): Promise<string | null> {
@@ -263,8 +294,9 @@ function teamAutocompleteChoices(state: DraftState, query: string) {
   return filterAutocompleteChoices(choices, query);
 }
 
-function playerAutocompleteChoices(state: DraftState, query: string) {
-  const choices = collectAutocompletePlayers(state).map((player) => ({
+function playerAutocompleteChoices(state: DraftState, query: string, poolOnly = false) {
+  const players = poolOnly ? state.memberPool : collectAutocompletePlayers(state);
+  const choices = players.map((player) => ({
     name: player.label.slice(0, 100),
     value: player.key,
   }));
@@ -307,6 +339,10 @@ function findCaptainKeyForActor(state: DraftState, actorDiscordId: string): stri
 }
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
+  if (await respondLeagueAutocomplete(interaction)) {
+    return;
+  }
+
   if (!interaction.guildId || !interaction.channelId) {
     await interaction.respond([]);
     return;
@@ -323,6 +359,8 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
   const state = parseDraftState(draft);
   const focused = interaction.options.getFocused(true);
   const query = focused.value;
+  const subcommand = interaction.options.getSubcommand(false);
+  const poolOnly = subcommand ? POOL_ONLY_PLAYER_SUBCOMMANDS.has(subcommand) : false;
 
   if (focused.name === 'team') {
     await interaction.respond(teamAutocompleteChoices(state, query));
@@ -330,7 +368,7 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
   }
 
   if (focused.name === 'player' || focused.name === 'player_a' || focused.name === 'player_b') {
-    await interaction.respond(playerAutocompleteChoices(state, query));
+    await interaction.respond(playerAutocompleteChoices(state, query, poolOnly));
     return;
   }
 
@@ -353,7 +391,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     if (subcommand === 'start') {
       await requireMod(interaction);
-      const leagueId = await resolveLeagueId(interaction);
+      const leagueId = await resolveLeagueIdOrThrow(interaction);
       const draft = await startCaptainDraft({
         guildId,
         channelId,
@@ -369,7 +407,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (subcommand === 'captains') {
       await requireMod(interaction);
       const draft = await loadActiveDraftForChannel(guildId, channelId);
-      const gameId = await gameIdForLeague(draft.leagueId);
+      const gameId = await resolveGameIdForSetup(interaction, draft.leagueId);
       const updated = await setCaptains({
         draftId: draft.id,
         guild,
@@ -386,7 +424,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (subcommand === 'members') {
       await requireMod(interaction);
       const draft = await loadActiveDraftForChannel(guildId, channelId);
-      const gameId = await gameIdForLeague(draft.leagueId);
+      const gameId = await resolveGameIdForSetup(interaction, draft.leagueId);
       const updated = await setMembers({
         draftId: draft.id,
         guild,
