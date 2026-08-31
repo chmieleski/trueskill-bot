@@ -9,6 +9,7 @@ export {
   type Wos2BotReportPlayer,
 } from './wos2-bot-report-parser.js';
 export {
+  botSlotFromReportPlayer,
   lobbyPlayersFromWos2Report,
   wc3statsPidToBotSlot,
   Wos2ReportRosterError,

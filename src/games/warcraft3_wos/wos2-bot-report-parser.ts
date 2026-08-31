@@ -11,6 +11,10 @@ export type Wos2BotReportPlayer = {
   name: string;
   team: 1 | 2;
   win: boolean;
+  /** True when the player left before the match ended (`left=1`). */
+  left: boolean;
+  /** In-game team position (1–N per side); preferred for bot slot when present. */
+  teamSlot: number | null;
   heroObjectId: number | null;
   heroName: string | null;
   kills: number;
@@ -48,6 +52,8 @@ type PartialPlayer = {
   name?: string;
   team?: 1 | 2;
   win?: boolean;
+  left?: boolean;
+  teamSlot?: number | null;
   heroObjectId?: number | null;
   heroName?: string | null;
   kills?: number;
@@ -144,6 +150,16 @@ function parseWin(raw: string | undefined, context: string): boolean {
   throw new Wos2BotReportParseError(`Invalid win flag on ${context}: ${raw ?? ''}`);
 }
 
+function parseLeft(raw: string | undefined, context: string): boolean {
+  if (raw === undefined || raw === '0') {
+    return false;
+  }
+  if (raw === '1') {
+    return true;
+  }
+  throw new Wos2BotReportParseError(`Invalid left flag on ${context}: ${raw}`);
+}
+
 function playerKey(index: number, pid: number): string {
   return `${index}:${pid}`;
 }
@@ -219,6 +235,8 @@ function finalizePlayer(partial: PartialPlayer): Wos2BotReportPlayer {
     name: partial.name.trim(),
     team: partial.team,
     win: partial.win,
+    left: partial.left ?? false,
+    teamSlot: partial.teamSlot ?? null,
     heroObjectId: partial.heroObjectId ?? null,
     heroName: partial.heroName ?? null,
     kills: partial.kills!,
@@ -273,6 +291,8 @@ export function parseWos2BotReport(rawText: string): Wos2BotReport {
         player.name = fields.get('name') ?? player.name;
         player.team = parseTeam(fields.get('team'), `PLAYER n=${index}`);
         player.win = parseWin(fields.get('win'), `PLAYER n=${index}`);
+        player.left = parseLeft(fields.get('left'), `PLAYER n=${index}`);
+        player.teamSlot = optionalInt(fields, 'team_slot');
         const heroId = optionalInt(fields, 'hero_id');
         player.heroObjectId = heroId === 0 ? null : heroId;
         player.heroName = fields.get('hero_name') ?? player.heroName ?? null;
