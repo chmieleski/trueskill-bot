@@ -26,6 +26,8 @@ describe('parseWos2BotReport', () => {
       name: 'Chmieleski#1941',
       team: 1,
       win: false,
+      left: false,
+      teamSlot: null,
       heroName: 'Raiden Ei',
       kills: 1,
       deaths: 10,
@@ -63,6 +65,24 @@ describe('parseWos2BotReport', () => {
     expect(() => parseWos2BotReport('ID|value=abc|format=OTHER|scope=MATCH\nEND|id=abc')).toThrow(
       Wos2BotReportParseError,
     );
+  });
+
+  it('parses schema 2 player rows with team_slot and left', () => {
+    const report = parseWos2BotReport(
+      'ID|value=abc|format=WOS2_BOT_V1|scope=MATCH\n' +
+        'MATCH|team1_rounds=2|team2_rounds=10|players=3|schema=2\n' +
+        'PLAYER|n=2|pid=1|name=LavaShark#211786|team=1|win=0|left=1|team_slot=2\n' +
+        'STATS|n=2|pid=1|kills=1|deaths=9|damage_phys=0|damage_magic=0|damage_total=0|heal=0|taken_phys=0|taken_magic=0|taken_total=0\n' +
+        'ITEMS|n=2|pid=1|slot1=0|slot2=0|slot3=0|slot4=0|slot5=0|slot6=0\n' +
+        'END|id=abc',
+    );
+
+    expect(report.players[0]).toMatchObject({
+      name: 'LavaShark#211786',
+      team: 1,
+      left: true,
+      teamSlot: 2,
+    });
   });
 
   it('rejects mismatched END id', () => {

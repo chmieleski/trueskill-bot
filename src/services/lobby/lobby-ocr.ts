@@ -11,6 +11,8 @@ export interface LobbyPlayer {
   nick: string;
   /** Soft lock for balance hints + shuffle; omitted/false = unlocked. */
   locked?: boolean;
+  /** Pre-flag quitter from bot report (`left=1`); omitted/false = not a quitter. */
+  isQuitter?: boolean;
 }
 
 export interface ValidatedLobby {
