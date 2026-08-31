@@ -12,11 +12,20 @@ export { buildItemStatsEmbed } from './item-stats-embed.js';
 export {
   loadHeroStats,
   loadHeroPlayerRankings,
+  loadHeroGameRowsBySelection,
   parseStatsWindows,
   type HeroPlayerSort,
   type HeroPlayersResult,
   type HeroStatsResult,
 } from './hero-stats.js';
+export {
+  buildHeroMatchesEmbed,
+  buildHeroMatchesPageButtons,
+  encodeHeroMatchesHeroToken,
+  loadHeroMatchesPage,
+  parseHeroMatchesPageCustomId,
+  type HeroMatchesPage,
+} from './hero-matches.js';
 export { loadItemStats, type ItemStatsResult } from './item-stats.js';
 export { listWosHeroNamesForLeague } from './wos-hero-names.js';
 export { loadTeammateStats, type TeammatePairStats, type TeammateStats } from './teammate-stats.js';
