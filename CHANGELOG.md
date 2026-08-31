@@ -1,3 +1,10 @@
+## [1.41.2](https://github.com/chmieleski/trueskill-bot/compare/v1.41.1...v1.41.2) (2026-08-31)
+
+
+### Bug Fixes
+
+* **wos:** resolve match history heroes from uploaded stats ([#131](https://github.com/chmieleski/trueskill-bot/issues/131)) ([74f4829](https://github.com/chmieleski/trueskill-bot/commit/74f4829fa4e4d9744ec57ccc86b65d3f6bd3a126))
+
 ## [1.41.1](https://github.com/chmieleski/trueskill-bot/compare/v1.41.0...v1.41.1) (2026-08-29)
 
 
