@@ -3,8 +3,13 @@ import { prisma } from '../../lib/prisma.js';
 import { formatItemDisplayName, resolveItemNames } from '../game/game-item-catalog.js';
 import { resolveHeroSelection, statsRowMatchesHeroSelection } from '../game/game-hero-catalog.js';
 import { winRatePercent } from '../rating/rank-reset-display.js';
+import {
+  filterRowsToLastNMatches,
+  STATS_RECENT_MATCH_COUNT,
+  type StatsWindow,
+} from './hero-stats.js';
 
-export type StatsWindow = 'last10' | 'overall';
+export type { StatsWindow } from './hero-stats.js';
 
 export type ItemStatsRow = {
   matchId: string;
@@ -117,26 +122,6 @@ export function aggregateItemWindowStats(
   return sortItemWindowEntries(entries, sort).slice(0, TOP_ITEMS_LIMIT);
 }
 
-function filterRowsToLast10Matches(rows: ItemStatsRow[]): ItemStatsRow[] {
-  const matchCompletedAt = new Map<string, number>();
-  for (const row of rows) {
-    const ms = row.completedAt?.getTime() ?? 0;
-    const existing = matchCompletedAt.get(row.matchId);
-    if (existing === undefined || ms > existing) {
-      matchCompletedAt.set(row.matchId, ms);
-    }
-  }
-
-  const last10MatchIds = new Set(
-    [...matchCompletedAt.entries()]
-      .sort((left, right) => right[1] - left[1])
-      .slice(0, 10)
-      .map(([matchId]) => matchId),
-  );
-
-  return rows.filter((row) => last10MatchIds.has(row.matchId));
-}
-
 /** Load item buy-rate stats for a league, optionally filtered to one hero. */
 export async function loadItemStats(input: {
   leagueId: string;
@@ -206,8 +191,12 @@ export async function loadItemStats(input: {
   if (input.windows.includes('overall')) {
     windows.overall = aggregateItemWindowStats(mapped, names, sort);
   }
-  if (input.windows.includes('last10')) {
-    windows.last10 = aggregateItemWindowStats(filterRowsToLast10Matches(mapped), names, sort);
+  if (input.windows.includes('last20')) {
+    windows.last20 = aggregateItemWindowStats(
+      filterRowsToLastNMatches(mapped, STATS_RECENT_MATCH_COUNT),
+      names,
+      sort,
+    );
   }
 
   return {

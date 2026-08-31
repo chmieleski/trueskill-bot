@@ -2,13 +2,15 @@ import { MatchResult } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
 import {
   aggregateHeroWindowStats,
-  filterRowsToLast10Matches,
+  filterRowsToLast20Matches,
   filterRowsToLastNMatches,
   normalizeHeroNameKey,
   parseHeroAllStatsWindows,
+  parseStatsWindows,
   pickRecentHeroGames,
   rankAllHeroes,
   rankHeroPlayers,
+  STATS_RECENT_MATCH_COUNT,
   type HeroAllEntry,
   type HeroStatsRow,
 } from './hero-stats.js';
@@ -34,19 +36,28 @@ describe('normalizeHeroNameKey', () => {
   });
 });
 
-describe('filterRowsToLast10Matches', () => {
-  it('keeps only rows from the 10 newest match ids', () => {
-    const rows = Array.from({ length: 12 }, (_, index) =>
+describe('filterRowsToLast20Matches', () => {
+  it('keeps only rows from the 20 newest match ids', () => {
+    const rows = Array.from({ length: 25 }, (_, index) =>
       row({
         matchId: `m${index}`,
         completedAt: new Date(`2026-01-${String(index + 1).padStart(2, '0')}T00:00:00Z`),
       }),
     );
-    const filtered = filterRowsToLast10Matches(rows);
+    const filtered = filterRowsToLast20Matches(rows);
     const matchIds = new Set(filtered.map((entry) => entry.matchId));
-    expect(matchIds.size).toBe(10);
-    expect(matchIds.has('m11')).toBe(true);
+    expect(matchIds.size).toBe(20);
+    expect(matchIds.has('m24')).toBe(true);
     expect(matchIds.has('m0')).toBe(false);
+  });
+});
+describe('parseStatsWindows', () => {
+  it('defaults to both windows', () => {
+    expect(parseStatsWindows(null)).toEqual(['last20', 'overall']);
+  });
+
+  it('parses last20 only', () => {
+    expect(parseStatsWindows('last20')).toEqual(['last20']);
   });
 });
 describe('filterRowsToLastNMatches', () => {
@@ -57,7 +68,7 @@ describe('filterRowsToLastNMatches', () => {
         completedAt: new Date(`2026-01-${String(index + 1).padStart(2, '0')}T00:00:00Z`),
       }),
     );
-    const filtered = filterRowsToLastNMatches(rows, 20);
+    const filtered = filterRowsToLastNMatches(rows, STATS_RECENT_MATCH_COUNT);
     const matchIds = new Set(filtered.map((entry) => entry.matchId));
     expect(matchIds.size).toBe(20);
     expect(matchIds.has('m24')).toBe(true);

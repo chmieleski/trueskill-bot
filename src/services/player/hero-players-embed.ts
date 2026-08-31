@@ -17,7 +17,7 @@ const SORT_LABELS: Record<HeroPlayerSort, string> = {
 };
 
 function formatPlayersWindowLabel(window: StatsWindow): string {
-  return window === 'last10' ? 'Last 10 games' : 'Overall';
+  return window === 'last20' ? 'Last 20 games' : 'Overall';
 }
 
 function formatRankedPlayer(rank: number, player: HeroRankedPlayer): string {
@@ -49,7 +49,7 @@ export function buildHeroPlayersEmbed(
     embed.setDescription(options.leagueName);
   }
 
-  const windowOrder: StatsWindow[] = ['last10', 'overall'];
+  const windowOrder: StatsWindow[] = ['last20', 'overall'];
   for (const window of windowOrder) {
     const players = result.windows[window];
     if (!players) {

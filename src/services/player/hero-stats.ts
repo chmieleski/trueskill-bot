@@ -14,17 +14,20 @@ import {
   winRatePercent,
 } from '../rating/rank-reset-display.js';
 
-export type StatsWindow = 'last10' | 'overall';
+export type StatsWindow = 'last20' | 'overall';
+
+/** Recent-match window size for `/hero`, `/hero_players`, and `/items`. */
+export const STATS_RECENT_MATCH_COUNT = 20;
 
 /** Parse the optional `window` slash option into concrete windows. */
 export function parseStatsWindows(raw: string | null): StatsWindow[] {
-  if (raw === 'last10') {
-    return ['last10'];
+  if (raw === 'last20') {
+    return ['last20'];
   }
   if (raw === 'overall') {
     return ['overall'];
   }
-  return ['last10', 'overall'];
+  return ['last20', 'overall'];
 }
 
 export type HeroStatsRow = {
@@ -135,7 +138,10 @@ export function normalizeHeroNameKey(name: string): string {
 }
 
 /** Keep rows from the N most recent distinct matches in the set. */
-export function filterRowsToLastNMatches(rows: HeroStatsRow[], matchCount: number): HeroStatsRow[] {
+export function filterRowsToLastNMatches<T extends Pick<HeroStatsRow, 'matchId' | 'completedAt'>>(
+  rows: T[],
+  matchCount: number,
+): T[] {
   const matchCompletedAt = new Map<string, number>();
   for (const row of rows) {
     const ms = row.completedAt?.getTime() ?? 0;
@@ -155,9 +161,9 @@ export function filterRowsToLastNMatches(rows: HeroStatsRow[], matchCount: numbe
   return rows.filter((row) => lastMatchIds.has(row.matchId));
 }
 
-/** Keep rows from the 10 most recent distinct matches in the set. */
-export function filterRowsToLast10Matches(rows: HeroStatsRow[]): HeroStatsRow[] {
-  return filterRowsToLastNMatches(rows, 10);
+/** Keep rows from the recent-stats window of distinct matches in the set. */
+export function filterRowsToLast20Matches(rows: HeroStatsRow[]): HeroStatsRow[] {
+  return filterRowsToLastNMatches(rows, STATS_RECENT_MATCH_COUNT);
 }
 
 function formatKda(kills: number, deaths: number): string {
@@ -454,8 +460,8 @@ export async function loadHeroStats(input: {
   if (input.windows.includes('overall')) {
     windows.overall = aggregateHeroWindowStats(allRows, { includeTopPlayers });
   }
-  if (input.windows.includes('last10')) {
-    windows.last10 = aggregateHeroWindowStats(filterRowsToLast10Matches(allRows), {
+  if (input.windows.includes('last20')) {
+    windows.last20 = aggregateHeroWindowStats(filterRowsToLast20Matches(allRows), {
       includeTopPlayers,
     });
   }
@@ -493,8 +499,8 @@ export async function loadHeroPlayerRankings(input: {
   if (input.windows.includes('overall')) {
     windows.overall = rankHeroPlayers(allRows, input.sort, input.limit);
   }
-  if (input.windows.includes('last10')) {
-    windows.last10 = rankHeroPlayers(filterRowsToLast10Matches(allRows), input.sort, input.limit);
+  if (input.windows.includes('last20')) {
+    windows.last20 = rankHeroPlayers(filterRowsToLast20Matches(allRows), input.sort, input.limit);
   }
 
   return {

@@ -3,13 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { buildHeroStatsEmbed } from './hero-stats-embed.js';
 
 describe('buildHeroStatsEmbed', () => {
-  it('includes Last 10 and Overall fields for league view', () => {
+  it('includes Last 20 and Overall fields for league view', () => {
     const embed = buildHeroStatsEmbed({
       heroDisplayName: 'Frieren',
       recentGames: [],
       windows: {
-        last10: {
-          games: 10,
+        last20: {
+          games: 20,
           avgDamage: 5000,
           avgTaken: 3000,
           avgHeal: 200,
@@ -28,7 +28,7 @@ describe('buildHeroStatsEmbed', () => {
     });
 
     const fields = embed.toJSON().fields ?? [];
-    expect(fields.some((field) => field.name === 'Last 10 games')).toBe(true);
+    expect(fields.some((field) => field.name === 'Last 20 games')).toBe(true);
     expect(fields.some((field) => field.name === 'Overall')).toBe(true);
     expect(embed.toJSON().title).toContain('Frieren');
   });
