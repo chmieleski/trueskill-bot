@@ -481,6 +481,7 @@ describe('loadMatchHistoryPage', () => {
     expect(matchCount).toHaveBeenCalledWith({
       where: {
         leagueId: 'L1',
+        isManualSanction: false,
         status: { in: ['COMPLETED', 'CANCELLED'] },
         players: { some: { playerId: 'P1', isGriefer: true } },
       },
@@ -530,6 +531,11 @@ describe('loadMatchHistoryPage', () => {
         grieferKiAccrued: 80,
       }),
     ]);
+    expect(matchCount).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        isManualSanction: false,
+      }),
+    });
   });
 
   it('clamps page and maps rows', async () => {
