@@ -4,6 +4,8 @@ import {
   aggregateHeroWindowStats,
   filterRowsToLast10Matches,
   normalizeHeroNameKey,
+  pickRecentHeroGames,
+  rankHeroPlayers,
   type HeroStatsRow,
 } from './hero-stats.js';
 
@@ -79,5 +81,49 @@ describe('aggregateHeroWindowStats', () => {
     const rows = [...mk('a', 'Ace', 2, 1), ...mk('b', 'Bob', 4, 2), ...mk('c', 'Cara', 0, 2)];
     const stats = aggregateHeroWindowStats(rows, { includeTopPlayers: true });
     expect(stats.topPlayers.map((player) => player.username)).toEqual(['Bob', 'Ace']);
+  });
+});
+
+describe('pickRecentHeroGames', () => {
+  it('returns newest rows up to limit', () => {
+    const rows = [
+      row({ matchId: 'm1', completedAt: new Date('2026-01-01T00:00:00Z'), username: 'A' }),
+      row({ matchId: 'm2', completedAt: new Date('2026-01-03T00:00:00Z'), username: 'B' }),
+      row({ matchId: 'm3', completedAt: new Date('2026-01-02T00:00:00Z'), username: 'C' }),
+    ];
+    const recent = pickRecentHeroGames(rows, 2);
+    expect(recent.map((entry) => entry.matchId)).toEqual(['m2', 'm3']);
+  });
+});
+
+describe('rankHeroPlayers', () => {
+  const mk = (playerId: string, username: string, wins: number, losses: number, damage = 1000) =>
+    Array.from({ length: wins + losses }, (_, index) =>
+      row({
+        matchId: `${playerId}-${index}`,
+        playerId,
+        username,
+        result: index < wins ? MatchResult.WIN : MatchResult.LOSS,
+        damageTotal: damage,
+        kills: 3,
+        deaths: 1,
+      }),
+    );
+
+  it('sorts by games desc', () => {
+    const rows = [...mk('a', 'Ace', 2, 1), ...mk('b', 'Bob', 4, 2)];
+    const ranked = rankHeroPlayers(rows, 'games', 10);
+    expect(ranked.map((entry) => entry.username)).toEqual(['Bob', 'Ace']);
+  });
+
+  it('sorts by damage desc', () => {
+    const rows = [...mk('a', 'Ace', 3, 0, 5000), ...mk('b', 'Bob', 3, 0, 9000)];
+    const ranked = rankHeroPlayers(rows, 'damage', 10);
+    expect(ranked[0]!.username).toBe('Bob');
+  });
+
+  it('requires min 3 games', () => {
+    const rows = [...mk('a', 'Ace', 2, 0)];
+    expect(rankHeroPlayers(rows, 'win_rate', 10)).toHaveLength(0);
   });
 });

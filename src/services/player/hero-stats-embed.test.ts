@@ -1,3 +1,4 @@
+import { MatchResult } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
 import { buildHeroStatsEmbed } from './hero-stats-embed.js';
 
@@ -5,6 +6,7 @@ describe('buildHeroStatsEmbed', () => {
   it('includes Last 10 and Overall fields for league view', () => {
     const embed = buildHeroStatsEmbed({
       heroDisplayName: 'Frieren',
+      recentGames: [],
       windows: {
         last10: {
           games: 10,
@@ -35,6 +37,7 @@ describe('buildHeroStatsEmbed', () => {
     const embed = buildHeroStatsEmbed({
       heroDisplayName: 'Frieren',
       playerUsername: 'Tiny',
+      recentGames: [],
       windows: {
         overall: {
           games: 3,
@@ -47,5 +50,32 @@ describe('buildHeroStatsEmbed', () => {
       },
     });
     expect(embed.toJSON().title).toBe('Tiny on Frieren');
+  });
+
+  it('includes recent games for league view', () => {
+    const embed = buildHeroStatsEmbed({
+      heroDisplayName: 'Goku',
+      recentGames: [
+        {
+          matchId: 'match-1',
+          username: 'Tiny',
+          result: MatchResult.WIN,
+          completedAt: new Date('2026-01-15T12:00:00Z'),
+        },
+      ],
+      windows: {
+        overall: {
+          games: 1,
+          avgDamage: 1,
+          avgTaken: 1,
+          avgHeal: 1,
+          kda: '1',
+          topPlayers: [],
+        },
+      },
+    });
+    const recentField = embed.toJSON().fields?.find((field) => field.name === 'Recent games');
+    expect(recentField?.value).toContain('Tiny');
+    expect(recentField?.value).toContain('match-1');
   });
 });

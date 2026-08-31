@@ -1,6 +1,12 @@
+import { MatchResult } from '@prisma/client';
 import { EmbedBuilder } from 'discord.js';
 import { formatCompactStatNumber } from '../match/match-stats-upload.js';
-import type { HeroStatsResult, HeroWindowStats, StatsWindow } from './hero-stats.js';
+import type {
+  HeroRecentGame,
+  HeroStatsResult,
+  HeroWindowStats,
+  StatsWindow,
+} from './hero-stats.js';
 
 const HERO_STATS_GOLD = 0xe8a317;
 
@@ -30,6 +36,23 @@ function formatTopPlayers(stats: HeroWindowStats): string {
       return `${player.username} · ${player.games}G · ${player.wins}W ${player.losses}L · ${wr}`;
     })
     .join('\n');
+}
+
+function formatRecentGameLine(game: HeroRecentGame, playerView: boolean): string {
+  const outcome = game.result === MatchResult.WIN ? 'Win' : 'Loss';
+  const unix = game.completedAt ? Math.floor(game.completedAt.getTime() / 1000) : null;
+  const dateBit = unix !== null ? `<t:${unix}:D>` : 'Unknown date';
+
+  if (playerView) {
+    const emoji = game.result === MatchResult.WIN ? '✅' : '❌';
+    return `${emoji} ${outcome} · ${dateBit}\n\`${game.matchId}\``;
+  }
+
+  return `${game.username} · ${outcome} · ${dateBit}\n\`${game.matchId}\``;
+}
+
+function formatRecentGames(games: HeroRecentGame[], playerView: boolean): string {
+  return games.map((game) => formatRecentGameLine(game, playerView)).join('\n\n');
 }
 
 /** Build the Discord embed for `/hero` results. */
@@ -62,6 +85,14 @@ export function buildHeroStatsEmbed(
     embed.addFields({
       name: formatWindowLabel(window, stats.games),
       value,
+      inline: false,
+    });
+  }
+
+  if (result.recentGames.length > 0) {
+    embed.addFields({
+      name: 'Recent games',
+      value: formatRecentGames(result.recentGames, Boolean(result.playerUsername)),
       inline: false,
     });
   }
