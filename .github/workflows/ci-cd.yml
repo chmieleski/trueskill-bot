@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -127,7 +128,13 @@ jobs:
   deploy:
     name: Deploy
     needs: [test, release]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: |
+      always() &&
+      needs.test.result == 'success' &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.release.result == 'success')
+      )
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -272,6 +279,45 @@ jobs:
             exit 1
           fi
 
+          echo "==> Waiting for host-update deploy lock"
+          LOCK_FREE=0
+          for _ in $(seq 1 90); do
+            LOCK_CMD="$(aws ssm send-command \
+              --instance-ids "${INSTANCE_ID}" \
+              --document-name AWS-RunShellScript \
+              --comment "dbz-bot lock-check ${GITHUB_SHA}" \
+              --timeout-seconds 30 \
+              --parameters commands='["bash -lc '\''exec 9>/var/lock/dbz-bot-update.lock; flock -n 9 && echo UNLOCKED || echo LOCKED'\''"]' \
+              --query 'Command.CommandId' \
+              --output text)"
+            for __ in $(seq 1 12); do
+              LSTATUS="$(aws ssm get-command-invocation \
+                --command-id "${LOCK_CMD}" \
+                --instance-id "${INSTANCE_ID}" \
+                --query 'Status' \
+                --output text 2>/dev/null || echo Pending)"
+              case "${LSTATUS}" in
+                Success|Failed|Cancelled|TimedOut|Undeliverable) break ;;
+                *) sleep 2 ;;
+              esac
+            done
+            LOUT="$(aws ssm get-command-invocation \
+              --command-id "${LOCK_CMD}" \
+              --instance-id "${INSTANCE_ID}" \
+              --query 'StandardOutputContent' \
+              --output text 2>/dev/null || true)"
+            echo "lock-check: ${LOUT:-"(empty)"} (${LSTATUS})"
+            if [[ "${LOUT}" == *UNLOCKED* ]]; then
+              LOCK_FREE=1
+              break
+            fi
+            sleep 10
+          done
+          if [[ "${LOCK_FREE}" -ne 1 ]]; then
+            echo "Timed out waiting for /var/lock/dbz-bot-update.lock on ${INSTANCE_ID}" >&2
+            exit 1
+          fi
+
           # Single bash -lc so pipefail works under SSM (default shell is dash).
           # git pull loads the new host-update.sh; that script stops the bot only
           # after the stage build succeeds.
@@ -279,7 +325,7 @@ jobs:
             --instance-ids "${INSTANCE_ID}" \
             --document-name AWS-RunShellScript \
             --comment "dbz-bot deploy ${GITHUB_SHA}" \
-            --timeout-seconds 900 \
+            --timeout-seconds 1800 \
             --parameters commands="$(jq -cn \
               --arg app "$APP_DIR" \
               --arg sha "$GITHUB_SHA" \
@@ -309,7 +355,7 @@ jobs:
           echo "SSM command: ${COMMAND_ID}"
 
           LAST_OUT=""
-          for _ in $(seq 1 120); do
+          for _ in $(seq 1 180); do
             INV="$(aws ssm get-command-invocation \
               --command-id "${COMMAND_ID}" \
               --instance-id "${INSTANCE_ID}" \

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, existsSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, existsSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,16 +48,23 @@ describe('host-update-lib', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it('aborts when leftover prev exists and the unit is inactive', () => {
+  it('restores leftover prev when the unit is inactive', () => {
     const root = mkdtempSync(join(tmpdir(), 'host-update-'));
     const app = join(root, 'bot');
     const prev = `${app}.prev`;
+    mkdirSync(app);
     mkdirSync(prev);
-    const result = bash(`source '${lib}'; host_update_handle_leftover_prev '${app}' no`);
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain('Refusing to deploy');
-    expect(result.stderr).toContain(prev);
-    expect(existsSync(prev)).toBe(true);
+    writeFileSync(join(app, 'live.txt'), 'broken');
+    writeFileSync(join(prev, 'good.txt'), 'good');
+
+    const result = bash(
+      `source '${lib}'; systemctl() { case "$1" in start) return 0;; is-active) return 0;; *) return 0;; esac; }; export -f systemctl; host_update_handle_leftover_prev '${app}' no`,
+    );
+    expect(result.status).toBe(0);
+    expect(existsSync(prev)).toBe(false);
+    expect(existsSync(app)).toBe(true);
+    expect(existsSync(`${app}.failed`)).toBe(true);
+    expect(readFileSync(join(app, 'good.txt'), 'utf8')).toBe('good');
     rmSync(root, { recursive: true, force: true });
   });
 

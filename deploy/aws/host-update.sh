@@ -45,13 +45,6 @@ GITHUB_REMOTE="$(host_update_resolve_github_remote "${APP_DIR}" "${APP_USER}")"
 host_update_persist_github_remote "${GITHUB_REMOTE}"
 host_update_ensure_github_origin "${APP_DIR}" "${GITHUB_REMOTE}" "${APP_USER}"
 
-# #region agent log
-_masked="$(printf '%s' "${GITHUB_REMOTE}" | sed -E 's#https://[^@/]+@#https://***@#g')"
-_has_userinfo=0
-host_update_remote_has_userinfo "${GITHUB_REMOTE}" && _has_userinfo=1
-echo "==> debug resolved remote masked=${_masked} has_userinfo=${_has_userinfo}"
-# #endregion
-
 echo "==> Updating ${APP_DIR} from origin/${BRANCH}"
 sudo -u "${APP_USER}" git -C "${APP_DIR}" fetch --all
 sudo -u "${APP_USER}" git -C "${APP_DIR}" checkout "${BRANCH}"
