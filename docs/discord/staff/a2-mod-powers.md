@@ -20,6 +20,10 @@ People with the **mod role** help when the host is gone or stuck.
 • `/match unquit match_id:…` — clear quitter flags (`slots:` optional); restores ki when the match is still within the **24h** correction window
 • If players already played more ranked games, later matches are **not** recalculated
 
+**Captain draft (tournaments)**
+• `/captain_draft start` → `captains` → `members` → `begin` — snake team draft (see **a9**)
+• Mod tools: `add` · `remove` · `swap` · `move` · `undo` · `force_pick` · `publish` · `cancel`
+
 **Accounts & New players**
 • `/link nick:X user:@Player` — link others; mods can **relink**
 • `/unlink user:@Player`

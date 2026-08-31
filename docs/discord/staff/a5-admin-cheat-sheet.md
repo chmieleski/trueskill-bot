@@ -30,6 +30,7 @@ Draft card → edit summary → **Publish** (all changelog channels) or **Dismis
 • `/match flip` / `void` (24h) · `/match ungrief` · `/match unquit`
 • `/lobby recreate` after void · `/lobby remove` / `screenshot` with `match_id`
 • `/link` / `/unlink` others · `/player_new set|clear` · `/rank_reset user:`
+• `/captain_draft` — tournament snake draft (see **a9**)
 {{#wosMatchStats}}• `/hero_config rename` — WOS hero display names (mods + admins)
 {{/wosMatchStats}}
 
