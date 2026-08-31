@@ -45,6 +45,13 @@ export const data = withOptionalLeagueOption(
           { name: 'Last 10', value: 'last10' },
           { name: 'Overall', value: 'overall' },
         ),
+    )
+    .addStringOption((option) =>
+      option
+        .setName('recent')
+        .setDescription('Recent games to show')
+        .setRequired(false)
+        .addChoices({ name: '5', value: '5' }, { name: '10', value: '10' }),
     ),
 );
 
@@ -97,6 +104,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const nick = interaction.options.getString('nick');
   const windowRaw = interaction.options.getString('window');
   const windows = parseStatsWindows(windowRaw === 'both' ? null : windowRaw);
+  const recentRaw = interaction.options.getString('recent');
+  const recentLimit = recentRaw === '10' ? 10 : 5;
 
   const lookup = parseRankOptions({
     selfDiscordId: interaction.user.id,
@@ -159,6 +168,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       heroName,
       playerId,
       windows,
+      recentLimit,
     });
 
     if (!stats) {
