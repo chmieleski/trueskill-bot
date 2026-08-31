@@ -4,13 +4,17 @@ import { WARCRAFT3_WOS_GAME_ID } from '../../domain/games.js';
 import { getGameProfile } from '../../domain/game-profile.js';
 import type { MatchPlayerStatsLine } from './match-stats-upload.js';
 
-const { matchPlayerStatsFindMany, matchStatsReportFindUnique, getGameProfileForMatch } = vi.hoisted(
-  () => ({
-    matchPlayerStatsFindMany: vi.fn(),
-    matchStatsReportFindUnique: vi.fn(),
-    getGameProfileForMatch: vi.fn(),
-  }),
-);
+const {
+  matchPlayerStatsFindMany,
+  matchStatsReportFindUnique,
+  matchStatsReportFindFirst,
+  getGameProfileForMatch,
+} = vi.hoisted(() => ({
+  matchPlayerStatsFindMany: vi.fn(),
+  matchStatsReportFindUnique: vi.fn(),
+  matchStatsReportFindFirst: vi.fn(),
+  getGameProfileForMatch: vi.fn(),
+}));
 
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
@@ -19,6 +23,7 @@ vi.mock('../../lib/prisma.js', () => ({
     },
     matchStatsReport: {
       findUnique: matchStatsReportFindUnique,
+      findFirst: matchStatsReportFindFirst,
     },
   },
 }));
@@ -45,6 +50,7 @@ vi.mock('./match-service.js', () => {
 });
 
 import {
+  assertWos2ReportExternalIdUnused,
   buildMatchStatsLogEmbedFields,
   enrichCompletedMatchLogEmbeds,
   formatCompactStatNumber,
@@ -53,6 +59,44 @@ import {
   formatMatchStatsFieldValue,
 } from './match-stats-upload.js';
 import type { MatchWithPlayers } from './match-service.js';
+import { MatchServiceError } from './match-service.js';
+
+describe('assertWos2ReportExternalIdUnused', () => {
+  beforeEach(() => {
+    matchStatsReportFindFirst.mockReset();
+  });
+
+  it('allows a report id that is not stored yet', async () => {
+    matchStatsReportFindFirst.mockResolvedValue(null);
+
+    await expect(assertWos2ReportExternalIdUnused('report-1', 'match-a')).resolves.toBeUndefined();
+  });
+
+  it('allows re-uploading the same report id on the same match', async () => {
+    matchStatsReportFindFirst.mockResolvedValue(null);
+
+    await expect(assertWos2ReportExternalIdUnused('report-1', 'match-a')).resolves.toBeUndefined();
+
+    expect(matchStatsReportFindFirst).toHaveBeenCalledWith({
+      where: {
+        externalId: 'report-1',
+        matchId: { not: 'match-a' },
+      },
+      select: { matchId: true },
+    });
+  });
+
+  it('rejects when another match already has the report id', async () => {
+    matchStatsReportFindFirst.mockResolvedValue({ matchId: 'match-b' });
+
+    await expect(assertWos2ReportExternalIdUnused('report-1', 'match-a')).rejects.toThrow(
+      MatchServiceError,
+    );
+    await expect(assertWos2ReportExternalIdUnused('report-1', 'match-a')).rejects.toThrow(
+      /already uploaded for match `match-b`/,
+    );
+  });
+});
 
 function sampleStat(overrides: Partial<MatchPlayerStatsLine> = {}): MatchPlayerStatsLine {
   return {
