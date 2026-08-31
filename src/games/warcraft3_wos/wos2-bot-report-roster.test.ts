@@ -71,14 +71,14 @@ describe('lobbyPlayersFromWos2Report', () => {
     ]);
   });
 
-  it('assigns slots from report team + team_slot and flags quitters', () => {
+  it('assigns slots from report team + team_slot without auto-flagging quitters', () => {
     const profile = getGameProfile(WARCRAFT3_WOS_GAME_ID);
     const report = parseWos2BotReport(schema2SampleRaw);
     const players = lobbyPlayersFromWos2Report(report, profile);
 
     expect(players).toEqual([
       { slot: 1, nick: 'thundergear' },
-      { slot: 2, nick: 'lavashark', isQuitter: true },
+      { slot: 2, nick: 'lavashark' },
       { slot: 6, nick: 'maseter' },
     ]);
   });
