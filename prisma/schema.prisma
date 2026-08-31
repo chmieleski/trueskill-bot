@@ -296,6 +296,8 @@ model Match {
   leagueId         String?
   eventId          String?
   completedAt      DateTime?
+  /// Mod-recorded quitter/griefer incident without a real lobby (RMK etc.).
+  isManualSanction Boolean       @default(false)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   league           League?       @relation(fields: [leagueId], references: [id], onDelete: Restrict)
@@ -312,6 +314,7 @@ model Match {
   @@index([leagueId, status])
   @@index([leagueId, wc3statsGameId])
   @@index([leagueId, completedAt])
+  @@index([leagueId, isManualSanction, createdAt])
   @@index([eventId, status])
   @@index([eventId, completedAt])
 }

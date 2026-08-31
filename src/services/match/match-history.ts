@@ -233,11 +233,13 @@ export async function loadMatchHistoryPage(input: {
   const where: Prisma.MatchWhereInput = griefersOnly
     ? {
         leagueId: input.leagueId,
+        isManualSanction: false,
         status: { in: ['COMPLETED', 'CANCELLED'] satisfies MatchStatus[] },
         players: { some: { playerId: input.playerId, isGriefer: true } },
       }
     : {
         leagueId: input.leagueId,
+        isManualSanction: false,
         status: 'COMPLETED',
         players: { some: { playerId: input.playerId } },
       };
