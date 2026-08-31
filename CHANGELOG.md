@@ -1,3 +1,10 @@
+# [1.43.0](https://github.com/chmieleski/trueskill-bot/compare/v1.42.0...v1.43.0) (2026-08-31)
+
+
+### Features
+
+* **hero:** add paginated hero_matches command ([#134](https://github.com/chmieleski/trueskill-bot/issues/134)) ([91e7436](https://github.com/chmieleski/trueskill-bot/commit/91e7436b4581b6b6dd32112a116988edb7f27738))
+
 # [1.42.0](https://github.com/chmieleski/trueskill-bot/compare/v1.41.3...v1.42.0) (2026-08-31)
 
 
