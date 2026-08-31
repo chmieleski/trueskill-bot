@@ -1,3 +1,10 @@
+## [1.44.2](https://github.com/chmieleski/trueskill-bot/compare/v1.44.1...v1.44.2) (2026-08-31)
+
+
+### Bug Fixes
+
+* **deploy:** remove CI lock polling and unblock stuck prev recovery ([#140](https://github.com/chmieleski/trueskill-bot/issues/140)) ([ec9cad1](https://github.com/chmieleski/trueskill-bot/commit/ec9cad1a1398c44c947cbedd07acbe828578bda9))
+
 ## [1.44.1](https://github.com/chmieleski/trueskill-bot/compare/v1.44.0...v1.44.1) (2026-08-31)
 
 
