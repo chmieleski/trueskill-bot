@@ -41,7 +41,19 @@ describe('match command data', () => {
       'void',
       'ungrief',
       'unquit',
+      'sanction',
     ]);
+  });
+
+  it('registers sanction add and remove subcommands', () => {
+    const json = data.toJSON();
+    const sanction = json.options?.find((option) => option.name === 'sanction');
+    expect(sanction?.options?.map((option) => option.name)).toEqual(['add', 'remove']);
+
+    const add = sanction?.options?.find((option) => option.name === 'add');
+    expect(add?.options?.map((option) => option.name)).toEqual(
+      expect.arrayContaining(['type', 'user', 'nick', 'league']),
+    );
   });
 
   it('history subcommand accepts user and nick lookup options', () => {

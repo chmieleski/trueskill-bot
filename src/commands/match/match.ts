@@ -26,6 +26,9 @@ import {
   setQuitters,
   uploadMatchStatsReport,
   WOS_MATCH_REPORT_REQUIRED_MESSAGE,
+  addManualSanction,
+  removeManualSanction,
+  type ManualSanctionType,
 } from '../../services/match/index.js';
 import {
   assertHasMatchModRole,
@@ -323,6 +326,68 @@ function formatClearedQuittersMessage(
   return lines.join(' ');
 }
 
+function formatManualSanctionAddMessage(result: {
+  matchId: string;
+  username: string;
+  type: ManualSanctionType;
+  quits: number;
+  griefs: number;
+  grieferKiAccrued: number | null;
+}): string {
+  const label = result.type === 'quitter' ? 'quitter' : 'griefer';
+  const lines = [
+    `Manual ${label} sanction recorded for **${result.username}** (match \`${result.matchId}\`).`,
+    `Quits: **${result.quits}** · Griefs: **${result.griefs}** (league).`,
+  ];
+  if (result.type === 'griefer' && result.grieferKiAccrued != null && result.grieferKiAccrued > 0) {
+    lines.push(`Deferred ki tax: **${result.grieferKiAccrued}**.`);
+  }
+  return lines.join('\n');
+}
+
+function formatManualSanctionRemoveMessage(result: {
+  matchId: string;
+  username: string;
+  type: ManualSanctionType;
+  mode: 'manual_restored' | 'delegated_clear';
+}): string {
+  const label = result.type === 'quitter' ? 'quitter' : 'griefer';
+  const restored =
+    result.type === 'quitter' && result.mode === 'manual_restored' ? ' Ratings were restored.' : '';
+  return `Removed manual ${label} sanction for **${result.username}** (match \`${result.matchId}\`).${restored}`;
+}
+
+async function assertMatchModInGuild(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!interaction.guildId) {
+    throw new MatchServiceError('This command can only be used in a server.');
+  }
+
+  const config = await resolveGuildConfig(interaction.guildId);
+  assertHasMatchModRole({
+    actorDiscordId: interaction.user.id,
+    memberRoleIds: memberRoleIds(interaction),
+    matchModRoleId: config.matchModRoleId,
+  });
+}
+
+async function resolveSanctionTargetPlayer(
+  interaction: ChatInputCommandInteraction,
+  leagueId: string,
+): Promise<{ id: string; username: string }> {
+  const lookup = parseRankOptions({
+    selfDiscordId: interaction.user.id,
+    userDiscordId: interaction.options.getUser('user')?.id,
+    nick: interaction.options.getString('nick'),
+  });
+
+  if (lookup.kind === 'self') {
+    throw new MatchServiceError('Provide a user or nick.');
+  }
+
+  const gameProfile = await getGameProfileForLeague(leagueId);
+  return resolveHistoryPlayer(gameProfile.gameId, lookup);
+}
+
 async function applyMatchMutation(
   interaction: ChatInputCommandInteraction,
   match: MatchWithPlayers,
@@ -574,6 +639,63 @@ export const data = new SlashCommandBuilder()
           .setDescription('Comma-separated slots to clear; omit to clear all quitters on the match')
           .setRequired(false),
       ),
+  )
+  .addSubcommandGroup((group) =>
+    group
+      .setName('sanction')
+      .setDescription('Add or remove quitter/griefer markers without a match (mods only)')
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('add')
+            .setDescription('Record one quitter or griefer incident (mods only)')
+            .addStringOption((option) =>
+              option
+                .setName('type')
+                .setDescription('Sanction type')
+                .setRequired(true)
+                .addChoices(
+                  { name: 'Quitter', value: 'quitter' },
+                  { name: 'Griefer', value: 'griefer' },
+                ),
+            )
+            .addUserOption((option) =>
+              option.setName('user').setDescription('Discord user').setRequired(false),
+            )
+            .addStringOption((option) =>
+              option.setName('nick').setDescription('In-game nick').setRequired(false),
+            ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('remove')
+            .setDescription('Remove one quitter or griefer marker (mods only)')
+            .addStringOption((option) =>
+              option
+                .setName('type')
+                .setDescription('Sanction type')
+                .setRequired(true)
+                .addChoices(
+                  { name: 'Quitter', value: 'quitter' },
+                  { name: 'Griefer', value: 'griefer' },
+                ),
+            )
+            .addUserOption((option) =>
+              option.setName('user').setDescription('Discord user').setRequired(false),
+            )
+            .addStringOption((option) =>
+              option.setName('nick').setDescription('In-game nick').setRequired(false),
+            )
+            .addStringOption((option) =>
+              option
+                .setName('match_id')
+                .setDescription('Specific match id; omit to remove latest manual sanction')
+                .setRequired(false),
+            ),
+        ),
+      ),
   );
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
@@ -581,6 +703,7 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
 }
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  const subcommandGroup = interaction.options.getSubcommandGroup(false);
   const subcommand = interaction.options.getSubcommand(true);
   const isPublicRead = subcommand === 'history' || subcommand === 'show' || subcommand === 'list';
 
@@ -833,6 +956,69 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         }),
       });
       return;
+    }
+
+    if (subcommandGroup === 'sanction') {
+      await assertMatchModInGuild(interaction);
+
+      const resolved = await resolveLeagueIdFromInteraction(
+        interaction,
+        getLeagueOption(interaction),
+      );
+      if (!resolved.ok) {
+        await interaction.editReply({ content: resolved.message });
+        return;
+      }
+
+      const player = await resolveSanctionTargetPlayer(interaction, resolved.leagueId);
+      const type = interaction.options.getString('type', true);
+      if (type !== 'quitter' && type !== 'griefer') {
+        throw new MatchServiceError('Invalid sanction type.');
+      }
+
+      if (subcommand === 'add') {
+        if (!interaction.channelId) {
+          throw new MatchServiceError('This command can only be used in a channel.');
+        }
+
+        await interaction.editReply({ content: 'Recording sanction…' });
+        const result = await addManualSanction({
+          leagueId: resolved.leagueId,
+          playerId: player.id,
+          type,
+          actorDiscordId: interaction.user.id,
+          discordChannelId: interaction.channelId,
+        });
+
+        if (interaction.guildId) {
+          await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
+          await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);
+        }
+
+        await interaction.editReply({ content: formatManualSanctionAddMessage(result) });
+        return;
+      }
+
+      if (subcommand === 'remove') {
+        const matchIdOption = interaction.options.getString('match_id');
+
+        await interaction.editReply({ content: 'Removing sanction…' });
+        const result = await removeManualSanction({
+          leagueId: resolved.leagueId,
+          playerId: player.id,
+          username: player.username,
+          type,
+          matchId: matchIdOption ?? undefined,
+        });
+
+        if (interaction.guildId) {
+          await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
+          await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);
+        }
+
+        await interaction.editReply({ content: formatManualSanctionRemoveMessage(result) });
+        return;
+      }
     }
 
     const match = await resolveMatchForCommand(interaction, matchId);
