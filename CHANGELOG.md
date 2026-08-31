@@ -1,3 +1,10 @@
+# [1.46.0](https://github.com/chmieleski/trueskill-bot/compare/v1.45.1...v1.46.0) (2026-08-31)
+
+
+### Features
+
+* **match:** add mod-only manual quitter/griefer sanctions ([#144](https://github.com/chmieleski/trueskill-bot/issues/144)) ([26d0e1b](https://github.com/chmieleski/trueskill-bot/commit/26d0e1bcc222a5cef5f82292464cf64cc61d8844))
+
 ## [1.45.1](https://github.com/chmieleski/trueskill-bot/compare/v1.45.0...v1.45.1) (2026-08-31)
 
 
