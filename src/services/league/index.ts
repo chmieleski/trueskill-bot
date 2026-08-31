@@ -95,6 +95,7 @@ export {
   getMessageCategoryId,
   isGuildLeagueCommandChannel,
   isGuildModeratedBotChannel,
+  isMessageAuthorMatchModerator,
   isModeratableGuildTextChannel,
   purgeNonCommandMessage,
   shouldDeleteNonCommandMessage,

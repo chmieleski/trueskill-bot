@@ -1,6 +1,8 @@
-import { MessageType, type Message, type TextChannel } from 'discord.js';
+import { GuildMember, MessageType, type Message, type TextChannel } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
+import { resolveGuildConfig } from '../guild/guild-config.js';
+import { hasMatchModRole } from '../match/match-auth.js';
 import { isGuildLobbyChannel } from './league-lobby-channel.js';
 
 const log = createLogger('league_channel_moderation');
@@ -78,6 +80,45 @@ export function shouldDeleteNonCommandMessage(input: {
   return true;
 }
 
+/** Collect role snowflakes for a message author (cached member or REST fetch). */
+async function resolveMessageAuthorRoleIds(message: Message): Promise<string[]> {
+  const cached = message.member;
+  if (cached instanceof GuildMember) {
+    return [...cached.roles.cache.keys()];
+  }
+
+  const guild = message.guild;
+  if (!guild) {
+    return [];
+  }
+
+  try {
+    const member = await guild.members.fetch(message.author.id);
+    return [...member.roles.cache.keys()];
+  } catch (error) {
+    log.debug(
+      { err: error, guildId: guild.id, authorId: message.author.id },
+      'Could not fetch member roles for moderation bypass',
+    );
+    return [];
+  }
+}
+
+/** True when the author may post regular chat in moderated bot channels. */
+export async function isMessageAuthorMatchModerator(message: Message): Promise<boolean> {
+  if (!message.guildId) {
+    return false;
+  }
+
+  const guildConfig = await resolveGuildConfig(message.guildId);
+  const memberRoleIds = await resolveMessageAuthorRoleIds(message);
+  return hasMatchModRole({
+    actorDiscordId: message.author.id,
+    memberRoleIds,
+    matchModRoleId: guildConfig.matchModRoleId,
+  });
+}
+
 /**
  * Best-effort delete of a non-command user message in a moderated channel.
  * No-op when the message should be kept or the channel is not moderated.
@@ -101,6 +142,10 @@ export async function purgeNonCommandMessage(message: Message): Promise<void> {
   const categoryId = getMessageCategoryId(message);
   const moderated = await isGuildModeratedBotChannel(message.guildId, channelId, categoryId);
   if (!moderated) {
+    return;
+  }
+
+  if (await isMessageAuthorMatchModerator(message)) {
     return;
   }
 
