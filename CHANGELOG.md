@@ -1,3 +1,10 @@
+## [1.47.2](https://github.com/chmieleski/trueskill-bot/compare/v1.47.1...v1.47.2) (2026-08-31)
+
+
+### Bug Fixes
+
+* **wos:** stop auto-flagging quitters from report left flag ([#149](https://github.com/chmieleski/trueskill-bot/issues/149)) ([6cccbac](https://github.com/chmieleski/trueskill-bot/commit/6cccbace0f1eeb96bbc9dfe5ff9313f5a9117ad4))
+
 ## [1.47.1](https://github.com/chmieleski/trueskill-bot/compare/v1.47.0...v1.47.1) (2026-08-31)
 
 
