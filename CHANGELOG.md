@@ -1,3 +1,10 @@
+## [1.44.1](https://github.com/chmieleski/trueskill-bot/compare/v1.44.0...v1.44.1) (2026-08-31)
+
+
+### Bug Fixes
+
+* **deploy:** harden CI SSM deploy and recover from stuck bot.prev ([#139](https://github.com/chmieleski/trueskill-bot/issues/139)) ([448580d](https://github.com/chmieleski/trueskill-bot/commit/448580d541ffae9e49f9b274ffd7804a0f2f48fc))
+
 # [1.44.0](https://github.com/chmieleski/trueskill-bot/compare/v1.43.2...v1.44.0) (2026-08-31)
 
 
