@@ -1,3 +1,10 @@
+## [1.41.3](https://github.com/chmieleski/trueskill-bot/compare/v1.41.2...v1.41.3) (2026-08-31)
+
+
+### Bug Fixes
+
+* **lobby:** preserve New flags when simulating balance swaps ([#132](https://github.com/chmieleski/trueskill-bot/issues/132)) ([4a56efd](https://github.com/chmieleski/trueskill-bot/commit/4a56efdeb5536e5bb3e100c3f60f5d99ce37e0e2))
+
 ## [1.41.2](https://github.com/chmieleski/trueskill-bot/compare/v1.41.1...v1.41.2) (2026-08-31)
 
 
