@@ -144,11 +144,6 @@ host_update_handle_leftover_prev() {
     return 0
   fi
 
-  echo "Refusing to deploy: restore from ${prev} failed; dbz-bot is still inactive." >&2
-  echo "Manual recovery:" >&2
-  echo "  systemctl stop dbz-bot" >&2
-  echo "  mv ${app_dir} ${app_dir}.bad" >&2
-  echo "  mv ${prev} ${app_dir}" >&2
-  echo "  systemctl start dbz-bot" >&2
-  return 1
+  echo "WARN: restore from ${prev} failed; dbz-bot still inactive — continuing deploy to recover" >&2
+  return 0
 }

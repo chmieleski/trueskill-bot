@@ -17,8 +17,8 @@ READY_FILE="${READY_FILE:-/var/lib/dbz-bot/ready}"
 
 # Serialize deploys (CI + manual + overlapping cloud-init repair).
 exec 9>"${LOCK_FILE}"
-if ! flock -n 9; then
-  echo "Another host-update is already running (lock ${LOCK_FILE})" >&2
+if ! flock -w 1800 9; then
+  echo "Timed out waiting for deploy lock ${LOCK_FILE} (another host-update held it for 30+ minutes)" >&2
   exit 1
 fi
 
