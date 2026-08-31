@@ -47,8 +47,25 @@ describe('captainIndexForPick', () => {
 
 describe('shufflePickOrder', () => {
   it('is deterministic with injected rng', () => {
-    const rng = () => 0;
-    expect(shufflePickOrder(3, rng)).toEqual([0, 2, 1]);
+    const values = [0, 0.5];
+    let call = 0;
+    const rng = () => values[call++] ?? 0;
+    expect(shufflePickOrder(3, rng)).toEqual([2, 1, 0]);
+    expect(call).toBe(2);
+
+    call = 0;
+    expect(shufflePickOrder(3, rng)).toEqual([2, 1, 0]);
+  });
+
+  it('does not always leave index 0 at position 0', () => {
+    let indexZeroAtPositionZero = 0;
+    const iterations = 200;
+    for (let i = 0; i < iterations; i += 1) {
+      if (shufflePickOrder(4)[0] === 0) {
+        indexZeroAtPositionZero += 1;
+      }
+    }
+    expect(indexZeroAtPositionZero).toBeLessThan(iterations);
   });
 
   it('returns identity order for count 0 and 1', () => {

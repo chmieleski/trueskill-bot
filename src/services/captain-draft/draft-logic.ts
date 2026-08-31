@@ -4,8 +4,8 @@ import { CaptainDraftError } from './draft-types.js';
 /** Fisher–Yates shuffle of captain pick-order indices `0..count-1`. */
 export function shufflePickOrder(count: number, rng: () => number = Math.random): number[] {
   const order = Array.from({ length: count }, (_, i) => i);
-  for (let i = count - 1; i >= 1; i -= 1) {
-    const j = 1 + Math.floor(rng() * i);
+  for (let i = count - 1; i > 0; i -= 1) {
+    const j = Math.floor(rng() * (i + 1));
     const tmp = order[i]!;
     order[i] = order[j]!;
     order[j] = tmp;
