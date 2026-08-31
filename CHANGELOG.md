@@ -1,3 +1,10 @@
+# [1.45.0](https://github.com/chmieleski/trueskill-bot/compare/v1.44.3...v1.45.0) (2026-08-31)
+
+
+### Features
+
+* **wos:** add /hero_all rankings and /items sort option ([#142](https://github.com/chmieleski/trueskill-bot/issues/142)) ([e9b5a4c](https://github.com/chmieleski/trueskill-bot/commit/e9b5a4c714b41996c48f095c189567a7b8597ec6))
+
 ## [Unreleased]
 
 ### Features
