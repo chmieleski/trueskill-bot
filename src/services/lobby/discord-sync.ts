@@ -205,16 +205,19 @@ export async function syncLobbyDiscordMessage(
     'Lobby Discord message synced',
   );
 
-  if (mode === 'completed' && options.postToMatchLog) {
-    await postCompletedMatchLog(client, match, payload);
+  if (options.postToMatchLog && (mode === 'completed' || mode === 'cancelled')) {
+    await postCompletedMatchLog(client, match, payload, {
+      enrichStats: mode === 'completed',
+    });
   }
 }
 
-/** Post a fresh completed-match embed to the guild log channel when configured. */
+/** Post a match embed to the guild completed-match log channel when configured. */
 export async function postCompletedMatchLog(
   client: Client,
   match: MatchWithPlayers,
   payload: { embeds: EmbedBuilder[] },
+  options: { enrichStats?: boolean } = {},
 ): Promise<void> {
   if (!match.discordChannelId) {
     return;
@@ -241,7 +244,10 @@ export async function postCompletedMatchLog(
   }
 
   try {
-    const embeds = await enrichCompletedMatchLogEmbeds(match, payload.embeds);
+    const embeds =
+      options.enrichStats === false
+        ? payload.embeds
+        : await enrichCompletedMatchLogEmbeds(match, payload.embeds);
     await logChannel.send({ embeds });
     log.debug(
       { matchId: match.id, guildId, channelId: completedMatchLogChannelId },

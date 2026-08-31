@@ -105,4 +105,28 @@ describe('postCompletedMatchLog', () => {
     expect(channelsFetch).toHaveBeenCalledTimes(1);
     expect(send).not.toHaveBeenCalled();
   });
+
+  it('skips stats enrichment when enrichStats is false', async () => {
+    channelsFetch.mockImplementation(async (id: string) => {
+      if (id === 'lobby-channel') {
+        return { guildId: 'guild-1' };
+      }
+      return { send };
+    });
+    findUnique.mockResolvedValue({
+      guildId: 'guild-1',
+      completedMatchLogChannelId: 'log-channel',
+    });
+
+    const embed = new EmbedBuilder().setTitle('Cancelled');
+    await postCompletedMatchLog(
+      client as never,
+      baseMatch(),
+      { embeds: [embed] },
+      { enrichStats: false },
+    );
+
+    expect(enrichCompletedMatchLogEmbeds).not.toHaveBeenCalled();
+    expect(send).toHaveBeenCalledWith({ embeds: [embed] });
+  });
 });
