@@ -1,4 +1,4 @@
-import type { MatchPlayerStats } from '@prisma/client';
+import type { MatchPlayerStats, Prisma } from '@prisma/client';
 import { EmbedBuilder } from 'discord.js';
 import type { GameProfile } from '../../domain/game-profile.js';
 import {
@@ -154,7 +154,7 @@ export async function assertWosMatchStatsReportPresent(matchId: string): Promise
 }
 
 function matchReportPlayersToRoster(
-  matchPlayers: Array<{ playerId: string; player: { username: string } }>,
+  matchPlayers: Array<{ playerId: string; slot: number; player: { username: string } }>,
   report: Wos2BotReport,
 ): {
   matched: Array<{ playerId: string; reportPlayer: Wos2BotReportPlayer }>;
@@ -194,6 +194,23 @@ function matchReportPlayersToRoster(
   }
 
   return { matched, warnings };
+}
+
+async function syncQuitterFlagsFromReport(
+  tx: Prisma.TransactionClient,
+  matchId: string,
+  matched: Array<{ playerId: string; reportPlayer: Wos2BotReportPlayer }>,
+): Promise<void> {
+  for (const { playerId, reportPlayer } of matched) {
+    const isQuitter = reportPlayer.left;
+    await tx.matchPlayer.update({
+      where: { matchId_playerId: { matchId, playerId } },
+      data: {
+        isQuitter,
+        ...(isQuitter ? { isGriefer: false } : {}),
+      },
+    });
+  }
 }
 
 function buildSummaryLines(
@@ -236,7 +253,7 @@ export async function persistWos2MatchStats(input: {
   actorDiscordId: string;
   rawText: string;
   report: Wos2BotReport;
-  matchPlayers: Array<{ playerId: string; player: { username: string } }>;
+  matchPlayers: Array<{ playerId: string; slot: number; player: { username: string } }>;
 }): Promise<{ externalId: string; summaryLines: string[]; warnings: string[] }> {
   const { matched, warnings } = matchReportPlayersToRoster(input.matchPlayers, input.report);
 
@@ -262,6 +279,8 @@ export async function persistWos2MatchStats(input: {
         },
       },
     });
+
+    await syncQuitterFlagsFromReport(tx, input.matchId, matched);
   });
 
   const match = await prisma.match.findUnique({

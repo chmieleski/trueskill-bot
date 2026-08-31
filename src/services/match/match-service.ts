@@ -206,7 +206,9 @@ async function resolvePlayersInTx(
   players: LobbyPlayer[],
   leagueId: string | null,
   profile: GameProfile,
-): Promise<{ playerId: string; slot: number; team: number; heroId: number | null }[]> {
+): Promise<
+  { playerId: string; slot: number; team: number; heroId: number | null; isQuitter: boolean }[]
+> {
   const sorted = withNormalizedNicks(players).sort((a, b) => a.slot - b.slot);
 
   if (sorted.length === 0) {
@@ -249,6 +251,7 @@ async function resolvePlayersInTx(
       slot: player.slot,
       team: teamForSlot(profile, player.slot),
       heroId: rosterHeroId(profile, player.slot),
+      isQuitter: player.isQuitter === true,
     };
   });
 
@@ -501,7 +504,7 @@ export async function createPendingMatch(
             slot: entry.slot,
             heroId: entry.heroId,
             result: null,
-            isQuitter: false,
+            isQuitter: entry.isQuitter === true,
             isGriefer: false,
           })),
         },
@@ -720,7 +723,7 @@ export async function replaceMatchRoster(
           slot: entry.slot,
           heroId: entry.heroId,
           result: null,
-          isQuitter: false,
+          isQuitter: entry.isQuitter === true,
           isGriefer: false,
           locked: reconcileMatchPlayerLocked(
             previousLockedPairs,
