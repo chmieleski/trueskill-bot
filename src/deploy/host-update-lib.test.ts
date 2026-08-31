@@ -68,6 +68,24 @@ describe('host-update-lib', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
+  it('continues deploy when prev restore cannot start dbz-bot', () => {
+    const root = mkdtempSync(join(tmpdir(), 'host-update-'));
+    const app = join(root, 'bot');
+    const prev = `${app}.prev`;
+    mkdirSync(app);
+    mkdirSync(prev);
+    writeFileSync(join(prev, 'good.txt'), 'good');
+
+    const result = bash(
+      `source '${lib}'; systemctl() { case "$1" in start) return 1;; is-active) return 1;; *) return 0;; esac; }; export -f systemctl; host_update_handle_leftover_prev '${app}' no`,
+    );
+    expect(result.status).toBe(0);
+    expect(existsSync(prev)).toBe(false);
+    expect(existsSync(app)).toBe(true);
+    expect(readFileSync(join(app, 'good.txt'), 'utf8')).toBe('good');
+    rmSync(root, { recursive: true, force: true });
+  });
+
   it('is a no-op when prev is absent', () => {
     const result = bash(`source '${lib}'; host_update_handle_leftover_prev '/no/such/bot' no`);
     expect(result.status).toBe(0);
@@ -231,5 +249,17 @@ describe('CI deploy SSM command', () => {
     const pullIdx = yml.indexOf('pull --ff-only origin main', repairIdx);
     expect(repairIdx).toBeGreaterThan(-1);
     expect(pullIdx).toBeGreaterThan(repairIdx);
+  });
+
+  it('does not pre-check the deploy lock from CI (host-update blocks on flock)', () => {
+    const yml = readFileSync(join(repoRoot, '.github/workflows/ci-cd.yml'), 'utf8');
+    expect(yml).not.toContain('lock-check');
+    expect(yml).toContain('systemctl is-active --quiet dbz-bot');
+  });
+
+  it('waits up to 30 minutes for the deploy lock on the host', () => {
+    const sh = readFileSync(join(repoRoot, 'deploy/aws/host-update.sh'), 'utf8');
+    expect(sh).toContain('flock -w 1800 9');
+    expect(sh).not.toContain('flock -n 9');
   });
 });
