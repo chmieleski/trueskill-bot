@@ -1,3 +1,10 @@
+## [1.45.1](https://github.com/chmieleski/trueskill-bot/compare/v1.45.0...v1.45.1) (2026-08-31)
+
+
+### Bug Fixes
+
+* **captain-draft:** improve player parsing, embeds, and turn pings ([#143](https://github.com/chmieleski/trueskill-bot/issues/143)) ([7365795](https://github.com/chmieleski/trueskill-bot/commit/7365795274b2124d6d9d02796646b08b03093fa0))
+
 # [1.45.0](https://github.com/chmieleski/trueskill-bot/compare/v1.44.3...v1.45.0) (2026-08-31)
 
 
