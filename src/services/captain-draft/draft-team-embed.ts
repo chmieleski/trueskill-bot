@@ -21,27 +21,23 @@ export function formatParticipantDisplay(participant: DraftParticipant): string 
   return participant.discordId ? `<@${participant.discordId}>` : participant.label;
 }
 
-/** Monospace roster table with `#` and `Player` columns; captain row marked with 👑. */
-export function formatTeamRosterTable(team: DraftTeam): string {
+/** Bullet roster list; captain row marked with 👑 (mentions render outside code blocks). */
+export function formatTeamRosterList(team: DraftTeam): string {
   if (team.roster.length === 0) {
     return '_Empty roster_';
   }
 
-  const rows = team.roster.map((player, index) => {
-    const isCaptain = player.key === team.captainKey;
-    const num = String(index + 1).padStart(2, ' ');
-    const display = formatParticipantDisplay(player);
-    const name = isCaptain ? `👑 ${display}` : display;
-    return { num, name };
-  });
-
-  const numWidth = Math.max(...rows.map((row) => row.num.length), '#'.length);
-  const nameWidth = Math.max(...rows.map((row) => row.name.length), 'Player'.length);
-  const header = `${'#'.padEnd(numWidth)} ${'Player'.padEnd(nameWidth)}`;
-  const lines = rows.map((row) => `${row.num.padEnd(numWidth)} ${row.name.padEnd(nameWidth)}`);
-
-  return `\`\`\`\n${header}\n${lines.join('\n')}\n\`\`\``;
+  return team.roster
+    .map((player) => {
+      const display = formatParticipantDisplay(player);
+      const crown = player.key === team.captainKey ? ' 👑' : '';
+      return `- ${display}${crown}`;
+    })
+    .join('\n');
 }
+
+/** @deprecated Use {@link formatTeamRosterList}; kept as alias for existing imports. */
+export const formatTeamRosterTable = formatTeamRosterList;
 
 function formatDraftDate(date: Date): string {
   return date.toLocaleDateString('en-US', {
@@ -64,8 +60,24 @@ export function buildTeamRosterEmbeds(state: DraftState, completedAt: Date): Emb
     const embed = new EmbedBuilder()
       .setColor(color)
       .setTitle(team.displayName)
-      .setDescription(`Captain — 👑 ${captain ? formatParticipantDisplay(captain) : '—'}`)
-      .addFields({ name: 'Roster', value: formatTeamRosterTable(team) });
+      .addFields(
+        {
+          name: 'Captain',
+          value: captain ? formatParticipantDisplay(captain) : '—',
+          inline: true,
+        },
+        {
+          name: 'Pick Order',
+          value: `#${team.pickOrderIndex + 1}`,
+          inline: true,
+        },
+        {
+          name: 'Roster',
+          value: formatTeamRosterList(team),
+        },
+      )
+      .setFooter({ text: 'Captain draft' })
+      .setTimestamp(completedAt);
 
     if (index === lastIndex) {
       embed.setFooter({

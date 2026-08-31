@@ -5,28 +5,47 @@ import { normalizeNick } from '../player/player-nick.js';
 import type { DraftParticipant } from './draft-types.js';
 import { CaptainDraftError } from './draft-types.js';
 
-const MENTION_RE = /^<@!?(\d+)>$/;
+const MENTION_SEGMENT_RE = /<@!?(\d+)>/g;
 
 type ParsedToken = { kind: 'mention'; discordId: string } | { kind: 'text'; label: string };
 
-/** Split comma-separated player input into mention or text tokens. */
-function parseTokens(raw: string): ParsedToken[] {
-  const parts = raw
-    .split(',')
+/** Split space- or comma-separated text into plain nick tokens. */
+function parseTextSegments(text: string): ParsedToken[] {
+  return text
+    .split(/[\s,]+/)
     .map((part) => part.trim())
-    .filter((part) => part.length > 0);
+    .filter((part) => part.length > 0)
+    .map((label) => ({ kind: 'text' as const, label }));
+}
 
-  if (parts.length === 0) {
+/**
+ * Parse player input into mention or text tokens.
+ * Discord mentions are extracted anywhere in the string (no comma required between them).
+ * Remaining text is split on spaces or commas.
+ */
+function parseTokens(raw: string): ParsedToken[] {
+  const tokens: ParsedToken[] = [];
+  let lastIndex = 0;
+
+  for (const match of raw.matchAll(MENTION_SEGMENT_RE)) {
+    const before = raw.slice(lastIndex, match.index!).trim();
+    if (before) {
+      tokens.push(...parseTextSegments(before));
+    }
+    tokens.push({ kind: 'mention', discordId: match[1]! });
+    lastIndex = match.index! + match[0].length;
+  }
+
+  const remaining = raw.slice(lastIndex).trim();
+  if (remaining) {
+    tokens.push(...parseTextSegments(remaining));
+  }
+
+  if (tokens.length === 0) {
     throw new CaptainDraftError('Player list cannot be empty.');
   }
 
-  return parts.map((part) => {
-    const mentionMatch = MENTION_RE.exec(part);
-    if (mentionMatch) {
-      return { kind: 'mention', discordId: mentionMatch[1]! };
-    }
-    return { kind: 'text', label: part };
-  });
+  return tokens;
 }
 
 /** Resolve a guild member display label for a Discord mention. */
@@ -93,8 +112,9 @@ function participantDedupeKey(participant: DraftParticipant): string {
 }
 
 /**
- * Parse a comma-separated players string into draft participants.
- * Supports Discord mentions and text nicks; links nicks via league gameId when set.
+ * Parse a space- or comma-separated players string into draft participants.
+ * Supports Discord mentions (no delimiter required between @s) and text nicks.
+ * Links nicks via league gameId when set.
  */
 export async function resolveParticipantsFromInput(input: {
   raw: string;

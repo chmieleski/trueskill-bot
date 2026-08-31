@@ -15,7 +15,7 @@ import {
   isDraftComplete,
   shufflePickOrder,
 } from './draft-logic.js';
-import { buildLiveDraftComponents, buildLiveDraftEmbed } from './draft-live-embed.js';
+import { buildLiveDraftMessage } from './draft-live-embed.js';
 import { resolveParticipantsFromInput } from './draft-resolve.js';
 import {
   createDraft,
@@ -225,9 +225,8 @@ export async function beginCaptainDraft(input: {
   };
 
   const channel = await fetchTextChannel(input.client, draft.channelId);
-  const embed = buildLiveDraftEmbed(nextState, 'ACTIVE');
-  const components = buildLiveDraftComponents(draft.id, 'ACTIVE');
-  const message = await channel.send({ embeds: [embed], components });
+  const messagePayload = buildLiveDraftMessage(draft.id, nextState, 'ACTIVE');
+  const message = await channel.send(messagePayload);
 
   return saveDraftState(draft.id, 'ACTIVE', nextState, { draftMessageId: message.id });
 }
