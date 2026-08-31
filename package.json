@@ -1,6 +1,6 @@
 {
   "name": "dbz-wc3-bot",
-  "version": "1.43.2",
+  "version": "1.44.0",
   "type": "module",
   "description": "Discord bot for managing DBZ Warcraft III 5v5 matches",
   "main": "dist/index.js",

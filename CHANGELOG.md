@@ -1,3 +1,10 @@
+# [1.44.0](https://github.com/chmieleski/trueskill-bot/compare/v1.43.2...v1.44.0) (2026-08-31)
+
+
+### Features
+
+* **captain-draft:** standalone mod-run captain snake draft ([#138](https://github.com/chmieleski/trueskill-bot/issues/138)) ([982ff2d](https://github.com/chmieleski/trueskill-bot/commit/982ff2d10d334bc6fcc30dcc73a3832e092b373a))
+
 ## [1.43.2](https://github.com/chmieleski/trueskill-bot/compare/v1.43.1...v1.43.2) (2026-08-31)
 
 
