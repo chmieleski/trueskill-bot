@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getGameProfile } from '../../domain/game-profile.js';
 import { WARCRAFT3_WOS_GAME_ID } from '../../domain/games.js';
+import { computeWinChanceFromRatings } from '../rating/rating-preview.js';
 import {
   compareSuggestions,
   dedupeEmptySlotMoves,
@@ -434,5 +435,64 @@ describe('suggestBalanceMoves soft locks', () => {
       {},
     );
     expect(suggestBalanceMoves(roster, lookup, { teamAPercent: 90, teamBPercent: 10 })).toEqual([]);
+  });
+});
+
+describe('suggestBalanceMoves new-player flags on swap', () => {
+  it('keeps isNewPlayer on swapped seats so claimed win% matches recompute', () => {
+    const roster: BalanceRosterEntry[] = [
+      { playerId: 'v1', slot: 1, team: 1, heroId: 1, nick: 'V1' },
+      { playerId: 'v2', slot: 2, team: 1, heroId: 2, nick: 'V2' },
+      { playerId: 'v3', slot: 3, team: 1, heroId: 3, nick: 'V3' },
+      { playerId: 'b1', slot: 7, team: 2, heroId: 7, nick: 'B1' },
+      { playerId: 'new', slot: 8, team: 2, heroId: 8, nick: 'New', isNewPlayer: true },
+    ];
+    const globals = new Map<string, MuSigma>([
+      ['v1', { mu: 30, sigma: 3 }],
+      ['v2', { mu: 30, sigma: 3 }],
+      ['v3', { mu: 30, sigma: 3 }],
+      ['b1', { mu: 30, sigma: 3 }],
+      ['new', { mu: 25, sigma: 8.333 }],
+    ]);
+    const heroes = new Map<string, MuSigma>();
+    const lookup: BalanceRatingLookup = {
+      global: (playerId) => globals.get(playerId) ?? DEFAULT,
+      hero: (playerId, heroId) => heroes.get(`${playerId}:${heroId}`) ?? DEFAULT,
+    };
+    const entries = roster.map((entry) => ({ ...entry }));
+    const currentWinChance = computeWinChanceFromRatings(entries, globals, heroes, {
+      staticSigma: true,
+    })!;
+    const suggestion = suggestBalanceMove(roster, lookup, currentWinChance, { staticSigma: true });
+    expect(suggestion).toBeDefined();
+    expect(suggestion!.kind).toBe('swap');
+    const involvesNew =
+      (suggestion!.fromSlot === 8 || suggestion!.toSlot === 8) &&
+      roster.some((e) => e.slot === 8 && e.isNewPlayer === true);
+    expect(involvesNew).toBe(true);
+
+    const swappedEntries = roster.map((entry) => {
+      if (entry.slot === suggestion!.fromSlot) {
+        const other = roster.find((e) => e.slot === suggestion!.toSlot)!;
+        return {
+          ...other,
+          slot: suggestion!.fromSlot,
+          heroId: suggestion!.fromSlot,
+          team: entry.team,
+        };
+      }
+      if (entry.slot === suggestion!.toSlot) {
+        const other = roster.find((e) => e.slot === suggestion!.fromSlot)!;
+        return { ...other, slot: suggestion!.toSlot, heroId: suggestion!.toSlot, team: entry.team };
+      }
+      return entry;
+    });
+    const recomputed = computeWinChanceFromRatings(swappedEntries, globals, heroes, {
+      staticSigma: true,
+    });
+    expect(recomputed).toEqual(suggestion!.resultingWinChance);
+    expect(Math.abs(50 - suggestion!.resultingWinChance.teamAPercent)).toBeLessThan(
+      Math.abs(50 - currentWinChance.teamAPercent),
+    );
   });
 });

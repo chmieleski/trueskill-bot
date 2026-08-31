@@ -108,6 +108,24 @@ function winChanceForRoster(
   return roundWinPercents(pA ?? 0.5, pB ?? 0.5);
 }
 
+function swappedSeat(
+  source: BalanceRosterEntry,
+  slot: number,
+  team: 1 | 2,
+  profile: GameProfile,
+): BalanceRosterEntry {
+  return {
+    playerId: source.playerId,
+    nick: source.nick,
+    slot,
+    heroId: rosterHeroId(profile, slot),
+    team,
+    ...(source.isNewPlayer === true ? { isNewPlayer: true as const } : {}),
+    ...(source.wasNewPlayer === true ? { wasNewPlayer: true as const } : {}),
+    ...(source.locked === true ? { locked: true as const } : {}),
+  };
+}
+
 function applySwap(
   roster: BalanceRosterEntry[],
   slotA: number,
@@ -118,22 +136,10 @@ function applySwap(
   const b = roster.find((e) => e.slot === slotB)!;
   return roster.map((entry) => {
     if (entry.slot === slotA) {
-      return {
-        playerId: b.playerId,
-        nick: b.nick,
-        slot: slotA,
-        heroId: rosterHeroId(profile, slotA),
-        team: entry.team,
-      };
+      return swappedSeat(b, slotA, entry.team, profile);
     }
     if (entry.slot === slotB) {
-      return {
-        playerId: a.playerId,
-        nick: a.nick,
-        slot: slotB,
-        heroId: rosterHeroId(profile, slotB),
-        team: entry.team,
-      };
+      return swappedSeat(a, slotB, entry.team, profile);
     }
     return entry;
   });
