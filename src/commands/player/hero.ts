@@ -42,7 +42,7 @@ export const data = withOptionalLeagueOption(
         .setRequired(false)
         .addChoices(
           { name: 'Both', value: 'both' },
-          { name: 'Last 10', value: 'last10' },
+          { name: 'Last 20', value: 'last20' },
           { name: 'Overall', value: 'overall' },
         ),
     )

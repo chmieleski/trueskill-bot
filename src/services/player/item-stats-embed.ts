@@ -67,14 +67,14 @@ export function buildItemStatsEmbed(
     embed.setDescription(options.leagueName);
   }
 
-  const windowOrder: StatsWindow[] = ['last10', 'overall'];
+  const windowOrder: StatsWindow[] = ['last20', 'overall'];
   for (const window of windowOrder) {
     const entries = result.windows[window];
     if (!entries) {
       continue;
     }
 
-    const label = window === 'last10' ? 'Last 10 games' : 'Overall';
+    const label = window === 'last20' ? 'Last 20 games' : 'Overall';
 
     embed.addFields({
       name: label,

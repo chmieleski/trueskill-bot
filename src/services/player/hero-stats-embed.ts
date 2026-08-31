@@ -11,8 +11,8 @@ import type {
 const HERO_STATS_GOLD = 0xe8a317;
 
 function formatWindowLabel(window: StatsWindow, games: number): string {
-  if (window === 'last10') {
-    return games < 10 ? `Last ${games} games` : 'Last 10 games';
+  if (window === 'last20') {
+    return games < 20 ? `Last ${games} games` : 'Last 20 games';
   }
   return 'Overall';
 }
@@ -70,7 +70,7 @@ export function buildHeroStatsEmbed(
     embed.setDescription(options.leagueName);
   }
 
-  const windowOrder: StatsWindow[] = ['last10', 'overall'];
+  const windowOrder: StatsWindow[] = ['last20', 'overall'];
   for (const window of windowOrder) {
     const stats = result.windows[window];
     if (!stats) {
