@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getGameProfile } from '../../domain/game-profile.js';
+import { WARCRAFT3_WOS_GAME_ID } from '../../domain/games.js';
 
 const {
   playerFindUnique,
@@ -9,12 +11,14 @@ const {
   matchPlayerGroupBy,
   matchPlayerFindMany,
   matchPlayerStatsFindMany,
+  matchStatsReportFindUnique,
   playerRankResetFindMany,
   leagueFindUnique,
   getMatchById,
   listLeaguesForGuild,
   buildMatchCompletedEmbed,
   resolveHeroDisplayNames,
+  getGameProfileForMatch,
 } = vi.hoisted(() => ({
   playerFindUnique: vi.fn(),
   playerFindMany: vi.fn(),
@@ -24,12 +28,14 @@ const {
   matchPlayerGroupBy: vi.fn(),
   matchPlayerFindMany: vi.fn(),
   matchPlayerStatsFindMany: vi.fn(),
+  matchStatsReportFindUnique: vi.fn(),
   playerRankResetFindMany: vi.fn(),
   leagueFindUnique: vi.fn(),
   getMatchById: vi.fn(),
   listLeaguesForGuild: vi.fn(),
   buildMatchCompletedEmbed: vi.fn(),
   resolveHeroDisplayNames: vi.fn(),
+  getGameProfileForMatch: vi.fn(),
 }));
 
 vi.mock('../../lib/prisma.js', () => ({
@@ -47,6 +53,7 @@ vi.mock('../../lib/prisma.js', () => ({
       update: vi.fn(),
     },
     matchPlayerStats: { findMany: matchPlayerStatsFindMany },
+    matchStatsReport: { findUnique: matchStatsReportFindUnique },
     playerRankReset: { findMany: playerRankResetFindMany },
   },
 }));
@@ -102,7 +109,7 @@ vi.mock('./match-service.js', () => {
       }
       return match.leagueId;
     },
-    getGameProfileForMatch: vi.fn(async () => ({})),
+    getGameProfileForMatch,
     matchToLobbyPlayers: (match: {
       players: Array<{ slot: number; player: { username: string } }>;
     }) =>
@@ -799,13 +806,16 @@ describe('loadCompletedMatchShow', () => {
     getMatchById.mockReset();
     listLeaguesForGuild.mockReset();
     buildMatchCompletedEmbed.mockReset();
+    getGameProfileForMatch.mockReset();
     matchRatingSnapshotFindMany.mockReset();
     matchPlayerGroupBy.mockReset();
     matchPlayerFindMany.mockReset();
     matchPlayerStatsFindMany.mockReset();
+    matchStatsReportFindUnique.mockReset();
     playerRankResetFindMany.mockReset();
     leagueFindUnique.mockReset();
     leagueFindUnique.mockResolvedValue(null);
+    getGameProfileForMatch.mockResolvedValue({});
     matchRatingSnapshotFindMany.mockResolvedValue([]);
     matchPlayerGroupBy.mockResolvedValue([]);
     matchPlayerFindMany.mockResolvedValue([
@@ -824,6 +834,7 @@ describe('loadCompletedMatchShow', () => {
     ]);
     playerRankResetFindMany.mockResolvedValue([]);
     matchPlayerStatsFindMany.mockResolvedValue([]);
+    matchStatsReportFindUnique.mockResolvedValue(null);
     buildMatchCompletedEmbed.mockImplementation(() => {
       const { EmbedBuilder } = require('discord.js');
       return new EmbedBuilder().setTitle('Match Completed');
@@ -1018,5 +1029,77 @@ describe('loadCompletedMatchShow', () => {
     await expect(loadCompletedMatchShow({ matchId: 'x', guildId: 'g1' })).rejects.toBeInstanceOf(
       MatchServiceError,
     );
+  });
+
+  it('adds WOS log-style stats fields (round score and team tables)', async () => {
+    const wosProfile = getGameProfile(WARCRAFT3_WOS_GAME_ID);
+    const match = {
+      id: 'm-wos',
+      status: 'COMPLETED',
+      leagueId: 'L1',
+      completedAt: new Date('2026-08-10T00:00:00.000Z'),
+      players: [
+        {
+          playerId: 'P1',
+          team: 1,
+          result: 'WIN',
+          slot: 1,
+          heroId: null,
+          isQuitter: false,
+          globalKi: 1100,
+          globalKiDelta: 50,
+          heroKi: null,
+          heroKiDelta: null,
+          player: { username: 'alice' },
+        },
+        {
+          playerId: 'P2',
+          team: 2,
+          result: 'LOSS',
+          slot: 6,
+          heroId: null,
+          isQuitter: false,
+          globalKi: 900,
+          globalKiDelta: -50,
+          heroKi: null,
+          heroKiDelta: null,
+          player: { username: 'bob' },
+        },
+      ],
+    };
+    getMatchById.mockResolvedValue(match);
+    listLeaguesForGuild.mockResolvedValue([{ id: 'L1' }]);
+    getGameProfileForMatch.mockResolvedValue(wosProfile);
+    matchPlayerStatsFindMany.mockResolvedValue([
+      {
+        playerId: 'P1',
+        kills: 1,
+        deaths: 10,
+        damageTotal: 9834,
+        heal: 0,
+        takenTotal: 5000,
+        heroName: 'Raiden Ei',
+        player: { username: 'alice' },
+      },
+      {
+        playerId: 'P2',
+        kills: 0,
+        deaths: 2,
+        damageTotal: 1200,
+        heal: 0,
+        takenTotal: 8000,
+        heroName: 'Frieren',
+        player: { username: 'bob' },
+      },
+    ]);
+    matchStatsReportFindUnique.mockResolvedValue({ team1Rounds: 2, team2Rounds: 10 });
+
+    const { embed } = await loadCompletedMatchShow({ matchId: 'm-wos', guildId: 'g1' });
+
+    const fields = embed.data.fields ?? [];
+    expect(fields.some((field) => field.name === 'Round score')).toBe(true);
+    expect(fields.some((field) => field.name?.includes('WOS Enjoyers stats'))).toBe(true);
+    expect(fields.some((field) => field.name?.includes('WOS Haters stats'))).toBe(true);
+    expect(fields.some((field) => field.name === 'Match stats')).toBe(false);
   });
 });

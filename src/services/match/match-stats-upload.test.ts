@@ -214,7 +214,7 @@ describe('buildMatchStatsLogEmbedFields', () => {
 });
 
 describe('formatMatchStatsFieldValue', () => {
-  it('keeps the compact summary format for /match show', () => {
+  it('formats compact one-line-per-player summaries', () => {
     expect(formatMatchStatsFieldValue([sampleStat()])).toBe('chmieleski: 1/10 · Raiden Ei');
   });
 });
