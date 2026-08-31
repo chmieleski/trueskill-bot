@@ -1,6 +1,7 @@
 import type { MatchStatus, Prisma } from '@prisma/client';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { prisma } from '../../lib/prisma.js';
+import { formatHeroDisplayName, resolveHeroDisplayNames } from '../game/game-hero-catalog.js';
 import { loadHeroCatalog } from '../guild/hero-catalog.js';
 import { listLeaguesForGuild } from '../league/league.js';
 import { CALIBRATING_LABEL, isCalibrating } from '../rating/rating-math.js';
@@ -112,6 +113,31 @@ function matchEndedAt(match: { completedAt: Date | null; updatedAt: Date; create
   return match.completedAt ?? match.updatedAt ?? match.createdAt;
 }
 
+type HistoryHeroSource = {
+  heroId: number | null;
+  stats: { heroName: string | null; heroObjectId: number | null } | null;
+};
+
+/** Prefer uploaded match stats (WOS); fall back to slot-bound Hero catalog (UDBR). */
+export function resolveMatchHistoryHeroName(
+  mp: HistoryHeroSource,
+  heroNameById: Map<number, string>,
+  gameHeroNames: Map<number, string>,
+  gameId: string | null,
+): string | null {
+  const stats = mp.stats;
+  if (gameId && stats && (stats.heroObjectId != null || stats.heroName?.trim())) {
+    const fromStats = formatHeroDisplayName(stats.heroObjectId, gameHeroNames, stats.heroName);
+    if (fromStats !== 'Unknown hero') {
+      return fromStats;
+    }
+  }
+  if (mp.heroId != null) {
+    return heroNameById.get(mp.heroId) ?? null;
+  }
+  return null;
+}
+
 export function clampMatchHistoryPage(page: number, totalPages: number): number {
   const safeTotal = Math.max(1, totalPages);
   if (!Number.isFinite(page) || page < 1) return 1;
@@ -221,23 +247,30 @@ export async function loadMatchHistoryPage(input: {
   const page = clampMatchHistoryPage(input.page, totalPages);
   const skip = (page - 1) * MATCH_HISTORY_PAGE_SIZE;
 
-  const matches = await prisma.match.findMany({
-    where,
-    orderBy: griefersOnly
-      ? [{ updatedAt: 'desc' }, { createdAt: 'desc' }]
-      : [{ completedAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
-    skip,
-    take: MATCH_HISTORY_PAGE_SIZE,
-    include: {
-      players: {
-        include: { player: true },
-        orderBy: { slot: 'asc' },
+  const [matches, leagueRow] = await Promise.all([
+    prisma.match.findMany({
+      where,
+      orderBy: griefersOnly
+        ? [{ updatedAt: 'desc' }, { createdAt: 'desc' }]
+        : [{ completedAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
+      skip,
+      take: MATCH_HISTORY_PAGE_SIZE,
+      include: {
+        players: {
+          include: { player: true, stats: true },
+          orderBy: { slot: 'asc' },
+        },
       },
-    },
-  });
+    }),
+    prisma.league.findUnique({
+      where: { id: input.leagueId },
+      select: { gameId: true },
+    }),
+  ]);
 
   const catalog = await loadHeroCatalog();
   const heroNameById = new Map(catalog.map((h) => [h.id, h.name]));
+  const leagueGameId = leagueRow?.gameId ?? null;
 
   const [resetAtByPlayer, completedMatchRows] = await Promise.all([
     loadLatestRankResetAtByPlayer(input.leagueId, [input.playerId]),
@@ -262,6 +295,16 @@ export async function loadMatchHistoryPage(input: {
     completedAt: row.match.completedAt ?? row.match.createdAt,
   }));
 
+  const statsObjectIds = matches.flatMap((match) => {
+    const mp = match.players.find((player) => player.playerId === input.playerId);
+    const objectId = mp?.stats?.heroObjectId;
+    return objectId != null ? [objectId] : [];
+  });
+  const gameHeroNames =
+    leagueGameId != null
+      ? await resolveHeroDisplayNames(leagueGameId, statsObjectIds)
+      : new Map<number, string>();
+
   const rows: MatchHistoryRow[] = [];
   for (const match of matches) {
     const mp = match.players.find((player) => player.playerId === input.playerId);
@@ -271,6 +314,8 @@ export async function loadMatchHistoryPage(input: {
     if (mp.team !== 1 && mp.team !== 2) {
       continue;
     }
+
+    const heroName = resolveMatchHistoryHeroName(mp, heroNameById, gameHeroNames, leagueGameId);
 
     const endedAt = matchEndedAt(match);
 
@@ -290,7 +335,7 @@ export async function loadMatchHistoryPage(input: {
         completedAt: endedAt,
         result: 'CANCELLED',
         team: mp.team,
-        heroName: mp.heroId != null ? (heroNameById.get(mp.heroId) ?? null) : null,
+        heroName,
         isQuitter: mp.isQuitter,
         isGriefer: mp.isGriefer,
         grieferKiAccrued: mp.grieferKiAccrued,
@@ -318,7 +363,7 @@ export async function loadMatchHistoryPage(input: {
       completedAt: endedAt,
       result: mp.result,
       team: mp.team,
-      heroName: mp.heroId != null ? (heroNameById.get(mp.heroId) ?? null) : null,
+      heroName,
       isQuitter: mp.isQuitter,
       isGriefer: mp.isGriefer,
       grieferKiAccrued: mp.grieferKiAccrued,
