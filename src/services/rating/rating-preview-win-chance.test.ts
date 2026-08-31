@@ -130,7 +130,7 @@ describe('computeWinChanceFromRatings', () => {
     expect(dynamic!.teamAPercent).not.toBe(staticSigma!.teamAPercent);
   });
 
-  it('discounts one-sided excess New so the short side is under 45%', () => {
+  it('counts one-sided excess New at 80% of blended μ (~50% for 4+New vs 5)', () => {
     const vetsA = ['a1', 'a2', 'a3', 'a4'];
     const vetsB = ['b1', 'b2', 'b3', 'b4', 'b5'];
     const entries = [
@@ -146,7 +146,7 @@ describe('computeWinChanceFromRatings', () => {
 
     const winChance = computeWinChanceFromRatings(entries, globals, heroes);
     expect(winChance).toBeDefined();
-    expect(winChance!.teamAPercent).toBeLessThan(45);
+    expect(winChance!.teamAPercent).toBe(50);
     expect(winChance!.teamAPercent + winChance!.teamBPercent).toBe(100);
   });
 
@@ -198,7 +198,6 @@ describe('computeWinChanceFromRatings', () => {
       heroes,
     );
 
-    expect(flagged!.teamAPercent).toBeLessThan(45);
     expect(flagged!.teamAPercent).toBeLessThan(unmarkedNew!.teamAPercent);
   });
 

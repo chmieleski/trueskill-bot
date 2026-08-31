@@ -10,10 +10,10 @@ export const BALANCE_HERO_WEIGHT = 0.2;
 export const BALANCE_STATIC_SIGMA = 6;
 
 /** Fraction of blended μ for excess / one-sided New in predictWin / balance hints. */
-export const BALANCE_NEW_MU_WEIGHT = 0.1;
+export const BALANCE_NEW_MU_WEIGHT = 0.8;
 
 /** Ceiling so a mis-flagged high-μ vet cannot dominate win%. */
-export const BALANCE_NEW_MU_CAP = 5;
+export const BALANCE_NEW_MU_CAP = 20;
 
 /** Discounted μ for excess / one-sided New on the balance path only. */
 export function effectiveBalanceMuForExcessNew(mu: number): number {
