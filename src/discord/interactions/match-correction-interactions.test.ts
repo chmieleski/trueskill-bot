@@ -267,7 +267,7 @@ describe('handleMatchCorrectionInteraction', () => {
       interaction.client,
       { id: 'match-1', leagueId: 'league-1', players: [] },
       'cancelled',
-      { cancelReason: 'by a moderator' },
+      { cancelReason: 'by a moderator', postToMatchLog: true },
     );
     expect(refreshLeagueLeaderboard).toHaveBeenCalledWith(interaction.client, 'league-1');
     expect(refreshGuildQuitterLeaderboard).toHaveBeenCalledWith(interaction.client, 'guild-1');

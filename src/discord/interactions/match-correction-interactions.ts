@@ -109,6 +109,7 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
     const updated = await voidCompletedMatch(parsed.matchId);
     await syncLobbyDiscordMessage(interaction.client, updated, 'cancelled', {
       cancelReason: 'by a moderator',
+      postToMatchLog: true,
     });
     await refreshLeagueLeaderboard(interaction.client, requireLeagueId(updated));
     if (interaction.guildId) {
