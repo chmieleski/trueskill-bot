@@ -121,7 +121,7 @@ host_update_ensure_github_origin() {
 host_update_handle_leftover_prev() {
   local app_dir="$1"
   local unit_active="$2"
-  local prev
+  local prev failed
   prev="$(host_update_prev_dir "${app_dir}")"
   if [[ ! -e "${prev}" ]]; then
     return 0
@@ -130,11 +130,25 @@ host_update_handle_leftover_prev() {
     rm -rf "${prev}"
     return 0
   fi
-  echo "Refusing to deploy: ${prev} exists and dbz-bot is not active." >&2
-  echo "Restore the previous tree, then retry:" >&2
+
+  echo "==> Recovering from ${prev} (dbz-bot inactive after a prior failed promote)" >&2
+  systemctl stop dbz-bot || true
+  failed="${app_dir}.failed"
+  rm -rf "${failed}"
+  if [[ -e "${app_dir}" ]]; then
+    mv "${app_dir}" "${failed}"
+  fi
+  mv "${prev}" "${app_dir}"
+  if systemctl start dbz-bot && systemctl is-active --quiet dbz-bot; then
+    echo "==> Restored previous deploy from ${prev}" >&2
+    return 0
+  fi
+
+  echo "Refusing to deploy: restore from ${prev} failed; dbz-bot is still inactive." >&2
+  echo "Manual recovery:" >&2
+  echo "  systemctl stop dbz-bot" >&2
   echo "  mv ${app_dir} ${app_dir}.bad" >&2
   echo "  mv ${prev} ${app_dir}" >&2
   echo "  systemctl start dbz-bot" >&2
-  echo "Or remove ${prev} if you intend to keep the current tree." >&2
   return 1
 }
