@@ -1,3 +1,10 @@
+# [1.42.0](https://github.com/chmieleski/trueskill-bot/compare/v1.41.3...v1.42.0) (2026-08-31)
+
+
+### Features
+
+* **hero:** add recent games and hero_players command ([#133](https://github.com/chmieleski/trueskill-bot/issues/133)) ([faa0c89](https://github.com/chmieleski/trueskill-bot/commit/faa0c89e73b3add32595b36dc50b85bd972a6845))
+
 ## [1.41.3](https://github.com/chmieleski/trueskill-bot/compare/v1.41.2...v1.41.3) (2026-08-31)
 
 
