@@ -2,7 +2,7 @@ import type { CaptainDraft, Prisma } from '@prisma/client';
 import type { Client, EmbedBuilder, TextChannel } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
-import { buildLiveDraftComponents, buildLiveDraftEmbed } from './draft-live-embed.js';
+import { buildLiveDraftMessage } from './draft-live-embed.js';
 import { buildTeamRosterEmbeds } from './draft-team-embed.js';
 import { parseDraftState, saveDraftState } from './draft-state.js';
 import type { CaptainDraftStatus } from './draft-types.js';
@@ -130,17 +130,16 @@ export async function syncLiveDraftMessage(client: Client, draft: CaptainDraft):
 
   const state = parseDraftState(draft);
   const status = draft.status as CaptainDraftStatus;
-  const embed = buildLiveDraftEmbed(state, status);
-  const components = buildLiveDraftComponents(draft.id, status);
+  const messagePayload = buildLiveDraftMessage(draft.id, state, status);
 
   try {
     const channel = await fetchTextChannel(client, draft.channelId);
-    await channel.messages.edit(draft.draftMessageId, { embeds: [embed], components });
+    await channel.messages.edit(draft.draftMessageId, messagePayload);
   } catch (error) {
     log.warn({ err: error, draftId: draft.id }, 'Live draft edit failed; reposting');
     try {
       const channel = await fetchTextChannel(client, draft.channelId);
-      const message = await channel.send({ embeds: [embed], components });
+      const message = await channel.send(messagePayload);
       await saveDraftState(draft.id, status, state, { draftMessageId: message.id });
     } catch (repostError) {
       log.warn({ err: repostError, draftId: draft.id }, 'Live draft repost failed');

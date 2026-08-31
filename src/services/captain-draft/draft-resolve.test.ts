@@ -45,11 +45,41 @@ describe('resolveParticipantsFromInput', () => {
     expect(playerFindMany).not.toHaveBeenCalled();
   });
 
+  it('resolves space-separated Discord mentions without commas', async () => {
+    const guild = mockGuild(async (id) => {
+      if (id === '111') return { displayName: 'Alice' };
+      if (id === '222') return { displayName: 'Bob' };
+      return { displayName: 'Carol' };
+    });
+
+    const result = await resolveParticipantsFromInput({
+      raw: '<@111> <@222> <@333>',
+      gameId: null,
+      guild,
+    });
+
+    expect(result).toHaveLength(3);
+    expect(result.map((entry) => entry.discordId)).toEqual(['111', '222', '333']);
+  });
+
+  it('resolves adjacent Discord mentions without separators', async () => {
+    const guild = mockGuild(async (id) => ({ displayName: id }));
+
+    const result = await resolveParticipantsFromInput({
+      raw: '<@111><@222>',
+      gameId: null,
+      guild,
+    });
+
+    expect(result).toHaveLength(2);
+    expect(result.map((entry) => entry.discordId)).toEqual(['111', '222']);
+  });
+
   it('keeps plain text labels when gameId is unset', async () => {
     const guild = mockGuild(async () => ({ displayName: 'unused' }));
 
     const result = await resolveParticipantsFromInput({
-      raw: 'Tiny, Ghost',
+      raw: 'Tiny Ghost',
       gameId: null,
       guild,
     });

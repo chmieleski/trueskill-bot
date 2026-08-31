@@ -5,7 +5,7 @@ import {
   TEAM_EMBED_COLORS,
   buildTeamRosterEmbeds,
   formatParticipantDisplay,
-  formatTeamRosterTable,
+  formatTeamRosterList,
 } from './draft-team-embed.js';
 
 const p = (key: string, label: string, discordId?: string): DraftParticipant =>
@@ -39,34 +39,38 @@ describe('formatParticipantDisplay', () => {
   });
 });
 
-describe('formatTeamRosterTable', () => {
-  it('marks the captain and aligns columns', () => {
+describe('formatTeamRosterList', () => {
+  it('marks the captain with a crown outside code blocks', () => {
     const team = sampleState().teams[0]!;
-    const table = formatTeamRosterTable(team);
-    expect(table).toContain('#');
-    expect(table).toContain('Player');
-    expect(table).toContain('👑 <@111>');
-    expect(table).toContain('<@333>');
+    const roster = formatTeamRosterList(team);
+    expect(roster).toContain('- <@111> 👑');
+    expect(roster).toContain('- <@333>');
+    expect(roster).not.toContain('```');
   });
 });
 
 describe('buildTeamRosterEmbeds', () => {
   const completedAt = new Date('2026-08-31T15:00:00Z');
 
-  it('builds one embed per team with rotating colors', () => {
+  it('builds one embed per team with captain, pick order, and roster fields', () => {
     const embeds = buildTeamRosterEmbeds(sampleState(), completedAt);
     expect(embeds).toHaveLength(2);
     expect(embeds[0]!.data.title).toBe('Team Alice');
     expect(embeds[0]!.data.color).toBe(TEAM_EMBED_COLORS[0]);
     expect(embeds[1]!.data.color).toBe(TEAM_EMBED_COLORS[1]);
-    expect(embeds[0]!.data.description).toContain('👑 <@111>');
-    expect(embeds[0]!.data.fields?.[0]?.name).toBe('Roster');
-    expect(embeds[0]!.data.fields?.[0]?.value).toContain('<@333>');
+
+    const fields = embeds[0]!.data.fields ?? [];
+    expect(fields.map((field) => field.name)).toEqual(['Captain', 'Pick Order', 'Roster']);
+    expect(fields[0]?.value).toBe('<@111>');
+    expect(fields[1]?.value).toBe('#1');
+    expect(fields[2]?.value).toContain('<@111> 👑');
+    expect(fields[2]?.value).toContain('<@333>');
+    expect(fields[2]?.value).not.toContain('```');
   });
 
-  it('puts footer only on the last team embed', () => {
+  it('puts extended footer only on the last team embed', () => {
     const embeds = buildTeamRosterEmbeds(sampleState(), completedAt);
-    expect(embeds[0]!.data.footer).toBeUndefined();
+    expect(embeds[0]!.data.footer?.text).toBe('Captain draft');
     expect(embeds[1]!.data.footer?.text).toMatch(/^Captain draft · Aug 31, 2026 · Pick order #/);
     expect(embeds[1]!.data.footer?.text).toContain('Pick order #2');
   });

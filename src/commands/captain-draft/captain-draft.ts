@@ -78,7 +78,7 @@ export const data = new SlashCommandBuilder()
         .addStringOption((option) =>
           option
             .setName('players')
-            .setDescription('Captains: @mentions and/or comma-separated nicks')
+            .setDescription('Captains: @mentions and/or space-separated nicks')
             .setRequired(true),
         ),
     ),
@@ -91,7 +91,7 @@ export const data = new SlashCommandBuilder()
         .addStringOption((option) =>
           option
             .setName('players')
-            .setDescription('Members: @mentions and/or comma-separated nicks')
+            .setDescription('Members: @mentions and/or space-separated nicks')
             .setRequired(true),
         ),
     ),
@@ -399,7 +399,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         leagueId,
       });
       await interaction.editReply({
-        content: `Captain draft \`${draft.id}\` created. Set captains and members, then run \`/captain_draft begin\`.`,
+        content: [
+          `Captain draft \`${draft.id}\` created.`,
+          'Set captains and members, then run `/captain_draft begin`:',
+          '• `/captain_draft captains players:@Captain1 @Captain2`',
+          '• `/captain_draft members players:@Alice Bob Carol`',
+        ].join('\n'),
       });
       return;
     }

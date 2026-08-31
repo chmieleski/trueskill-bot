@@ -40,7 +40,10 @@ export {
   shufflePickOrder,
 } from './draft-logic.js';
 export {
+  buildLiveDraftContent,
   buildLiveDraftEmbed,
+  buildLiveDraftEmbeds,
+  buildLiveDraftMessage,
   buildLiveDraftComponents,
   buildPickButtonCustomId,
 } from './draft-live-embed.js';
@@ -52,6 +55,10 @@ export {
   saveDraftState,
   serializeDraftState,
 } from './draft-state.js';
-export { buildTeamRosterEmbeds, formatParticipantDisplay } from './draft-team-embed.js';
+export {
+  buildTeamRosterEmbeds,
+  formatParticipantDisplay,
+  formatTeamRosterList,
+} from './draft-team-embed.js';
 export type { CaptainDraftStatus, DraftParticipant, DraftState, DraftTeam } from './draft-types.js';
 export { CaptainDraftError, emptyDraftState } from './draft-types.js';
