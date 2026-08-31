@@ -61,16 +61,16 @@ describe('ratingEntitiesForBalance', () => {
 });
 
 describe('effectiveBalanceMuForExcessNew', () => {
-  it('applies 10% weight for cold-start New μ', () => {
-    expect(effectiveBalanceMuForExcessNew(25)).toBe(2.5);
+  it('applies 80% weight for cold-start New μ', () => {
+    expect(effectiveBalanceMuForExcessNew(25)).toBe(20);
   });
 
-  it('caps discounted μ at 5', () => {
-    expect(effectiveBalanceMuForExcessNew(60)).toBe(5);
+  it('caps discounted μ at 20 for high-μ mis-flags', () => {
+    expect(effectiveBalanceMuForExcessNew(60)).toBe(20);
   });
 
   it('applies weight without cap for typical vet blend', () => {
-    expect(effectiveBalanceMuForExcessNew(20)).toBe(2);
+    expect(effectiveBalanceMuForExcessNew(20)).toBe(16);
   });
 });
 

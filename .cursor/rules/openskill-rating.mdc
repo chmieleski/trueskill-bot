@@ -42,7 +42,7 @@ Team array (predictWin) = [Blend1, Blend2, ...]
 - Team μ: `Σ μᵢ` of that `predictWin` array
 - Team variance: `Σ σᵢ²`
 
-**New-player balance (predictWin / swap hints only; `rate()` unchanged):** paired non-quit New seats are **omitted** from the team array (same lowest-slot pair-off as rating apply). Excess / one-sided New contribute `μ_eff = min(0.1 × μ_blend, 5)` after the 80/20 blend. Unmarked calibrating players keep full μ. Spec: `docs/superpowers/specs/2026-08-28-new-player-balance-mu-discount-design.md`.
+**New-player balance (predictWin / swap hints only; `rate()` unchanged):** paired non-quit New seats are **omitted** from the team array (same lowest-slot pair-off as rating apply). Excess / one-sided New contribute `μ_eff = min(0.8 × μ_blend, 20)` after the 80/20 blend. Unmarked calibrating players keep full μ. Spec: `docs/superpowers/specs/2026-08-28-new-player-balance-mu-discount-design.md`.
 
 Public roster ki is unchanged (still two numbers). `rate()` is the independent ladders above, not this blend. Specs: `docs/superpowers/specs/2026-08-22-player-hero-balance-weight-design.md`, `docs/superpowers/specs/2026-08-24-balance-static-sigma-design.md`. Staff: `/league_config set balance_static_sigma`.
 
