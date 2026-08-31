@@ -1,3 +1,10 @@
+## [1.43.2](https://github.com/chmieleski/trueskill-bot/compare/v1.43.1...v1.43.2) (2026-08-31)
+
+
+### Bug Fixes
+
+* **wos:** map report roster by team_slot and pre-flag quitters ([#137](https://github.com/chmieleski/trueskill-bot/issues/137)) ([02f5fe0](https://github.com/chmieleski/trueskill-bot/commit/02f5fe02616b9470f06fe44d1308b0b52d6dd04c))
+
 ## [1.43.1](https://github.com/chmieleski/trueskill-bot/compare/v1.43.0...v1.43.1) (2026-08-31)
 
 
