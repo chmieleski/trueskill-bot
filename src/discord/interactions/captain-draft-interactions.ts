@@ -9,7 +9,7 @@ import { createLogger } from '../../lib/logger.js';
 import { sendReplacingEphemeral, touchEphemeralSession } from '../../lib/ephemeral-reply.js';
 import {
   applyCaptainDraftPick,
-  assertCurrentCaptainPick,
+  assertCurrentCaptainPickForButton,
   buildPickButtonCustomId,
   CaptainDraftError,
   findParticipant,
@@ -129,7 +129,7 @@ async function showPickSelect(
 ): Promise<void> {
   const draft = await loadDraftById(draftId);
   const state = parseDraftState(draft);
-  assertCurrentCaptainPick(state, interaction.user.id);
+  assertCurrentCaptainPickForButton(state, interaction.user.id);
 
   const pool = state.memberPool;
   if (pool.length === 0) {
@@ -194,7 +194,7 @@ async function handlePickSelect(
   try {
     const draft = await loadDraftById(draftId);
     const beforeState = parseDraftState(draft);
-    assertCurrentCaptainPick(beforeState, interaction.user.id);
+    assertCurrentCaptainPickForButton(beforeState, interaction.user.id);
 
     const updated = await applyCaptainDraftPick({
       client: interaction.client,

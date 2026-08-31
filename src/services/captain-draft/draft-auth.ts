@@ -45,7 +45,13 @@ export function assertCaptainDraftMod(
   });
 }
 
-/** Require the actor to be the current snake-draft captain. */
+const TEXT_ONLY_CAPTAIN_PICK_MESSAGE =
+  'The current captain was added as text only (not linked to Discord). A moderator must run `/captain_draft force_pick`.';
+
+/**
+ * Require the actor to be the Discord-linked current captain (slash `/captain_draft pick`).
+ * Text-only captains cannot self-pick on Discord; mods use `force_pick` instead.
+ */
 export function assertCurrentCaptainPick(state: DraftState, actorDiscordId: string): void {
   const captainKey = currentCaptainKey(state);
   if (!captainKey) {
@@ -54,8 +60,25 @@ export function assertCurrentCaptainPick(state: DraftState, actorDiscordId: stri
 
   const captain = findParticipant(state, captainKey);
   if (!captain?.discordId) {
+    throw new CaptainDraftError(TEXT_ONLY_CAPTAIN_PICK_MESSAGE);
+  }
+
+  if (captain.discordId !== actorDiscordId) {
+    throw new CaptainDraftError(`It is not your turn. ${captain.label} is on the clock.`);
+  }
+}
+
+/** Require a Discord-linked current captain for embed pick buttons. */
+export function assertCurrentCaptainPickForButton(state: DraftState, actorDiscordId: string): void {
+  const captainKey = currentCaptainKey(state);
+  if (!captainKey) {
+    throw new CaptainDraftError('The draft is not waiting for a pick.');
+  }
+
+  const captain = findParticipant(state, captainKey);
+  if (!captain?.discordId) {
     throw new CaptainDraftError(
-      'The current captain must pick via the slash command (not linked to Discord).',
+      'The current captain was added as text only. Pick buttons are unavailable; a moderator must run `/captain_draft force_pick`.',
     );
   }
 

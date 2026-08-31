@@ -22,6 +22,7 @@ export {
 export {
   assertCaptainDraftMod,
   assertCurrentCaptainPick,
+  assertCurrentCaptainPickForButton,
   assertTeamCaptainRename,
 } from './draft-auth.js';
 export {
