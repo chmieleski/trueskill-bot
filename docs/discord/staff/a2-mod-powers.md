@@ -24,6 +24,9 @@ People with the **mod role** help when the host is gone or stuck.
 • `/captain_draft start` → `captains` → `members` → `begin` — snake team draft (see **a9**)
 • Mod tools: `add` · `remove` · `swap` · `move` · `undo` · `force_pick` · `publish` · `cancel`
 
+**Season rollover**
+• `/league rollover` — archive a season and open a successor (see **a6**)
+
 **Accounts & New players**
 • `/link nick:X user:@Player` — link others; mods can **relink**
 • `/unlink user:@Player`

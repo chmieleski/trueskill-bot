@@ -1,6 +1,8 @@
 export {
   assertCanConfigureBot,
+  assertCanRolloverLeague,
   canConfigureBot,
+  canRolloverLeague,
   clearGrieferLeaderboardChannel,
   clearGrieferLeaderboardDisplay,
   clearGrieferLeaderboardSize,

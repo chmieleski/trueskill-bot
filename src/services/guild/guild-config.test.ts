@@ -26,7 +26,10 @@ import { env } from '../../config/env.js';
 import {
   BOT_OWNER_DISCORD_ID,
   assertCanConfigureBot,
+  assertCanRolloverLeague,
   canConfigureBot,
+  canRolloverLeague,
+  UNIVERSAL_MATCH_MOD_DISCORD_IDS,
   clearQuitterLeaderboardDisplay,
   clearQuitterLeaderboardSize,
   clearQuitterLeaderboardSort,
@@ -159,6 +162,44 @@ describe('assertCanConfigureBot', () => {
     );
     expect(() => assertCanConfigureBot({ userId: 'someone', memberPermissions: null })).toThrow(
       'You do not have permission to configure this bot.',
+    );
+  });
+});
+
+describe('canRolloverLeague', () => {
+  const universalModId = [...UNIVERSAL_MATCH_MOD_DISCORD_IDS].find(
+    (id) => id !== BOT_OWNER_DISCORD_ID,
+  )!;
+
+  it('allows Manage Guild', () => {
+    const perms = new PermissionsBitField(PermissionFlagsBits.ManageGuild);
+    expect(canRolloverLeague({ userId: 'someone', memberPermissions: perms })).toBe(true);
+  });
+
+  it('allows universal match mods without Manage Guild', () => {
+    expect(canRolloverLeague({ userId: universalModId, memberPermissions: null })).toBe(true);
+  });
+
+  it('allows guild match mods with the configured mod role', () => {
+    expect(
+      canRolloverLeague({
+        userId: 'someone',
+        memberPermissions: 0n,
+        memberRoleIds: ['other', 'mod-role'],
+        matchModRoleId: 'mod-role',
+      }),
+    ).toBe(true);
+  });
+
+  it('rejects everyone else without Manage Guild or match mod', () => {
+    expect(canRolloverLeague({ userId: 'someone', memberPermissions: 0n })).toBe(false);
+  });
+});
+
+describe('assertCanRolloverLeague', () => {
+  it('throws when not allowed', () => {
+    expect(() => assertCanRolloverLeague({ userId: 'someone', memberPermissions: null })).toThrow(
+      MatchServiceError,
     );
   });
 });

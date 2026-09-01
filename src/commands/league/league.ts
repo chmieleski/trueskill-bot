@@ -3,7 +3,11 @@ import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'disco
 import { WARCRAFT3_WOS_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
 import { getGameProfile, UnknownGameIdError } from '../../domain/game-profile.js';
 import { createLogger } from '../../lib/logger.js';
-import { assertCanConfigureBot } from '../../services/guild/index.js';
+import {
+  assertCanConfigureBot,
+  assertCanRolloverLeague,
+  resolveGuildConfig,
+} from '../../services/guild/index.js';
 import { buildRolloverConfirmComponents } from '../../discord/interactions/league-rollover-interactions.js';
 import {
   autocompleteActiveGuildLeagues,
@@ -57,6 +61,26 @@ function memberPermissions(interaction: ChatInputCommandInteraction) {
   }
 
   return null;
+}
+
+function memberRoleIds(interaction: { member: unknown }): string[] {
+  const member = interaction.member;
+
+  if (member instanceof GuildMember) {
+    return [...member.roles.cache.keys()];
+  }
+
+  if (member && typeof member === 'object' && 'roles' in member) {
+    const roles = (member as { roles: string[] | { cache?: { keys(): Iterable<string> } } }).roles;
+    if (Array.isArray(roles)) {
+      return roles;
+    }
+    if (roles?.cache) {
+      return [...roles.cache.keys()];
+    }
+  }
+
+  return [];
 }
 
 function inferBindingKind(channelType: ChannelType): LeagueBindingKind {
@@ -315,11 +339,25 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
+  const subcommandGroup = interaction.options.getSubcommandGroup(false);
+  const subcommand = interaction.options.getSubcommand(true);
+
+  const authInput = {
+    userId: interaction.user.id,
+    memberPermissions: memberPermissions(interaction),
+  };
+
   try {
-    assertCanConfigureBot({
-      userId: interaction.user.id,
-      memberPermissions: memberPermissions(interaction),
-    });
+    if (subcommand === 'rollover' && !subcommandGroup) {
+      const guildConfig = await resolveGuildConfig(interaction.guildId);
+      assertCanRolloverLeague({
+        ...authInput,
+        memberRoleIds: memberRoleIds(interaction),
+        matchModRoleId: guildConfig.matchModRoleId,
+      });
+    } else {
+      assertCanConfigureBot(authInput);
+    }
   } catch (error) {
     if (error instanceof MatchServiceError) {
       await interaction.reply({
@@ -330,9 +368,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
     throw error;
   }
-
-  const subcommandGroup = interaction.options.getSubcommandGroup(false);
-  const subcommand = interaction.options.getSubcommand(true);
 
   try {
     if (subcommandGroup === 'set' && subcommand === 'season_end') {
