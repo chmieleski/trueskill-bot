@@ -1,3 +1,10 @@
+## [1.49.1](https://github.com/chmieleski/trueskill-bot/compare/v1.49.0...v1.49.1) (2026-09-01)
+
+
+### Bug Fixes
+
+* **match:** auto-create players for mod sanction and new flags ([#155](https://github.com/chmieleski/trueskill-bot/issues/155)) ([244725b](https://github.com/chmieleski/trueskill-bot/commit/244725b68883042110004342ea145cc8ee7e218f))
+
 # [1.49.0](https://github.com/chmieleski/trueskill-bot/compare/v1.48.0...v1.49.0) (2026-09-01)
 
 
