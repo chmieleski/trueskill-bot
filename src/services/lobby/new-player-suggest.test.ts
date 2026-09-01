@@ -1,8 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { loadMatchDisplayStatsByPlayer, playerRatingFindMany } = vi.hoisted(() => ({
+const {
+  loadMatchDisplayStatsByPlayer,
+  playerRatingFindMany,
+  leagueFindUnique,
+  matchPlayerGroupBy,
+} = vi.hoisted(() => ({
   loadMatchDisplayStatsByPlayer: vi.fn(),
   playerRatingFindMany: vi.fn(),
+  leagueFindUnique: vi.fn(),
+  matchPlayerGroupBy: vi.fn(),
 }));
 
 vi.mock('../rating/rank-reset-display.js', async (importOriginal) => {
@@ -15,7 +22,9 @@ vi.mock('../rating/rank-reset-display.js', async (importOriginal) => {
 
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
+    league: { findUnique: leagueFindUnique },
     playerRating: { findMany: playerRatingFindMany },
+    matchPlayer: { groupBy: matchPlayerGroupBy },
   },
 }));
 
@@ -30,11 +39,19 @@ function statsMap(
   return new Map(entries.map(([playerId, games]) => [playerId, { wins: 0, losses: games, games }]));
 }
 
+function mockLeagueContext(): void {
+  leagueFindUnique.mockResolvedValue({ guildId: 'guild-1', gameId: 'game-1' });
+  matchPlayerGroupBy.mockResolvedValue([]);
+}
+
 describe('collectNewPlayerSuggestions', () => {
   beforeEach(() => {
     loadMatchDisplayStatsByPlayer.mockReset();
     playerRatingFindMany.mockReset();
+    leagueFindUnique.mockReset();
+    matchPlayerGroupBy.mockReset();
     playerRatingFindMany.mockResolvedValue([]);
+    mockLeagueContext();
   });
 
   it('suggests a newly seated player with 0 completed games', async () => {
@@ -76,6 +93,31 @@ describe('collectNewPlayerSuggestions', () => {
     });
 
     expect(suggestions).toBeUndefined();
+  });
+
+  it('skips veterans with 0 games in the new season but prior-season history', async () => {
+    loadMatchDisplayStatsByPlayer.mockResolvedValue(statsMap([['p-vet', 0]]));
+    matchPlayerGroupBy.mockResolvedValue([{ playerId: 'p-vet', _count: { _all: 14 } }]);
+
+    const suggestions = await collectNewPlayerSuggestions({
+      leagueId: 'league-2',
+      matchId: 'match-1',
+      previousPlayerIds: new Set(),
+      nextPlayers: [{ playerId: 'p-vet', username: 'veteran' }],
+    });
+
+    expect(suggestions).toBeUndefined();
+    expect(matchPlayerGroupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          playerId: { in: ['p-vet'] },
+          match: expect.objectContaining({
+            leagueId: { not: 'league-2' },
+            league: { guildId: 'guild-1', gameId: 'game-1' },
+          }),
+        }),
+      }),
+    );
   });
 
   it('skips players already flagged as New', async () => {
@@ -132,7 +174,10 @@ describe('collectNewPlayerSuggestionsForPendingCreate', () => {
   beforeEach(() => {
     loadMatchDisplayStatsByPlayer.mockReset();
     playerRatingFindMany.mockReset();
+    leagueFindUnique.mockReset();
+    matchPlayerGroupBy.mockReset();
     playerRatingFindMany.mockResolvedValue([]);
+    mockLeagueContext();
   });
 
   it('returns [] for an empty create roster', async () => {

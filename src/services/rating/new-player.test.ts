@@ -44,6 +44,15 @@ describe('shouldSuggestNewPlayer', () => {
     expect(shouldSuggestNewPlayer(0, true)).toBe(false);
     expect(shouldSuggestNewPlayer(1, false)).toBe(false);
   });
+
+  it('skips when the player has games in a prior guild season', () => {
+    expect(shouldSuggestNewPlayer(0, false, 1)).toBe(false);
+    expect(shouldSuggestNewPlayer(0, false, 12)).toBe(false);
+  });
+
+  it('suggests when current and prior seasons are both at 0 games', () => {
+    expect(shouldSuggestNewPlayer(0, false, 0)).toBe(true);
+  });
 });
 
 describe('shouldClearNewPlayer', () => {
