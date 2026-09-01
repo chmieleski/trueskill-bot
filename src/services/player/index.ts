@@ -47,6 +47,7 @@ export {
   type TeammateStats,
 } from './teammate-stats.js';
 export { linkPlayer, unlinkByDiscordId } from './player-link.js';
+export { ensurePlayerForModLookup, type ModPlayerLookup } from './player-ensure.js';
 export {
   getPlayerHostPromptPingsEnabled,
   setPlayerHostPromptPingsEnabled,
