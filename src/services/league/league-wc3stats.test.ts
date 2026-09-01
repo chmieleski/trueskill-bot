@@ -26,7 +26,11 @@ vi.mock('../rating/rating-decay.js', async () => {
   };
 });
 
-import { resolveLeagueConfig, setLeagueWc3statsHostPrompt } from './league-wc3stats.js';
+import {
+  resolveLeagueConfig,
+  setLeagueWc3statsHostPrompt,
+  setLeagueWc3statsHostPromptPings,
+} from './league-wc3stats.js';
 import { isLeagueInCrunch } from '../rating/rating-decay.js';
 import { MatchServiceError } from '../match/match-service.js';
 import { assertLeagueAllowsWc3stats } from '../lobby/register-lobby-source.js';
@@ -149,6 +153,23 @@ describe('setLeagueWc3statsHostPrompt vs lobby channel', () => {
         wc3statsHostPromptEnabled: false,
         wc3statsHostPromptChannelId: null,
       },
+    });
+  });
+});
+
+describe('setLeagueWc3statsHostPromptPings', () => {
+  beforeEach(() => {
+    update.mockReset();
+    vi.mocked(assertLeagueAllowsWc3stats).mockReset();
+  });
+
+  it('updates the league-wide host ping flag', async () => {
+    await setLeagueWc3statsHostPromptPings('league-1', false);
+
+    expect(assertLeagueAllowsWc3stats).toHaveBeenCalledWith('league-1');
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'league-1' },
+      data: { wc3statsHostPromptPingsEnabled: false },
     });
   });
 });
