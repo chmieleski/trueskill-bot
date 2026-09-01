@@ -1,3 +1,16 @@
+# [1.49.0](https://github.com/chmieleski/trueskill-bot/compare/v1.48.0...v1.49.0) (2026-09-01)
+
+
+### Bug Fixes
+
+* **rating:** skip New-player prompt for prior-season veterans ([#154](https://github.com/chmieleski/trueskill-bot/issues/154)) ([2148ee4](https://github.com/chmieleski/trueskill-bot/commit/2148ee402bce604b61cc3a24b12658b9f4de864e))
+* **wos:** allow re-uploading stats after a voided match ([#152](https://github.com/chmieleski/trueskill-bot/issues/152)) ([8a60133](https://github.com/chmieleski/trueskill-bot/commit/8a60133263ef905c6af7631225743ad763d0416a))
+
+
+### Features
+
+* **hero_all:** add Previous/Next pagination buttons ([#153](https://github.com/chmieleski/trueskill-bot/issues/153)) ([9b90fc4](https://github.com/chmieleski/trueskill-bot/commit/9b90fc4f7e3dddc31ded5fc5b665ee42af814fca))
+
 # [1.48.0](https://github.com/chmieleski/trueskill-bot/compare/v1.47.3...v1.48.0) (2026-09-01)
 
 
