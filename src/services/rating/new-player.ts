@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import { MatchResult, MatchStatus, type Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { isLeagueWritable, LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
 import { compactUuidForCustomId, expandUuidFromCustomId } from '../match/compact-custom-id.js';
@@ -103,9 +103,52 @@ export type ParsedNewPlayerButtonCustomId = {
   actorDiscordId: string;
 };
 
-/** True when a host may be prompted to mark a player as new (0 games, not already flagged). */
-export function shouldSuggestNewPlayer(completedGames: number, isAlreadyNew: boolean): boolean {
-  return completedGames === 0 && !isAlreadyNew;
+/**
+ * True when a host may be prompted to mark a player as new
+ * (0 completed games in this league and all prior guild seasons, not already flagged).
+ */
+export function shouldSuggestNewPlayer(
+  completedGamesInLeague: number,
+  isAlreadyNew: boolean,
+  completedGamesInPriorSeasons = 0,
+): boolean {
+  return completedGamesInLeague + completedGamesInPriorSeasons === 0 && !isAlreadyNew;
+}
+
+/**
+ * Completed WIN/LOSS games per player in other leagues for the same guild + game
+ * (prior seasons). Ignores rank-reset cutoffs — any historical IHL match counts.
+ */
+export async function loadCompletedGamesInPriorGuildGameSeasons(
+  guildId: string,
+  gameId: string,
+  excludeLeagueId: string,
+  playerIds: string[],
+  db: Db = prisma,
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>(playerIds.map((id) => [id, 0]));
+  if (playerIds.length === 0) {
+    return map;
+  }
+
+  const rows = await db.matchPlayer.groupBy({
+    by: ['playerId'],
+    where: {
+      playerId: { in: playerIds },
+      result: { in: [MatchResult.WIN, MatchResult.LOSS] },
+      match: {
+        status: MatchStatus.COMPLETED,
+        leagueId: { not: excludeLeagueId },
+        league: { guildId, gameId },
+      },
+    },
+    _count: { _all: true },
+  });
+
+  for (const row of rows) {
+    map.set(row.playerId, row._count._all);
+  }
+  return map;
 }
 
 /** True once the player has completed enough games to leave the calibrating window. */
@@ -176,17 +219,33 @@ export async function collectNewPlayerSuggestions(input: {
   }
 
   const playerIds = newcomers.map((player) => player.playerId);
-  const [displayStats, isNewByPlayer] = await Promise.all([
+  const league = await db.league.findUnique({
+    where: { id: input.leagueId },
+    select: { guildId: true, gameId: true },
+  });
+  if (!league) {
+    return undefined;
+  }
+
+  const [displayStats, isNewByPlayer, priorSeasonGamesByPlayer] = await Promise.all([
     loadMatchDisplayStatsByPlayer(input.leagueId, playerIds, db),
     loadIsNewPlayerByPlayerId(input.leagueId, playerIds, db),
+    loadCompletedGamesInPriorGuildGameSeasons(
+      league.guildId,
+      league.gameId,
+      input.leagueId,
+      playerIds,
+      db,
+    ),
   ]);
   const gamesByPlayer = gamesByPlayerFromStats(displayStats);
 
   const suggestions: NewPlayerSuggestion[] = [];
   for (const player of newcomers) {
     const games = gamesByPlayer.get(player.playerId) ?? 0;
+    const priorSeasonGames = priorSeasonGamesByPlayer.get(player.playerId) ?? 0;
     const isAlreadyNew = isNewByPlayer.get(player.playerId) ?? false;
-    if (!shouldSuggestNewPlayer(games, isAlreadyNew)) {
+    if (!shouldSuggestNewPlayer(games, isAlreadyNew, priorSeasonGames)) {
       continue;
     }
     suggestions.push({
