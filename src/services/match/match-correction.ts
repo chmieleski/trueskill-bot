@@ -28,6 +28,7 @@ import {
 import { resolveQuitterSlots } from './match-report.js';
 import type { CompleteMatchResult } from './match-report.js';
 import { persistMatchRatingPreviewToPlayers } from './match-history-preview.js';
+import { clearMatchStatsReport } from './match-stats-store.js';
 import { isLeagueWritable, LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
 import {
   gamesByPlayerFromStats,
@@ -654,6 +655,8 @@ export async function voidCompletedMatch(matchId: string): Promise<MatchWithPlay
         data: { result: null, isQuitter: false, isGriefer: false, grieferKiAccrued: null },
       });
     }
+
+    await clearMatchStatsReport(matchId, tx);
 
     await tx.match.update({
       where: { id: matchId },
