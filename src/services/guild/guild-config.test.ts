@@ -25,6 +25,7 @@ vi.mock('../../config/env.js', () => ({
 import { env } from '../../config/env.js';
 import {
   BOT_OWNER_DISCORD_ID,
+  BOT_OWNER_DISCORD_IDS,
   assertCanConfigureBot,
   assertCanRolloverLeague,
   canConfigureBot,
@@ -141,8 +142,10 @@ describe('setMatchCreateRole / setMatchModRole', () => {
 });
 
 describe('canConfigureBot', () => {
-  it('allows the hard-coded owner without Manage Guild', () => {
-    expect(canConfigureBot({ userId: BOT_OWNER_DISCORD_ID, memberPermissions: null })).toBe(true);
+  it('allows every hard-coded bot owner without Manage Guild', () => {
+    for (const ownerId of BOT_OWNER_DISCORD_IDS) {
+      expect(canConfigureBot({ userId: ownerId, memberPermissions: null })).toBe(true);
+    }
   });
 
   it('allows Manage Guild', () => {

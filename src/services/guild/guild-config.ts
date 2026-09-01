@@ -9,17 +9,22 @@ import { env } from '../../config/env.js';
 import { prisma } from '../../lib/prisma.js';
 import { MatchServiceError } from '../match/match-service.js';
 
+/** Primary bot owner (backward-compatible constant). */
 export const BOT_OWNER_DISCORD_ID = '723326675647070218';
+
+/** Discord IDs that may configure the bot without Manage Guild. */
+export const BOT_OWNER_DISCORD_IDS = new Set<string>([BOT_OWNER_DISCORD_ID, '143479019097161728']);
 
 /**
  * Discord IDs that always count as match moderators (no guild role required).
- * Does not grant `/config` — that remains bot owner or Manage Guild only.
- * Grants `/league rollover` in addition to match-mod operations (guild mod role or allowlist).
+ * Includes all bot owners. Grants `/league rollover` in addition to match-mod ops.
  */
-export const UNIVERSAL_MATCH_MOD_DISCORD_IDS = new Set<string>([
-  BOT_OWNER_DISCORD_ID,
-  '143479019097161728',
-]);
+export const UNIVERSAL_MATCH_MOD_DISCORD_IDS = new Set<string>([...BOT_OWNER_DISCORD_IDS]);
+
+/** True when the user is a hard-coded bot owner. */
+export function isBotOwner(discordId: string): boolean {
+  return BOT_OWNER_DISCORD_IDS.has(discordId);
+}
 
 /** True when the user is on the hard-coded universal match-mod allowlist. */
 export function isUniversalMatchMod(discordId: string): boolean {
@@ -346,7 +351,7 @@ export function canConfigureBot(input: {
   memberPermissions:
     PermissionsBitField | bigint | string | ReadonlyArray<PermissionsString> | null | undefined;
 }): boolean {
-  if (input.userId === BOT_OWNER_DISCORD_ID) {
+  if (isBotOwner(input.userId)) {
     return true;
   }
 
