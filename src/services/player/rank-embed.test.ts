@@ -6,7 +6,7 @@ import {
   formatSideWinLossRecordLine,
 } from './rank-embed.js';
 import type { PlayerProfile } from './player-profile.js';
-import type { TeammateStats } from './teammate-stats.js';
+import type { OpponentStats, TeammateStats } from './teammate-stats.js';
 
 const baseProfile: PlayerProfile = {
   playerId: 'p1',
@@ -66,6 +66,30 @@ const sampleTeammates: TeammateStats = {
     },
   ],
   loseWith: [],
+};
+
+const sampleOpponents: OpponentStats = {
+  playedAgainst: [
+    {
+      playerId: 'p4',
+      username: 'EvilGuy',
+      games: 10,
+      wins: 7,
+      losses: 3,
+      winRatePercent: 70,
+    },
+  ],
+  winAgainst: [
+    {
+      playerId: 'p4',
+      username: 'EvilGuy',
+      games: 10,
+      wins: 7,
+      losses: 3,
+      winRatePercent: 70,
+    },
+  ],
+  loseAgainst: [],
 };
 
 describe('formatHeroTable', () => {
@@ -299,6 +323,35 @@ describe('buildRankEmbed', () => {
       teammates: { playedWith: [], winWith: [], loseWith: [] },
     }).toJSON();
     expect((data.fields ?? []).map((f) => f.name)).toEqual(['Griefer pool', 'Heroes']);
+  });
+
+  it('adds opponent fields after teammate fields', () => {
+    const data = buildRankEmbed(baseProfile, {
+      teammates: sampleTeammates,
+      opponents: sampleOpponents,
+    }).toJSON();
+    const names = (data.fields ?? []).map((f) => f.name);
+    expect(names).toEqual([
+      'Griefer pool',
+      'Heroes',
+      'Played with',
+      'Win with',
+      'Played against',
+      'Win against',
+    ]);
+    expect(data.fields?.find((field) => field.name === 'Played against')?.value).toContain(
+      'EvilGuy',
+    );
+    expect(names).not.toContain('Lose against');
+  });
+
+  it('omits all opponent fields when every list is empty', () => {
+    const data = buildRankEmbed(baseProfile, {
+      teammates: sampleTeammates,
+      opponents: { playedAgainst: [], winAgainst: [], loseAgainst: [] },
+    }).toJSON();
+    const names = (data.fields ?? []).map((f) => f.name);
+    expect(names).toEqual(['Griefer pool', 'Heroes', 'Played with', 'Win with']);
   });
 
   it('shows idle decay footer for linked players when set', () => {

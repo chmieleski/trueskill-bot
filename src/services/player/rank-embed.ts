@@ -1,6 +1,6 @@
 import { EmbedBuilder } from 'discord.js';
 import type { PlayerProfile, PlayerProfileHero } from './player-profile.js';
-import type { TeammateStats } from './teammate-stats.js';
+import type { OpponentStats, TeammateStats } from './teammate-stats.js';
 import { formatTeammateTable } from './teammate-stats.js';
 import { CALIBRATING_LABEL, formatPublicKi, isCalibrating } from '../rating/rating-math.js';
 
@@ -64,6 +64,7 @@ export function buildRankEmbed(
     /** When false, never show the Heroes field. Default true. */
     showHeroes?: boolean;
     teammates?: TeammateStats;
+    opponents?: OpponentStats;
     /** Required when profile.sideWinLoss is set; ignored otherwise. */
     teamNames?: { 1: string; 2: string };
   },
@@ -119,6 +120,19 @@ export function buildRankEmbed(
     }
     if (loseWith.length > 0) {
       embed.addFields({ name: 'Lose with', value: formatTeammateTable(loseWith) });
+    }
+  }
+
+  if (options?.opponents) {
+    const { playedAgainst, winAgainst, loseAgainst } = options.opponents;
+    if (playedAgainst.length > 0) {
+      embed.addFields({ name: 'Played against', value: formatTeammateTable(playedAgainst) });
+    }
+    if (winAgainst.length > 0) {
+      embed.addFields({ name: 'Win against', value: formatTeammateTable(winAgainst) });
+    }
+    if (loseAgainst.length > 0) {
+      embed.addFields({ name: 'Lose against', value: formatTeammateTable(loseAgainst) });
     }
   }
 

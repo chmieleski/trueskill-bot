@@ -21,6 +21,17 @@ export type TeammateStats = {
   loseWith: TeammatePairStats[];
 };
 
+export type OpponentStats = {
+  playedAgainst: TeammatePairStats[];
+  winAgainst: TeammatePairStats[];
+  loseAgainst: TeammatePairStats[];
+};
+
+export type CompanionStats = {
+  teammates: TeammateStats;
+  opponents: OpponentStats;
+};
+
 export type TeammateMatchRow = {
   matchId: string;
   completedAt: Date | null;
@@ -153,6 +164,9 @@ export function aggregateTeammatePairs(
   return aggregateCompanionPairs(rows, options);
 }
 
+/** Aggregate opposite-team opponent W/L from already-eligible match rows. */
+export const aggregateOpponentPairs = aggregateCompanionPairs;
+
 /** Monospace table: `Nick  14G · 9W 5L · 64.3%`. */
 export function formatTeammateTable(pairs: TeammatePairStats[]): string {
   if (pairs.length === 0) {
@@ -184,11 +198,20 @@ export function buildTeammateStatsFromPairs(pairs: TeammatePairStats[]): Teammat
   };
 }
 
-/** Load top-3 teammate lists for a player in a league (post–rank-reset WIN/LOSS only). */
-export async function loadTeammateStats(
+/** Build the three top-3 opponent lists from a shared pair pool. */
+export function buildOpponentStatsFromPairs(pairs: TeammatePairStats[]): OpponentStats {
+  return {
+    playedAgainst: pickTopTeammates(pairs, 'games'),
+    winAgainst: pickTopTeammates(pairs, 'winRate'),
+    loseAgainst: pickTopTeammates(pairs, 'loseRate'),
+  };
+}
+
+/** Load top-3 teammate and opponent lists for a player in a league (post–rank-reset WIN/LOSS only). */
+export async function loadCompanionStats(
   leagueId: string,
   playerId: string,
-): Promise<TeammateStats> {
+): Promise<CompanionStats> {
   const [resetAtByPlayer, myRows] = await Promise.all([
     loadLatestRankResetAtByPlayer(leagueId, [playerId]),
     prisma.matchPlayer.findMany({
@@ -220,25 +243,47 @@ export async function loadTeammateStats(
   ]);
 
   const resetAt = resetAtByPlayer.get(playerId);
-  const rows: TeammateMatchRow[] = [];
+  const teammateRows: TeammateMatchRow[] = [];
+  const opponentRows: TeammateMatchRow[] = [];
 
   for (const row of myRows) {
     if (row.result !== MatchResult.WIN && row.result !== MatchResult.LOSS) continue;
     if (!isMatchCountedAfterRankReset(row.match.completedAt, resetAt)) continue;
 
-    const partners = row.match.players
-      .filter((p) => p.playerId !== playerId && p.team === row.team)
-      .map((p) => ({ playerId: p.playerId, username: p.player.username }));
-
-    rows.push({
+    const base = {
       matchId: row.match.id,
       completedAt: row.match.completedAt,
       viewedPlayerId: playerId,
       viewedTeam: row.team,
       viewedResult: row.result,
-      partners,
+    };
+
+    teammateRows.push({
+      ...base,
+      partners: row.match.players
+        .filter((p) => p.playerId !== playerId && p.team === row.team)
+        .map((p) => ({ playerId: p.playerId, username: p.player.username })),
+    });
+
+    opponentRows.push({
+      ...base,
+      partners: row.match.players
+        .filter((p) => p.playerId !== playerId && p.team !== row.team)
+        .map((p) => ({ playerId: p.playerId, username: p.player.username })),
     });
   }
 
-  return buildTeammateStatsFromPairs(aggregateTeammatePairs(rows));
+  return {
+    teammates: buildTeammateStatsFromPairs(aggregateTeammatePairs(teammateRows)),
+    opponents: buildOpponentStatsFromPairs(aggregateOpponentPairs(opponentRows)),
+  };
+}
+
+/** Load top-3 teammate lists only (prefer {@link loadCompanionStats} for `/rank`). */
+export async function loadTeammateStats(
+  leagueId: string,
+  playerId: string,
+): Promise<TeammateStats> {
+  const { teammates } = await loadCompanionStats(leagueId, playerId);
+  return teammates;
 }

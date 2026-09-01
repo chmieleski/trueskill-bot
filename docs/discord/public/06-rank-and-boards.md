@@ -14,7 +14,7 @@ Your strength is shown as **{{ratingLabel}}**.
 /rank nick:SomeNick
 ```
 
-Profiles also show your **top teammates** when you have shared completed matches.
+Profiles also show your **top teammates and opponents** when you have shared completed matches.
 {{#wosMatchStats}}
 WOS `/rank` lists **most-played heroes** from uploaded match reports.
 

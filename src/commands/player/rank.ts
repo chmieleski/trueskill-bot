@@ -3,7 +3,7 @@ import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'disco
 import { createLogger } from '../../lib/logger.js';
 import {
   loadPlayerProfile,
-  loadTeammateStats,
+  loadCompanionStats,
   parseRankOptions,
   PlayerServiceError,
 } from '../../services/player/index.js';
@@ -66,9 +66,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
     const profile = await loadPlayerProfile(resolved.leagueId, lookup);
-    const [gameProfile, teammates] = await Promise.all([
+    const [gameProfile, companionStats] = await Promise.all([
       getGameProfileForLeague(resolved.leagueId),
-      loadTeammateStats(resolved.leagueId, profile.playerId),
+      loadCompanionStats(resolved.leagueId, profile.playerId),
     ]);
 
     let avatarUrl: string | null = null;
@@ -93,7 +93,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           avatarUrl,
           ratingLabel: gameProfile.ratingLabel,
           showHeroes: showsRankHeroes(gameProfile),
-          teammates,
+          teammates: companionStats.teammates,
+          opponents: companionStats.opponents,
           teamNames: gameProfile.teamNames,
         }),
       ],

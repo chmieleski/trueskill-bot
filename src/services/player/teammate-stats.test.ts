@@ -23,10 +23,13 @@ vi.mock('../rating/rank-reset-display.js', async (importOriginal) => {
 
 import {
   aggregateCompanionPairs,
+  aggregateOpponentPairs,
   aggregateTeammatePairs,
+  buildOpponentStatsFromPairs,
   buildTeammateStatsFromPairs,
   COMPANION_RECENCY_DAYS,
   formatTeammateTable,
+  loadCompanionStats,
   loadTeammateStats,
   pickTopTeammates,
   type TeammatePairStats,
@@ -254,6 +257,72 @@ describe('formatTeammateTable', () => {
   });
 });
 
+describe('aggregateOpponentPairs', () => {
+  it('counts opposite-team opponents and ignores same-team partners', () => {
+    const now = new Date('2026-08-25T12:00:00.000Z');
+    const pairs = aggregateOpponentPairs(
+      [
+        {
+          matchId: 'm1',
+          completedAt: new Date('2026-08-20T00:00:00.000Z'),
+          viewedPlayerId: 'p1',
+          viewedTeam: 1,
+          viewedResult: 'WIN',
+          partners: [
+            { playerId: 'p3', username: 'EvilGuy' },
+            { playerId: 'p4', username: 'Frieza' },
+          ],
+        },
+        {
+          matchId: 'm2',
+          completedAt: new Date('2026-08-21T00:00:00.000Z'),
+          viewedPlayerId: 'p1',
+          viewedTeam: 1,
+          viewedResult: 'LOSS',
+          partners: [{ playerId: 'p3', username: 'EvilGuy' }],
+        },
+      ],
+      { now },
+    );
+    const byId = new Map(pairs.map((p) => [p.playerId, p]));
+    expect(byId.get('p3')).toMatchObject({
+      username: 'EvilGuy',
+      games: 2,
+      wins: 1,
+      losses: 1,
+      winRatePercent: 50,
+    });
+    expect(byId.get('p4')).toMatchObject({
+      username: 'Frieza',
+      games: 1,
+      wins: 1,
+      losses: 0,
+      winRatePercent: 100,
+    });
+    expect(byId.has('p1')).toBe(false);
+  });
+});
+
+describe('buildOpponentStatsFromPairs', () => {
+  it('maps pair pools to Played against / Win against / Lose against', () => {
+    const pairs = [
+      pair({ playerId: 'a', username: 'RivalOne', games: 12, wins: 8, losses: 4 }),
+      pair({ playerId: 'b', username: 'RivalTwo', games: 10, wins: 4, losses: 6 }),
+      pair({ playerId: 'c', username: 'RivalThree', games: 9, wins: 5, losses: 4 }),
+      pair({ playerId: 'd', username: 'Nemesis', games: 5, wins: 1, losses: 4 }),
+      pair({ playerId: 'e', username: 'Fodder', games: 5, wins: 5, losses: 0 }),
+    ];
+    const stats = buildOpponentStatsFromPairs(pairs);
+    expect(stats.playedAgainst.map((p) => p.username)).toEqual([
+      'RivalOne',
+      'RivalTwo',
+      'RivalThree',
+    ]);
+    expect(stats.winAgainst.map((p) => p.username)).toEqual(['Fodder', 'RivalOne', 'RivalThree']);
+    expect(stats.loseAgainst.map((p) => p.username)).toEqual(['Nemesis', 'RivalTwo', 'RivalThree']);
+  });
+});
+
 describe('buildTeammateStatsFromPairs', () => {
   it('puts highest shared-game partners on Played with first', () => {
     const pairs = [
@@ -287,6 +356,97 @@ describe('buildTeammateStatsFromPairs', () => {
     expect(stats.winWith.some((p) => stats.playedWith.some((q) => q.playerId === p.playerId))).toBe(
       true,
     );
+  });
+});
+
+describe('loadCompanionStats', () => {
+  beforeEach(() => {
+    matchPlayerFindMany.mockReset();
+    loadLatestRankResetAtByPlayer.mockReset();
+    loadLatestRankResetAtByPlayer.mockResolvedValue(new Map());
+  });
+
+  it('aggregates teammates and opponents from one query after rank reset', async () => {
+    const resetAt = new Date('2026-08-10T00:00:00.000Z');
+    loadLatestRankResetAtByPlayer.mockResolvedValue(new Map([['p1', resetAt]]));
+    matchPlayerFindMany.mockResolvedValue([
+      {
+        matchId: 'old',
+        team: 1,
+        result: 'WIN',
+        match: {
+          id: 'old',
+          completedAt: new Date('2026-08-01T00:00:00.000Z'),
+          players: [
+            { playerId: 'p1', team: 1, result: 'WIN', player: { username: 'Me' } },
+            { playerId: 'p2', team: 1, result: 'WIN', player: { username: 'Ghost' } },
+          ],
+        },
+      },
+      {
+        matchId: 'm1',
+        team: 1,
+        result: 'WIN',
+        match: {
+          id: 'm1',
+          completedAt: new Date('2026-08-20T00:00:00.000Z'),
+          players: [
+            { playerId: 'p1', team: 1, result: 'WIN', player: { username: 'Me' } },
+            { playerId: 'p2', team: 1, result: 'WIN', player: { username: 'Ghost' } },
+            { playerId: 'p3', team: 2, result: 'LOSS', player: { username: 'EvilGuy' } },
+          ],
+        },
+      },
+      {
+        matchId: 'm2',
+        team: 1,
+        result: 'LOSS',
+        match: {
+          id: 'm2',
+          completedAt: new Date('2026-08-21T00:00:00.000Z'),
+          players: [
+            { playerId: 'p1', team: 1, result: 'LOSS', player: { username: 'Me' } },
+            {
+              playerId: 'p2',
+              team: 1,
+              result: null,
+              player: { username: 'Ghost' },
+            },
+          ],
+        },
+      },
+    ]);
+
+    const stats = await loadCompanionStats('L1', 'p1');
+    expect(stats.teammates.playedWith).toHaveLength(1);
+    expect(stats.teammates.playedWith[0]).toMatchObject({
+      playerId: 'p2',
+      username: 'Ghost',
+      games: 2,
+      wins: 1,
+      losses: 1,
+      winRatePercent: 50,
+    });
+    expect(stats.teammates.playedWith.some((p) => p.username === 'EvilGuy')).toBe(false);
+    expect(stats.opponents.playedAgainst).toHaveLength(1);
+    expect(stats.opponents.playedAgainst[0]).toMatchObject({
+      playerId: 'p3',
+      username: 'EvilGuy',
+      games: 1,
+      wins: 1,
+      losses: 0,
+      winRatePercent: 100,
+    });
+    expect(matchPlayerFindMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns empty teammate and opponent lists when the player has no counted matches', async () => {
+    matchPlayerFindMany.mockResolvedValue([]);
+    const stats = await loadCompanionStats('L1', 'p1');
+    expect(stats).toEqual({
+      teammates: { playedWith: [], winWith: [], loseWith: [] },
+      opponents: { playedAgainst: [], winAgainst: [], loseAgainst: [] },
+    });
   });
 });
 
