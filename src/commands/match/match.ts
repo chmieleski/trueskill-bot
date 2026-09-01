@@ -59,7 +59,7 @@ import {
   respondAllLeagueAutocomplete,
   withSubcommandLeagueOption,
 } from '../../services/league/index.js';
-import { parseRankOptions } from '../../services/player/index.js';
+import { ensurePlayerForModLookup, parseRankOptions } from '../../services/player/index.js';
 
 const log = createLogger('match_cmd');
 
@@ -374,18 +374,25 @@ async function resolveSanctionTargetPlayer(
   interaction: ChatInputCommandInteraction,
   leagueId: string,
 ): Promise<{ id: string; username: string }> {
+  const discordUser = interaction.options.getUser('user');
   const lookup = parseRankOptions({
     selfDiscordId: interaction.user.id,
-    userDiscordId: interaction.options.getUser('user')?.id,
+    userDiscordId: discordUser?.id,
     nick: interaction.options.getString('nick'),
   });
 
   if (lookup.kind === 'self') {
     throw new MatchServiceError('Provide a user or nick.');
   }
+  if (lookup.kind === 'both') {
+    throw new MatchServiceError('Provide either a Discord user or a nick, not both.');
+  }
 
   const gameProfile = await getGameProfileForLeague(leagueId);
-  return resolveHistoryPlayer(gameProfile.gameId, lookup);
+  const player = await ensurePlayerForModLookup(gameProfile.gameId, lookup, {
+    discordUsername: discordUser ? (discordUser.globalName ?? discordUser.username) : null,
+  });
+  return { id: player.id, username: player.username };
 }
 
 async function applyMatchMutation(

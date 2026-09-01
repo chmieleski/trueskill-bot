@@ -11,7 +11,7 @@ import {
 } from '../../services/league/index.js';
 import { assertHasMatchModRole, MatchServiceError } from '../../services/match/index.js';
 import {
-  findPlayerForRankLookup,
+  ensurePlayerForModLookup,
   parseRankOptions,
   PlayerServiceError,
 } from '../../services/player/index.js';
@@ -120,10 +120,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     const gameProfile = await getGameProfileForLeague(resolved.leagueId);
-    const player = await findPlayerForRankLookup(gameProfile.gameId, lookup);
-    if (!player) {
-      throw new PlayerServiceError('Player not found.');
-    }
+    const player = await ensurePlayerForModLookup(gameProfile.gameId, lookup, {
+      discordUsername: user ? (user.globalName ?? user.username) : null,
+    });
 
     if (subcommand === 'set') {
       const result = await setPlayerNewFlag({
