@@ -759,6 +759,8 @@ export async function applyLeagueRollover(
         status: 'ARCHIVED',
         archivedAt: new Date(),
         leaderboardMessageId: null,
+        wc3statsHostPromptEnabled: false,
+        wc3statsHostPromptChannelId: null,
       },
     });
 

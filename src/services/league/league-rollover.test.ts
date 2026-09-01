@@ -530,6 +530,8 @@ describe('applyLeagueRollover', () => {
         status: 'ARCHIVED',
         archivedAt: expect.any(Date),
         leaderboardMessageId: null,
+        wc3statsHostPromptEnabled: false,
+        wc3statsHostPromptChannelId: null,
       },
     });
   });
