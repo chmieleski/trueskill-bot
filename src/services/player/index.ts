@@ -34,7 +34,14 @@ export {
 } from './hero-matches.js';
 export { loadItemStats, type ItemSort, type ItemStatsResult } from './item-stats.js';
 export { listWosHeroNamesForLeague } from './wos-hero-names.js';
-export { loadTeammateStats, type TeammatePairStats, type TeammateStats } from './teammate-stats.js';
+export {
+  loadCompanionStats,
+  loadTeammateStats,
+  type CompanionStats,
+  type OpponentStats,
+  type TeammatePairStats,
+  type TeammateStats,
+} from './teammate-stats.js';
 export { linkPlayer, unlinkByDiscordId } from './player-link.js';
 export {
   getPlayerHostPromptPingsEnabled,
