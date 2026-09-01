@@ -14,6 +14,7 @@ export const BOT_OWNER_DISCORD_ID = '723326675647070218';
 /**
  * Discord IDs that always count as match moderators (no guild role required).
  * Does not grant `/config` — that remains bot owner or Manage Guild only.
+ * Grants `/league rollover` in addition to match-mod operations (guild mod role or allowlist).
  */
 export const UNIVERSAL_MATCH_MOD_DISCORD_IDS = new Set<string>([
   BOT_OWNER_DISCORD_ID,
@@ -363,6 +364,36 @@ export function assertCanConfigureBot(input: {
     PermissionsBitField | bigint | string | ReadonlyArray<PermissionsString> | null | undefined;
 }): void {
   if (!canConfigureBot(input)) {
+    throw new MatchServiceError(CONFIGURE_FORBIDDEN);
+  }
+}
+
+/** True when the actor may run `/league rollover` (Manage Guild, bot owner, or match mod). */
+export function canRolloverLeague(input: {
+  userId: string;
+  memberPermissions:
+    PermissionsBitField | bigint | string | ReadonlyArray<PermissionsString> | null | undefined;
+  memberRoleIds?: string[];
+  matchModRoleId?: string;
+}): boolean {
+  if (canConfigureBot(input)) {
+    return true;
+  }
+
+  if (isUniversalMatchMod(input.userId)) {
+    return true;
+  }
+
+  const modRoleId = input.matchModRoleId;
+  if (!modRoleId) {
+    return false;
+  }
+
+  return input.memberRoleIds?.includes(modRoleId) ?? false;
+}
+
+export function assertCanRolloverLeague(input: Parameters<typeof canRolloverLeague>[0]): void {
+  if (!canRolloverLeague(input)) {
     throw new MatchServiceError(CONFIGURE_FORBIDDEN);
   }
 }

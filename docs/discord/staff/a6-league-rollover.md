@@ -1,4 +1,4 @@
-🏁 **League season rollover** _(Manage Server)_
+🏁 **League season rollover** _(Manage Server or match mod role)_
 
 Archive a season and open a **successor**. Old league becomes read-only history.
 
