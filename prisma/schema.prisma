@@ -55,8 +55,10 @@ model League {
   leaderboardMessageId    String?
   leaderboardSize               Int      @default(10)
   lobbyPlayerClaimEnabled       Boolean  @default(true)
-  wc3statsHostPromptEnabled     Boolean  @default(false)
-  wc3statsHostPromptChannelId   String?
+  wc3statsHostPromptEnabled       Boolean  @default(false)
+  wc3statsHostPromptChannelId     String?
+  /// When false, staff paused host @-mentions league-wide; channel config is kept.
+  wc3statsHostPromptPingsEnabled  Boolean  @default(true)
   rankResetEnabled              Boolean  @default(false)
   rankResetCooldownDays         Int      @default(30)
   /// When true, /rank shows per-side (team 1 / team 2) W–L under the overall record.

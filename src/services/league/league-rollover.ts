@@ -438,6 +438,7 @@ function successorLeagueCreateData(
     lobbyChannelId: source.lobbyChannelId,
     wc3statsHostPromptEnabled: source.wc3statsHostPromptEnabled,
     wc3statsHostPromptChannelId: source.wc3statsHostPromptChannelId,
+    wc3statsHostPromptPingsEnabled: source.wc3statsHostPromptPingsEnabled,
     rankResetEnabled: source.rankResetEnabled,
     rankResetCooldownDays: source.rankResetCooldownDays,
     showSideWinLoss: source.showSideWinLoss,

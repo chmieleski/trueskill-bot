@@ -1,3 +1,10 @@
+# [1.50.0](https://github.com/chmieleski/trueskill-bot/compare/v1.49.1...v1.50.0) (2026-09-01)
+
+
+### Features
+
+* **league:** let staff pause wc3stats host pings league-wide ([#156](https://github.com/chmieleski/trueskill-bot/issues/156)) ([542bcf5](https://github.com/chmieleski/trueskill-bot/commit/542bcf5249025a76de17c73a312d5c177a2aba9e))
+
 ## [1.49.1](https://github.com/chmieleski/trueskill-bot/compare/v1.49.0...v1.49.1) (2026-09-01)
 
 

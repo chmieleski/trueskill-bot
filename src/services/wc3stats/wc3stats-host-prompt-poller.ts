@@ -92,6 +92,7 @@ export async function listHostPromptReadyLeagues(): Promise<PromptReadyLeague[]>
       wc3statsMapSha1: true,
       wc3statsEnabled: true,
       wc3statsHostPromptEnabled: true,
+      wc3statsHostPromptPingsEnabled: true,
       lobbyChannelEnabled: true,
       lobbyChannelId: true,
     },
@@ -123,6 +124,7 @@ export async function listHostPromptReadyLeagues(): Promise<PromptReadyLeague[]>
     };
     if (
       !isLeagueWc3statsHostPromptReady(config) ||
+      row.wc3statsHostPromptPingsEnabled === false ||
       !config.wc3statsMapPattern ||
       !config.wc3statsHostPromptChannelId
     ) {

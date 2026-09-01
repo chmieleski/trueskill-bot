@@ -140,4 +140,35 @@ describe('listHostPromptReadyLeagues', () => {
     const ready = await listHostPromptReadyLeagues();
     expect(ready.map((league) => league.id)).toEqual(['aligned']);
   });
+
+  it('skips leagues when staff disabled host lobby pings for everyone', async () => {
+    const leagueFindMany = vi.mocked(prisma.league.findMany);
+    leagueFindMany.mockResolvedValue([
+      {
+        id: 'pings-off',
+        guildId: 'g1',
+        gameId: WARCRAFT3_UDBR_GAME_ID,
+        wc3statsHostPromptChannelId: 'ch-udbr',
+        wc3statsMapPattern: 'udbr',
+        wc3statsMapSha1: null,
+        wc3statsEnabled: true,
+        wc3statsHostPromptEnabled: true,
+        wc3statsHostPromptPingsEnabled: false,
+      },
+      {
+        id: 'pings-on',
+        guildId: 'g1',
+        gameId: WARCRAFT3_UDBR_GAME_ID,
+        wc3statsHostPromptChannelId: 'ch-udbr-2',
+        wc3statsMapPattern: 'udbr',
+        wc3statsMapSha1: null,
+        wc3statsEnabled: true,
+        wc3statsHostPromptEnabled: true,
+        wc3statsHostPromptPingsEnabled: true,
+      },
+    ] as never);
+
+    const ready = await listHostPromptReadyLeagues();
+    expect(ready.map((league) => league.id)).toEqual(['pings-on']);
+  });
 });

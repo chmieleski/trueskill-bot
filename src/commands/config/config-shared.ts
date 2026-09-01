@@ -146,11 +146,13 @@ export function formatDecayLine(
 export function formatWc3statsHostPromptLine(
   enabled: boolean,
   channelId: string | undefined,
+  pingsEnabled = true,
 ): string {
   if (!enabled || !channelId) {
     return '**wc3stats host lobby prompt:** `off`';
   }
-  return `**wc3stats host lobby prompt:** \`on\` · <#${channelId}>`;
+  const pings = pingsEnabled ? 'on' : 'off';
+  return `**wc3stats host lobby prompt:** \`on\` · <#${channelId}> · pings \`${pings}\``;
 }
 
 export function formatWc3statsEnabledLine(enabled: boolean): string {
@@ -291,6 +293,7 @@ export async function buildConfigViewContent(
     formatWc3statsHostPromptLine(
       leagueConfig.wc3statsHostPromptEnabled,
       leagueConfig.wc3statsHostPromptChannelId,
+      leagueConfig.wc3statsHostPromptPingsEnabled,
     ),
     formatWc3statsMapSection(formatWc3statsSlotMapLines(slotMaps)),
   ].join('\n');
