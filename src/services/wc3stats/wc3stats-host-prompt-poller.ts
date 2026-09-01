@@ -78,6 +78,7 @@ type PromptReadyLeague = {
 export async function listHostPromptReadyLeagues(): Promise<PromptReadyLeague[]> {
   const rows = await prisma.league.findMany({
     where: {
+      status: 'ACTIVE',
       wc3statsHostPromptEnabled: true,
       wc3statsHostPromptChannelId: { not: null },
       wc3statsEnabled: true,

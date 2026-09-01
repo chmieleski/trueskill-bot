@@ -171,4 +171,17 @@ describe('listHostPromptReadyLeagues', () => {
     const ready = await listHostPromptReadyLeagues();
     expect(ready.map((league) => league.id)).toEqual(['pings-on']);
   });
+
+  it('skips archived leagues even when host prompt config is still enabled', async () => {
+    const leagueFindMany = vi.mocked(prisma.league.findMany);
+    leagueFindMany.mockResolvedValue([]);
+
+    await listHostPromptReadyLeagues();
+
+    expect(leagueFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: 'ACTIVE' }),
+      }),
+    );
+  });
 });
