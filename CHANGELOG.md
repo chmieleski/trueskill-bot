@@ -1,3 +1,10 @@
+# [1.48.0](https://github.com/chmieleski/trueskill-bot/compare/v1.47.3...v1.48.0) (2026-09-01)
+
+
+### Features
+
+* **rank:** show top opponent head-to-head stats on profiles ([#151](https://github.com/chmieleski/trueskill-bot/issues/151)) ([7693dc6](https://github.com/chmieleski/trueskill-bot/commit/7693dc64da1d395ad2a5d2e2b8021ee9e37454b7))
+
 ## [1.47.3](https://github.com/chmieleski/trueskill-bot/compare/v1.47.2...v1.47.3) (2026-09-01)
 
 
