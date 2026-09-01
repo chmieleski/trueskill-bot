@@ -1,3 +1,10 @@
+# [1.51.0](https://github.com/chmieleski/trueskill-bot/compare/v1.50.0...v1.51.0) (2026-09-01)
+
+
+### Features
+
+* **auth:** add second hard-coded bot owner ([25bddc0](https://github.com/chmieleski/trueskill-bot/commit/25bddc0ebfc74734cf62c0150c6705fc9267ff6f))
+
 # [1.50.0](https://github.com/chmieleski/trueskill-bot/compare/v1.49.1...v1.50.0) (2026-09-01)
 
 
