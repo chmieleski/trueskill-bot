@@ -1,3 +1,10 @@
+## [1.47.3](https://github.com/chmieleski/trueskill-bot/compare/v1.47.2...v1.47.3) (2026-09-01)
+
+
+### Bug Fixes
+
+* **league:** allow match mods to run league rollover ([#150](https://github.com/chmieleski/trueskill-bot/issues/150)) ([c267f81](https://github.com/chmieleski/trueskill-bot/commit/c267f8176ce34c6114e2cb2e7023f686cab8f912))
+
 ## [1.47.2](https://github.com/chmieleski/trueskill-bot/compare/v1.47.1...v1.47.2) (2026-08-31)
 
 
