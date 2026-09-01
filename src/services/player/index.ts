@@ -6,7 +6,11 @@ export {
   type RankLookup,
 } from './player-profile.js';
 export { buildRankEmbed } from './rank-embed.js';
-export { buildHeroAllEmbed } from './hero-all-embed.js';
+export {
+  buildHeroAllEmbed,
+  buildHeroAllPageButtons,
+  parseHeroAllPageCustomId,
+} from './hero-all-embed.js';
 export { buildHeroStatsEmbed } from './hero-stats-embed.js';
 export { buildHeroPlayersEmbed } from './hero-players-embed.js';
 export { buildItemStatsEmbed } from './item-stats-embed.js';
