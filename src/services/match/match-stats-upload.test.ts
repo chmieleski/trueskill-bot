@@ -8,11 +8,13 @@ const {
   matchPlayerStatsFindMany,
   matchStatsReportFindUnique,
   matchStatsReportFindFirst,
+  matchStatsReportDeleteMany,
   getGameProfileForMatch,
 } = vi.hoisted(() => ({
   matchPlayerStatsFindMany: vi.fn(),
   matchStatsReportFindUnique: vi.fn(),
   matchStatsReportFindFirst: vi.fn(),
+  matchStatsReportDeleteMany: vi.fn(),
   getGameProfileForMatch: vi.fn(),
 }));
 
@@ -24,6 +26,7 @@ vi.mock('../../lib/prisma.js', () => ({
     matchStatsReport: {
       findUnique: matchStatsReportFindUnique,
       findFirst: matchStatsReportFindFirst,
+      deleteMany: matchStatsReportDeleteMany,
     },
   },
 }));
@@ -64,6 +67,8 @@ import { MatchServiceError } from './match-service.js';
 describe('assertWos2ReportExternalIdUnused', () => {
   beforeEach(() => {
     matchStatsReportFindFirst.mockReset();
+    matchStatsReportDeleteMany.mockReset();
+    matchStatsReportDeleteMany.mockResolvedValue({ count: 1 });
   });
 
   it('allows a report id that is not stored yet', async () => {
@@ -82,12 +87,29 @@ describe('assertWos2ReportExternalIdUnused', () => {
         externalId: 'report-1',
         matchId: { not: 'match-a' },
       },
-      select: { matchId: true },
+      select: {
+        matchId: true,
+        match: { select: { status: true } },
+      },
     });
   });
 
+  it('clears stale reports left on voided matches and allows re-upload', async () => {
+    matchStatsReportFindFirst.mockResolvedValue({
+      matchId: 'match-b',
+      match: { status: 'CANCELLED' },
+    });
+
+    await expect(assertWos2ReportExternalIdUnused('report-1', 'match-a')).resolves.toBeUndefined();
+
+    expect(matchStatsReportDeleteMany).toHaveBeenCalledWith({ where: { matchId: 'match-b' } });
+  });
+
   it('rejects when another match already has the report id', async () => {
-    matchStatsReportFindFirst.mockResolvedValue({ matchId: 'match-b' });
+    matchStatsReportFindFirst.mockResolvedValue({
+      matchId: 'match-b',
+      match: { status: 'COMPLETED' },
+    });
 
     await expect(assertWos2ReportExternalIdUnused('report-1', 'match-a')).rejects.toThrow(
       MatchServiceError,
@@ -95,6 +117,7 @@ describe('assertWos2ReportExternalIdUnused', () => {
     await expect(assertWos2ReportExternalIdUnused('report-1', 'match-a')).rejects.toThrow(
       /already uploaded for match `match-b`/,
     );
+    expect(matchStatsReportDeleteMany).not.toHaveBeenCalled();
   });
 });
 

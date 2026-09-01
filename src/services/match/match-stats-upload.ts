@@ -211,7 +211,7 @@ function buildSummaryLines(
     );
 }
 
-/** Reject when another match already stored this WOS bot report id. */
+/** Reject when another active match already stored this WOS bot report id. */
 export async function assertWos2ReportExternalIdUnused(
   externalId: string,
   matchId: string,
@@ -221,13 +221,23 @@ export async function assertWos2ReportExternalIdUnused(
       externalId,
       matchId: { not: matchId },
     },
-    select: { matchId: true },
+    select: {
+      matchId: true,
+      match: { select: { status: true } },
+    },
   });
-  if (existing) {
-    throw new MatchServiceError(
-      `This match report (\`${externalId}\`) was already uploaded for match \`${existing.matchId}\`.`,
-    );
+  if (!existing) {
+    return;
   }
+
+  if (existing.match.status === 'CANCELLED') {
+    await clearMatchStatsReport(existing.matchId);
+    return;
+  }
+
+  throw new MatchServiceError(
+    `This match report (\`${externalId}\`) was already uploaded for match \`${existing.matchId}\`.`,
+  );
 }
 
 /** Persist WOS2 stats for a match that already has a matching roster (PENDING or IN_PROGRESS). */
