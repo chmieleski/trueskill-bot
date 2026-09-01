@@ -8,7 +8,10 @@ import {
   resolveLeagueIdFromInteraction,
   withOptionalLeagueOption,
 } from '../../services/league/index.js';
-import { buildHeroAllEmbed } from '../../services/player/hero-all-embed.js';
+import {
+  buildHeroAllEmbed,
+  buildHeroAllPageButtons,
+} from '../../services/player/hero-all-embed.js';
 import {
   loadAllHeroRankings,
   parseHeroAllStatsWindows,
@@ -105,6 +108,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     await interaction.editReply({
       embeds: [buildHeroAllEmbed(rankings, { leagueName: league?.name })],
+      components: buildHeroAllPageButtons({
+        invokerId: interaction.user.id,
+        leagueId: resolved.leagueId,
+        page: rankings.page,
+        totalPages: rankings.totalPages,
+        sort: rankings.sort,
+        windows,
+      }),
     });
   } catch (error) {
     log.error({ err: error }, 'hero_all command failed');
