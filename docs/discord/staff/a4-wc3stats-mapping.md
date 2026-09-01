@@ -54,3 +54,10 @@ Players can opt out of pings (still linked):
 /settings set host_prompt_pings enabled:False
 /settings view
 ```
+
+Staff can pause **all** host pings without clearing the prompt channel:
+
+```
+/league_config set wc3stats_host_prompt_pings enabled:False
+/league_config set wc3stats_host_prompt_pings enabled:True
+```

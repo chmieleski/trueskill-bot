@@ -14,6 +14,7 @@ import {
   setLeagueRankResetCooldownDays,
   setLeagueRankResetEnabled,
   setLeagueWc3statsHostPrompt,
+  setLeagueWc3statsHostPromptPings,
 } from '../../services/league/league-wc3stats.js';
 import {
   clearLeagueLobbyChannel,
@@ -265,6 +266,19 @@ export const data = new SlashCommandBuilder()
                 .setName('channel')
                 .setDescription('Channel for host prompts (required when enabling)')
                 .setRequired(false),
+            ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('wc3stats_host_prompt_pings')
+            .setDescription('Allow or block wc3stats host @-mentions for everyone')
+            .addBooleanOption((option) =>
+              option
+                .setName('enabled')
+                .setDescription('Off: no host pings until staff turn this back on')
+                .setRequired(true),
             ),
         ),
       ),
@@ -745,6 +759,30 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         content:
           `wc3stats host lobby prompt enabled in <#${channel.id}>. ` +
           'Linked hosts are pinged when their matching Warcraft lobby appears.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (subcommand === 'wc3stats_host_prompt_pings') {
+      const leagueId = await requireWc3statsLeague(interaction);
+      if (!leagueId) return;
+
+      const enabled = interaction.options.getBoolean('enabled', true);
+      await setLeagueWc3statsHostPromptPings(leagueId, enabled);
+      log.info(
+        {
+          guildId: interaction.guildId,
+          leagueId,
+          enabled,
+          userId: interaction.user.id,
+        },
+        'wc3stats host prompt pings updated',
+      );
+      await interaction.reply({
+        content: enabled
+          ? 'wc3stats host lobby pings enabled for everyone (players who opted out in `/settings` are still skipped).'
+          : 'wc3stats host lobby pings disabled for everyone. Host prompt channel settings are unchanged.',
         flags: MessageFlags.Ephemeral,
       });
       return;

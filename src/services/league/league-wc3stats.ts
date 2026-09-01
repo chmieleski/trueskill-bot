@@ -65,6 +65,7 @@ export interface ResolvedLeagueConfig {
   lobbyPlayerClaimEnabled: boolean;
   wc3statsHostPromptEnabled: boolean;
   wc3statsHostPromptChannelId: string | undefined;
+  wc3statsHostPromptPingsEnabled: boolean;
   rankResetEnabled: boolean;
   rankResetCooldownDays: number;
   lobbyChannelEnabled: boolean;
@@ -101,6 +102,7 @@ export async function resolveLeagueConfig(leagueId: string): Promise<ResolvedLea
     lobbyPlayerClaimEnabled: row?.lobbyPlayerClaimEnabled !== false,
     wc3statsHostPromptEnabled: row?.wc3statsHostPromptEnabled === true,
     wc3statsHostPromptChannelId: row?.wc3statsHostPromptChannelId?.trim() || undefined,
+    wc3statsHostPromptPingsEnabled: row?.wc3statsHostPromptPingsEnabled !== false,
     rankResetEnabled: row?.rankResetEnabled === true,
     rankResetCooldownDays: row?.rankResetCooldownDays != null ? row.rankResetCooldownDays : 30,
     lobbyChannelEnabled: row?.lobbyChannelEnabled === true,
@@ -260,6 +262,21 @@ export async function setLeagueLobbyPlayerClaimEnabled(
   await prisma.league.update({
     where: { id: leagueId },
     data: { lobbyPlayerClaimEnabled: enabled },
+  });
+}
+
+/**
+ * Enable or disable league-wide wc3stats host-lobby @-mentions.
+ * Host prompt channel config is unchanged; re-enable pings without re-picking a channel.
+ */
+export async function setLeagueWc3statsHostPromptPings(
+  leagueId: string,
+  enabled: boolean,
+): Promise<void> {
+  await assertLeagueAllowsWc3stats(leagueId);
+  await prisma.league.update({
+    where: { id: leagueId },
+    data: { wc3statsHostPromptPingsEnabled: enabled },
   });
 }
 

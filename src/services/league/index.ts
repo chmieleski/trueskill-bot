@@ -58,6 +58,7 @@ export {
   setLeagueRankResetCooldownDays,
   setLeagueRankResetEnabled,
   setLeagueWc3statsHostPrompt,
+  setLeagueWc3statsHostPromptPings,
   type ResolvedLeagueConfig,
 } from './league-wc3stats.js';
 
