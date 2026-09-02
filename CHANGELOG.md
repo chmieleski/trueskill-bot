@@ -1,3 +1,10 @@
+# [1.52.0](https://github.com/chmieleski/trueskill-bot/compare/v1.51.2...v1.52.0) (2026-09-02)
+
+
+### Features
+
+* **captain-draft:** add mod replace subcommand for roster fixes ([#159](https://github.com/chmieleski/trueskill-bot/issues/159)) ([cd31fd3](https://github.com/chmieleski/trueskill-bot/commit/cd31fd399d1a658107e3c17ba68e52bfa82b7653))
+
 ## [1.51.2](https://github.com/chmieleski/trueskill-bot/compare/v1.51.1...v1.51.2) (2026-09-02)
 
 
