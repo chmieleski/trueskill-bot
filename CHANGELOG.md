@@ -1,3 +1,10 @@
+## [1.51.2](https://github.com/chmieleski/trueskill-bot/compare/v1.51.1...v1.51.2) (2026-09-02)
+
+
+### Bug Fixes
+
+* **captain-draft:** ping captains when turn changes after live card edit ([#158](https://github.com/chmieleski/trueskill-bot/issues/158)) ([db1f2a3](https://github.com/chmieleski/trueskill-bot/commit/db1f2a322f76f48574b7505d32e710057af9d808))
+
 ## [1.51.1](https://github.com/chmieleski/trueskill-bot/compare/v1.51.0...v1.51.1) (2026-09-01)
 
 
