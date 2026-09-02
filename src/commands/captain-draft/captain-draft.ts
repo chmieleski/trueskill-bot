@@ -21,6 +21,7 @@ import {
   modMovePlayer,
   modRemovePlayer,
   modRenameTeam,
+  modReplacePlayer,
   modSwapPlayers,
   modUndoPick,
   parseDraftState,
@@ -153,6 +154,20 @@ export const data = new SlashCommandBuilder()
       .setName('remove')
       .setDescription('Remove a player from the pool or a team roster (mods only)')
       .addStringOption((option) => configurePlayerOption(option, 'player', 'Player to remove')),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('replace')
+      .setDescription('Substitute one draft player for another (mods only)')
+      .addStringOption((option) =>
+        configurePlayerOption(option, 'outgoing', 'Player to remove from the draft'),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('incoming')
+          .setDescription('Replacement: @mention and/or nick')
+          .setRequired(true),
+      ),
   )
   .addSubcommand((subcommand) =>
     subcommand
@@ -372,6 +387,11 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
     return;
   }
 
+  if (focused.name === 'outgoing') {
+    await interaction.respond(playerAutocompleteChoices(state, query));
+    return;
+  }
+
   await interaction.respond([]);
 }
 
@@ -568,6 +588,30 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         participantKey: playerKey,
       });
       await interaction.editReply({ content: `Removed player from draft \`${updated.id}\`.` });
+      return;
+    }
+
+    if (subcommand === 'replace') {
+      await requireMod(interaction);
+      const draft = await loadActiveDraftForChannel(guildId, channelId);
+      const state = parseDraftState(draft);
+      const outgoingKey = interaction.options.getString('outgoing', true);
+      const outgoing = findParticipant(state, outgoingKey);
+      const incoming = await resolvePlayerInput(
+        interaction,
+        interaction.options.getString('incoming', true),
+        draft.leagueId,
+      );
+      const updated = await modReplacePlayer({
+        client: interaction.client,
+        guildId,
+        channelId,
+        outgoingKey,
+        incoming,
+      });
+      await interaction.editReply({
+        content: `Replaced **${outgoing?.label ?? 'player'}** with **${incoming.label}** in draft \`${updated.id}\`.`,
+      });
       return;
     }
 

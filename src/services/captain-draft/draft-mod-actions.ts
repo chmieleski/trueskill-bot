@@ -8,6 +8,7 @@ import {
   moveParticipant,
   removeFromPool,
   removeFromTeam,
+  replaceParticipant,
   swapParticipants,
   undoLastPick,
 } from './draft-logic.js';
@@ -142,6 +143,30 @@ export async function modRemovePlayer(input: {
       : removeFromTeam(state, input.participantKey);
 
   return persistAndRefresh(input.client, draft, status, nextState, state);
+}
+
+/** Mod: substitute one draft player for someone not already in the draft. */
+export async function modReplacePlayer(input: {
+  client: Client;
+  guildId: string;
+  channelId: string;
+  outgoingKey: string;
+  incoming: DraftParticipant;
+}): Promise<CaptainDraft> {
+  const draft = await loadActiveDraftForChannel(input.guildId, input.channelId);
+  assertDraftStatus(draft, ['SETUP', 'ACTIVE', 'COMPLETE']);
+
+  const state = parseDraftState(draft);
+  assertPlayerNotInDraft(state, input.incoming);
+
+  const nextState = replaceParticipant(state, input.outgoingKey, input.incoming);
+  return persistAndRefresh(
+    input.client,
+    draft,
+    draft.status as CaptainDraftStatus,
+    nextState,
+    state,
+  );
 }
 
 /** Mod: swap two non-captain players across teams or team↔pool. */

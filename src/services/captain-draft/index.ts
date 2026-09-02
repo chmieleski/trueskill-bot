@@ -16,6 +16,7 @@ export {
   modMovePlayer,
   modRemovePlayer,
   modRenameTeam,
+  modReplacePlayer,
   modSwapPlayers,
   modUndoPick,
 } from './draft-mod-actions.js';
@@ -38,6 +39,7 @@ export {
   currentCaptainKey,
   findParticipant,
   isDraftComplete,
+  replaceParticipant,
   shufflePickOrder,
 } from './draft-logic.js';
 export {
