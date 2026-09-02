@@ -3,9 +3,10 @@ import type { Client, EmbedBuilder, TextChannel } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
 import { buildLiveDraftMessage } from './draft-live-embed.js';
+import { currentCaptainKey, findParticipant, isDraftComplete } from './draft-logic.js';
 import { buildTeamRosterEmbeds } from './draft-team-embed.js';
 import { parseDraftState, saveDraftState } from './draft-state.js';
-import type { CaptainDraftStatus } from './draft-types.js';
+import type { CaptainDraftStatus, DraftState } from './draft-types.js';
 
 const log = createLogger('captain_draft_display');
 const MAX_EMBEDS_PER_MESSAGE = 10;
@@ -122,8 +123,60 @@ async function syncEmbedChunks(
   return nextMessageIds;
 }
 
+export type SyncLiveDraftMessageOptions = {
+  /** Draft state before the update; when the on-clock captain changes, a separate ping is sent. */
+  previousState?: DraftState;
+};
+
+/**
+ * Send a Discord notification when the on-clock captain changes.
+ * Edits to the live draft card do not re-trigger mentions, so turn changes need a new message.
+ */
+export async function notifyOnClockCaptainIfChanged(
+  client: Client,
+  draft: CaptainDraft,
+  previousState?: DraftState,
+): Promise<void> {
+  const status = draft.status as CaptainDraftStatus;
+  if (status !== 'ACTIVE' || !previousState) {
+    return;
+  }
+
+  const state = parseDraftState(draft);
+  if (isDraftComplete(state)) {
+    return;
+  }
+
+  const previousCaptainKey = currentCaptainKey(previousState);
+  const currentCaptainKeyValue = currentCaptainKey(state);
+  if (!currentCaptainKeyValue || currentCaptainKeyValue === previousCaptainKey) {
+    return;
+  }
+
+  const captain = findParticipant(state, currentCaptainKeyValue);
+  if (!captain?.discordId) {
+    return;
+  }
+
+  const content = `<@${captain.discordId}> — your turn to pick!`;
+
+  try {
+    const channel = await fetchTextChannel(client, draft.channelId);
+    await channel.send({
+      content,
+      allowedMentions: { users: [captain.discordId] },
+    });
+  } catch (error) {
+    log.warn({ err: error, draftId: draft.id }, 'Failed to ping on-clock captain');
+  }
+}
+
 /** Re-edit the live draft message in the draft channel, or repost on failure. */
-export async function syncLiveDraftMessage(client: Client, draft: CaptainDraft): Promise<void> {
+export async function syncLiveDraftMessage(
+  client: Client,
+  draft: CaptainDraft,
+  options?: SyncLiveDraftMessageOptions,
+): Promise<void> {
   if (!draft.draftMessageId) {
     return;
   }
@@ -135,6 +188,7 @@ export async function syncLiveDraftMessage(client: Client, draft: CaptainDraft):
   try {
     const channel = await fetchTextChannel(client, draft.channelId);
     await channel.messages.edit(draft.draftMessageId, messagePayload);
+    await notifyOnClockCaptainIfChanged(client, draft, options?.previousState);
   } catch (error) {
     log.warn({ err: error, draftId: draft.id }, 'Live draft edit failed; reposting');
     try {

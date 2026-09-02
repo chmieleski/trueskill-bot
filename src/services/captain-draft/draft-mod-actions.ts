@@ -47,11 +47,12 @@ async function persistAndRefresh(
   draft: CaptainDraft,
   status: CaptainDraftStatus,
   state: DraftState,
+  previousState?: DraftState,
 ): Promise<CaptainDraft> {
   const saved = await saveDraftState(draft.id, status, state);
 
   if (status === 'ACTIVE' && saved.draftMessageId) {
-    await syncLiveDraftMessage(client, saved);
+    await syncLiveDraftMessage(client, saved, { previousState });
   }
 
   if (status === 'ACTIVE' || status === 'COMPLETE') {
@@ -99,7 +100,7 @@ export async function modAddPlayer(input: {
       input.player.key,
       input.teamCaptainKey,
     );
-    return persistAndRefresh(input.client, draft, status, nextState);
+    return persistAndRefresh(input.client, draft, status, nextState, state);
   }
 
   if (status === 'ACTIVE' && input.teamCaptainKey) {
@@ -109,12 +110,12 @@ export async function modAddPlayer(input: {
       input.player.key,
       input.teamCaptainKey,
     );
-    return persistAndRefresh(input.client, draft, status, nextState);
+    return persistAndRefresh(input.client, draft, status, nextState, state);
   }
 
   assertPlayerNotInDraft(state, input.player);
   const nextState = addToPool(state, input.player);
-  return persistAndRefresh(input.client, draft, status, nextState);
+  return persistAndRefresh(input.client, draft, status, nextState, state);
 }
 
 /** Mod: remove a player from the pool or a team roster (not captains). */
@@ -140,7 +141,7 @@ export async function modRemovePlayer(input: {
       ? removeFromPool(state, input.participantKey)
       : removeFromTeam(state, input.participantKey);
 
-  return persistAndRefresh(input.client, draft, status, nextState);
+  return persistAndRefresh(input.client, draft, status, nextState, state);
 }
 
 /** Mod: swap two non-captain players across teams or team↔pool. */
@@ -156,7 +157,13 @@ export async function modSwapPlayers(input: {
 
   const state = parseDraftState(draft);
   const nextState = swapParticipants(state, input.keyA, input.keyB);
-  return persistAndRefresh(input.client, draft, draft.status as CaptainDraftStatus, nextState);
+  return persistAndRefresh(
+    input.client,
+    draft,
+    draft.status as CaptainDraftStatus,
+    nextState,
+    state,
+  );
 }
 
 /** Mod: move a drafted player to another team. */
@@ -172,7 +179,13 @@ export async function modMovePlayer(input: {
 
   const state = parseDraftState(draft);
   const nextState = moveParticipant(state, input.participantKey, input.toCaptainKey);
-  return persistAndRefresh(input.client, draft, draft.status as CaptainDraftStatus, nextState);
+  return persistAndRefresh(
+    input.client,
+    draft,
+    draft.status as CaptainDraftStatus,
+    nextState,
+    state,
+  );
 }
 
 /** Mod: revert the last snake pick during ACTIVE. */
@@ -186,7 +199,7 @@ export async function modUndoPick(input: {
 
   const state = parseDraftState(draft);
   const nextState = undoLastPick(state);
-  return persistAndRefresh(input.client, draft, 'ACTIVE', nextState);
+  return persistAndRefresh(input.client, draft, 'ACTIVE', nextState, state);
 }
 
 /** Mod: force-assign the current pick for an AFK captain. */
@@ -205,7 +218,7 @@ export async function modForcePick(input: {
   const saved = await saveDraftState(draft.id, nextStatus, nextState);
 
   if (saved.draftMessageId) {
-    await syncLiveDraftMessage(input.client, saved);
+    await syncLiveDraftMessage(input.client, saved, { previousState: state });
   }
   await refreshPublishedTeamsIfAny(input.client, saved);
 

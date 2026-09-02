@@ -26,6 +26,7 @@ export {
   assertTeamCaptainRename,
 } from './draft-auth.js';
 export {
+  notifyOnClockCaptainIfChanged,
   publishTeamRosters,
   refreshPublishedTeamsIfAny,
   syncLiveDraftMessage,
