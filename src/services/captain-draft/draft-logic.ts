@@ -195,6 +195,41 @@ function cloneStateWithParticipantAt(
   return { ...state, teams };
 }
 
+/** Replace a pool or roster player with someone not already in the draft. */
+export function replaceParticipant(
+  state: DraftState,
+  outgoingKey: string,
+  incoming: DraftParticipant,
+): DraftState {
+  if (isCaptainKey(state, outgoingKey)) {
+    throw new CaptainDraftError('Cannot replace a captain');
+  }
+
+  const location = locateParticipant(state, outgoingKey);
+  if (!location) {
+    throw new CaptainDraftError('Participant not found');
+  }
+
+  if (location.kind === 'pool') {
+    const memberPool = state.memberPool.map((player, index) =>
+      index === location.index ? incoming : player,
+    );
+    return { ...state, memberPool };
+  }
+
+  const teams = state.teams.map((team, teamIndex) => {
+    if (teamIndex !== location.teamIndex) {
+      return team;
+    }
+    const roster = team.roster.map((player, rosterIndex) =>
+      rosterIndex === location.rosterIndex ? incoming : player,
+    );
+    return { ...team, roster };
+  });
+
+  return { ...state, teams };
+}
+
 export function swapParticipants(state: DraftState, keyA: string, keyB: string): DraftState {
   if (keyA === keyB) {
     return state;

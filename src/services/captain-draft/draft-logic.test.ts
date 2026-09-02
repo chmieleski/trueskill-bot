@@ -13,6 +13,7 @@ import {
   moveParticipant,
   removeFromPool,
   removeFromTeam,
+  replaceParticipant,
   shufflePickOrder,
   swapParticipants,
   undoLastPick,
@@ -161,6 +162,40 @@ describe('team helpers', () => {
 
   it('removeFromTeam throws for captains', () => {
     expect(() => removeFromTeam(baseState(), 'c0')).toThrow(CaptainDraftError);
+  });
+});
+
+describe('replaceParticipant', () => {
+  it('replaces a pool member in place', () => {
+    const state = baseState();
+    const next = replaceParticipant(state, 'm2', p('m9', 'Zed'));
+    expect(next.memberPool.map((x) => x.key)).toEqual([
+      'm0',
+      'm1',
+      'm9',
+      'm3',
+      'm4',
+      'm5',
+      'm6',
+      'm7',
+    ]);
+    expect(next.memberPool.find((x) => x.key === 'm9')?.label).toBe('Zed');
+  });
+
+  it('replaces a team member in place without returning the outgoing player to the pool', () => {
+    let state = addToTeam(baseState(), 'm0', 'c1');
+    state = replaceParticipant(state, 'm0', p('m9', 'Zed'));
+    expect(state.teams[1]!.roster.map((x) => x.key)).toEqual(['c1', 'm9']);
+    expect(state.memberPool.map((x) => x.key)).not.toContain('m0');
+    expect(state.memberPool.map((x) => x.key)).not.toContain('m9');
+  });
+
+  it('throws when replacing a captain', () => {
+    expect(() => replaceParticipant(baseState(), 'c0', p('m9'))).toThrow(CaptainDraftError);
+  });
+
+  it('throws when outgoing player is missing', () => {
+    expect(() => replaceParticipant(baseState(), 'missing', p('m9'))).toThrow(CaptainDraftError);
   });
 });
 

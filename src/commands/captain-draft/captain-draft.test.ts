@@ -14,6 +14,7 @@ const EXPECTED_SUBCOMMANDS = [
   'cancel',
   'add',
   'remove',
+  'replace',
   'swap',
   'move',
   'undo',
@@ -56,6 +57,20 @@ describe('captain_draft command data', () => {
       expect(player?.autocomplete).toBe(true);
       expect(player?.type).toBe(ApplicationCommandOptionType.String);
     }
+  });
+
+  it('exposes replace with outgoing autocomplete and incoming string', () => {
+    const json = data.toJSON();
+    const replace = json.options?.find((option) => option.name === 'replace');
+    const options = replace && 'options' in replace ? (replace.options ?? []) : [];
+
+    const outgoing = options.find((option) => option.name === 'outgoing');
+    const incoming = options.find((option) => option.name === 'incoming');
+
+    expect(outgoing?.autocomplete).toBe(true);
+    expect(outgoing?.required).toBe(true);
+    expect(incoming?.autocomplete).toBeFalsy();
+    expect(incoming?.required).toBe(true);
   });
 
   it('exposes swap with player_a and player_b autocomplete', () => {

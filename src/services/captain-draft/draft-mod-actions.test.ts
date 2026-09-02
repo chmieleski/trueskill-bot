@@ -28,7 +28,7 @@ vi.mock('./draft-display-sync.js', () => ({
   refreshPublishedTeamsIfAny,
 }));
 
-import { modAddPlayer, modForcePick, modUndoPick } from './draft-mod-actions.js';
+import { modAddPlayer, modForcePick, modReplacePlayer, modUndoPick } from './draft-mod-actions.js';
 import { buildTeamsFromCaptains } from './draft-logic.js';
 import { serializeDraftState } from './draft-state.js';
 import type { DraftParticipant, DraftState } from './draft-types.js';
@@ -215,5 +215,60 @@ describe('modAddPlayer', () => {
       }),
     );
     expect(syncLiveDraftMessage).toHaveBeenCalled();
+  });
+});
+
+describe('modReplacePlayer', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('substitutes a roster player during COMPLETE and refreshes published embeds', async () => {
+    const state = activeStateWithPick();
+    captainDraftFindFirst.mockResolvedValue(asDraftRow(state, { status: 'COMPLETE' }));
+    captainDraftUpdate.mockImplementation(async ({ data }) =>
+      asDraftRow(data.state as DraftState, { status: data.status as CaptainDraft['status'] }),
+    );
+
+    await modReplacePlayer({
+      client: {} as never,
+      guildId: 'guild-1',
+      channelId: 'channel-1',
+      outgoingKey: 'm0',
+      incoming: p('m9', 'Zed'),
+    });
+
+    expect(captainDraftUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          state: expect.objectContaining({
+            teams: expect.arrayContaining([
+              expect.objectContaining({
+                captainKey: 'c0',
+                roster: expect.arrayContaining([
+                  expect.objectContaining({ key: 'm9', label: 'Zed' }),
+                ]),
+              }),
+            ]),
+          }),
+        }),
+      }),
+    );
+    expect(refreshPublishedTeamsIfAny).toHaveBeenCalled();
+  });
+
+  it('rejects incoming players already in the draft', async () => {
+    const state = activeStateWithPick();
+    captainDraftFindFirst.mockResolvedValue(asDraftRow(state));
+
+    await expect(
+      modReplacePlayer({
+        client: {} as never,
+        guildId: 'guild-1',
+        channelId: 'channel-1',
+        outgoingKey: 'm0',
+        incoming: p('m1', 'Eve'),
+      }),
+    ).rejects.toThrow(CaptainDraftError);
   });
 });
