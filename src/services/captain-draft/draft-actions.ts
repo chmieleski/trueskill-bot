@@ -249,7 +249,7 @@ export async function applyCaptainDraftPick(input: {
   const saved = await saveDraftState(draft.id, nextStatus, nextState);
 
   if (saved.draftMessageId) {
-    await syncLiveDraftMessage(input.client, saved);
+    await syncLiveDraftMessage(input.client, saved, { previousState: state });
   }
   await refreshPublishedTeamsIfAny(input.client, saved);
 
