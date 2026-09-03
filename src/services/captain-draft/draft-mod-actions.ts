@@ -4,8 +4,8 @@ import {
   addToPool,
   addToTeam,
   applyPick,
-  isDraftComplete,
   moveParticipant,
+  nextStatusAfterMutation,
   removeFromPool,
   removeFromTeam,
   replaceParticipant,
@@ -50,13 +50,14 @@ async function persistAndRefresh(
   state: DraftState,
   previousState?: DraftState,
 ): Promise<CaptainDraft> {
-  const saved = await saveDraftState(draft.id, status, state);
+  const nextStatus = nextStatusAfterMutation(status, state);
+  const saved = await saveDraftState(draft.id, nextStatus, state);
 
   if (status === 'ACTIVE' && saved.draftMessageId) {
     await syncLiveDraftMessage(client, saved, { previousState });
   }
 
-  if (status === 'ACTIVE' || status === 'COMPLETE') {
+  if (nextStatus === 'ACTIVE' || nextStatus === 'COMPLETE') {
     await refreshPublishedTeamsIfAny(client, saved);
   }
 
@@ -239,7 +240,7 @@ export async function modForcePick(input: {
 
   const state = parseDraftState(draft);
   const nextState = applyPick(state, input.participantKey);
-  const nextStatus: CaptainDraftStatus = isDraftComplete(nextState) ? 'COMPLETE' : 'ACTIVE';
+  const nextStatus = nextStatusAfterMutation('ACTIVE', nextState);
   const saved = await saveDraftState(draft.id, nextStatus, nextState);
 
   if (saved.draftMessageId) {
@@ -258,7 +259,18 @@ export async function modRenameTeam(input: {
   captainKey: string;
   name: string;
 }): Promise<CaptainDraft> {
-  const draft = await loadActiveDraftForChannel(input.guildId, input.channelId);
+  const loaded = await loadActiveDraftForChannel(input.guildId, input.channelId);
+  const loadedState = parseDraftState(loaded);
+  const healedStatus = nextStatusAfterMutation(loaded.status as CaptainDraftStatus, loadedState);
+  const draft =
+    healedStatus === loaded.status
+      ? loaded
+      : await persistAndRefresh(
+          input.client,
+          loaded,
+          loaded.status as CaptainDraftStatus,
+          loadedState,
+        );
   assertDraftStatus(draft, ['COMPLETE']);
 
   const state = parseDraftState(draft);

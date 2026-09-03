@@ -12,7 +12,7 @@ import {
 import {
   applyPick,
   buildTeamsFromCaptains,
-  isDraftComplete,
+  nextStatusAfterMutation,
   shufflePickOrder,
 } from './draft-logic.js';
 import { buildLiveDraftMessage } from './draft-live-embed.js';
@@ -245,7 +245,7 @@ export async function applyCaptainDraftPick(input: {
   assertCurrentCaptainPick(state, input.actorDiscordId);
 
   const nextState = applyPick(state, input.participantKey);
-  const nextStatus: CaptainDraftStatus = isDraftComplete(nextState) ? 'COMPLETE' : 'ACTIVE';
+  const nextStatus = nextStatusAfterMutation('ACTIVE', nextState);
   const saved = await saveDraftState(draft.id, nextStatus, nextState);
 
   if (saved.draftMessageId) {
@@ -280,6 +280,25 @@ export async function cancelCaptainDraft(input: {
   return saved;
 }
 
+/** Persist COMPLETE when an ACTIVE draft has an empty pool (heal stuck live drafts). */
+async function ensureCompleteIfPoolEmpty(input: {
+  client: Client;
+  draft: CaptainDraft;
+}): Promise<CaptainDraft> {
+  const state = parseDraftState(input.draft);
+  const current = input.draft.status as CaptainDraftStatus;
+  const nextStatus = nextStatusAfterMutation(current, state);
+  if (nextStatus === current) {
+    return input.draft;
+  }
+
+  const saved = await saveDraftState(input.draft.id, nextStatus, state);
+  if (saved.draftMessageId) {
+    await syncLiveDraftMessage(input.client, saved);
+  }
+  return saved;
+}
+
 /** Captain rename after COMPLETE; refreshes published team embeds when present. */
 export async function renameCaptainTeam(input: {
   client: Client;
@@ -288,7 +307,8 @@ export async function renameCaptainTeam(input: {
   captainKey: string;
   name: string;
 }): Promise<CaptainDraft> {
-  const draft = await loadDraftById(input.draftId);
+  const loaded = await loadDraftById(input.draftId);
+  const draft = await ensureCompleteIfPoolEmpty({ client: input.client, draft: loaded });
   assertDraftStatus(draft, ['COMPLETE']);
 
   const state = parseDraftState(draft);
@@ -306,7 +326,8 @@ export async function publishCaptainDraft(input: {
   draftId: string;
   channel: TextChannel;
 }): Promise<CaptainDraft> {
-  const draft = await loadDraftById(input.draftId);
+  const loaded = await loadDraftById(input.draftId);
+  const draft = await ensureCompleteIfPoolEmpty({ client: input.client, draft: loaded });
   assertDraftStatus(draft, ['COMPLETE']);
 
   await publishTeamRosters(input.client, draft, input.channel);

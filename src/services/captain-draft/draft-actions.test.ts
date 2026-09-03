@@ -48,6 +48,7 @@ import {
   applyCaptainDraftPick,
   beginCaptainDraft,
   cancelCaptainDraft,
+  renameCaptainTeam,
   setCaptains,
   setMembers,
   startCaptainDraft,
@@ -306,6 +307,52 @@ describe('applyCaptainDraftPick', () => {
     expect(saved.status).toBe('COMPLETE');
     expect(syncLiveDraftMessage).toHaveBeenCalled();
     expect(refreshPublishedTeamsIfAny).toHaveBeenCalled();
+  });
+});
+
+describe('renameCaptainTeam', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('heals an ACTIVE empty-pool draft then renames the team', async () => {
+    const captains = [p('c0', 'Alice', '111'), p('c1', 'Bob', '222')];
+    const pickOrder = [0, 1];
+    const teams = buildTeamsFromCaptains(captains, pickOrder);
+    const state: DraftState = {
+      captains,
+      memberPool: [],
+      pickOrder,
+      teams,
+      pickIndex: 2,
+    };
+    captainDraftFindUnique.mockResolvedValue(
+      asDraftRow(state, { status: 'ACTIVE', draftMessageId: 'live-msg-1' }),
+    );
+    captainDraftUpdate.mockImplementation(async ({ data }) =>
+      asDraftRow(data.state as DraftState, {
+        status: data.status as CaptainDraft['status'],
+        draftMessageId: 'live-msg-1',
+      }),
+    );
+
+    const saved = await renameCaptainTeam({
+      client: {} as never,
+      draftId: 'draft-1',
+      actorDiscordId: '111',
+      captainKey: 'c0',
+      name: 'Team Dragon',
+    });
+
+    expect(captainDraftUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'COMPLETE' }),
+      }),
+    );
+    expect(saved.status).toBe('COMPLETE');
+    expect(
+      (saved.state as DraftState).teams.find((team) => team.captainKey === 'c0')?.displayName,
+    ).toBe('Team Dragon');
   });
 });
 
