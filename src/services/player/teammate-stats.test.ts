@@ -35,6 +35,11 @@ import {
   type TeammatePairStats,
 } from './teammate-stats.js';
 
+/** Match timestamps relative to now so the 14-day companion recency window stays valid. */
+function daysAgo(days: number, from: Date = new Date()): Date {
+  return new Date(from.getTime() - days * 24 * 60 * 60 * 1000);
+}
+
 function pair(
   partial: Partial<TeammatePairStats> & Pick<TeammatePairStats, 'playerId' | 'username'>,
 ): TeammatePairStats {
@@ -367,7 +372,7 @@ describe('loadCompanionStats', () => {
   });
 
   it('aggregates teammates and opponents from one query after rank reset', async () => {
-    const resetAt = new Date('2026-08-10T00:00:00.000Z');
+    const resetAt = daysAgo(COMPANION_RECENCY_DAYS + 10);
     loadLatestRankResetAtByPlayer.mockResolvedValue(new Map([['p1', resetAt]]));
     matchPlayerFindMany.mockResolvedValue([
       {
@@ -376,7 +381,7 @@ describe('loadCompanionStats', () => {
         result: 'WIN',
         match: {
           id: 'old',
-          completedAt: new Date('2026-08-01T00:00:00.000Z'),
+          completedAt: daysAgo(COMPANION_RECENCY_DAYS + 15),
           players: [
             { playerId: 'p1', team: 1, result: 'WIN', player: { username: 'Me' } },
             { playerId: 'p2', team: 1, result: 'WIN', player: { username: 'Ghost' } },
@@ -389,7 +394,7 @@ describe('loadCompanionStats', () => {
         result: 'WIN',
         match: {
           id: 'm1',
-          completedAt: new Date('2026-08-20T00:00:00.000Z'),
+          completedAt: daysAgo(5),
           players: [
             { playerId: 'p1', team: 1, result: 'WIN', player: { username: 'Me' } },
             { playerId: 'p2', team: 1, result: 'WIN', player: { username: 'Ghost' } },
@@ -403,7 +408,7 @@ describe('loadCompanionStats', () => {
         result: 'LOSS',
         match: {
           id: 'm2',
-          completedAt: new Date('2026-08-21T00:00:00.000Z'),
+          completedAt: daysAgo(3),
           players: [
             { playerId: 'p1', team: 1, result: 'LOSS', player: { username: 'Me' } },
             {
@@ -458,7 +463,7 @@ describe('loadTeammateStats', () => {
   });
 
   it('aggregates same-team partners after rank reset and ignores viewed quit matches', async () => {
-    const resetAt = new Date('2026-08-10T00:00:00.000Z');
+    const resetAt = daysAgo(COMPANION_RECENCY_DAYS + 10);
     loadLatestRankResetAtByPlayer.mockResolvedValue(new Map([['p1', resetAt]]));
     matchPlayerFindMany.mockResolvedValue([
       {
@@ -467,7 +472,7 @@ describe('loadTeammateStats', () => {
         result: 'WIN',
         match: {
           id: 'old',
-          completedAt: new Date('2026-08-01T00:00:00.000Z'),
+          completedAt: daysAgo(COMPANION_RECENCY_DAYS + 15),
           players: [
             { playerId: 'p1', team: 1, result: 'WIN', player: { username: 'Me' } },
             { playerId: 'p2', team: 1, result: 'WIN', player: { username: 'Ghost' } },
@@ -480,7 +485,7 @@ describe('loadTeammateStats', () => {
         result: 'WIN',
         match: {
           id: 'm1',
-          completedAt: new Date('2026-08-20T00:00:00.000Z'),
+          completedAt: daysAgo(5),
           players: [
             { playerId: 'p1', team: 1, result: 'WIN', player: { username: 'Me' } },
             { playerId: 'p2', team: 1, result: 'WIN', player: { username: 'Ghost' } },
@@ -494,7 +499,7 @@ describe('loadTeammateStats', () => {
         result: 'LOSS',
         match: {
           id: 'm2',
-          completedAt: new Date('2026-08-21T00:00:00.000Z'),
+          completedAt: daysAgo(3),
           players: [
             { playerId: 'p1', team: 1, result: 'LOSS', player: { username: 'Me' } },
             {
