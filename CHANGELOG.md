@@ -1,3 +1,10 @@
+## [1.52.1](https://github.com/chmieleski/trueskill-bot/compare/v1.52.0...v1.52.1) (2026-09-03)
+
+
+### Bug Fixes
+
+* **captain-draft:** mark empty-pool drafts complete ([#160](https://github.com/chmieleski/trueskill-bot/issues/160)) ([4b45528](https://github.com/chmieleski/trueskill-bot/commit/4b45528b789563d825b6085f6af67e3c6b55fe6c))
+
 # [1.52.0](https://github.com/chmieleski/trueskill-bot/compare/v1.51.2...v1.52.0) (2026-09-02)
 
 
