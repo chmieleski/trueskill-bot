@@ -28,7 +28,13 @@ vi.mock('./draft-display-sync.js', () => ({
   refreshPublishedTeamsIfAny,
 }));
 
-import { modAddPlayer, modForcePick, modReplacePlayer, modUndoPick } from './draft-mod-actions.js';
+import {
+  modAddPlayer,
+  modForcePick,
+  modRemovePlayer,
+  modReplacePlayer,
+  modUndoPick,
+} from './draft-mod-actions.js';
 import { buildTeamsFromCaptains } from './draft-logic.js';
 import { serializeDraftState } from './draft-state.js';
 import type { DraftParticipant, DraftState } from './draft-types.js';
@@ -146,6 +152,66 @@ describe('modForcePick', () => {
     );
     expect(syncLiveDraftMessage).toHaveBeenCalled();
     expect(refreshPublishedTeamsIfAny).toHaveBeenCalled();
+  });
+});
+
+describe('modRemovePlayer', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('marks ACTIVE complete when the last pool player is removed', async () => {
+    const state = activeStateWithPick();
+    captainDraftFindFirst.mockResolvedValue(asDraftRow(state));
+    captainDraftUpdate.mockImplementation(async ({ data }) =>
+      asDraftRow(data.state as DraftState, {
+        status: data.status as CaptainDraft['status'],
+        draftMessageId: 'live-msg-1',
+      }),
+    );
+
+    const saved = await modRemovePlayer({
+      client: {} as never,
+      guildId: 'guild-1',
+      channelId: 'channel-1',
+      participantKey: 'm1',
+    });
+
+    expect(captainDraftUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'COMPLETE' }),
+      }),
+    );
+    expect(saved.status).toBe('COMPLETE');
+    expect(syncLiveDraftMessage).toHaveBeenCalled();
+  });
+
+  it('does not complete a SETUP draft when the pool is emptied', async () => {
+    const state: DraftState = {
+      captains: [p('c0'), p('c1')],
+      memberPool: [p('m0')],
+      pickOrder: [],
+      teams: [],
+      pickIndex: 0,
+    };
+    captainDraftFindFirst.mockResolvedValue(asDraftRow(state, { status: 'SETUP' }));
+    captainDraftUpdate.mockImplementation(async ({ data }) =>
+      asDraftRow(data.state as DraftState, { status: data.status as CaptainDraft['status'] }),
+    );
+
+    const saved = await modRemovePlayer({
+      client: {} as never,
+      guildId: 'guild-1',
+      channelId: 'channel-1',
+      participantKey: 'm0',
+    });
+
+    expect(captainDraftUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'SETUP' }),
+      }),
+    );
+    expect(saved.status).toBe('SETUP');
   });
 });
 

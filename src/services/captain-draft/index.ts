@@ -39,6 +39,7 @@ export {
   currentCaptainKey,
   findParticipant,
   isDraftComplete,
+  nextStatusAfterMutation,
   replaceParticipant,
   shufflePickOrder,
 } from './draft-logic.js';

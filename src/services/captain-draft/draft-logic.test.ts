@@ -11,6 +11,7 @@ import {
   findParticipant,
   isDraftComplete,
   moveParticipant,
+  nextStatusAfterMutation,
   removeFromPool,
   removeFromTeam,
   replaceParticipant,
@@ -128,6 +129,28 @@ describe('isDraftComplete', () => {
   it('is true when member pool is empty', () => {
     expect(isDraftComplete(baseState({ memberPool: [] }))).toBe(true);
     expect(isDraftComplete(baseState())).toBe(false);
+  });
+});
+
+describe('nextStatusAfterMutation', () => {
+  it('promotes ACTIVE to COMPLETE when the pool is empty and teams exist', () => {
+    const captains = [p('c0'), p('c1')];
+    const pickOrder = [0, 1];
+    const state = baseState({
+      captains,
+      memberPool: [],
+      pickOrder,
+      teams: buildTeamsFromCaptains(captains, pickOrder),
+    });
+    expect(nextStatusAfterMutation('ACTIVE', state)).toBe('COMPLETE');
+  });
+
+  it('leaves SETUP unchanged when the pool is empty', () => {
+    expect(nextStatusAfterMutation('SETUP', baseState({ memberPool: [] }))).toBe('SETUP');
+  });
+
+  it('leaves ACTIVE unchanged while players remain in the pool', () => {
+    expect(nextStatusAfterMutation('ACTIVE', baseState())).toBe('ACTIVE');
   });
 });
 

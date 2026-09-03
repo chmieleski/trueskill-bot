@@ -1,4 +1,4 @@
-import type { DraftParticipant, DraftState, DraftTeam } from './draft-types.js';
+import type { CaptainDraftStatus, DraftParticipant, DraftState, DraftTeam } from './draft-types.js';
 import { CaptainDraftError } from './draft-types.js';
 
 /** Fisher–Yates shuffle of captain pick-order indices `0..count-1`. */
@@ -303,6 +303,20 @@ export function moveParticipant(
 
 export function isDraftComplete(state: DraftState): boolean {
   return state.memberPool.length === 0;
+}
+
+/**
+ * Promote ACTIVE → COMPLETE when the pool is empty and teams exist.
+ * SETUP with an empty pool stays SETUP (begin has not created teams yet).
+ */
+export function nextStatusAfterMutation(
+  current: CaptainDraftStatus,
+  state: DraftState,
+): CaptainDraftStatus {
+  if (current === 'ACTIVE' && isDraftComplete(state) && state.teams.length > 0) {
+    return 'COMPLETE';
+  }
+  return current;
 }
 
 export function currentCaptainKey(state: DraftState): string | null {
