@@ -69,11 +69,11 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('leaderboard_channel')
-            .setDescription('Set the channel for the live overall leaderboard message')
+            .setDescription('Channel for the live overall leaderboard')
             .addChannelOption((option) =>
               option
                 .setName('channel')
-                .setDescription('Channel where the live leaderboard message is posted')
+                .setDescription('Channel for the live leaderboard message')
                 .setRequired(true),
             ),
         ),
@@ -133,13 +133,13 @@ export const data = new SlashCommandBuilder()
             .addChannelOption((option) =>
               option
                 .setName('channel')
-                .setDescription('Text channel for match approval messages')
+                .setDescription('Text channel for approval messages')
                 .setRequired(false),
             )
             .addBooleanOption((option) =>
               option
                 .setName('clear')
-                .setDescription('Clear the match approval channel (ignores channel)')
+                .setDescription('Clear approval channel (ignores channel)')
                 .setRequired(false),
             ),
         ),
@@ -152,7 +152,7 @@ export const data = new SlashCommandBuilder()
             .addStringOption((option) =>
               option
                 .setName('action')
-                .setDescription('Rotate issues a new token; revoke clears it')
+                .setDescription('rotate = new token; revoke = clear')
                 .setRequired(true)
                 .addChoices(
                   { name: 'rotate', value: 'rotate' },
@@ -169,13 +169,13 @@ export const data = new SlashCommandBuilder()
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
-                .setDescription('On: linked players may use /rank_reset. Off: command rejected.')
+                .setDescription('On: /rank_reset allowed. Off: rejected.')
                 .setRequired(true),
             )
             .addIntegerOption((option) =>
               option
                 .setName('cooldown_days')
-                .setDescription('Days between self-resets (1–365); optional when toggling')
+                .setDescription('Days between self-resets (1–365); optional')
                 .setRequired(false)
                 .setMinValue(1)
                 .setMaxValue(365),
@@ -214,11 +214,11 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('balance_static_sigma')
-            .setDescription('Use fixed σ for lobby win% and balance hints (ki apply stays dynamic)')
+            .setDescription('Fixed σ for lobby win% / balance (ki apply stays dynamic)')
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
-                .setDescription('On: fixed σ for balance. Off: use each player’s persisted σ.')
+                .setDescription('On: fixed σ for balance. Off: persisted σ.')
                 .setRequired(true),
             ),
         ),
@@ -227,11 +227,11 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('side_win_loss')
-            .setDescription('Show per-side W–L on /rank (Z Fighters / Evil, or Team A / Team B)')
+            .setDescription('Show side W–L on /rank (ZF/Evil or Team A/B)')
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
-                .setDescription('On: second /rank line with side W–L. Off: hide it.')
+                .setDescription('On: side W–L on /rank. Off: hide it.')
                 .setRequired(true),
             ),
         ),
@@ -244,7 +244,7 @@ export const data = new SlashCommandBuilder()
             .addIntegerOption((option) =>
               option
                 .setName('wc3_slot')
-                .setDescription('0-based index in wc3stats slots[] (classic color order)')
+                .setDescription('0-based wc3stats slots[] index (color order)')
                 .setRequired(true)
                 .setMinValue(0)
                 .setMaxValue(23),
@@ -312,11 +312,11 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('wc3stats_host_prompt_pings')
-            .setDescription('Allow or block wc3stats host @-mentions for everyone')
+            .setDescription('Allow or block wc3stats host @-mentions')
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
-                .setDescription('Off: no host pings until staff turn this back on')
+                .setDescription('Off: no host pings until staff re-enable')
                 .setRequired(true),
             ),
         ),
@@ -330,7 +330,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('leaderboard_channel')
-            .setDescription('Remove the live overall leaderboard message binding'),
+            .setDescription('Remove the live overall leaderboard binding'),
         ),
       )
       .addSubcommand((subcommand) =>
@@ -373,7 +373,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('wc3stats')
-            .setDescription('Disable wc3stats import and clear filter + slot map for this server'),
+            .setDescription('Disable wc3stats import and clear filter + slot map'),
         ),
       )
       .addSubcommand((subcommand) =>

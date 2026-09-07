@@ -25,33 +25,33 @@
 
 ## File map
 
-| File | Responsibility |
-| --- | --- |
-| `prisma/schema.prisma` + migration | `WAITING_FOR_APPROVAL`, `Match.approvalWinnerTeam`, `League.matchApprovalChannelId`, `League.apiTokenHash`, `League.apiTokenCreatedAt` |
-| `src/config/env.ts` | `apiEnabled`, `apiPort`, `apiBind` |
-| `.env.example`, `.cursor/rules/scripts-and-env.mdc` | Document new env vars |
-| `infra/aws/variables.tf`, `ssm.tf`, `main.tf`, `terraform.tfvars.example` | SSM + SG ingress |
-| `deploy/aws/refresh-env.sh` | Write `API_*` into host `.env` |
-| `src/services/league/league-api-token.ts` | Hash, create/rotate/revoke, resolve bearer → league |
-| `src/services/league/league-api-token.test.ts` | Token unit tests |
-| `src/services/league/league-match-approval-channel.ts` | Set/clear approval channel |
-| `src/commands/config/league-config.ts` | Subcommands: approval channel + api_token |
-| `src/commands/config/config-shared.ts` | Show new settings in config view |
-| `src/services/match/match-waiting-approval.ts` | Create waiting match + ingest orchestration |
-| `src/services/match/match-waiting-approval.test.ts` | Ingest unit tests |
-| `src/services/match/match-approval.ts` | setApprovalWinner, approve, reject; waiting-status edits |
-| `src/services/match/match-approval.test.ts` | Approve/reject tests |
-| `src/services/match/match-report.ts` | Allow complete/setQuitters/setGriefers from `WAITING_FOR_APPROVAL` |
-| `src/services/match/index.ts` | Re-exports |
-| `src/api/http-server.ts` | Listen / close |
-| `src/api/auth.ts` | Bearer → league |
-| `src/api/routes/wos-report.ts` | `POST /v1/matches/wos-report` |
-| `src/api/index.ts` | `startApiServer` / `stopApiServer` |
-| `src/api/*.test.ts` | HTTP handler tests (mocked ingest) |
-| `src/discord/interactions/match-approval-interactions.ts` | Button/select adapters |
-| `src/services/match/match-approval-preview.ts` | Embed + button builders (`match:ap:*`) |
-| `src/events/interaction-create.ts` | Route `match:ap:` |
-| `src/index.ts` | Start/stop HTTP with Discord client |
+| File                                                                      | Responsibility                                                                                                                         |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `prisma/schema.prisma` + migration                                        | `WAITING_FOR_APPROVAL`, `Match.approvalWinnerTeam`, `League.matchApprovalChannelId`, `League.apiTokenHash`, `League.apiTokenCreatedAt` |
+| `src/config/env.ts`                                                       | `apiEnabled`, `apiPort`, `apiBind`                                                                                                     |
+| `.env.example`, `.cursor/rules/scripts-and-env.mdc`                       | Document new env vars                                                                                                                  |
+| `infra/aws/variables.tf`, `ssm.tf`, `main.tf`, `terraform.tfvars.example` | SSM + SG ingress                                                                                                                       |
+| `deploy/aws/refresh-env.sh`                                               | Write `API_*` into host `.env`                                                                                                         |
+| `src/services/league/league-api-token.ts`                                 | Hash, create/rotate/revoke, resolve bearer → league                                                                                    |
+| `src/services/league/league-api-token.test.ts`                            | Token unit tests                                                                                                                       |
+| `src/services/league/league-match-approval-channel.ts`                    | Set/clear approval channel                                                                                                             |
+| `src/commands/config/league-config.ts`                                    | Subcommands: approval channel + api_token                                                                                              |
+| `src/commands/config/config-shared.ts`                                    | Show new settings in config view                                                                                                       |
+| `src/services/match/match-waiting-approval.ts`                            | Create waiting match + ingest orchestration                                                                                            |
+| `src/services/match/match-waiting-approval.test.ts`                       | Ingest unit tests                                                                                                                      |
+| `src/services/match/match-approval.ts`                                    | setApprovalWinner, approve, reject; waiting-status edits                                                                               |
+| `src/services/match/match-approval.test.ts`                               | Approve/reject tests                                                                                                                   |
+| `src/services/match/match-report.ts`                                      | Allow complete/setQuitters/setGriefers from `WAITING_FOR_APPROVAL`                                                                     |
+| `src/services/match/index.ts`                                             | Re-exports                                                                                                                             |
+| `src/api/http-server.ts`                                                  | Listen / close                                                                                                                         |
+| `src/api/auth.ts`                                                         | Bearer → league                                                                                                                        |
+| `src/api/routes/wos-report.ts`                                            | `POST /v1/matches/wos-report`                                                                                                          |
+| `src/api/index.ts`                                                        | `startApiServer` / `stopApiServer`                                                                                                     |
+| `src/api/*.test.ts`                                                       | HTTP handler tests (mocked ingest)                                                                                                     |
+| `src/discord/interactions/match-approval-interactions.ts`                 | Button/select adapters                                                                                                                 |
+| `src/services/match/match-approval-preview.ts`                            | Embed + button builders (`match:ap:*`)                                                                                                 |
+| `src/events/interaction-create.ts`                                        | Route `match:ap:`                                                                                                                      |
+| `src/index.ts`                                                            | Start/stop HTTP with Discord client                                                                                                    |
 
 ---
 
@@ -452,9 +452,7 @@ export async function setApprovalWinner(
   winningTeam: 1 | 2,
 ): Promise<MatchWithPlayers>;
 
-export async function approveWaitingMatch(
-  matchId: string,
-): Promise<CompleteMatchResult>;
+export async function approveWaitingMatch(matchId: string): Promise<CompleteMatchResult>;
 // reads approvalWinnerTeam + current quitter/griefer flags; calls completeMatch(...)
 
 export async function rejectWaitingMatch(matchId: string): Promise<MatchWithPlayers>;
@@ -600,14 +598,14 @@ EOF
 
 **customId prefix:** `match:ap:` (routed before or inside match interactions — prefer dedicated handler called from `interaction-create` when `customId.startsWith('match:ap:')`).
 
-| customId | Action |
-| --- | --- |
-| `match:ap:quitters:<matchId>` | Open quitter select (reuse select patterns from report wizard if practical) |
-| `match:ap:griefers:<matchId>` | Griefer select |
-| `match:ap:winner:<matchId>` | Winner buttons / select team 1\|2 |
-| `match:ap:win:<matchId>:1` / `:2` | `setApprovalWinner` |
-| `match:ap:approve:<matchId>` | `approveWaitingMatch` + refresh embed terminal |
-| `match:ap:reject:<matchId>` | `rejectWaitingMatch` + refresh |
+| customId                          | Action                                                                      |
+| --------------------------------- | --------------------------------------------------------------------------- |
+| `match:ap:quitters:<matchId>`     | Open quitter select (reuse select patterns from report wizard if practical) |
+| `match:ap:griefers:<matchId>`     | Griefer select                                                              |
+| `match:ap:winner:<matchId>`       | Winner buttons / select team 1\|2                                           |
+| `match:ap:win:<matchId>:1` / `:2` | `setApprovalWinner`                                                         |
+| `match:ap:approve:<matchId>`      | `approveWaitingMatch` + refresh embed terminal                              |
+| `match:ap:reject:<matchId>`       | `rejectWaitingMatch` + refresh                                              |
 
 **Auth:** `assertHasMatchModRole` with `resolveGuildConfig(guildId).matchModRoleId` (not host). Ephemeral deny on failure.
 
@@ -691,19 +689,19 @@ EOF
 
 ## Spec coverage checklist
 
-| Spec requirement | Task |
-| --- | --- |
-| `WAITING_FOR_APPROVAL` status | 1 |
-| League approval channel + API token hash | 1, 3 |
-| Env + tofu SG/SSM/refresh-env | 2 |
-| Raw WOS report ingest, nick players, left→quitter, suggested winner | 4 |
-| Duplicate `externalId` → 409 | 4, 6 |
-| Approve → ratings / Reject → cancel | 5 |
-| `completeMatch` without IN_PROGRESS hop | 5 |
-| HTTP `POST /v1/matches/wos-report` + bearer | 6 |
-| Discord embed + mod edit/approve/reject | 7 |
-| Same process as bot | 6 |
-| English errors, WOS-only, league token targeting | 3–6 |
+| Spec requirement                                                    | Task |
+| ------------------------------------------------------------------- | ---- |
+| `WAITING_FOR_APPROVAL` status                                       | 1    |
+| League approval channel + API token hash                            | 1, 3 |
+| Env + tofu SG/SSM/refresh-env                                       | 2    |
+| Raw WOS report ingest, nick players, left→quitter, suggested winner | 4    |
+| Duplicate `externalId` → 409                                        | 4, 6 |
+| Approve → ratings / Reject → cancel                                 | 5    |
+| `completeMatch` without IN_PROGRESS hop                             | 5    |
+| HTTP `POST /v1/matches/wos-report` + bearer                         | 6    |
+| Discord embed + mod edit/approve/reject                             | 7    |
+| Same process as bot                                                 | 6    |
+| English errors, WOS-only, league token targeting                    | 3–6  |
 
 ## Plan self-review notes
 

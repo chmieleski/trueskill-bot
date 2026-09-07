@@ -3,6 +3,7 @@
 **Date:** 2026-09-07  
 **Status:** Approved for implementation planning  
 **Scope:**
+
 - `game:warcraft3_wos` — report parse, roster mapping, winner inference, stats persistence (reuse existing modules)
 - `general` — HTTP server in the bot process, league API tokens, `WAITING_FOR_APPROVAL` status, approval channel config, Discord approval UI, approve → ratings / reject → cancel
 
@@ -23,25 +24,25 @@ Allow an external automation to submit a finished WOS match by uploading a raw W
 
 ## Decisions (locked)
 
-| Topic | Choice |
-| --- | --- |
-| Creation model | API creates a brand-new match only (Approach 1) |
-| Initial status | `WAITING_FOR_APPROVAL` (never PENDING / IN_PROGRESS) |
-| Payload | Raw WOS2 bot report text (`reportText`); server uses `parseWos2BotReport` |
-| Player identity | In-game / Battle.net nick; create `Player` rows as needed |
-| Game | WOS only (`postMatchStats === wos2_bot_v1`) |
-| League targeting | League-scoped API bearer token (no `leagueId` in body) |
-| Process | Same Node process as Discord bot |
-| Infra | OpenTofu must expose listen port (SG ingress + SSM env + `refresh-env.sh`) |
-| Approval channel | New league setting `matchApprovalChannelId` |
-| Who may act | Guild `match_mod` role only (no Discord host) |
-| Mod actions | Edit quitters · Edit griefers · Set/override winner · Approve · Reject |
-| On Approve | Complete + OpenSkill (same rules as `completeMatch`) |
-| On Reject | `CANCELLED`, no ratings |
-| Winner seed | `inferSuggestedWinner`; stored as editable `approvalWinnerTeam`; must be set before Approve |
-| Quitter seed | Prefill `isQuitter` from WOS `left=1` |
-| Duplicate report | `409` when WOS `externalId` already used on a non-voided match |
-| Token storage | Hash only (e.g. SHA-256); plaintext shown once on create/rotate |
+| Topic            | Choice                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------- |
+| Creation model   | API creates a brand-new match only (Approach 1)                                             |
+| Initial status   | `WAITING_FOR_APPROVAL` (never PENDING / IN_PROGRESS)                                        |
+| Payload          | Raw WOS2 bot report text (`reportText`); server uses `parseWos2BotReport`                   |
+| Player identity  | In-game / Battle.net nick; create `Player` rows as needed                                   |
+| Game             | WOS only (`postMatchStats === wos2_bot_v1`)                                                 |
+| League targeting | League-scoped API bearer token (no `leagueId` in body)                                      |
+| Process          | Same Node process as Discord bot                                                            |
+| Infra            | OpenTofu must expose listen port (SG ingress + SSM env + `refresh-env.sh`)                  |
+| Approval channel | New league setting `matchApprovalChannelId`                                                 |
+| Who may act      | Guild `match_mod` role only (no Discord host)                                               |
+| Mod actions      | Edit quitters · Edit griefers · Set/override winner · Approve · Reject                      |
+| On Approve       | Complete + OpenSkill (same rules as `completeMatch`)                                        |
+| On Reject        | `CANCELLED`, no ratings                                                                     |
+| Winner seed      | `inferSuggestedWinner`; stored as editable `approvalWinnerTeam`; must be set before Approve |
+| Quitter seed     | Prefill `isQuitter` from WOS `left=1`                                                       |
+| Duplicate report | `409` when WOS `externalId` already used on a non-voided match                              |
+| Token storage    | Hash only (e.g. SHA-256); plaintext shown once on create/rotate                             |
 
 ## Lifecycle
 
@@ -94,20 +95,20 @@ Token resolves to exactly one active league that is WOS-capable. Invalid/missing
 
 ### Errors
 
-| Code | When |
-| --- | --- |
-| `401` | Missing/invalid token |
-| `400` | Empty/invalid JSON, parse error, roster validation, league not WOS, approval channel unset |
-| `409` | WOS `externalId` already stored on another non-voided match |
+| Code  | When                                                                                                                            |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `401` | Missing/invalid token                                                                                                           |
+| `400` | Empty/invalid JSON, parse error, roster validation, league not WOS, approval channel unset                                      |
+| `409` | WOS `externalId` already stored on another non-voided match                                                                     |
 | `5xx` | Unexpected server errors only; Discord post failure after a successful DB commit is **not** a failed ingest — see Failure modes |
 
 ### Process env
 
-| Var | Purpose |
-| --- | --- |
-| `API_ENABLED` | When false/unset, HTTP server does not listen (safe default) |
-| `API_PORT` | Listen port (e.g. `8787`) |
-| `API_BIND` | Bind address (default `0.0.0.0`; production exposure controlled by security-group CIDR) |
+| Var           | Purpose                                                                                 |
+| ------------- | --------------------------------------------------------------------------------------- |
+| `API_ENABLED` | When false/unset, HTTP server does not listen (safe default)                            |
+| `API_PORT`    | Listen port (e.g. `8787`)                                                               |
+| `API_BIND`    | Bind address (default `0.0.0.0`; production exposure controlled by security-group CIDR) |
 
 Document in `src/config/env.ts`, `.env.example`, `.cursor/rules/scripts-and-env.mdc`, SSM, `deploy/aws/refresh-env.sh`, and OpenTofu (`variables.tf`, `ssm.tf`, SG ingress, `terraform.tfvars.example`).
 
@@ -120,9 +121,9 @@ Document in `src/config/env.ts`, `.env.example`, `.cursor/rules/scripts-and-env.
 
 ## League config
 
-| Setting | Notes |
-| --- | --- |
-| `matchApprovalChannelId` | Required for successful ingest |
+| Setting                            | Notes                                                                                                             |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `matchApprovalChannelId`           | Required for successful ingest                                                                                    |
 | API token create / rotate / revoke | Via `/league_config` (Manage Guild / existing league admin pattern). Plaintext shown once; store hash + timestamp |
 
 ## Discord approval UX
@@ -136,6 +137,7 @@ Document in `src/config/env.ts`, `.env.example`, `.cursor/rules/scripts-and-env.
 **Buttons:** Edit quitters · Edit griefers · Set winner · Approve · Reject.
 
 **Approve rules:**
+
 - Winner must be set (`approvalWinnerTeam` or equivalent)
 - Both teams have ≥1 non-quitter
 - WOS stats already on match → satisfy existing post-match stats gate
@@ -172,14 +174,14 @@ Buttons
 
 ### Modules
 
-| Module | Scope | Responsibility |
-| --- | --- | --- |
-| `src/api/*` | `general` | HTTP listen, auth middleware, route |
-| `ingestWosReportForApproval` | `general` + WOS calls | Ingest orchestration |
-| `match-approval.ts` | `general` | Edit / approve / reject use-cases |
-| Approval interaction handlers | `general` | Thin Discord adapters |
-| Existing WOS parse/roster/winner/stats | `game:warcraft3_wos` / match services | Reuse; do not fork |
-| OpenTofu + env sync | infra | Port, enable flag, SG, SSM |
+| Module                                 | Scope                                 | Responsibility                      |
+| -------------------------------------- | ------------------------------------- | ----------------------------------- |
+| `src/api/*`                            | `general`                             | HTTP listen, auth middleware, route |
+| `ingestWosReportForApproval`           | `general` + WOS calls                 | Ingest orchestration                |
+| `match-approval.ts`                    | `general`                             | Edit / approve / reject use-cases   |
+| Approval interaction handlers          | `general`                             | Thin Discord adapters               |
+| Existing WOS parse/roster/winner/stats | `game:warcraft3_wos` / match services | Reuse; do not fork                  |
+| OpenTofu + env sync                    | infra                                 | Port, enable flag, SG, SSM          |
 
 ### Schema
 
@@ -196,15 +198,15 @@ Extend the in-progress lock (or add `approveWaitingMatch`) so `WAITING_FOR_APPRO
 
 ## Failure modes
 
-| Case | Behavior |
-| --- | --- |
-| Approval channel unset | Reject ingest with clear English error |
-| Parse / roster error | No match created |
-| Unknown / new nick | Create `Player` for `(gameId, username)` as lobby fill does |
-| Duplicate `externalId` | `409`; no second match |
-| Discord post fails after DB commit | Keep match; log error; response includes `matchId` without usable `discordMessageUrl` (ops/mod recovery; optional retry post later) |
-| Approve with no winner / empty team | Reject action with English error; stay waiting |
-| Non-mod clicks buttons | Ephemeral deny |
+| Case                                | Behavior                                                                                                                            |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Approval channel unset              | Reject ingest with clear English error                                                                                              |
+| Parse / roster error                | No match created                                                                                                                    |
+| Unknown / new nick                  | Create `Player` for `(gameId, username)` as lobby fill does                                                                         |
+| Duplicate `externalId`              | `409`; no second match                                                                                                              |
+| Discord post fails after DB commit  | Keep match; log error; response includes `matchId` without usable `discordMessageUrl` (ops/mod recovery; optional retry post later) |
+| Approve with no winner / empty team | Reject action with English error; stay waiting                                                                                      |
+| Non-mod clicks buttons              | Ephemeral deny                                                                                                                      |
 
 ## Testing
 
