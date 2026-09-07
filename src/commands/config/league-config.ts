@@ -18,11 +18,14 @@ import {
 } from '../../services/league/league-wc3stats.js';
 import {
   clearLeagueLobbyChannel,
+  createOrRotateLeagueApiToken,
   formatLobbyChannelConfigLine,
   LOBBY_CHANNEL_SET_NEEDS_OPTION,
   respondLeagueAutocomplete,
+  revokeLeagueApiToken,
   setDecayEnabled,
   setLeagueLobbyChannel,
+  setLeagueMatchApprovalChannel,
   withSubcommandLeagueOption,
 } from '../../services/league/index.js';
 import {
@@ -119,6 +122,42 @@ export const data = new SlashCommandBuilder()
                 .setName('channel')
                 .setDescription('Dedicated lobby channel (required when first enabling)')
                 .setRequired(false),
+            ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('match_approval_channel')
+            .setDescription('Channel for HTTP match approval posts')
+            .addChannelOption((option) =>
+              option
+                .setName('channel')
+                .setDescription('Text channel for match approval messages')
+                .setRequired(false),
+            )
+            .addBooleanOption((option) =>
+              option
+                .setName('clear')
+                .setDescription('Clear the match approval channel (ignores channel)')
+                .setRequired(false),
+            ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('api_token')
+            .setDescription('Rotate or revoke the league HTTP API token')
+            .addStringOption((option) =>
+              option
+                .setName('action')
+                .setDescription('Rotate issues a new token; revoke clears it')
+                .setRequired(true)
+                .addChoices(
+                  { name: 'rotate', value: 'rotate' },
+                  { name: 'revoke', value: 'revoke' },
+                ),
             ),
         ),
       )
@@ -442,6 +481,102 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           updated.lobbyChannelEnabled,
           updated.lobbyChannelId,
         ).replace('**Lobby channel:** ', 'Lobby channel: '),
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (subcommand === 'match_approval_channel') {
+      const leagueId = await requireLeagueId(interaction);
+      if (!leagueId) return;
+
+      const clear = interaction.options.getBoolean('clear') === true;
+      const channel = interaction.options.getChannel('channel', false);
+
+      if (clear) {
+        await setLeagueMatchApprovalChannel(leagueId, null);
+        log.info(
+          { guildId: interaction.guildId, leagueId, userId: interaction.user.id },
+          'Match approval channel cleared',
+        );
+        await interaction.reply({
+          content: 'Match approval channel cleared.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (!channel) {
+        await interaction.reply({
+          content: 'Choose a channel, or pass clear:true to remove it.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const allowedTypes = new Set([ChannelType.GuildText, ChannelType.GuildAnnouncement]);
+      if (!allowedTypes.has(channel.type)) {
+        await interaction.reply({
+          content: 'Choose a server text channel for match approval.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      await setLeagueMatchApprovalChannel(leagueId, channel.id);
+      log.info(
+        {
+          guildId: interaction.guildId,
+          leagueId,
+          channelId: channel.id,
+          userId: interaction.user.id,
+        },
+        'Match approval channel updated',
+      );
+      await interaction.reply({
+        content: `Match approval channel set to <#${channel.id}>.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (subcommand === 'api_token') {
+      const leagueId = await requireLeagueId(interaction);
+      if (!leagueId) return;
+
+      const action = interaction.options.getString('action', true);
+      if (action === 'revoke') {
+        await revokeLeagueApiToken(leagueId);
+        log.info(
+          { guildId: interaction.guildId, leagueId, userId: interaction.user.id },
+          'League API token revoked',
+        );
+        await interaction.reply({
+          content: 'API token revoked.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (action !== 'rotate') {
+        await interaction.reply({
+          content: 'Unknown api_token action.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const { plaintext } = await createOrRotateLeagueApiToken(leagueId);
+      log.info(
+        { guildId: interaction.guildId, leagueId, userId: interaction.user.id },
+        'League API token rotated',
+      );
+      await interaction.reply({
+        content: [
+          'API token rotated. Copy it now — it is shown only once:',
+          `\`${plaintext}\``,
+          'Store it securely. Anyone with this token can submit match results for this league.',
+        ].join('\n'),
         flags: MessageFlags.Ephemeral,
       });
       return;

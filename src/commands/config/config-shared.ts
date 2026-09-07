@@ -229,6 +229,26 @@ export function formatLeagueLine(name: string | undefined): string {
   return `**League:** ${name ? `\`${name}\`` : '`unset`'}`;
 }
 
+export function formatMatchApprovalChannelLine(channelId: string | undefined): string {
+  return channelId
+    ? `**Match approval channel:** <#${channelId}>`
+    : '**Match approval channel:** `not set`';
+}
+
+export function formatApiTokenConfigLine(
+  apiTokenSet: boolean,
+  apiTokenCreatedAt: Date | undefined,
+): string {
+  if (!apiTokenSet) {
+    return '**API token:** `not set`';
+  }
+  if (apiTokenCreatedAt) {
+    const unix = Math.floor(apiTokenCreatedAt.getTime() / 1000);
+    return `**API token:** \`set\` · rotated <t:${unix}:R>`;
+  }
+  return '**API token:** `set`';
+}
+
 /** Build `/config view` output for guild-wide and league-scoped settings. */
 export async function buildConfigViewContent(
   interaction: ChatInputCommandInteraction,
@@ -276,6 +296,8 @@ export async function buildConfigViewContent(
     ),
     formatPlayerClaimLine(leagueConfig.lobbyPlayerClaimEnabled),
     formatLobbyChannelConfigLine(leagueConfig.lobbyChannelEnabled, leagueConfig.lobbyChannelId),
+    formatMatchApprovalChannelLine(leagueConfig.matchApprovalChannelId),
+    formatApiTokenConfigLine(leagueConfig.apiTokenSet, leagueConfig.apiTokenCreatedAt),
     formatRankResetLine(leagueConfig.rankResetEnabled, leagueConfig.rankResetCooldownDays),
     formatBalanceStaticSigmaLine(leagueConfig.balanceStaticSigmaEnabled),
     formatSideWinLossLine(leagueConfig.showSideWinLoss),
