@@ -1,8 +1,10 @@
 import type { Client } from 'discord.js';
 import { Events } from 'discord.js';
+import { startBotApiServer } from '../api/index.js';
 import { env } from '../config/env.js';
 import { createLogger } from '../lib/logger.js';
-import { startMatchCleanupScheduler } from '../services/match/index.js';
+import { resolveLeagueFromApiToken } from '../services/league/league-api-token.js';
+import { ingestWosReportForApproval, startMatchCleanupScheduler } from '../services/match/index.js';
 import { startRatingDecayScheduler } from '../services/rating/index.js';
 import {
   refreshAllLeaderboardChannels,
@@ -26,6 +28,16 @@ export async function execute(client: Client<true>): Promise<void> {
   });
   scheduleLeaderboardRefresh(client);
   startWc3statsHostPromptScheduler(client);
+
+  if (env.apiEnabled) {
+    await startBotApiServer({
+      ingest: ingestWosReportForApproval,
+      resolveToken: resolveLeagueFromApiToken,
+      hostDiscordId: client.user.id,
+      // Real Discord post lands in Task 7.
+      postApprovalMessage: async () => null,
+    });
+  }
 
   if (!env.isDev) {
     void syncCurrentReleaseDraft(client).catch((error) => {
