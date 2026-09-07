@@ -43,3 +43,10 @@ log_level            = "info"
 
 # wc3stats lobby import is enabled per server with /config set wc3stats_map_preset.
 wc3stats_timeout_ms = "4000"
+
+# HTTP API (WOS match ingest). Off by default.
+# api_enabled        = "false"
+# api_port           = "8787"
+# api_bind           = "0.0.0.0"
+# enable_api_ingress = false
+# api_ingress_cidr   = "127.0.0.1/32"

@@ -87,3 +87,27 @@ resource "aws_ssm_parameter" "wc3stats_timeout_ms" {
   value       = var.wc3stats_timeout_ms
   tags        = local.common_tags
 }
+
+resource "aws_ssm_parameter" "api_enabled" {
+  name        = "${local.ssm_prefix}/API_ENABLED"
+  description = "Start HTTP listener in the bot process"
+  type        = "String"
+  value       = var.api_enabled
+  tags        = local.common_tags
+}
+
+resource "aws_ssm_parameter" "api_port" {
+  name        = "${local.ssm_prefix}/API_PORT"
+  description = "HTTP API listen port"
+  type        = "String"
+  value       = var.api_port
+  tags        = local.common_tags
+}
+
+resource "aws_ssm_parameter" "api_bind" {
+  name        = "${local.ssm_prefix}/API_BIND"
+  description = "HTTP API bind address"
+  type        = "String"
+  value       = var.api_bind
+  tags        = local.common_tags
+}

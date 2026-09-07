@@ -144,6 +144,36 @@ variable "wc3stats_timeout_ms" {
   default     = "4000"
 }
 
+variable "api_enabled" {
+  description = "API_ENABLED — start HTTP listener in the bot process"
+  type        = string
+  default     = "false"
+}
+
+variable "api_port" {
+  description = "API_PORT listen port"
+  type        = string
+  default     = "8787"
+}
+
+variable "api_bind" {
+  description = "API_BIND address"
+  type        = string
+  default     = "0.0.0.0"
+}
+
+variable "enable_api_ingress" {
+  description = "Open security-group ingress for API_PORT"
+  type        = bool
+  default     = false
+}
+
+variable "api_ingress_cidr" {
+  description = "CIDR allowed to reach API_PORT when enable_api_ingress is true"
+  type        = string
+  default     = "127.0.0.1/32"
+}
+
 variable "github_repository" {
   description = "GitHub org/repo allowed to assume the Actions deploy role (OIDC sub on main only)"
   type        = string
