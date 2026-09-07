@@ -21,8 +21,8 @@ describe('upsertGameItems', () => {
 
   it('upserts each item rate for the game', async () => {
     await upsertGameItems('warcraft3_wos', [
-      { objectId: 1, name: 'Oken' },
-      { objectId: 2, name: 'Zangetsu' },
+      { objectId: 1, name: 'Oken', games: 1, wins: 0, winratePct: 0 },
+      { objectId: 2, name: 'Zangetsu', games: 1, wins: 1, winratePct: 100 },
     ]);
 
     expect(upsertMock).toHaveBeenCalledTimes(2);

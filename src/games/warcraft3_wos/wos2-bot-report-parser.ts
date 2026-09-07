@@ -1,8 +1,13 @@
-export const WOS2_BOT_REPORT_FORMAT = 'WOS2_BOT_V1' as const;
+import { decodeWos2eExport, Wos2eCodecError } from './wos2e-codec.js';
+
+export const WOS2_BOT_REPORT_FORMAT = 'WOS2_BOT_V2' as const;
 
 export type Wos2BotReportItemRate = {
   objectId: number;
   name: string;
+  games: number;
+  wins: number;
+  winratePct: number;
 };
 
 export type Wos2BotReportPlayer = {
@@ -15,8 +20,13 @@ export type Wos2BotReportPlayer = {
   left: boolean;
   /** In-game team position (1–N per side); preferred for bot slot when present. */
   teamSlot: number | null;
+  lobbySlot: number | null;
+  visualSlot: number | null;
   heroObjectId: number | null;
   heroName: string | null;
+  roundsPlayed: number;
+  roundWins: number;
+  roundLosses: number;
   kills: number;
   deaths: number;
   damagePhys: number;
@@ -32,6 +42,8 @@ export type Wos2BotReportPlayer = {
 export type Wos2BotReport = {
   format: typeof WOS2_BOT_REPORT_FORMAT;
   externalId: string;
+  schema: 2;
+  teamsReorganized: boolean;
   team1Rounds: number | null;
   team2Rounds: number | null;
   playerCount: number | null;
@@ -46,26 +58,11 @@ export class Wos2BotReportParseError extends Error {
   }
 }
 
-type PartialPlayer = {
-  index: number;
-  pid: number;
-  name?: string;
-  team?: 1 | 2;
-  win?: boolean;
-  left?: boolean;
-  teamSlot?: number | null;
-  heroObjectId?: number | null;
-  heroName?: string | null;
-  kills?: number;
-  deaths?: number;
-  damagePhys?: number;
-  damageMagic?: number;
-  damageTotal?: number;
-  heal?: number;
-  takenPhys?: number;
-  takenMagic?: number;
-  takenTotal?: number;
-  itemSlots?: [number, number, number, number, number, number];
+type RecordFields = Record<string, string>;
+
+type ParsedRecord = {
+  type: string;
+  fields: RecordFields;
 };
 
 /** Extract payload lines from raw WC3 preload export or plain pipe-delimited text. */
@@ -96,40 +93,41 @@ export function extractWos2BotPayloadLines(rawText: string): string[] {
   return lines;
 }
 
-function parseFields(line: string): Map<string, string> {
-  const fields = new Map<string, string>();
-  for (const part of line.split('|')) {
-    const eq = part.indexOf('=');
-    if (eq === -1) {
-      continue;
+function parseRecord(line: string): ParsedRecord {
+  const parts = line.split('|');
+  const type = parts.shift();
+  if (!type) {
+    throw new Wos2BotReportParseError('Malformed record: missing type');
+  }
+  const fields: RecordFields = Object.create(null) as RecordFields;
+  for (const part of parts) {
+    const split = part.indexOf('=');
+    if (split <= 0) {
+      throw new Wos2BotReportParseError(`Malformed field in ${type} record`);
     }
-    fields.set(part.slice(0, eq), part.slice(eq + 1));
+    const key = part.slice(0, split);
+    if (Object.hasOwn(fields, key)) {
+      throw new Wos2BotReportParseError(`Duplicate ${key} field in ${type} record`);
+    }
+    fields[key] = part.slice(split + 1);
   }
-  return fields;
+  return { type, fields };
 }
 
-function requireInt(fields: Map<string, string>, key: string, context: string): number {
-  const raw = fields.get(key);
-  if (raw === undefined || raw.trim() === '') {
-    throw new Wos2BotReportParseError(`Missing ${key} on ${context}.`);
+function readInt(record: ParsedRecord, key: string, min: number, max: number): number {
+  const value = record.fields[key];
+  if (value === undefined || !/^-?\d+$/.test(value)) {
+    throw new Wos2BotReportParseError(`${record.type}.${key}: expected an integer`);
   }
-  const value = Number(raw);
-  if (!Number.isInteger(value)) {
-    throw new Wos2BotReportParseError(`Invalid ${key} on ${context}: ${raw}`);
+  const number = Number(value);
+  if (!Number.isSafeInteger(number) || number < min || number > max) {
+    throw new Wos2BotReportParseError(`${record.type}.${key}: value is out of range`);
   }
-  return value;
+  return number;
 }
 
-function optionalInt(fields: Map<string, string>, key: string): number | null {
-  const raw = fields.get(key);
-  if (raw === undefined || raw.trim() === '') {
-    return null;
-  }
-  const value = Number(raw);
-  if (!Number.isInteger(value)) {
-    throw new Wos2BotReportParseError(`Invalid ${key}: ${raw}`);
-  }
-  return value;
+function nullableSlot(value: number): number | null {
+  return value < 0 ? null : value;
 }
 
 function parseTeam(raw: string | undefined, context: string): 1 | 2 {
@@ -140,234 +138,183 @@ function parseTeam(raw: string | undefined, context: string): 1 | 2 {
   throw new Wos2BotReportParseError(`Invalid team on ${context}: ${raw ?? ''}`);
 }
 
-function parseWin(raw: string | undefined, context: string): boolean {
-  if (raw === '1') {
-    return true;
-  }
-  if (raw === '0') {
-    return false;
-  }
-  throw new Wos2BotReportParseError(`Invalid win flag on ${context}: ${raw ?? ''}`);
-}
-
-function parseLeft(raw: string | undefined, context: string): boolean {
-  if (raw === undefined || raw === '0') {
-    return false;
-  }
-  if (raw === '1') {
-    return true;
-  }
-  throw new Wos2BotReportParseError(`Invalid left flag on ${context}: ${raw}`);
-}
-
-function playerKey(index: number, pid: number): string {
-  return `${index}:${pid}`;
-}
-
-function getOrCreatePlayer(
-  players: Map<string, PartialPlayer>,
-  index: number,
-  pid: number,
-): PartialPlayer {
-  const key = playerKey(index, pid);
-  const existing = players.get(key);
-  if (existing) {
-    return existing;
+function buildReportFromLines(lines: string[], matchId: string): Wos2BotReport {
+  const records = lines.map(parseRecord);
+  if (records.length < 3 || records[0]?.type !== 'ID' || records[1]?.type !== 'MATCH') {
+    throw new Wos2BotReportParseError('Expected ID and MATCH records');
   }
 
-  const created: PartialPlayer = { index, pid };
-  players.set(key, created);
-  return created;
-}
-
-function parseItemSlots(
-  fields: Map<string, string>,
-  context: string,
-): Wos2BotReportPlayer['itemSlots'] {
-  return [
-    requireInt(fields, 'slot1', context),
-    requireInt(fields, 'slot2', context),
-    requireInt(fields, 'slot3', context),
-    requireInt(fields, 'slot4', context),
-    requireInt(fields, 'slot5', context),
-    requireInt(fields, 'slot6', context),
-  ];
-}
-
-function finalizePlayer(partial: PartialPlayer): Wos2BotReportPlayer {
-  const context = `player n=${partial.index} pid=${partial.pid}`;
-
-  if (!partial.name?.trim()) {
-    throw new Wos2BotReportParseError(`Missing name on ${context}.`);
+  const idRecord = records[0]!;
+  if (idRecord.fields.value !== matchId || idRecord.fields.format !== WOS2_BOT_REPORT_FORMAT) {
+    throw new Wos2BotReportParseError('ID or format does not match the container');
   }
-  if (partial.team === undefined) {
-    throw new Wos2BotReportParseError(`Missing team on ${context}.`);
-  }
-  if (partial.win === undefined) {
-    throw new Wos2BotReportParseError(`Missing win on ${context}.`);
+  if (idRecord.fields.scope !== 'MATCH') {
+    throw new Wos2BotReportParseError('Only scope=MATCH is supported');
   }
 
-  const requiredNumbers: Array<[keyof PartialPlayer, string]> = [
-    ['kills', 'kills'],
-    ['deaths', 'deaths'],
-    ['damagePhys', 'damage_phys'],
-    ['damageMagic', 'damage_magic'],
-    ['damageTotal', 'damage_total'],
-    ['heal', 'heal'],
-    ['takenPhys', 'taken_phys'],
-    ['takenMagic', 'taken_magic'],
-    ['takenTotal', 'taken_total'],
-  ];
+  const match = records[1]!;
+  const playerCount = readInt(match, 'players', 0, 10);
+  const team1Rounds = readInt(match, 'team1_rounds', 0, 10000);
+  const team2Rounds = readInt(match, 'team2_rounds', 0, 10000);
+  if (readInt(match, 'schema', 2, 2) !== 2) {
+    throw new Wos2BotReportParseError('Unsupported schema');
+  }
+  const teamsReorganized = readInt(match, 'teams_reorganized', 0, 1) === 1;
 
-  for (const [field, label] of requiredNumbers) {
-    if (partial[field] === undefined) {
-      throw new Wos2BotReportParseError(`Missing ${label} on ${context}.`);
+  const players: Wos2BotReportPlayer[] = [];
+  const seenPids = new Set<number>();
+  let cursor = 2;
+
+  for (let index = 1; index <= playerCount; index += 1) {
+    const player = records[cursor++];
+    const stats = records[cursor++];
+    const items = records[cursor++];
+    if (
+      !player ||
+      !stats ||
+      !items ||
+      player.type !== 'PLAYER' ||
+      stats.type !== 'STATS' ||
+      items.type !== 'ITEMS'
+    ) {
+      throw new Wos2BotReportParseError(
+        `Player ${index}: expected PLAYER, STATS, and ITEMS records`,
+      );
     }
+
+    const n = readInt(player, 'n', index, index);
+    const pid = readInt(player, 'pid', 0, 15);
+    if (seenPids.has(pid)) {
+      throw new Wos2BotReportParseError(`Duplicate pid=${pid}`);
+    }
+    seenPids.add(pid);
+
+    const team = parseTeam(player.fields.team, `PLAYER n=${n}`);
+    const win = readInt(player, 'win', 0, 1) === 1;
+    const left = readInt(player, 'left', 0, 1) === 1;
+    const heroId = readInt(player, 'hero_id', -2147483648, 2147483647);
+    const lobbySlot = nullableSlot(readInt(player, 'lobby_slot', -1, 15));
+    const teamSlot = nullableSlot(readInt(player, 'team_slot', -1, 15));
+    const visualSlot = nullableSlot(readInt(player, 'visual_slot', -1, 15));
+    const name = player.fields.name?.trim();
+    if (!name) {
+      throw new Wos2BotReportParseError(`Missing name on player n=${n} pid=${pid}.`);
+    }
+
+    if (readInt(stats, 'n', n, n) !== n || readInt(stats, 'pid', pid, pid) !== pid) {
+      throw new Wos2BotReportParseError(`Player ${index}: PLAYER and STATS records do not match`);
+    }
+
+    const roundsPlayed = readInt(stats, 'rounds_played', 0, 2147483647);
+    const roundWins = readInt(stats, 'round_wins', 0, 2147483647);
+    const roundLosses = readInt(stats, 'round_losses', 0, 2147483647);
+    const kills = readInt(stats, 'kills', 0, 2147483647);
+    const deaths = readInt(stats, 'deaths', 0, 2147483647);
+    const damagePhys = readInt(stats, 'damage_phys', 0, 2147483647);
+    const damageMagic = readInt(stats, 'damage_magic', 0, 2147483647);
+    const damageTotal = readInt(stats, 'damage_total', 0, 2147483647);
+    const heal = readInt(stats, 'heal', 0, 2147483647);
+    const takenPhys = readInt(stats, 'taken_phys', 0, 2147483647);
+    const takenMagic = readInt(stats, 'taken_magic', 0, 2147483647);
+    const takenTotal = readInt(stats, 'taken_total', 0, 2147483647);
+
+    if (damageTotal !== damagePhys + damageMagic || takenTotal !== takenPhys + takenMagic) {
+      throw new Wos2BotReportParseError(`Player ${index}: invalid damage total`);
+    }
+
+    if (readInt(items, 'n', n, n) !== n || readInt(items, 'pid', pid, pid) !== pid) {
+      throw new Wos2BotReportParseError(`Player ${index}: PLAYER and ITEMS records do not match`);
+    }
+
+    const itemSlots: Wos2BotReportPlayer['itemSlots'] = [
+      readInt(items, 'slot1', -2147483648, 2147483647),
+      readInt(items, 'slot2', -2147483648, 2147483647),
+      readInt(items, 'slot3', -2147483648, 2147483647),
+      readInt(items, 'slot4', -2147483648, 2147483647),
+      readInt(items, 'slot5', -2147483648, 2147483647),
+      readInt(items, 'slot6', -2147483648, 2147483647),
+    ];
+
+    players.push({
+      index: n,
+      pid,
+      name,
+      team,
+      win,
+      left,
+      teamSlot,
+      lobbySlot,
+      visualSlot,
+      heroObjectId: heroId === 0 ? null : heroId,
+      heroName: player.fields.hero_name?.trim() || null,
+      roundsPlayed,
+      roundWins,
+      roundLosses,
+      kills,
+      deaths,
+      damagePhys,
+      damageMagic,
+      damageTotal,
+      heal,
+      takenPhys,
+      takenMagic,
+      takenTotal,
+      itemSlots,
+    });
   }
 
-  if (!partial.itemSlots) {
-    throw new Wos2BotReportParseError(`Missing items on ${context}.`);
-  }
-
-  return {
-    index: partial.index,
-    pid: partial.pid,
-    name: partial.name.trim(),
-    team: partial.team,
-    win: partial.win,
-    left: partial.left ?? false,
-    teamSlot: partial.teamSlot ?? null,
-    heroObjectId: partial.heroObjectId ?? null,
-    heroName: partial.heroName ?? null,
-    kills: partial.kills!,
-    deaths: partial.deaths!,
-    damagePhys: partial.damagePhys!,
-    damageMagic: partial.damageMagic!,
-    damageTotal: partial.damageTotal!,
-    heal: partial.heal!,
-    takenPhys: partial.takenPhys!,
-    takenMagic: partial.takenMagic!,
-    takenTotal: partial.takenTotal!,
-    itemSlots: partial.itemSlots,
-  };
-}
-
-/** Parse a WOS2 bot match report export into a typed structure. */
-export function parseWos2BotReport(rawText: string): Wos2BotReport {
-  const lines = extractWos2BotPayloadLines(rawText);
-  if (lines.length === 0) {
-    throw new Wos2BotReportParseError('Report file is empty or contains no payload lines.');
-  }
-
-  let externalId: string | null = null;
-  let format: string | null = null;
-  let team1Rounds: number | null = null;
-  let team2Rounds: number | null = null;
-  let playerCount: number | null = null;
-  let endId: string | null = null;
-  const partialPlayers = new Map<string, PartialPlayer>();
   const itemRates: Wos2BotReportItemRate[] = [];
-
-  for (const line of lines) {
-    const type = line.split('|', 1)[0];
-    const fields = parseFields(line);
-
-    switch (type) {
-      case 'ID': {
-        externalId = fields.get('value') ?? null;
-        format = fields.get('format') ?? null;
-        break;
-      }
-      case 'MATCH': {
-        team1Rounds = optionalInt(fields, 'team1_rounds');
-        team2Rounds = optionalInt(fields, 'team2_rounds');
-        playerCount = optionalInt(fields, 'players');
-        break;
-      }
-      case 'PLAYER': {
-        const index = requireInt(fields, 'n', 'PLAYER');
-        const pid = requireInt(fields, 'pid', 'PLAYER');
-        const player = getOrCreatePlayer(partialPlayers, index, pid);
-        player.name = fields.get('name') ?? player.name;
-        player.team = parseTeam(fields.get('team'), `PLAYER n=${index}`);
-        player.win = parseWin(fields.get('win'), `PLAYER n=${index}`);
-        player.left = parseLeft(fields.get('left'), `PLAYER n=${index}`);
-        player.teamSlot = optionalInt(fields, 'team_slot');
-        const heroId = optionalInt(fields, 'hero_id');
-        player.heroObjectId = heroId === 0 ? null : heroId;
-        player.heroName = fields.get('hero_name') ?? player.heroName ?? null;
-        break;
-      }
-      case 'STATS': {
-        const index = requireInt(fields, 'n', 'STATS');
-        const pid = requireInt(fields, 'pid', 'STATS');
-        const player = getOrCreatePlayer(partialPlayers, index, pid);
-        player.kills = requireInt(fields, 'kills', 'STATS');
-        player.deaths = requireInt(fields, 'deaths', 'STATS');
-        player.damagePhys = requireInt(fields, 'damage_phys', 'STATS');
-        player.damageMagic = requireInt(fields, 'damage_magic', 'STATS');
-        player.damageTotal = requireInt(fields, 'damage_total', 'STATS');
-        player.heal = requireInt(fields, 'heal', 'STATS');
-        player.takenPhys = requireInt(fields, 'taken_phys', 'STATS');
-        player.takenMagic = requireInt(fields, 'taken_magic', 'STATS');
-        player.takenTotal = requireInt(fields, 'taken_total', 'STATS');
-        break;
-      }
-      case 'ITEMS': {
-        const index = requireInt(fields, 'n', 'ITEMS');
-        const pid = requireInt(fields, 'pid', 'ITEMS');
-        const player = getOrCreatePlayer(partialPlayers, index, pid);
-        player.itemSlots = parseItemSlots(fields, 'ITEMS');
-        break;
-      }
-      case 'ITEM_RATE': {
-        const objectId = requireInt(fields, 'item_id', 'ITEM_RATE');
-        const name = fields.get('item_name')?.trim();
-        if (name) {
-          itemRates.push({ objectId, name });
-        }
-        break;
-      }
-      case 'END': {
-        endId = fields.get('id') ?? null;
-        break;
-      }
-      default:
-        break;
+  while (cursor < records.length && records[cursor]?.type === 'ITEM_RATE') {
+    const item = records[cursor++]!;
+    const objectId = readInt(item, 'item_id', -2147483648, 2147483647);
+    const name = item.fields.item_name?.trim();
+    if (!name) {
+      throw new Wos2BotReportParseError('ITEM_RATE: missing item_name');
     }
+    const games = readInt(item, 'games', 1, 10);
+    const wins = readInt(item, 'wins', 0, games);
+    const winratePct = readInt(item, 'winrate_pct', 0, 100);
+    if (winratePct !== Math.floor((wins * 100) / games)) {
+      throw new Wos2BotReportParseError('ITEM_RATE: invalid winrate_pct');
+    }
+    itemRates.push({ objectId, name, games, wins, winratePct });
   }
 
-  if (!externalId) {
-    throw new Wos2BotReportParseError('Report is missing ID|value=…');
+  const end = records[cursor++];
+  if (!end || end.type !== 'END' || end.fields.id !== matchId || cursor !== records.length) {
+    throw new Wos2BotReportParseError('Missing a valid final END record');
   }
-  if (format !== WOS2_BOT_REPORT_FORMAT) {
-    throw new Wos2BotReportParseError(
-      `Unsupported report format: ${format ?? 'missing'}. Expected ${WOS2_BOT_REPORT_FORMAT}.`,
-    );
-  }
-  if (!endId) {
-    throw new Wos2BotReportParseError('Report is missing END|id=…');
-  }
-  if (endId !== externalId) {
-    throw new Wos2BotReportParseError('Report ID and END id do not match.');
-  }
-  if (partialPlayers.size === 0) {
+
+  if (players.length === 0) {
     throw new Wos2BotReportParseError('Report contains no player rows.');
   }
 
-  const players = [...partialPlayers.values()]
-    .sort((left, right) => left.index - right.index)
-    .map(finalizePlayer);
-
   return {
     format: WOS2_BOT_REPORT_FORMAT,
-    externalId,
+    externalId: matchId,
+    schema: 2,
+    teamsReorganized,
     team1Rounds,
     team2Rounds,
     playerCount,
     players,
     itemRates,
   };
+}
+
+/** Parse a WOS2E encrypted bot match report into a typed structure. */
+export function parseWos2BotReport(rawText: string): Wos2BotReport {
+  let decoded;
+  try {
+    decoded = decodeWos2eExport(rawText);
+  } catch (error) {
+    if (error instanceof Wos2eCodecError) {
+      throw new Wos2BotReportParseError(error.message);
+    }
+    throw error;
+  }
+
+  return buildReportFromLines(decoded.lines, decoded.matchId);
 }
 
 /** Winning team from round scores when both are present; null when inconclusive. */
