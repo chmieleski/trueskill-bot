@@ -18,11 +18,14 @@ import {
 } from '../../services/league/league-wc3stats.js';
 import {
   clearLeagueLobbyChannel,
+  createOrRotateLeagueApiToken,
   formatLobbyChannelConfigLine,
   LOBBY_CHANNEL_SET_NEEDS_OPTION,
   respondLeagueAutocomplete,
+  revokeLeagueApiToken,
   setDecayEnabled,
   setLeagueLobbyChannel,
+  setLeagueMatchApprovalChannel,
   withSubcommandLeagueOption,
 } from '../../services/league/index.js';
 import {
@@ -66,11 +69,11 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('leaderboard_channel')
-            .setDescription('Set the channel for the live overall leaderboard message')
+            .setDescription('Channel for the live overall leaderboard')
             .addChannelOption((option) =>
               option
                 .setName('channel')
-                .setDescription('Channel where the live leaderboard message is posted')
+                .setDescription('Channel for the live leaderboard message')
                 .setRequired(true),
             ),
         ),
@@ -125,18 +128,54 @@ export const data = new SlashCommandBuilder()
       .addSubcommand((subcommand) =>
         withSubcommandLeagueOption(
           subcommand
+            .setName('match_approval_channel')
+            .setDescription('Channel for HTTP match approval posts')
+            .addChannelOption((option) =>
+              option
+                .setName('channel')
+                .setDescription('Text channel for approval messages')
+                .setRequired(false),
+            )
+            .addBooleanOption((option) =>
+              option
+                .setName('clear')
+                .setDescription('Clear approval channel (ignores channel)')
+                .setRequired(false),
+            ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('api_token')
+            .setDescription('Rotate or revoke the league HTTP API token')
+            .addStringOption((option) =>
+              option
+                .setName('action')
+                .setDescription('rotate = new token; revoke = clear')
+                .setRequired(true)
+                .addChoices(
+                  { name: 'rotate', value: 'rotate' },
+                  { name: 'revoke', value: 'revoke' },
+                ),
+            ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
             .setName('rank_reset')
             .setDescription('Enable or disable player rank reset for this league')
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
-                .setDescription('On: linked players may use /rank_reset. Off: command rejected.')
+                .setDescription('On: /rank_reset allowed. Off: rejected.')
                 .setRequired(true),
             )
             .addIntegerOption((option) =>
               option
                 .setName('cooldown_days')
-                .setDescription('Days between self-resets (1–365); optional when toggling')
+                .setDescription('Days between self-resets (1–365); optional')
                 .setRequired(false)
                 .setMinValue(1)
                 .setMaxValue(365),
@@ -175,11 +214,11 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('balance_static_sigma')
-            .setDescription('Use fixed σ for lobby win% and balance hints (ki apply stays dynamic)')
+            .setDescription('Fixed σ for lobby win% / balance (ki apply stays dynamic)')
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
-                .setDescription('On: fixed σ for balance. Off: use each player’s persisted σ.')
+                .setDescription('On: fixed σ for balance. Off: persisted σ.')
                 .setRequired(true),
             ),
         ),
@@ -188,11 +227,11 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('side_win_loss')
-            .setDescription('Show per-side W–L on /rank (Z Fighters / Evil, or Team A / Team B)')
+            .setDescription('Show side W–L on /rank (ZF/Evil or Team A/B)')
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
-                .setDescription('On: second /rank line with side W–L. Off: hide it.')
+                .setDescription('On: side W–L on /rank. Off: hide it.')
                 .setRequired(true),
             ),
         ),
@@ -205,7 +244,7 @@ export const data = new SlashCommandBuilder()
             .addIntegerOption((option) =>
               option
                 .setName('wc3_slot')
-                .setDescription('0-based index in wc3stats slots[] (classic color order)')
+                .setDescription('0-based wc3stats slots[] index (color order)')
                 .setRequired(true)
                 .setMinValue(0)
                 .setMaxValue(23),
@@ -273,11 +312,11 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('wc3stats_host_prompt_pings')
-            .setDescription('Allow or block wc3stats host @-mentions for everyone')
+            .setDescription('Allow or block wc3stats host @-mentions')
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
-                .setDescription('Off: no host pings until staff turn this back on')
+                .setDescription('Off: no host pings until staff re-enable')
                 .setRequired(true),
             ),
         ),
@@ -291,7 +330,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('leaderboard_channel')
-            .setDescription('Remove the live overall leaderboard message binding'),
+            .setDescription('Remove the live overall leaderboard binding'),
         ),
       )
       .addSubcommand((subcommand) =>
@@ -334,7 +373,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('wc3stats')
-            .setDescription('Disable wc3stats import and clear filter + slot map for this server'),
+            .setDescription('Disable wc3stats import and clear filter + slot map'),
         ),
       )
       .addSubcommand((subcommand) =>
@@ -442,6 +481,102 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           updated.lobbyChannelEnabled,
           updated.lobbyChannelId,
         ).replace('**Lobby channel:** ', 'Lobby channel: '),
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (subcommand === 'match_approval_channel') {
+      const leagueId = await requireLeagueId(interaction);
+      if (!leagueId) return;
+
+      const clear = interaction.options.getBoolean('clear') === true;
+      const channel = interaction.options.getChannel('channel', false);
+
+      if (clear) {
+        await setLeagueMatchApprovalChannel(leagueId, null);
+        log.info(
+          { guildId: interaction.guildId, leagueId, userId: interaction.user.id },
+          'Match approval channel cleared',
+        );
+        await interaction.reply({
+          content: 'Match approval channel cleared.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (!channel) {
+        await interaction.reply({
+          content: 'Choose a channel, or pass clear:true to remove it.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const allowedTypes = new Set([ChannelType.GuildText, ChannelType.GuildAnnouncement]);
+      if (!allowedTypes.has(channel.type)) {
+        await interaction.reply({
+          content: 'Choose a server text channel for match approval.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      await setLeagueMatchApprovalChannel(leagueId, channel.id);
+      log.info(
+        {
+          guildId: interaction.guildId,
+          leagueId,
+          channelId: channel.id,
+          userId: interaction.user.id,
+        },
+        'Match approval channel updated',
+      );
+      await interaction.reply({
+        content: `Match approval channel set to <#${channel.id}>.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (subcommand === 'api_token') {
+      const leagueId = await requireLeagueId(interaction);
+      if (!leagueId) return;
+
+      const action = interaction.options.getString('action', true);
+      if (action === 'revoke') {
+        await revokeLeagueApiToken(leagueId);
+        log.info(
+          { guildId: interaction.guildId, leagueId, userId: interaction.user.id },
+          'League API token revoked',
+        );
+        await interaction.reply({
+          content: 'API token revoked.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (action !== 'rotate') {
+        await interaction.reply({
+          content: 'Unknown api_token action.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const { plaintext } = await createOrRotateLeagueApiToken(leagueId);
+      log.info(
+        { guildId: interaction.guildId, leagueId, userId: interaction.user.id },
+        'League API token rotated',
+      );
+      await interaction.reply({
+        content: [
+          'API token rotated. Copy it now — it is shown only once:',
+          `\`${plaintext}\``,
+          'Store it securely. Anyone with this token can submit match results for this league.',
+        ].join('\n'),
         flags: MessageFlags.Ephemeral,
       });
       return;

@@ -211,7 +211,7 @@ export const data = new SlashCommandBuilder()
       .addStringOption((option) =>
         option
           .setName('league')
-          .setDescription('League (required when this server has multiple leagues)')
+          .setDescription('League (required if multiple)')
           .setRequired(false)
           .setAutocomplete(true),
       ),

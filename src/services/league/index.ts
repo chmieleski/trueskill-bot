@@ -145,3 +145,13 @@ export {
 } from './league-decay.js';
 
 export { setBalanceStaticSigmaEnabled, setShowSideWinLoss } from './league-balance-config.js';
+
+export {
+  createOrRotateLeagueApiToken,
+  hashLeagueApiToken,
+  resolveLeagueFromApiToken,
+  revokeLeagueApiToken,
+  type LeagueApiTokenResolved,
+} from './league-api-token.js';
+
+export { setLeagueMatchApprovalChannel } from './league-match-approval-channel.js';

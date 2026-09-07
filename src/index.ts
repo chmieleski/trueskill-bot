@@ -1,4 +1,5 @@
 import type { Client } from 'discord.js';
+import { stopBotApiServer } from './api/index.js';
 import { env } from './config/env.js';
 import { createClient } from './client/create-client.js';
 import { loadCommands } from './handlers/load-commands.js';
@@ -47,6 +48,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   stopMatchCleanupScheduler();
   stopLeaderboardRefreshScheduler();
   stopWc3statsHostPromptScheduler();
+  await stopBotApiServer();
 
   if (client) {
     client.destroy();

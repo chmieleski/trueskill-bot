@@ -65,6 +65,9 @@ model League {
   showSideWinLoss               Boolean  @default(false)
   lobbyChannelEnabled           Boolean  @default(false)
   lobbyChannelId                String?
+  matchApprovalChannelId        String?
+  apiTokenHash                  String?  @unique
+  apiTokenCreatedAt             DateTime?
   status                        LeagueStatus @default(ACTIVE)
   predecessorLeagueId           String?
   archivedAt                    DateTime?
@@ -300,6 +303,8 @@ model Match {
   completedAt      DateTime?
   /// Mod-recorded quitter/griefer incident without a real lobby (RMK etc.).
   isManualSanction Boolean       @default(false)
+  /// Proposed/selected winning team while WAITING_FOR_APPROVAL (1 or 2).
+  approvalWinnerTeam Int?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   league           League?       @relation(fields: [leagueId], references: [id], onDelete: Restrict)
@@ -429,6 +434,7 @@ model MatchRatingSnapshot {
 enum MatchStatus {
   PENDING // Lobby created, waiting for players
   IN_PROGRESS // Match started
+  WAITING_FOR_APPROVAL
   COMPLETED // Match finished with results
   CANCELLED // Match cancelled before completion
 }

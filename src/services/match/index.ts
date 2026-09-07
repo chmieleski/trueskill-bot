@@ -92,6 +92,29 @@ export {
 } from './match-list.js';
 export { formatLeagueSideWinRateLine, type LeagueSideWinRate } from './side-win-rate.js';
 export {
+  attachApprovalDiscordMessage,
+  ingestWosReportForApproval,
+  type IngestWosReportForApprovalInput,
+  type IngestWosReportForApprovalResult,
+} from './match-waiting-approval.js';
+export { approveWaitingMatch, rejectWaitingMatch, setApprovalWinner } from './match-approval.js';
+export {
+  buildApprovalApproveCustomId,
+  buildApprovalGriefersCustomId,
+  buildApprovalQuittersCustomId,
+  buildApprovalRejectCustomId,
+  buildApprovalWinCustomId,
+  buildApprovalWinnerCustomId,
+  buildMatchApprovalButtons,
+  buildMatchApprovalEmbed,
+  decodeApprovalSlots,
+  encodeApprovalSlots,
+  MATCH_APPROVAL_CUSTOM_ID_PREFIX,
+  parseMatchApprovalCustomId,
+  postMatchApprovalMessage,
+  syncMatchApprovalMessage,
+} from './match-approval-preview.js';
+export {
   loadPlayerGlobalDeltaForMatch,
   persistMatchRatingPreviewToPlayers,
   ratingPreviewFromStoredMatchPlayers,

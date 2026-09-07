@@ -51,6 +51,17 @@ resource "aws_security_group" "bot" {
     }
   }
 
+  dynamic "ingress" {
+    for_each = var.enable_api_ingress ? [1] : []
+    content {
+      description = "Bot HTTP API"
+      from_port   = tonumber(var.api_port)
+      to_port     = tonumber(var.api_port)
+      protocol    = "tcp"
+      cidr_blocks = [var.api_ingress_cidr]
+    }
+  }
+
   egress {
     description = "All egress"
     from_port   = 0
@@ -108,6 +119,9 @@ resource "aws_instance" "bot" {
     aws_ssm_parameter.match_create_role_id,
     aws_ssm_parameter.match_mod_role_id,
     aws_ssm_parameter.wc3stats_timeout_ms,
+    aws_ssm_parameter.api_enabled,
+    aws_ssm_parameter.api_port,
+    aws_ssm_parameter.api_bind,
   ]
 }
 

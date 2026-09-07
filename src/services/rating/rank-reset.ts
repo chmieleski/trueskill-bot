@@ -192,7 +192,7 @@ export async function previewRankReset(input: PreviewRankResetInput): Promise<Ra
       playerId: player.id,
       match: {
         leagueId: input.leagueId,
-        status: { in: ['PENDING', 'IN_PROGRESS'] },
+        status: { in: ['PENDING', 'IN_PROGRESS', 'WAITING_FOR_APPROVAL'] },
       },
     },
   });

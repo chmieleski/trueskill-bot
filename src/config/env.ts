@@ -18,6 +18,12 @@ interface EnvConfig {
   /** Discord role ID required to create lobbies via /register_lobby. Empty = creation disabled. */
   matchCreateRoleId: string | undefined;
   wc3statsTimeoutMs: number;
+  /** Start HTTP listener in the bot process (WOS match ingest). */
+  apiEnabled: boolean;
+  /** HTTP API listen port. */
+  apiPort: number;
+  /** HTTP API bind address. */
+  apiBind: string;
 }
 
 function parseLogLevel(value: string | undefined): string | undefined {
@@ -73,4 +79,7 @@ export const env: EnvConfig = {
     return value && value.length > 0 ? value : undefined;
   })(),
   wc3statsTimeoutMs: Number.parseInt(process.env.WC3STATS_TIMEOUT_MS ?? '4000', 10) || 4000,
+  apiEnabled: parseBoolean(process.env.API_ENABLED, false),
+  apiPort: Number.parseInt(process.env.API_PORT ?? '8787', 10) || 8787,
+  apiBind: process.env.API_BIND?.trim() || '0.0.0.0',
 };

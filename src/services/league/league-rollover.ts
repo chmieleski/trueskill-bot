@@ -31,7 +31,7 @@ const ROLLOVER_CUSTOM_ID_PREFIX = 'lv';
 const ROLLOVER_CONFIRM_ACTION = 'c';
 const ROLLOVER_CANCEL_ACTION = 'x';
 
-const ACTIVE_MATCH_STATUSES = ['PENDING', 'IN_PROGRESS'] as const;
+const ACTIVE_MATCH_STATUSES = ['PENDING', 'IN_PROGRESS', 'WAITING_FOR_APPROVAL'] as const;
 
 export type LeagueResetMode = 'hard' | 'soft' | 'continue';
 

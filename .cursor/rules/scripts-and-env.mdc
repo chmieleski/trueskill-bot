@@ -40,6 +40,9 @@ alwaysApply: true
 - `MATCH_CREATE_ROLE_ID` — fallback Discord role required to run `/register_lobby` (empty/unset = creation disabled); overridden per guild after `/config set create_role`
 - wc3stats lobby import is enabled per server with `/league_config set wc3stats_map_preset`
 - `WC3STATS_TIMEOUT_MS` — wc3stats HTTP timeout (default `4000`)
+- `API_ENABLED` — start HTTP listener in the bot process (default `false`)
+- `API_PORT` — HTTP API listen port (default `8787`)
+- `API_BIND` — HTTP API bind address (default `0.0.0.0`)
 - `CLICKUP_API_TOKEN` — **local-only** ClickUp personal API token for agents when the ClickUp MCP is rate-limited. Not read by the bot; skip AWS SSM. See `.cursor/rules/clickup-api-fallback.mdc`
 
 Production: every **bot** env key must also live in AWS SSM and `deploy/aws/refresh-env.sh` — see `.cursor/rules/env-aws-sync.mdc`.

@@ -67,6 +67,19 @@ function requireInProgress(match: MatchWithPlayers | null): MatchWithPlayers {
   return match;
 }
 
+/** Allow IN_PROGRESS or WAITING_FOR_APPROVAL (shared report / approval actions). */
+function requireReportableMatch(match: MatchWithPlayers | null): MatchWithPlayers {
+  if (!match) {
+    throw new MatchServiceError('This match was not found.');
+  }
+
+  if (match.status !== 'IN_PROGRESS' && match.status !== 'WAITING_FOR_APPROVAL') {
+    throw new MatchServiceError('This match is not awaiting approval or in progress.');
+  }
+
+  return match;
+}
+
 async function lockInProgressMatch(
   tx: Prisma.TransactionClient,
   matchId: string,
@@ -78,6 +91,25 @@ async function lockInProgressMatch(
   `;
 
   return requireInProgress(
+    await tx.match.findUnique({
+      where: { id: matchId },
+      include: matchWithPlayersInclude,
+    }),
+  );
+}
+
+/** Lock for setQuitters / setGriefers / completeMatch (in progress or awaiting approval). */
+async function lockReportableMatch(
+  tx: Prisma.TransactionClient,
+  matchId: string,
+): Promise<MatchWithPlayers> {
+  await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "Match"
+    WHERE id = ${matchId} AND status IN ('IN_PROGRESS', 'WAITING_FOR_APPROVAL')
+    FOR UPDATE
+  `;
+
+  return requireReportableMatch(
     await tx.match.findUnique({
       where: { id: matchId },
       include: matchWithPlayersInclude,
@@ -148,7 +180,7 @@ export async function setQuitters(
   matchId: string,
   quitterSlots: number[],
 ): Promise<MatchWithPlayers> {
-  const match = requireInProgress(await getMatchById(matchId));
+  const match = requireReportableMatch(await getMatchById(matchId));
   const quitterSet = new Set(quitterSlots);
 
   assertKnownSlots(match, quitterSet, 'quitter');
@@ -163,8 +195,8 @@ export async function setQuitters(
       throw new MatchServiceError('This match was not found.');
     }
 
-    if (current.status !== 'IN_PROGRESS') {
-      throw new MatchServiceError('This match is not in progress.');
+    if (current.status !== 'IN_PROGRESS' && current.status !== 'WAITING_FOR_APPROVAL') {
+      throw new MatchServiceError('This match is not awaiting approval or in progress.');
     }
 
     for (const player of match.players) {
@@ -188,7 +220,7 @@ export async function setGriefers(
   matchId: string,
   grieferSlots: number[],
 ): Promise<MatchWithPlayers> {
-  const match = requireInProgress(await getMatchById(matchId));
+  const match = requireReportableMatch(await getMatchById(matchId));
   const grieferSet = new Set(grieferSlots);
 
   assertKnownSlots(match, grieferSet, 'griefer');
@@ -203,8 +235,8 @@ export async function setGriefers(
       throw new MatchServiceError('This match was not found.');
     }
 
-    if (current.status !== 'IN_PROGRESS') {
-      throw new MatchServiceError('This match is not in progress.');
+    if (current.status !== 'IN_PROGRESS' && current.status !== 'WAITING_FOR_APPROVAL') {
+      throw new MatchServiceError('This match is not awaiting approval or in progress.');
     }
 
     for (const player of match.players) {
@@ -236,7 +268,7 @@ export async function completeMatch(
   let ratingPreview: LobbyRatingPreview = { players: [] };
 
   await prisma.$transaction(async (tx) => {
-    const match = await lockInProgressMatch(tx, matchId);
+    const match = await lockReportableMatch(tx, matchId);
     const profile = await getGameProfileForMatch(match);
     if (profile.postMatchStats === 'wos2_bot_v1') {
       const report = await tx.matchStatsReport.findUnique({

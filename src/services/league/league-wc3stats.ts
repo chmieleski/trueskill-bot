@@ -70,6 +70,10 @@ export interface ResolvedLeagueConfig {
   rankResetCooldownDays: number;
   lobbyChannelEnabled: boolean;
   lobbyChannelId: string | undefined;
+  matchApprovalChannelId: string | undefined;
+  /** True when a token hash is stored; never expose the hash itself. */
+  apiTokenSet: boolean;
+  apiTokenCreatedAt: Date | undefined;
   decayEnabled: boolean;
   balanceStaticSigmaEnabled: boolean;
   showSideWinLoss: boolean;
@@ -107,6 +111,9 @@ export async function resolveLeagueConfig(leagueId: string): Promise<ResolvedLea
     rankResetCooldownDays: row?.rankResetCooldownDays != null ? row.rankResetCooldownDays : 30,
     lobbyChannelEnabled: row?.lobbyChannelEnabled === true,
     lobbyChannelId: row?.lobbyChannelId?.trim() || undefined,
+    matchApprovalChannelId: row?.matchApprovalChannelId?.trim() || undefined,
+    apiTokenSet: Boolean(row?.apiTokenHash?.trim()),
+    apiTokenCreatedAt: row?.apiTokenCreatedAt ?? undefined,
     decayEnabled,
     balanceStaticSigmaEnabled: row?.balanceStaticSigmaEnabled === true,
     showSideWinLoss: row?.showSideWinLoss === true,
