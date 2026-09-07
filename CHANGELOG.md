@@ -1,3 +1,10 @@
+# [1.53.0](https://github.com/chmieleski/trueskill-bot/compare/v1.52.1...v1.53.0) (2026-09-07)
+
+
+### Features
+
+* **api:** WOS match ingest with mod approval ([#162](https://github.com/chmieleski/trueskill-bot/issues/162)) ([62ea66d](https://github.com/chmieleski/trueskill-bot/commit/62ea66ddea81e5a157e5fee5f090ebc11b01c163))
+
 ## [1.52.1](https://github.com/chmieleski/trueskill-bot/compare/v1.52.0...v1.52.1) (2026-09-03)
 
 
