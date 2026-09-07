@@ -10,6 +10,7 @@ const {
   leagueFindUnique,
   matchFindUnique,
   matchUpdate,
+  matchDelete,
   prismaTransaction,
   getGameProfileForLeague,
   persistWos2MatchStats,
@@ -18,6 +19,7 @@ const {
   leagueFindUnique: vi.fn(),
   matchFindUnique: vi.fn(),
   matchUpdate: vi.fn(),
+  matchDelete: vi.fn(),
   prismaTransaction: vi.fn(),
   getGameProfileForLeague: vi.fn(),
   persistWos2MatchStats: vi.fn(),
@@ -27,7 +29,7 @@ const {
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
     league: { findUnique: leagueFindUnique },
-    match: { findUnique: matchFindUnique, update: matchUpdate },
+    match: { findUnique: matchFindUnique, update: matchUpdate, delete: matchDelete },
     $transaction: prismaTransaction,
   },
 }));
@@ -271,6 +273,22 @@ describe('ingestWosReportForApproval', () => {
     );
     expect(prismaTransaction).not.toHaveBeenCalled();
     expect(persistWos2MatchStats).not.toHaveBeenCalled();
+  });
+
+  it('deletes the waiting match when persistWos2MatchStats fails after create', async () => {
+    stubWritableLeague();
+    stubCreateTransaction('match-orphan-1');
+    stubMatchPlayersAfterCreate('match-orphan-1', [
+      { playerId: 'p-chmieleski', slot: 1, username: 'chmieleski' },
+      { playerId: 'p-tiny', slot: 6, username: 'tiny' },
+    ]);
+    const persistError = new MatchServiceError('persist failed');
+    persistWos2MatchStats.mockRejectedValue(persistError);
+    matchDelete.mockResolvedValue({ id: 'match-orphan-1' });
+
+    await expect(ingestWosReportForApproval(baseInput)).rejects.toThrow(persistError);
+
+    expect(matchDelete).toHaveBeenCalledWith({ where: { id: 'match-orphan-1' } });
   });
 });
 

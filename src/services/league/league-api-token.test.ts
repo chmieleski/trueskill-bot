@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { update, findFirst } = vi.hoisted(() => ({
+const { update, findUnique } = vi.hoisted(() => ({
   update: vi.fn(),
-  findFirst: vi.fn(),
+  findUnique: vi.fn(),
 }));
 
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
     league: {
       update,
-      findFirst,
+      findUnique,
     },
   },
 }));
@@ -54,12 +54,12 @@ describe('createOrRotateLeagueApiToken', () => {
 
 describe('resolveLeagueFromApiToken', () => {
   beforeEach(() => {
-    findFirst.mockReset();
+    findUnique.mockReset();
   });
 
   it('returns league for matching plaintext and null for wrong token', async () => {
     const plaintext = 'good-token';
-    findFirst.mockResolvedValueOnce({
+    findUnique.mockResolvedValueOnce({
       id: 'league-1',
       guildId: 'guild-1',
       gameId: 'warcraft3_wos',
@@ -68,7 +68,7 @@ describe('resolveLeagueFromApiToken', () => {
     });
 
     const resolved = await resolveLeagueFromApiToken(plaintext);
-    expect(findFirst).toHaveBeenCalledWith({
+    expect(findUnique).toHaveBeenCalledWith({
       where: { apiTokenHash: hashLeagueApiToken(plaintext) },
       select: {
         id: true,
@@ -86,21 +86,21 @@ describe('resolveLeagueFromApiToken', () => {
       status: 'ACTIVE',
     });
 
-    findFirst.mockResolvedValueOnce(null);
+    findUnique.mockResolvedValueOnce(null);
     expect(await resolveLeagueFromApiToken('wrong-token')).toBeNull();
   });
 
   it('returns null for empty plaintext without querying', async () => {
     expect(await resolveLeagueFromApiToken('')).toBeNull();
     expect(await resolveLeagueFromApiToken('   ')).toBeNull();
-    expect(findFirst).not.toHaveBeenCalled();
+    expect(findUnique).not.toHaveBeenCalled();
   });
 });
 
 describe('revokeLeagueApiToken', () => {
   beforeEach(() => {
     update.mockReset();
-    findFirst.mockReset();
+    findUnique.mockReset();
     update.mockResolvedValue({});
   });
 
@@ -111,7 +111,7 @@ describe('revokeLeagueApiToken', () => {
       data: { apiTokenHash: null, apiTokenCreatedAt: null },
     });
 
-    findFirst.mockResolvedValue(null);
+    findUnique.mockResolvedValue(null);
     expect(await resolveLeagueFromApiToken('any-token')).toBeNull();
   });
 });

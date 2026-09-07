@@ -11,6 +11,7 @@ import { teamForSlot, type GameProfile } from '../../domain/game-profile.js';
 import { createLogger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
 import { teamDisplayName, winnerLabel } from '../guild/team-names.js';
+import { postCompletedMatchLog } from '../lobby/discord-sync.js';
 import { buildMatchCancelledEmbed, buildMatchCompletedEmbed } from '../lobby/lobby-preview.js';
 import type { LobbyRatingPreview } from '../rating/rating-preview.js';
 import {
@@ -424,6 +425,7 @@ export async function syncMatchApprovalMessage(
     ratingPreview?: LobbyRatingPreview;
     winningTeam?: 1 | 2;
     cancelReason?: string;
+    postToMatchLog?: boolean;
   } = {},
 ): Promise<void> {
   if (!match.discordMessageId || !match.discordChannelId) {
@@ -462,6 +464,12 @@ export async function syncMatchApprovalMessage(
 
   await channel.messages.edit(match.discordMessageId, payload);
   log.debug({ matchId: match.id, mode }, 'Approval Discord message synced');
+
+  if (options.postToMatchLog && (mode === 'completed' || mode === 'cancelled')) {
+    await postCompletedMatchLog(client, match, payload, {
+      enrichStats: mode === 'completed',
+    });
+  }
 }
 
 /**

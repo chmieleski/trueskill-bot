@@ -268,6 +268,7 @@ async function handleApprove(interaction: ButtonInteraction, matchId: string): P
   await syncMatchApprovalMessage(interaction.client, result.match, 'completed', {
     ratingPreview: result.ratingPreview,
     winningTeam,
+    postToMatchLog: true,
   });
   await refreshLeagueLeaderboard(interaction.client, requireLeagueId(result.match));
   if (interaction.guildId) {

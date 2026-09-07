@@ -273,13 +273,28 @@ export async function ingestWosReportForApproval(
     throw new MatchServiceError('This match was not found.');
   }
 
-  const { externalId } = await persistWos2MatchStats({
-    matchId,
-    actorDiscordId: input.hostDiscordId,
-    rawText: input.reportText,
-    report,
-    matchPlayers: match.players,
-  });
+  let externalId: string;
+  try {
+    ({ externalId } = await persistWos2MatchStats({
+      matchId,
+      actorDiscordId: input.hostDiscordId,
+      rawText: input.reportText,
+      report,
+      matchPlayers: match.players,
+    }));
+  } catch (error) {
+    // Avoid leaving an orphan WAITING_FOR_APPROVAL match with no (or partial) stats.
+    try {
+      await prisma.match.delete({ where: { id: matchId } });
+      log.warn({ matchId, err: error }, 'Deleted waiting match after persist failed');
+    } catch (cleanupError) {
+      log.error(
+        { matchId, err: cleanupError, persistError: error },
+        'Failed to delete waiting match after persist failure',
+      );
+    }
+    throw error;
+  }
 
   return {
     matchId,

@@ -53,7 +53,7 @@ export async function resolveLeagueFromApiToken(
     return null;
   }
 
-  const row = await prisma.league.findFirst({
+  const row = await prisma.league.findUnique({
     where: { apiTokenHash: hashLeagueApiToken(plaintext) },
     select: {
       id: true,
