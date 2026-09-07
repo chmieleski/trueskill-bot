@@ -1,3 +1,10 @@
+# [1.54.0](https://github.com/chmieleski/trueskill-bot/compare/v1.53.0...v1.54.0) (2026-09-07)
+
+
+### Features
+
+* **wos:** parse WOS2E / WOS2_BOT_V2 match reports ([#164](https://github.com/chmieleski/trueskill-bot/issues/164)) ([479aceb](https://github.com/chmieleski/trueskill-bot/commit/479aceb2a8e1888b1aaad0d0b5063bc4e33b6a43))
+
 # [1.53.0](https://github.com/chmieleski/trueskill-bot/compare/v1.52.1...v1.53.0) (2026-09-07)
 
 
