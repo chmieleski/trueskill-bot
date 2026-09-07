@@ -97,6 +97,7 @@ export {
   type IngestWosReportForApprovalInput,
   type IngestWosReportForApprovalResult,
 } from './match-waiting-approval.js';
+export { approveWaitingMatch, rejectWaitingMatch, setApprovalWinner } from './match-approval.js';
 export {
   loadPlayerGlobalDeltaForMatch,
   persistMatchRatingPreviewToPlayers,
