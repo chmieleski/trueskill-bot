@@ -80,8 +80,15 @@ export async function handleWosReportRoute(
       });
 
       if (posted !== null) {
-        await attachApprovalDiscordMessage(result.matchId, posted.messageId);
         discordMessageUrl = posted.messageUrl;
+        try {
+          await attachApprovalDiscordMessage(result.matchId, posted.messageId);
+        } catch (attachError) {
+          log.error(
+            { err: attachError, matchId: result.matchId },
+            'Discord approval attach failed after post; returning 201 with message URL',
+          );
+        }
       }
     } catch (postError) {
       log.error(

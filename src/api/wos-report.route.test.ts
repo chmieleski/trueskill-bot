@@ -6,6 +6,14 @@ import { MatchServiceError } from '../services/match/match-service.js';
 import type { ApiServerDeps } from './http-server.js';
 import { handleApiRequest } from './http-server.js';
 
+vi.mock('../services/match/match-waiting-approval.js', () => ({
+  attachApprovalDiscordMessage: vi.fn(),
+}));
+
+import { attachApprovalDiscordMessage } from '../services/match/match-waiting-approval.js';
+
+const attachApprovalDiscordMessageMock = vi.mocked(attachApprovalDiscordMessage);
+
 type MockRes = ServerResponse & {
   statusCode: number;
   body: string;
@@ -85,6 +93,8 @@ describe('handleApiRequest POST /v1/matches/wos-report', () => {
     resolveToken.mockReset();
     postApprovalMessage.mockReset();
     postApprovalMessage.mockResolvedValue(null);
+    attachApprovalDiscordMessageMock.mockReset();
+    attachApprovalDiscordMessageMock.mockResolvedValue(undefined);
   });
 
   it('returns 401 when Authorization is missing', async () => {
@@ -193,6 +203,46 @@ describe('handleApiRequest POST /v1/matches/wos-report', () => {
     expect(res.statusCode).toBe(400);
     expect(JSON.parse(res.body).error).toEqual(expect.any(String));
     expect(ingest).not.toHaveBeenCalled();
+  });
+
+  it('returns 201 with discordMessageUrl when attach fails after post succeeds', async () => {
+    resolveToken.mockResolvedValue({
+      leagueId: 'league-1',
+      guildId: 'guild-1',
+      gameId: 'warcraft3_wos',
+      matchApprovalChannelId: 'chan-1',
+      status: 'ACTIVE',
+    });
+    ingest.mockResolvedValue({
+      matchId: 'match-1',
+      status: 'WAITING_FOR_APPROVAL',
+      externalId: 'ext-1',
+      suggestedWinner: 2,
+      discordMessageUrl: null,
+    });
+    postApprovalMessage.mockResolvedValue({
+      messageId: 'msg-1',
+      messageUrl: 'https://discord.com/channels/guild-1/chan-1/msg-1',
+    });
+    attachApprovalDiscordMessageMock.mockRejectedValue(new Error('DB write failed'));
+
+    const res = await runRequest(deps, {
+      body: JSON.stringify({ reportText: 'raw report' }),
+      headers: {
+        authorization: 'Bearer secret-token',
+        'content-type': 'application/json',
+      },
+    });
+
+    expect(attachApprovalDiscordMessageMock).toHaveBeenCalledWith('match-1', 'msg-1');
+    expect(res.statusCode).toBe(201);
+    expect(JSON.parse(res.body)).toEqual({
+      matchId: 'match-1',
+      status: 'WAITING_FOR_APPROVAL',
+      externalId: 'ext-1',
+      suggestedWinner: 2,
+      discordMessageUrl: 'https://discord.com/channels/guild-1/chan-1/msg-1',
+    });
   });
 
   it('returns 201 with null discordMessageUrl when postApprovalMessage throws', async () => {
