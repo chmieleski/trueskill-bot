@@ -7,87 +7,105 @@ import {
   winningTeamFromWos2Rounds,
   Wos2BotReportParseError,
 } from './wos2-bot-report-parser.js';
+import { encodeWos2eExport } from './wos2e-codec.js';
 
 const samplePath = join(dirname(fileURLToPath(import.meta.url)), 'fixtures/wos2-bot-sample.txt');
 const sampleRaw = readFileSync(samplePath, 'utf8');
 
 describe('parseWos2BotReport', () => {
-  it('parses the real WOS2 bot sample export', () => {
+  it('parses the real WOS2E sample export', () => {
     const report = parseWos2BotReport(sampleRaw);
 
-    expect(report.format).toBe('WOS2_BOT_V1');
-    expect(report.externalId).toBe('34508754-98989487-41346570-71702689');
-    expect(report.team1Rounds).toBe(2);
-    expect(report.team2Rounds).toBe(10);
-    expect(report.playerCount).toBe(2);
-    expect(report.players).toHaveLength(2);
+    expect(report.format).toBe('WOS2_BOT_V2');
+    expect(report.schema).toBe(2);
+    expect(report.teamsReorganized).toBe(false);
+    expect(report.externalId).toBe('40789973-21466950-72151551-80533748');
+    expect(report.team1Rounds).toBe(10);
+    expect(report.team2Rounds).toBe(0);
+    expect(report.playerCount).toBe(1);
+    expect(report.players).toHaveLength(1);
 
     expect(report.players[0]).toMatchObject({
-      name: 'Chmieleski#1941',
+      name: 'WorldEdit',
       team: 1,
-      win: false,
-      left: false,
-      teamSlot: null,
-      heroName: 'Raiden Ei',
-      kills: 1,
-      deaths: 10,
-      itemSlots: [1227894850, 1227895116, 1227895106, 1227895091, 1227894871, 1227895121],
-    });
-
-    expect(report.players[1]).toMatchObject({
-      name: 'Tiny#11318',
-      team: 2,
       win: true,
-      heroName: 'Frieren',
+      left: false,
+      teamSlot: 1,
+      lobbySlot: 0,
+      visualSlot: 0,
+      heroName: 'Yamamoto Takeshi',
+      roundsPlayed: 10,
+      roundWins: 10,
+      roundLosses: 0,
       kills: 0,
-      deaths: 2,
-      itemSlots: [1227894863, 1227894873, 0, 0, 0, 0],
+      deaths: 0,
+      itemSlots: [1227895627, 0, 0, 0, 0, 0],
     });
   });
 
   it('parses ITEM_RATE lines into itemRates', () => {
     const report = parseWos2BotReport(sampleRaw);
-    expect(report.itemRates).toEqual(
-      expect.arrayContaining([
-        { objectId: 1227894850, name: 'Oken' },
-        { objectId: 1227894873, name: "Angel's Blessing" },
-      ]),
-    );
-    expect(report.itemRates).toHaveLength(8);
+    expect(report.itemRates).toEqual([
+      {
+        objectId: 1227895627,
+        name: 'Urahara Hat +4',
+        games: 1,
+        wins: 1,
+        winratePct: 100,
+      },
+    ]);
   });
 
-  it('derives team 2 as winner from round scores', () => {
+  it('derives team 1 as winner from round scores in the sample', () => {
     const report = parseWos2BotReport(sampleRaw);
-    expect(winningTeamFromWos2Rounds(report)).toBe(2);
+    expect(winningTeamFromWos2Rounds(report)).toBe(1);
   });
 
-  it('rejects unsupported formats', () => {
-    expect(() => parseWos2BotReport('ID|value=abc|format=OTHER|scope=MATCH\nEND|id=abc')).toThrow(
-      Wos2BotReportParseError,
-    );
+  it('rejects plaintext V1 / non-WOS2E input', () => {
+    expect(() =>
+      parseWos2BotReport('ID|value=abc|format=WOS2_BOT_V1|scope=MATCH\nEND|id=abc'),
+    ).toThrow(Wos2BotReportParseError);
   });
 
   it('parses schema 2 player rows with team_slot and left', () => {
-    const report = parseWos2BotReport(
-      'ID|value=abc|format=WOS2_BOT_V1|scope=MATCH\n' +
-        'MATCH|team1_rounds=2|team2_rounds=10|players=3|schema=2\n' +
-        'PLAYER|n=2|pid=1|name=LavaShark#211786|team=1|win=0|left=1|team_slot=2\n' +
-        'STATS|n=2|pid=1|kills=1|deaths=9|damage_phys=0|damage_magic=0|damage_total=0|heal=0|taken_phys=0|taken_magic=0|taken_total=0\n' +
-        'ITEMS|n=2|pid=1|slot1=0|slot2=0|slot3=0|slot4=0|slot5=0|slot6=0\n' +
-        'END|id=abc',
+    const matchId = 'abc';
+    const encoded = encodeWos2eExport(
+      [
+        `ID|value=${matchId}|format=WOS2_BOT_V2|scope=MATCH`,
+        'MATCH|team1_rounds=2|team2_rounds=10|players=1|schema=2|teams_reorganized=0',
+        'PLAYER|n=1|pid=1|name=LavaShark#211786|team=1|win=0|hero_id=0|hero_name=|left=1|lobby_slot=1|team_slot=2|visual_slot=1',
+        'STATS|n=1|pid=1|rounds_played=10|round_wins=2|round_losses=8|kills=1|deaths=9|damage_phys=0|damage_magic=0|damage_total=0|heal=0|taken_phys=0|taken_magic=0|taken_total=0',
+        'ITEMS|n=1|pid=1|slot1=0|slot2=0|slot3=0|slot4=0|slot5=0|slot6=0',
+        `END|id=${matchId}`,
+      ],
+      matchId,
     );
 
+    const report = parseWos2BotReport(encoded);
     expect(report.players[0]).toMatchObject({
       name: 'LavaShark#211786',
       team: 1,
       left: true,
       teamSlot: 2,
+      lobbySlot: 1,
+      visualSlot: 1,
     });
   });
 
   it('rejects mismatched END id', () => {
-    expect(() =>
-      parseWos2BotReport('ID|value=abc|format=WOS2_BOT_V1|scope=MATCH\nEND|id=xyz'),
-    ).toThrow(/do not match/);
+    const matchId = 'abc';
+    const encoded = encodeWos2eExport(
+      [
+        `ID|value=${matchId}|format=WOS2_BOT_V2|scope=MATCH`,
+        'MATCH|team1_rounds=1|team2_rounds=0|players=1|schema=2|teams_reorganized=0',
+        'PLAYER|n=1|pid=0|name=A|team=1|win=1|hero_id=1|hero_name=H|left=0|lobby_slot=0|team_slot=1|visual_slot=0',
+        'STATS|n=1|pid=0|rounds_played=1|round_wins=1|round_losses=0|kills=0|deaths=0|damage_phys=0|damage_magic=0|damage_total=0|heal=0|taken_phys=0|taken_magic=0|taken_total=0',
+        'ITEMS|n=1|pid=0|slot1=0|slot2=0|slot3=0|slot4=0|slot5=0|slot6=0',
+        'END|id=xyz',
+      ],
+      matchId,
+    );
+
+    expect(() => parseWos2BotReport(encoded)).toThrow(/END|final END/i);
   });
 });
