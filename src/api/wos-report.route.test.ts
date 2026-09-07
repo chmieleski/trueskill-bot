@@ -194,4 +194,39 @@ describe('handleApiRequest POST /v1/matches/wos-report', () => {
     expect(JSON.parse(res.body).error).toEqual(expect.any(String));
     expect(ingest).not.toHaveBeenCalled();
   });
+
+  it('returns 201 with null discordMessageUrl when postApprovalMessage throws', async () => {
+    resolveToken.mockResolvedValue({
+      leagueId: 'league-1',
+      guildId: 'guild-1',
+      gameId: 'warcraft3_wos',
+      matchApprovalChannelId: 'chan-1',
+      status: 'ACTIVE',
+    });
+    ingest.mockResolvedValue({
+      matchId: 'match-1',
+      status: 'WAITING_FOR_APPROVAL',
+      externalId: 'ext-1',
+      suggestedWinner: 1,
+      discordMessageUrl: null,
+    });
+    postApprovalMessage.mockRejectedValue(new Error('Discord channel missing'));
+
+    const res = await runRequest(deps, {
+      body: JSON.stringify({ reportText: 'raw report' }),
+      headers: {
+        authorization: 'Bearer secret-token',
+        'content-type': 'application/json',
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(JSON.parse(res.body)).toEqual({
+      matchId: 'match-1',
+      status: 'WAITING_FOR_APPROVAL',
+      externalId: 'ext-1',
+      suggestedWinner: 1,
+      discordMessageUrl: null,
+    });
+  });
 });

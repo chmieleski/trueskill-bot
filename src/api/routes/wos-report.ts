@@ -72,15 +72,22 @@ export async function handleWosReportRoute(
     });
 
     let discordMessageUrl: string | null = null;
-    const posted = await deps.postApprovalMessage({
-      guildId: league.guildId,
-      channelId: league.matchApprovalChannelId ?? '',
-      matchId: result.matchId,
-    });
+    try {
+      const posted = await deps.postApprovalMessage({
+        guildId: league.guildId,
+        channelId: league.matchApprovalChannelId ?? '',
+        matchId: result.matchId,
+      });
 
-    if (posted !== null) {
-      await attachApprovalDiscordMessage(result.matchId, posted.messageId);
-      discordMessageUrl = posted.messageUrl;
+      if (posted !== null) {
+        await attachApprovalDiscordMessage(result.matchId, posted.messageId);
+        discordMessageUrl = posted.messageUrl;
+      }
+    } catch (postError) {
+      log.error(
+        { err: postError, matchId: result.matchId },
+        'Discord approval post failed after ingest; returning 201 without message URL',
+      );
     }
 
     sendJson(res, 201, {

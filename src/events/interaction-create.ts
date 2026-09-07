@@ -9,6 +9,7 @@ import { handleReleaseInteraction } from '../discord/interactions/release-intera
 import { handleLobbyInteraction } from '../discord/interactions/lobby-interactions.js';
 import { handleCaptainDraftInteraction } from '../discord/interactions/captain-draft-interactions.js';
 import { handleMatchInteraction } from '../discord/interactions/match-interactions.js';
+import { handleMatchApprovalInteraction } from '../discord/interactions/match-approval-interactions.js';
 import { handleMatchCorrectionInteraction } from '../discord/interactions/match-correction-interactions.js';
 import { handleLeagueRolloverInteraction } from '../discord/interactions/league-rollover-interactions.js';
 import { handleRankResetInteraction } from '../discord/interactions/rank-reset-interactions.js';
@@ -85,6 +86,11 @@ export async function execute(interaction: Interaction): Promise<void> {
 
     if (await handleReleaseInteraction(interaction)) {
       log.debug({ userId: interaction.user.id }, 'Release interaction handled');
+      return;
+    }
+
+    if (await handleMatchApprovalInteraction(interaction)) {
+      log.debug({ userId: interaction.user.id }, 'Match approval interaction handled');
       return;
     }
 
