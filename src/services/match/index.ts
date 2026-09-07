@@ -92,6 +92,12 @@ export {
 } from './match-list.js';
 export { formatLeagueSideWinRateLine, type LeagueSideWinRate } from './side-win-rate.js';
 export {
+  attachApprovalDiscordMessage,
+  ingestWosReportForApproval,
+  type IngestWosReportForApprovalInput,
+  type IngestWosReportForApprovalResult,
+} from './match-waiting-approval.js';
+export {
   loadPlayerGlobalDeltaForMatch,
   persistMatchRatingPreviewToPlayers,
   ratingPreviewFromStoredMatchPlayers,
