@@ -13,6 +13,7 @@ const {
   prismaTransaction,
   getGameProfileForLeague,
   persistWos2MatchStats,
+  assertWos2ReportExternalIdUnused,
 } = vi.hoisted(() => ({
   leagueFindUnique: vi.fn(),
   matchFindUnique: vi.fn(),
@@ -20,6 +21,7 @@ const {
   prismaTransaction: vi.fn(),
   getGameProfileForLeague: vi.fn(),
   persistWos2MatchStats: vi.fn(),
+  assertWos2ReportExternalIdUnused: vi.fn(),
 }));
 
 vi.mock('../../lib/prisma.js', () => ({
@@ -46,6 +48,7 @@ vi.mock('../league/league-profile.js', () => ({
 
 vi.mock('./match-stats-upload.js', () => ({
   persistWos2MatchStats,
+  assertWos2ReportExternalIdUnused,
 }));
 
 import {
@@ -154,6 +157,7 @@ function stubMatchPlayersAfterCreate(
 describe('ingestWosReportForApproval', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    assertWos2ReportExternalIdUnused.mockResolvedValue(undefined);
     persistWos2MatchStats.mockResolvedValue({
       externalId: '34508754-98989487-41346570-71702689',
       summaryLines: [],
@@ -250,14 +254,9 @@ describe('ingestWosReportForApproval', () => {
     expect(prismaTransaction).not.toHaveBeenCalled();
   });
 
-  it('propagates MatchServiceError from persistWos2MatchStats (duplicate report)', async () => {
+  it('rejects duplicate externalId before creating a match', async () => {
     stubWritableLeague();
-    stubCreateTransaction('match-waiting-dup');
-    stubMatchPlayersAfterCreate('match-waiting-dup', [
-      { playerId: 'p-chmieleski', slot: 1, username: 'chmieleski' },
-      { playerId: 'p-tiny', slot: 6, username: 'tiny' },
-    ]);
-    persistWos2MatchStats.mockRejectedValue(
+    assertWos2ReportExternalIdUnused.mockRejectedValue(
       new MatchServiceError(
         'This match report (`34508754-98989487-41346570-71702689`) was already uploaded for match `other`.',
       ),
@@ -265,6 +264,13 @@ describe('ingestWosReportForApproval', () => {
 
     await expect(ingestWosReportForApproval(baseInput)).rejects.toThrow(MatchServiceError);
     await expect(ingestWosReportForApproval(baseInput)).rejects.toThrow(/already uploaded/);
+
+    expect(assertWos2ReportExternalIdUnused).toHaveBeenCalledWith(
+      '34508754-98989487-41346570-71702689',
+      '__ingest_precheck__',
+    );
+    expect(prismaTransaction).not.toHaveBeenCalled();
+    expect(persistWos2MatchStats).not.toHaveBeenCalled();
   });
 });
 

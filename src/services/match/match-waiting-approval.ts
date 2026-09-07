@@ -15,9 +15,12 @@ import { isLeagueWritable, LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
 import { normalizeNick } from '../player/player-nick.js';
 import { getMatchById, MatchServiceError } from './match-service.js';
-import { persistWos2MatchStats } from './match-stats-upload.js';
+import { assertWos2ReportExternalIdUnused, persistWos2MatchStats } from './match-stats-upload.js';
 
 const log = createLogger('match-waiting-approval');
+
+/** Sentinel match id for pre-create duplicate checks (excluded from the search). */
+const WOS_INGEST_EXTERNAL_ID_PRECHECK_MATCH_ID = '__ingest_precheck__';
 
 export type IngestWosReportForApprovalInput = {
   leagueId: string;
@@ -249,6 +252,12 @@ export async function ingestWosReportForApproval(
   const suggested = inferSuggestedWinner(report);
   const approvalWinnerTeam = suggested?.team ?? null;
   const players = applyQuittersFromReport(lobbyPlayers, report);
+
+  // Reject duplicates before create so we never leave an orphan WAITING_FOR_APPROVAL match.
+  await assertWos2ReportExternalIdUnused(
+    report.externalId,
+    WOS_INGEST_EXTERNAL_ID_PRECHECK_MATCH_ID,
+  );
 
   const { matchId } = await createWaitingApprovalMatch({
     leagueId: input.leagueId,
