@@ -9,7 +9,7 @@ const {
   buildMatchCorrectionConfirmCustomId,
   buildMatchCorrectionCancelCustomId,
   voidCompletedMatch,
-  refreshLeagueLeaderboard,
+  notifyLeagueRatingChanged,
   refreshGuildQuitterLeaderboard,
   refreshGuildGrieferLeaderboard,
   resolveGuildConfig,
@@ -21,7 +21,7 @@ const {
   buildMatchCorrectionConfirmCustomId: vi.fn(),
   buildMatchCorrectionCancelCustomId: vi.fn(),
   voidCompletedMatch: vi.fn(),
-  refreshLeagueLeaderboard: vi.fn(),
+  notifyLeagueRatingChanged: vi.fn(),
   refreshGuildQuitterLeaderboard: vi.fn(),
   refreshGuildGrieferLeaderboard: vi.fn(),
   resolveGuildConfig: vi.fn(),
@@ -69,9 +69,12 @@ vi.mock('../../services/match/index.js', () => {
 });
 
 vi.mock('../../services/leaderboard/index.js', () => ({
-  refreshLeagueLeaderboard,
   refreshGuildQuitterLeaderboard,
   refreshGuildGrieferLeaderboard,
+}));
+
+vi.mock('../../services/hero-champion-roles/index.js', () => ({
+  notifyLeagueRatingChanged,
 }));
 
 vi.mock('../../services/guild/index.js', () => ({
@@ -242,7 +245,7 @@ describe('handleMatchCorrectionInteraction', () => {
       'completed',
       { ratingPreview: { players: [] } },
     );
-    expect(refreshLeagueLeaderboard).toHaveBeenCalledWith(interaction.client, 'league-1');
+    expect(notifyLeagueRatingChanged).toHaveBeenCalledWith(interaction.client, 'league-1');
     expect(refreshGuildQuitterLeaderboard).toHaveBeenCalledWith(interaction.client, 'guild-1');
     expect(refreshGuildGrieferLeaderboard).toHaveBeenCalledWith(interaction.client, 'guild-1');
     expect(interaction.editReply).toHaveBeenCalledWith({
@@ -269,7 +272,7 @@ describe('handleMatchCorrectionInteraction', () => {
       'cancelled',
       { cancelReason: 'by a moderator', postToMatchLog: true },
     );
-    expect(refreshLeagueLeaderboard).toHaveBeenCalledWith(interaction.client, 'league-1');
+    expect(notifyLeagueRatingChanged).toHaveBeenCalledWith(interaction.client, 'league-1');
     expect(refreshGuildQuitterLeaderboard).toHaveBeenCalledWith(interaction.client, 'guild-1');
     expect(refreshGuildGrieferLeaderboard).toHaveBeenCalledWith(interaction.client, 'guild-1');
     expect(interaction.editReply).toHaveBeenCalledWith({
@@ -288,7 +291,7 @@ describe('handleMatchCorrectionInteraction', () => {
       content: 'Match no longer correctable.',
       components: [],
     });
-    expect(refreshLeagueLeaderboard).not.toHaveBeenCalled();
+    expect(notifyLeagueRatingChanged).not.toHaveBeenCalled();
     expect(refreshGuildQuitterLeaderboard).not.toHaveBeenCalled();
     expect(refreshGuildGrieferLeaderboard).not.toHaveBeenCalled();
   });

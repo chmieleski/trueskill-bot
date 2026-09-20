@@ -22,6 +22,7 @@ describe('getGameProfile', () => {
     expect(profile.ratingLabel).toBe('ki');
     expect(profile.teamNames).toEqual({ 1: 'Z Fighters', 2: 'Evil' });
     expect(profile.sideWinLossDefault).toBe(true);
+    expect(profile.heroChampionRoles).toBe(true);
   });
 
   it('returns WOS 10-slot optional_in_game wc3stats profile with post-match stats', () => {
@@ -36,6 +37,7 @@ describe('getGameProfile', () => {
     expect(profile.ratingLabel).toBe('sp');
     expect(profile.teamNames).toEqual({ 1: 'WOS Enjoyers', 2: 'WOS Haters' });
     expect(profile.sideWinLossDefault).toBe(false);
+    expect(profile.heroChampionRoles).toBe(false);
   });
 
   it('throws UnknownGameIdError for unknown ids', () => {

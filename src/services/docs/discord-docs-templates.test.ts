@@ -25,6 +25,7 @@ function leagueConfig(overrides: Partial<ResolvedLeagueConfig> = {}): ResolvedLe
     decayEnabled: true,
     balanceStaticSigmaEnabled: false,
     showSideWinLoss: true,
+    heroChampionRolesEnabled: false,
     seasonEndsAt: undefined,
     decayInCrunch: false,
     decaySettings: DEFAULT_DECAY_SETTINGS,

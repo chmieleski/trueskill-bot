@@ -12,8 +12,8 @@ import {
   refreshAllLeaderboardChannels,
   refreshGuildGrieferLeaderboard,
   refreshGuildQuitterLeaderboard,
-  refreshLeagueLeaderboard,
 } from '../../services/leaderboard/index.js';
+import { notifyLeagueRatingChanged } from '../../services/hero-champion-roles/index.js';
 import {
   cancelInProgressMatch,
   clearMatchGriefers,
@@ -929,7 +929,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       if (interaction.guildId) {
         await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);
       }
-      await refreshLeagueLeaderboard(interaction.client, requireLeagueId(match));
+      await notifyLeagueRatingChanged(interaction.client, requireLeagueId(match));
 
       await interaction.editReply({
         content: formatClearedGriefersMessage(match.id, cleared),
@@ -954,7 +954,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       if (interaction.guildId) {
         await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
       }
-      await refreshLeagueLeaderboard(interaction.client, requireLeagueId(result.match));
+      await notifyLeagueRatingChanged(interaction.client, requireLeagueId(result.match));
 
       await interaction.editReply({
         content: formatClearedQuittersMessage(result.match.id, result.cleared, result.mode, {

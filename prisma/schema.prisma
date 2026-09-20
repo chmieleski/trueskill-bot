@@ -88,6 +88,8 @@ model League {
   decayCrunchWindowDays         Int?
   decayPrizeLockEnabled         Boolean?
   decayPrizeLockMinGames        Int?
+  /// When true, sync Discord roles for #1 hero-ki players (staff-mapped).
+  heroChampionRolesEnabled      Boolean  @default(false)
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt
 
@@ -98,6 +100,7 @@ model League {
   heroRatings       PlayerHeroRating[]
   rankResets        PlayerRankReset[]
   wc3statsSlotMaps  LeagueWc3statsSlotMap[]
+  heroChampionRoles LeagueHeroChampionRole[]
   predecessor       League?                 @relation("LeagueSuccession", fields: [predecessorLeagueId], references: [id])
   successors        League[]                @relation("LeagueSuccession")
   rolloverDrafts    LeagueRolloverDraft[]
@@ -246,8 +249,26 @@ model Hero {
   name        String             @unique
   color       String? // Lobby color name (e.g., "Red", "Blue")
   heroRatings PlayerHeroRating[]
+  championRoles LeagueHeroChampionRole[]
 
   @@index([name])
+}
+
+/// Staff-mapped Discord role for the #1 hero-ki player in a league.
+model LeagueHeroChampionRole {
+  leagueId        String
+  heroId          Int
+  discordRoleId   String
+  holderDiscordId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  hero   Hero   @relation(fields: [heroId], references: [id], onDelete: Cascade)
+
+  @@id([leagueId, heroId])
+  @@unique([leagueId, discordRoleId])
+  @@index([leagueId])
 }
 
 // PlayerHeroRating - League-scoped hero-specific skill tracking (Cold Start solution)
