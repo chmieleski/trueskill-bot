@@ -1,3 +1,10 @@
+## [1.56.1](https://github.com/chmieleski/trueskill-bot/compare/v1.56.0...v1.56.1) (2026-09-20)
+
+
+### Bug Fixes
+
+* **wos:** stop auto-flagging quitters on API report ingest ([#170](https://github.com/chmieleski/trueskill-bot/issues/170)) ([4a6acce](https://github.com/chmieleski/trueskill-bot/commit/4a6acceae835fd2949d5ec7c6a1b52d5628614a0))
+
 # [1.56.0](https://github.com/chmieleski/trueskill-bot/compare/v1.55.1...v1.56.0) (2026-09-20)
 
 
