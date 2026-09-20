@@ -548,3 +548,24 @@ model CaptainDraftDisplay {
 
   draft CaptainDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
 }
+
+/// WOS hero ban/pick draft (teams predefined; one public thread per draft).
+model HeroDraft {
+  id                   String   @id @default(cuid())
+  guildId              String
+  leagueId             String
+  parentChannelId      String
+  threadId             String
+  hostDiscordId        String
+  status               String
+  timerSeconds         Int      @default(30)
+  state                Json
+  liveMessageId        String?
+  sourceCaptainDraftId String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([guildId, status])
+  @@index([threadId])
+  @@index([guildId, parentChannelId, status])
+}
