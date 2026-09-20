@@ -8,6 +8,7 @@ import { handleMatchListInteraction } from '../discord/interactions/match-list-i
 import { handleReleaseInteraction } from '../discord/interactions/release-interactions.js';
 import { handleLobbyInteraction } from '../discord/interactions/lobby-interactions.js';
 import { handleCaptainDraftInteraction } from '../discord/interactions/captain-draft-interactions.js';
+import { handleHeroDraftInteraction } from '../discord/interactions/hero-draft-interactions.js';
 import { handleMatchInteraction } from '../discord/interactions/match-interactions.js';
 import { handleMatchApprovalInteraction } from '../discord/interactions/match-approval-interactions.js';
 import { handleMatchCorrectionInteraction } from '../discord/interactions/match-correction-interactions.js';
@@ -101,6 +102,11 @@ export async function execute(interaction: Interaction): Promise<void> {
 
     if (await handleCaptainDraftInteraction(interaction)) {
       log.debug({ userId: interaction.user.id }, 'Captain draft interaction handled');
+      return;
+    }
+
+    if (await handleHeroDraftInteraction(interaction)) {
+      log.debug({ userId: interaction.user.id }, 'Hero draft interaction handled');
       return;
     }
 

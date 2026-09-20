@@ -25,31 +25,31 @@ With **teams already formed**, moderators start a **hero ban/pick** for one matc
 
 ## Locked decisions
 
-| Topic | Choice |
-| --- | --- |
-| Relation to captain draft | Separate feature; teams may be **imported** from a completed captain draft **and/or** entered manually |
-| Who starts / cancels | Match moderators (`assertHasMatchModRole` + universal mods) |
-| Who acts on turn | **Team captain only** (Discord-linked) |
-| Isolation | One **public thread** per draft; ping both rosters + match-mod role |
-| Timer | Default **30s per action**; overridable on `/hero_draft start`; double-pick phases = **two sequential** actions with timer reset |
-| Ban timeout | Ban is **lost** (same as Skip ban) |
-| Pick timeout | **Random** remaining available hero |
-| Skip | **Skip ban only**; picks cannot be empty |
-| Pool | Snapshot all `GameHero` rows for the league’s `gameId` at start |
-| Hero UI | Paginated StringSelect (25/page) + Skip ban button on ban turns |
-| Emoji | Discord **application emoji** named `wos_{objectId}`; missing → text only |
-| Completion | Final summary embed in the thread only |
-| Minimum pool | Refuse start if catalog has fewer than **16** heroes (6 bans + 10 picks worst case) |
-| Game gate | League `gameId` must be `warcraft3_wos` |
+| Topic                     | Choice                                                                                                                           |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Relation to captain draft | Separate feature; teams may be **imported** from a completed captain draft **and/or** entered manually                           |
+| Who starts / cancels      | Match moderators (`assertHasMatchModRole` + universal mods)                                                                      |
+| Who acts on turn          | **Team captain only** (Discord-linked)                                                                                           |
+| Isolation                 | One **public thread** per draft; ping both rosters + match-mod role                                                              |
+| Timer                     | Default **30s per action**; overridable on `/hero_draft start`; double-pick phases = **two sequential** actions with timer reset |
+| Ban timeout               | Ban is **lost** (same as Skip ban)                                                                                               |
+| Pick timeout              | **Random** remaining available hero                                                                                              |
+| Skip                      | **Skip ban only**; picks cannot be empty                                                                                         |
+| Pool                      | Snapshot all `GameHero` rows for the league’s `gameId` at start                                                                  |
+| Hero UI                   | Paginated StringSelect (25/page) + Skip ban button on ban turns                                                                  |
+| Emoji                     | Discord **application emoji** named `wos_{objectId}`; missing → text only                                                        |
+| Completion                | Final summary embed in the thread only                                                                                           |
+| Minimum pool              | Refuse start if catalog has fewer than **16** heroes (6 bans + 10 picks worst case)                                              |
+| Game gate                 | League `gameId` must be `warcraft3_wos`                                                                                          |
 
 ## Turn sequence
 
 Team 1 = first-ban side (chosen at start). Each line is one timed captain action:
 
-1. T1 ban → T2 ban → T1 ban → T2 ban  
-2. T1 pick → T2 pick → T2 pick → T1 pick → T1 pick → T2 pick  
-3. T1 ban → T2 ban  
-4. T2 pick → T1 pick → T1 pick → T2 pick  
+1. T1 ban → T2 ban → T1 ban → T2 ban
+2. T1 pick → T2 pick → T2 pick → T1 pick → T1 pick → T2 pick
+3. T1 ban → T2 ban
+4. T2 pick → T1 pick → T1 pick → T2 pick
 
 Per team: **3 bans + 5 picks**.
 
@@ -59,10 +59,10 @@ Banned and picked heroes leave the available pool (a hero cannot be selected twi
 
 `/hero_draft`:
 
-| Subcommand | Who | Description |
-| --- | --- | --- |
-| `start` | Mod | Resolve teams (captain-draft id and/or manual captains/rosters), `team1`, `timer` (optional), create public thread, post live card, start turn 0 |
-| `cancel` | Mod | Cancel ACTIVE draft in this thread (or by draft id if provided) |
+| Subcommand | Who | Description                                                                                                                                      |
+| ---------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `start`    | Mod | Resolve teams (captain-draft id and/or manual captains/rosters), `team1`, `timer` (optional), create public thread, post live card, start turn 0 |
+| `cancel`   | Mod | Cancel ACTIVE draft in this thread (or by draft id if provided)                                                                                  |
 
 Team sources on `start` (at least one path per team):
 
@@ -102,10 +102,10 @@ Services under `src/services/hero-draft/` (sibling to `captain-draft`, not a for
 
 ## Edge cases
 
-- Empty / &lt;16 catalog → refuse start  
-- Stale select after turn advance → ephemeral deny  
-- Text-only captain (no Discord id) → cannot self-act; mod must cancel/restart with linked captain (v1: no force)  
-- Missing `wos_{objectId}` emoji → label without emoji  
+- Empty / &lt;16 catalog → refuse start
+- Stale select after turn advance → ephemeral deny
+- Text-only captain (no Discord id) → cannot self-act; mod must cancel/restart with linked captain (v1: no force)
+- Missing `wos_{objectId}` emoji → label without emoji
 
 ## Testing
 

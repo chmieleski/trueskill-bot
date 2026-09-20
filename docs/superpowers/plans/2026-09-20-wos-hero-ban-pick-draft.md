@@ -23,6 +23,7 @@
 ### Task 1: Prisma `HeroDraft` + types + pure turn logic (TDD)
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: `prisma/migrations/*/migration.sql` (via migrate)
 - Create: `src/services/hero-draft/draft-types.ts`
@@ -40,6 +41,7 @@
 ### Task 2: Team resolution + start/cancel actions + timer
 
 **Files:**
+
 - Create: `src/services/hero-draft/draft-teams.ts`
 - Create: `src/services/hero-draft/draft-teams.test.ts`
 - Create: `src/services/hero-draft/draft-actions.ts`
@@ -55,6 +57,7 @@
 ### Task 3: Live UI (embed, pagination, emoji, skip)
 
 **Files:**
+
 - Create: `src/services/hero-draft/draft-ui.ts`
 - Create: `src/services/hero-draft/draft-ui.test.ts`
 - Create: `src/discord/interactions/hero-draft-interactions.ts`
@@ -68,6 +71,7 @@
 ### Task 4: Slash command + boot rehydrate
 
 **Files:**
+
 - Create: `src/commands/hero-draft/hero-draft.ts`
 - Modify: `src/index.ts` (rehydrate timers after login)
 - Tests as needed for command option shape
