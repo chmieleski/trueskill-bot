@@ -1,3 +1,10 @@
+# [1.56.0](https://github.com/chmieleski/trueskill-bot/compare/v1.55.1...v1.56.0) (2026-09-20)
+
+
+### Features
+
+* **rating:** soft-result mitigation with host mod approval ([#168](https://github.com/chmieleski/trueskill-bot/issues/168)) ([2f90b85](https://github.com/chmieleski/trueskill-bot/commit/2f90b85ccf2f9523a658ba97d28aaf3b7f570957))
+
 ## [1.55.1](https://github.com/chmieleski/trueskill-bot/compare/v1.55.0...v1.55.1) (2026-09-20)
 
 
