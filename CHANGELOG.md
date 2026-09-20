@@ -1,3 +1,10 @@
+# [1.55.0](https://github.com/chmieleski/trueskill-bot/compare/v1.54.0...v1.55.0) (2026-09-20)
+
+
+### Features
+
+* **hero-draft:** add WOS hero ban/pick draft ([#166](https://github.com/chmieleski/trueskill-bot/issues/166)) ([0001ef9](https://github.com/chmieleski/trueskill-bot/commit/0001ef967a0c6804505fd6fc2408e8f6da00ad35))
+
 # [1.54.0](https://github.com/chmieleski/trueskill-bot/compare/v1.53.0...v1.54.0) (2026-09-07)
 
 
