@@ -359,3 +359,43 @@ describe('independent overall vs hero rate', () => {
     expect(after.heroByKey.get('udbr:7')!.sigma).toBe(7);
   });
 });
+
+describe('simulatePostMatchRatings with mitigation', () => {
+  it('shrinks both sides team Δμ equally at 50%', () => {
+    const entries = [
+      { playerId: 'a', slot: 1, team: 1 as const, heroId: null, isQuitter: false },
+      { playerId: 'b', slot: 7, team: 2 as const, heroId: null, isQuitter: false },
+    ];
+    const start = new Map([
+      ['a', { mu: 25, sigma: 8.333 }],
+      ['b', { mu: 25, sigma: 8.333 }],
+    ]);
+    const full = simulatePostMatchRatings(entries, 1, start, new Map());
+    const soft = simulatePostMatchRatings(entries, 1, start, new Map(), new Map(), 50);
+
+    const fullWinDelta = full.globalByPlayer.get('a')!.mu - 25;
+    const softWinDelta = soft.globalByPlayer.get('a')!.mu - 25;
+    const fullLossDelta = full.globalByPlayer.get('b')!.mu - 25;
+    const softLossDelta = soft.globalByPlayer.get('b')!.mu - 25;
+
+    expect(softWinDelta).toBeCloseTo(fullWinDelta * 0.5, 5);
+    expect(softLossDelta).toBeCloseTo(fullLossDelta * 0.5, 5);
+  });
+
+  it('does not scale quitter synthetic losses', () => {
+    const entries = [
+      { playerId: 'quit', slot: 1, team: 1 as const, heroId: null, isQuitter: true },
+      { playerId: 'a', slot: 2, team: 1 as const, heroId: null, isQuitter: false },
+      { playerId: 'b', slot: 7, team: 2 as const, heroId: null, isQuitter: false },
+    ];
+    const start = new Map([
+      ['quit', { mu: 25, sigma: 8.333 }],
+      ['a', { mu: 25, sigma: 8.333 }],
+      ['b', { mu: 25, sigma: 8.333 }],
+    ]);
+    const full = simulatePostMatchRatings(entries, 1, start, new Map());
+    const soft = simulatePostMatchRatings(entries, 1, start, new Map(), new Map(), 50);
+
+    expect(soft.globalByPlayer.get('quit')!.mu).toBeCloseTo(full.globalByPlayer.get('quit')!.mu, 8);
+  });
+});

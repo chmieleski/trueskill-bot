@@ -27,6 +27,7 @@ import {
   loadPreMatchGlobalByPlayer,
   type RatingRosterEntry,
 } from '../rating/rating-update.js';
+import { normalizeMitigationPercent } from '../rating/rating-mitigation.js';
 import {
   flipCompletedMatch,
   previewMatchCorrection,
@@ -67,13 +68,17 @@ function requireInProgress(match: MatchWithPlayers | null): MatchWithPlayers {
   return match;
 }
 
-/** Allow IN_PROGRESS or WAITING_FOR_APPROVAL (shared report / approval actions). */
+/** Allow IN_PROGRESS, WAITING_FOR_APPROVAL, or WAITING_FOR_MITIGATION_APPROVAL. */
 function requireReportableMatch(match: MatchWithPlayers | null): MatchWithPlayers {
   if (!match) {
     throw new MatchServiceError('This match was not found.');
   }
 
-  if (match.status !== 'IN_PROGRESS' && match.status !== 'WAITING_FOR_APPROVAL') {
+  if (
+    match.status !== 'IN_PROGRESS' &&
+    match.status !== 'WAITING_FOR_APPROVAL' &&
+    match.status !== 'WAITING_FOR_MITIGATION_APPROVAL'
+  ) {
     throw new MatchServiceError('This match is not awaiting approval or in progress.');
   }
 
@@ -105,7 +110,7 @@ async function lockReportableMatch(
 ): Promise<MatchWithPlayers> {
   await tx.$queryRaw<{ id: string }[]>`
     SELECT id FROM "Match"
-    WHERE id = ${matchId} AND status IN ('IN_PROGRESS', 'WAITING_FOR_APPROVAL')
+    WHERE id = ${matchId} AND status IN ('IN_PROGRESS', 'WAITING_FOR_APPROVAL', 'WAITING_FOR_MITIGATION_APPROVAL')
     FOR UPDATE
   `;
 
@@ -114,6 +119,14 @@ async function lockReportableMatch(
       where: { id: matchId },
       include: matchWithPlayersInclude,
     }),
+  );
+}
+
+function isReportableStatus(status: string): boolean {
+  return (
+    status === 'IN_PROGRESS' ||
+    status === 'WAITING_FOR_APPROVAL' ||
+    status === 'WAITING_FOR_MITIGATION_APPROVAL'
   );
 }
 
@@ -195,7 +208,7 @@ export async function setQuitters(
       throw new MatchServiceError('This match was not found.');
     }
 
-    if (current.status !== 'IN_PROGRESS' && current.status !== 'WAITING_FOR_APPROVAL') {
+    if (!isReportableStatus(current.status)) {
       throw new MatchServiceError('This match is not awaiting approval or in progress.');
     }
 
@@ -235,7 +248,7 @@ export async function setGriefers(
       throw new MatchServiceError('This match was not found.');
     }
 
-    if (current.status !== 'IN_PROGRESS' && current.status !== 'WAITING_FOR_APPROVAL') {
+    if (!isReportableStatus(current.status)) {
       throw new MatchServiceError('This match is not awaiting approval or in progress.');
     }
 
@@ -262,10 +275,12 @@ export async function completeMatch(
   winningTeam: 1 | 2,
   quitterSlots?: number[],
   grieferSlots?: number[],
+  mitigationPercent: number = 0,
 ): Promise<CompleteMatchResult> {
   let resolvedQuitterSlots: number[] = [];
   let resolvedGrieferSlots: number[] = [];
   let ratingPreview: LobbyRatingPreview = { players: [] };
+  const mitigation = normalizeMitigationPercent(mitigationPercent);
 
   await prisma.$transaction(async (tx) => {
     const match = await lockReportableMatch(tx, matchId);
@@ -372,11 +387,17 @@ export async function completeMatch(
     const preMatchGamesByPlayer = gamesByPlayerFromStats(preMatchDisplayStats);
     await accrueGrieferPenalties(matchId, entries, preMatchGlobal, preMatchGamesByPlayer, tx);
     const completedAt = new Date();
-    await applyMatchRatings(leagueId, entries, winningTeam, completedAt, tx);
+    await applyMatchRatings(leagueId, entries, winningTeam, completedAt, tx, mitigation);
 
     await tx.match.update({
       where: { id: matchId },
-      data: { status: 'COMPLETED', completedAt },
+      data: {
+        status: 'COMPLETED',
+        completedAt,
+        ratingMitigationPercent: mitigation > 0 ? mitigation : null,
+        approvalWinnerTeam: null,
+        mitigationApprovalMessageId: null,
+      },
     });
 
     const displayStats = await loadMatchDisplayStatsByPlayer(leagueId, playerIds, tx);
@@ -408,6 +429,7 @@ export async function completeMatch(
       winningTeam,
       quitterSlots: resolvedQuitterSlots,
       grieferSlots: resolvedGrieferSlots,
+      mitigationPercent: mitigation,
     },
     'Match completed',
   );
