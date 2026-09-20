@@ -44,6 +44,18 @@ export {
   resolveMimeType,
   tryExtractLobbyPlayers,
 } from './lobby-screenshot.js';
+export type { OcrNickAlias } from './ocr-nick-aliases.js';
+export {
+  applyOcrNickAliases,
+  clearAllLeagueOcrNickAliases,
+  clearLeagueOcrNickAlias,
+  formatOcrNickAliasLines,
+  formatOcrNickAliasSection,
+  listLeagueOcrNickAliases,
+  loadLeagueOcrNickAliasMap,
+  normalizeOcrNickAliasPair,
+  setLeagueOcrNickAlias,
+} from './ocr-nick-aliases.js';
 export {
   assertLobbyPlayerClaimEnabled,
   addLobbyPlayer,

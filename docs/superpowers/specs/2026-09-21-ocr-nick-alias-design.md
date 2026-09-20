@@ -18,15 +18,15 @@ Staff can map screenshot-OCR misreads to canonical in-game nicks **per league** 
 
 ## Decisions (locked)
 
-| Topic | Choice |
-| --- | --- |
-| Scope | Screenshot OCR only |
-| Tenancy | Per `leagueId` |
-| Matching | Exact key after `normalizeNick` |
-| Target nick | Free-form (normalized); no Player existence check |
-| Admin UX | `/league_config` set / clear / view (config staff) |
-| Storage | Child table `LeagueOcrNickAlias` (not JSON on `League`) |
-| Event lobbies | Skip aliases (no league) |
+| Topic         | Choice                                                  |
+| ------------- | ------------------------------------------------------- |
+| Scope         | Screenshot OCR only                                     |
+| Tenancy       | Per `leagueId`                                          |
+| Matching      | Exact key after `normalizeNick`                         |
+| Target nick   | Free-form (normalized); no Player existence check       |
+| Admin UX      | `/league_config` set / clear / view (config staff)      |
+| Storage       | Child table `LeagueOcrNickAlias` (not JSON on `League`) |
+| Event lobbies | Skip aliases (no league)                                |
 
 ## Architecture
 
