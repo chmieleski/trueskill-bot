@@ -1,10 +1,6 @@
 import type { Attachment, Client } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
-import {
-  MatchServiceError,
-  requireLeagueId,
-  touchLobbyRosterAuthority,
-} from '../match/match-service.js';
+import { touchLobbyRosterAuthority } from '../match/match-service.js';
 import { getGameProfileForMatch } from '../match/match-service.js';
 import {
   applyRosterAndSync,
@@ -13,6 +9,7 @@ import {
   type LobbyActionResult,
 } from './discord-sync.js';
 import { extractLobbyPlayers, type LobbyPlayer } from './lobby-ocr.js';
+import { applyOcrNickAliases, loadLeagueOcrNickAliasMap } from './ocr-nick-aliases.js';
 import { assertRegisterLobbyAllowedForProfile } from './register-lobby-source.js';
 import { resolvePendingMatchForManage } from './resolve.js';
 
@@ -75,13 +72,24 @@ export function resolveMimeType(attachment: Attachment): string {
 /**
  * Soft OCR: return extracted players when possible, otherwise [].
  * Partial lobbies are kept even when both-teams validation would fail.
+ * When `leagueId` is set, apply that league's OCR nick aliases after extract.
  */
 export async function tryExtractLobbyPlayers(
   url: string,
   mimeType: string,
+  leagueId?: string | null,
 ): Promise<LobbyPlayer[]> {
   try {
     const players = await extractLobbyPlayers(url, mimeType);
+    if (leagueId && players.length > 0) {
+      const aliasMap = await loadLeagueOcrNickAliasMap(leagueId);
+      const aliased = applyOcrNickAliases(players, aliasMap);
+      log.debug(
+        { playerCount: aliased.length, players: aliased, leagueId },
+        'OCR players extracted (aliases applied)',
+      );
+      return aliased;
+    }
     log.debug({ playerCount: players.length, players }, 'OCR players extracted');
     return players;
   } catch (error) {
@@ -116,7 +124,11 @@ export async function refreshLobbyFromScreenshot(input: {
     hasWc3statsId: false,
   });
 
-  const extracted = await tryExtractLobbyPlayers(input.attachmentUrl, input.mimeType);
+  const extracted = await tryExtractLobbyPlayers(
+    input.attachmentUrl,
+    input.mimeType,
+    match.leagueId,
+  );
 
   if (extracted.length === 0) {
     const touched = await touchLobbyRosterAuthority(match.id);

@@ -50,6 +50,11 @@ import {
 import { MatchServiceError } from '../../services/match/index.js';
 import { RankResetServiceError } from '../../services/rating/index.js';
 import {
+  clearAllLeagueOcrNickAliases,
+  clearLeagueOcrNickAlias,
+  setLeagueOcrNickAlias,
+} from '../../services/lobby/ocr-nick-aliases.js';
+import {
   assertConfigStaff,
   requireLeagueId,
   requireWc3statsLeague,
@@ -320,6 +325,22 @@ export const data = new SlashCommandBuilder()
                 .setRequired(true),
             ),
         ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('ocr_nick_alias')
+            .setDescription('Map an OCR misread nick to the correct nick')
+            .addStringOption((option) =>
+              option
+                .setName('from')
+                .setDescription('Wrong nick as OCR usually reads it')
+                .setRequired(true),
+            )
+            .addStringOption((option) =>
+              option.setName('to').setDescription('Correct in-game nick').setRequired(true),
+            ),
+        ),
       ),
   )
   .addSubcommandGroup((group) =>
@@ -360,6 +381,26 @@ export const data = new SlashCommandBuilder()
                 .setMinValue(0)
                 .setMaxValue(23),
             ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('ocr_nick_alias')
+            .setDescription('Remove one OCR nick alias')
+            .addStringOption((option) =>
+              option
+                .setName('from')
+                .setDescription('Wrong nick alias key to remove')
+                .setRequired(true),
+            ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('ocr_nick_aliases')
+            .setDescription('Remove all OCR nick aliases for this league'),
         ),
       )
       .addSubcommand((subcommand) =>
@@ -922,6 +963,41 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       });
       return;
     }
+
+    if (subcommand === 'ocr_nick_alias') {
+      const leagueId = await requireLeagueId(interaction);
+      if (!leagueId) return;
+
+      const from = interaction.options.getString('from', true);
+      const to = interaction.options.getString('to', true);
+      try {
+        const alias = await setLeagueOcrNickAlias(leagueId, from, to);
+        log.info(
+          {
+            guildId: interaction.guildId,
+            leagueId,
+            fromNick: alias.fromNick,
+            toNick: alias.toNick,
+            userId: interaction.user.id,
+          },
+          'OCR nick alias upserted',
+        );
+        await interaction.reply({
+          content: `OCR nick alias set: \`${alias.fromNick}\` → \`${alias.toNick}\`.`,
+          flags: MessageFlags.Ephemeral,
+        });
+      } catch (error) {
+        if (error instanceof MatchServiceError) {
+          await interaction.reply({
+            content: error.message,
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+        throw error;
+      }
+      return;
+    }
   }
 
   if (subcommandGroup === 'clear') {
@@ -988,6 +1064,61 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         content: removed
           ? `Cleared mapping for wc3stats slot \`${wc3Slot}\`.`
           : `No mapping found for wc3stats slot \`${wc3Slot}\`.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (subcommand === 'ocr_nick_alias') {
+      const leagueId = await requireLeagueId(interaction);
+      if (!leagueId) return;
+
+      const from = interaction.options.getString('from', true);
+      try {
+        const removed = await clearLeagueOcrNickAlias(leagueId, from);
+        log.info(
+          {
+            guildId: interaction.guildId,
+            leagueId,
+            from,
+            removed,
+            userId: interaction.user.id,
+          },
+          'OCR nick alias cleared',
+        );
+        await interaction.reply({
+          content: removed
+            ? `Cleared OCR nick alias for \`${from}\`.`
+            : `No OCR nick alias found for \`${from}\`.`,
+          flags: MessageFlags.Ephemeral,
+        });
+      } catch (error) {
+        if (error instanceof MatchServiceError) {
+          await interaction.reply({
+            content: error.message,
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+        throw error;
+      }
+      return;
+    }
+
+    if (subcommand === 'ocr_nick_aliases') {
+      const leagueId = await requireLeagueId(interaction);
+      if (!leagueId) return;
+
+      const removed = await clearAllLeagueOcrNickAliases(leagueId);
+      log.info(
+        { guildId: interaction.guildId, leagueId, removed, userId: interaction.user.id },
+        'OCR nick aliases cleared',
+      );
+      await interaction.reply({
+        content:
+          removed === 0
+            ? 'No OCR nick aliases to clear.'
+            : `Cleared ${removed} OCR nick alias${removed === 1 ? '' : 'es'}.`,
         flags: MessageFlags.Ephemeral,
       });
       return;

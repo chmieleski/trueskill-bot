@@ -98,6 +98,7 @@ model League {
   heroRatings       PlayerHeroRating[]
   rankResets        PlayerRankReset[]
   wc3statsSlotMaps  LeagueWc3statsSlotMap[]
+  ocrNickAliases    LeagueOcrNickAlias[]
   predecessor       League?                 @relation("LeagueSuccession", fields: [predecessorLeagueId], references: [id])
   successors        League[]                @relation("LeagueSuccession")
   rolloverDrafts    LeagueRolloverDraft[]
@@ -119,6 +120,20 @@ model LeagueWc3statsSlotMap {
   @@id([leagueId, wc3statsSlot])
   @@index([leagueId])
   @@index([leagueId, heroId])
+}
+
+/// Screenshot OCR nick remaps (exact match after normalizeNick). Not used for wc3stats/WOS/manual.
+model LeagueOcrNickAlias {
+  leagueId  String
+  fromNick  String
+  toNick    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+
+  @@id([leagueId, fromNick])
+  @@index([leagueId])
 }
 
 model LeagueChannelBinding {
