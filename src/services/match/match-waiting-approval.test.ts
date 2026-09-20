@@ -217,12 +217,12 @@ describe('ingestWosReportForApproval', () => {
     );
   });
 
-  it('prefills isQuitter when a report player has left=true', async () => {
+  it('does not auto-flag quitters from report left=true (mods flag manually)', async () => {
     stubWritableLeague();
     const { lastCreateData } = stubCreateTransaction('match-waiting-quit');
     stubMatchPlayersAfterCreate('match-waiting-quit', [
       { playerId: 'p-thundergear', slot: 1, username: 'thundergear' },
-      { playerId: 'p-lavashark', slot: 2, username: 'lavashark', isQuitter: true },
+      { playerId: 'p-lavashark', slot: 2, username: 'lavashark' },
       { playerId: 'p-maseter', slot: 6, username: 'maseter' },
     ]);
     persistWos2MatchStats.mockResolvedValue({
@@ -240,11 +240,7 @@ describe('ingestWosReportForApproval', () => {
     expect(createData).toBeDefined();
     const players = (createData!.players as { create: Array<{ isQuitter: boolean; slot: number }> })
       .create;
-    const quitter = players.find((entry) => entry.slot === 2);
-    expect(quitter?.isQuitter).toBe(true);
-    expect(
-      players.filter((entry) => entry.slot !== 2).every((entry) => entry.isQuitter === false),
-    ).toBe(true);
+    expect(players.every((entry) => entry.isQuitter === false)).toBe(true);
   });
 
   it('rejects when the game profile is not WOS post-match stats', async () => {
