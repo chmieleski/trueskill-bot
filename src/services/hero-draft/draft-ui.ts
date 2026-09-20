@@ -11,11 +11,18 @@ import {
   currentTurn,
   heroNameByObjectId,
   isHeroDraftComplete,
+  teamBySide,
 } from './draft-logic.js';
-import { HERO_DRAFT_SEQUENCE, type HeroDraftState, type HeroPoolEntry } from './draft-types.js';
+import {
+  HERO_DRAFT_SEQUENCE,
+  type HeroDraftState,
+  type HeroDraftTeam,
+  type HeroPoolEntry,
+} from './draft-types.js';
 
 export const HERO_DRAFT_PAGE_SIZE = 25;
 export const HERO_DRAFT_PAGE_NAV_PREFIX = '__page__:';
+export const HERO_DRAFT_EMBED_FIELD_MAX = 1024;
 
 export type HeroEmojiRef = { id: string; name: string };
 
@@ -39,7 +46,16 @@ export function resolveHeroEmojiMap(
   return result;
 }
 
-function formatHeroLabel(
+function kindLabel(kind: 'ban' | 'pick'): string {
+  return kind === 'ban' ? '🚫 **BAN**' : '✅ **PICK**';
+}
+
+function kindEmojiPlain(kind: 'ban' | 'pick'): string {
+  return kind === 'ban' ? '🚫' : '✅';
+}
+
+/** Format a hero with application emoji when available. */
+export function formatHeroLabel(
   state: HeroDraftState,
   objectId: number | null,
   emojiMap: Map<number, HeroEmojiRef>,
@@ -52,7 +68,16 @@ function formatHeroLabel(
   return emoji ? `<:${emoji.name}:${emoji.id}> ${name}` : name;
 }
 
-function formatList(
+/** Truncate embed field text to Discord's 1024-char limit. */
+export function truncateEmbedField(text: string, max = HERO_DRAFT_EMBED_FIELD_MAX): string {
+  if (text.length <= max) {
+    return text;
+  }
+  const marker = '… +more';
+  return `${text.slice(0, Math.max(0, max - marker.length))}${marker}`;
+}
+
+function formatHeroLines(
   state: HeroDraftState,
   values: Array<number | null>,
   emojiMap: Map<number, HeroEmojiRef>,
@@ -60,7 +85,23 @@ function formatList(
   if (values.length === 0) {
     return '_none_';
   }
-  return values.map((id) => formatHeroLabel(state, id, emojiMap)).join(', ');
+  return values.map((id) => formatHeroLabel(state, id, emojiMap)).join('\n');
+}
+
+function buildTeamFieldValue(
+  state: HeroDraftState,
+  team: HeroDraftTeam,
+  emojiMap: Map<number, HeroEmojiRef>,
+): string {
+  const captain = team.captain.discordId ? `<@${team.captain.discordId}>` : team.captain.label;
+  const value = [
+    `Captain: ${captain}`,
+    '🚫 Bans',
+    formatHeroLines(state, team.bans, emojiMap),
+    '✅ Picks',
+    formatHeroLines(state, team.picks, emojiMap),
+  ].join('\n');
+  return truncateEmbedField(value);
 }
 
 export function buildHeroDraftCustomId(
@@ -100,7 +141,7 @@ export function parseHeroDraftCustomId(customId: string): HeroDraftCustomId | nu
   return null;
 }
 
-/** Build the live or summary embed for a hero draft. */
+/** Build the live or summary embed for a hero draft (dual-column duel layout). */
 export function buildHeroDraftEmbed(
   state: HeroDraftState,
   emojiMap: Map<number, HeroEmojiRef> = new Map(),
@@ -110,46 +151,132 @@ export function buildHeroDraftEmbed(
   const [team1, team2] = state.teams;
 
   const embed = new EmbedBuilder()
-    .setTitle(complete ? 'Hero draft complete' : 'Hero ban / pick')
+    .setTitle(complete ? 'Hero draft complete' : 'Hero draft')
     .setColor(complete ? 0x57f287 : 0x5865f2)
     .addFields(
       {
         name: team1!.displayName,
-        value: [
-          `Captain: <@${team1!.captain.discordId ?? 'unknown'}>`,
-          `Bans: ${formatList(state, team1!.bans, emojiMap)}`,
-          `Picks: ${formatList(state, team1!.picks, emojiMap)}`,
-        ].join('\n'),
-        inline: false,
+        value: buildTeamFieldValue(state, team1!, emojiMap),
+        inline: true,
       },
       {
         name: team2!.displayName,
-        value: [
-          `Captain: <@${team2!.captain.discordId ?? 'unknown'}>`,
-          `Bans: ${formatList(state, team2!.bans, emojiMap)}`,
-          `Picks: ${formatList(state, team2!.picks, emojiMap)}`,
-        ].join('\n'),
-        inline: false,
+        value: buildTeamFieldValue(state, team2!, emojiMap),
+        inline: true,
       },
     );
 
   if (!complete && turn) {
-    const onClock = state.teams.find((team) => team.side === turn.team)!;
+    const onClock = teamBySide(state, turn.team);
     const deadline = state.actionDeadlineAt
       ? `<t:${Math.floor(new Date(state.actionDeadlineAt).getTime() / 1000)}:R>`
       : '—';
+    const captainMention = onClock.captain.discordId
+      ? `<@${onClock.captain.discordId}>`
+      : onClock.captain.label;
     embed.setDescription(
-      `**Turn ${state.turnIndex + 1}/${HERO_DRAFT_SEQUENCE.length}:** ${turn.kind.toUpperCase()} — <@${onClock.captain.discordId}> (${deadline})`,
+      `On the clock: ${captainMention} · ${kindLabel(turn.kind)} · ${deadline}\n` +
+        `Turn ${state.turnIndex + 1}/${HERO_DRAFT_SEQUENCE.length}`,
     );
     embed.addFields({
-      name: 'Available',
-      value: `${availableHeroes(state).length} heroes remaining`,
+      name: 'Pool',
+      value: truncateEmbedField(
+        `${availableHeroes(state).length} heroes remaining · Select below or \`/hero_draft select\``,
+      ),
     });
   } else if (complete) {
     embed.setDescription('Draft finished. Create the lobby separately.');
   }
 
   return embed;
+}
+
+export type HeroDraftActionLogResult = {
+  content: string;
+  mentionUserIds: string[];
+};
+
+export type HeroDraftActionLogOptions = {
+  reason?: 'action' | 'timeout' | 'cancel';
+};
+
+/**
+ * Build a thread action-log message from previous → next state.
+ * Caller should pass `allowedMentions: { users: mentionUserIds }`.
+ */
+export function buildHeroDraftActionLogContent(
+  previous: HeroDraftState,
+  next: HeroDraftState,
+  emojiMap: Map<number, HeroEmojiRef> = new Map(),
+  options: HeroDraftActionLogOptions = {},
+): HeroDraftActionLogResult {
+  if (options.reason === 'cancel') {
+    return { content: '🛑 Hero draft cancelled by a moderator.', mentionUserIds: [] };
+  }
+
+  const turn = currentTurn(previous);
+  if (!turn) {
+    return { content: '✅ Hero draft complete.', mentionUserIds: [] };
+  }
+
+  const acting = teamBySide(previous, turn.team);
+  const actingNext = teamBySide(next, turn.team);
+  const timeoutNote = options.reason === 'timeout' ? ' _(timeout)_' : '';
+
+  let actionText: string;
+  if (turn.kind === 'ban') {
+    const banValue = actingNext.bans[actingNext.bans.length - 1] ?? null;
+    if (banValue == null) {
+      actionText = `${kindEmojiPlain('ban')} **${acting.displayName}** skipped ban${timeoutNote}`;
+    } else {
+      actionText = `${kindEmojiPlain('ban')} **${acting.displayName}** banned ${formatHeroLabel(previous, banValue, emojiMap)}${timeoutNote}`;
+    }
+  } else {
+    const pickValue = actingNext.picks[actingNext.picks.length - 1];
+    actionText = `${kindEmojiPlain('pick')} **${acting.displayName}** picked ${formatHeroLabel(previous, pickValue ?? null, emojiMap)}${timeoutNote}`;
+  }
+
+  const nextTurn = currentTurn(next);
+  if (!nextTurn || isHeroDraftComplete(next)) {
+    return {
+      content: `${actionText} → ✅ **Draft complete**`,
+      mentionUserIds: [],
+    };
+  }
+
+  const nextTeam = teamBySide(next, nextTurn.team);
+  const nextCaptainId = nextTeam.captain.discordId;
+  const nextKind = kindLabel(nextTurn.kind);
+  if (nextCaptainId) {
+    return {
+      content: `${actionText} → ${nextKind} <@${nextCaptainId}>`,
+      mentionUserIds: [nextCaptainId],
+    };
+  }
+
+  return {
+    content: `${actionText} → ${nextKind} ${nextTeam.captain.label}`,
+    mentionUserIds: [],
+  };
+}
+
+/** Filter available heroes for `/hero_draft select` autocomplete. */
+export function filterAvailableHeroesForAutocomplete(
+  state: HeroDraftState,
+  query: string,
+  limit = 25,
+): HeroPoolEntry[] {
+  const available = availableHeroes(state);
+  const normalized = query.trim().toLowerCase();
+  const filtered =
+    normalized.length === 0
+      ? available
+      : available.filter(
+          (hero) =>
+            hero.name.toLowerCase().includes(normalized) ||
+            String(hero.objectId).includes(normalized),
+        );
+  return filtered.slice(0, limit);
 }
 
 /** Build message components for the active turn. */
@@ -211,7 +338,9 @@ export function buildHeroDraftComponents(
       new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId(buildHeroDraftCustomId('sel', draftId, safePage))
-          .setPlaceholder(turn.kind === 'ban' ? 'Select a hero to ban' : 'Select a hero to pick')
+          .setPlaceholder(
+            turn.kind === 'ban' ? '🚫 Select a hero to ban' : '✅ Select a hero to pick',
+          )
           .addOptions(options.slice(0, 25)),
       ),
     );
