@@ -1,3 +1,15 @@
+# [1.57.0](https://github.com/chmieleski/trueskill-bot/compare/v1.56.1...v1.57.0) (2026-09-20)
+
+
+### Bug Fixes
+
+* **wos:** stop auto-flagging quitters on API report ingest ([#172](https://github.com/chmieleski/trueskill-bot/issues/172)) ([5bd06d1](https://github.com/chmieleski/trueskill-bot/commit/5bd06d129bc7c62dbb246a669e77fb050972dbf0))
+
+
+### Features
+
+* **hero-draft:** pinned duel panel and action log UX ([#171](https://github.com/chmieleski/trueskill-bot/issues/171)) ([ee316d1](https://github.com/chmieleski/trueskill-bot/commit/ee316d1f2f654184b527751adbf5b0e1c44fcee3))
+
 ## [1.56.1](https://github.com/chmieleski/trueskill-bot/compare/v1.56.0...v1.56.1) (2026-09-20)
 
 
