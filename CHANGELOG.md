@@ -1,3 +1,10 @@
+## [1.58.1](https://github.com/chmieleski/trueskill-bot/compare/v1.58.0...v1.58.1) (2026-09-20)
+
+
+### Bug Fixes
+
+* **lobby:** split OCR nick aliases into own slash command ([#175](https://github.com/chmieleski/trueskill-bot/issues/175)) ([94495d9](https://github.com/chmieleski/trueskill-bot/commit/94495d92e1a187deab5737e8dfd28908a6c2a726))
+
 # [1.58.0](https://github.com/chmieleski/trueskill-bot/compare/v1.57.0...v1.58.0) (2026-09-20)
 
 
