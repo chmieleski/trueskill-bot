@@ -1,3 +1,11 @@
+# [1.58.0](https://github.com/chmieleski/trueskill-bot/compare/v1.57.0...v1.58.0) (2026-09-20)
+
+
+### Features
+
+* **league:** sync Discord roles for [#1](https://github.com/chmieleski/trueskill-bot/issues/1) hero-ki champions ([#173](https://github.com/chmieleski/trueskill-bot/issues/173)) ([b9efabd](https://github.com/chmieleski/trueskill-bot/commit/b9efabd248008a76b863576c7d5bd613c9ee4743))
+* **lobby:** add per-league OCR nick aliases ([#174](https://github.com/chmieleski/trueskill-bot/issues/174)) ([3d5c7c5](https://github.com/chmieleski/trueskill-bot/commit/3d5c7c5159283671fdfb013f2f25a4cbe4a2a2cb))
+
 # [1.57.0](https://github.com/chmieleski/trueskill-bot/compare/v1.56.1...v1.57.0) (2026-09-20)
 
 
