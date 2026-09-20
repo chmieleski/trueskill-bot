@@ -8,6 +8,7 @@ export {
   startHeroDraft,
   syncHeroDraftLiveMessage,
 } from './draft-actions.js';
+export type { StartHeroDraftResult } from './draft-actions.js';
 export { assertHeroDraftMod, assertOnClockCaptain } from './draft-auth.js';
 export {
   applyBan,

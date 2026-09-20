@@ -12,11 +12,17 @@ import { prisma } from '../../lib/prisma.js';
 import { resolveGuildConfig } from '../../services/guild/index.js';
 import {
   assertHeroDraftMod,
+  applyHeroBan,
+  applyHeroPick,
   cancelHeroDraft,
+  currentTurn,
+  filterAvailableHeroesForAutocomplete,
   findActiveHeroDraftForThread,
   HeroDraftError,
   listCompletableCaptainDrafts,
   loadCompletedCaptainDraft,
+  loadHeroDraftById,
+  parseHeroDraftState,
   resolveManualTeam,
   startHeroDraft,
   teamFromCaptainDraftTeam,
@@ -112,6 +118,18 @@ export const data = new SlashCommandBuilder()
           .setName('draft_id')
           .setDescription('Optional draft id (defaults to this thread)')
           .setRequired(false),
+      ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('select')
+      .setDescription('Ban or pick a hero for the active draft in this thread (captain)')
+      .addStringOption((option) =>
+        option
+          .setName('hero')
+          .setDescription('Hero to ban or pick (follows the current turn)')
+          .setRequired(true)
+          .setAutocomplete(true),
       ),
   );
 
@@ -212,7 +230,7 @@ async function executeStart(interaction: ChatInputCommandInteraction): Promise<v
   });
 
   const timer = interaction.options.getInteger('timer') ?? undefined;
-  const draft = await startHeroDraft({
+  const { draft, pinFailed } = await startHeroDraft({
     client: interaction.client,
     guild: interaction.guild,
     parentChannel: interaction.channel as TextChannel,
@@ -225,8 +243,11 @@ async function executeStart(interaction: ChatInputCommandInteraction): Promise<v
     sourceCaptainDraftId: captainDraftId,
   });
 
+  const pinNote = pinFailed
+    ? ' (Could not pin the live panel — grant Manage Messages / Pin permission if you want it pinned.)'
+    : '';
   await interaction.editReply({
-    content: `Hero draft started in <#${draft.threadId}>.`,
+    content: `Hero draft started in <#${draft.threadId}>.${pinNote}`,
   });
 }
 
@@ -262,6 +283,61 @@ async function executeCancel(interaction: ChatInputCommandInteraction): Promise<
   await interaction.editReply({ content: 'Hero draft cancelled.' });
 }
 
+async function executeSelect(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!interaction.guildId || !interaction.channelId) {
+    await interaction.reply({
+      content: 'This command can only be used in a server thread.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  const active = await findActiveHeroDraftForThread(interaction.guildId, interaction.channelId);
+  if (!active) {
+    await interaction.editReply({
+      content:
+        'No active hero draft in this thread. Run `/hero_draft select` inside the draft thread.',
+    });
+    return;
+  }
+
+  const heroRaw = interaction.options.getString('hero', true);
+  const objectId = Number(heroRaw);
+  if (!Number.isInteger(objectId)) {
+    await interaction.editReply({ content: 'Invalid hero selection.' });
+    return;
+  }
+
+  const draft = await loadHeroDraftById(active.id);
+  const state = parseHeroDraftState(draft);
+  const turn = currentTurn(state);
+  if (!turn) {
+    await interaction.editReply({ content: 'The draft is already complete.' });
+    return;
+  }
+
+  if (turn.kind === 'ban') {
+    await applyHeroBan({
+      client: interaction.client,
+      draftId: draft.id,
+      actorDiscordId: interaction.user.id,
+      objectId,
+    });
+    await interaction.editReply({ content: 'Ban recorded.' });
+    return;
+  }
+
+  await applyHeroPick({
+    client: interaction.client,
+    draftId: draft.id,
+    actorDiscordId: interaction.user.id,
+    objectId,
+  });
+  await interaction.editReply({ content: 'Pick recorded.' });
+}
+
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
   const focused = interaction.options.getFocused(true);
 
@@ -272,6 +348,31 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
 
   if (!interaction.guildId) {
     await interaction.respond([]);
+    return;
+  }
+
+  if (focused.name === 'hero') {
+    if (!interaction.channelId) {
+      await interaction.respond([]);
+      return;
+    }
+    const active = await findActiveHeroDraftForThread(interaction.guildId, interaction.channelId);
+    if (!active) {
+      await interaction.respond([]);
+      return;
+    }
+    try {
+      const state = parseHeroDraftState(await loadHeroDraftById(active.id));
+      const heroes = filterAvailableHeroesForAutocomplete(state, focused.value, 25);
+      await interaction.respond(
+        heroes.map((hero) => ({
+          name: `${hero.name} (${hero.objectId})`.slice(0, 100),
+          value: String(hero.objectId),
+        })),
+      );
+    } catch {
+      await interaction.respond([]);
+    }
     return;
   }
 
@@ -334,6 +435,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
     if (sub === 'cancel') {
       await executeCancel(interaction);
+      return;
+    }
+    if (sub === 'select') {
+      await executeSelect(interaction);
       return;
     }
     await interaction.reply({
