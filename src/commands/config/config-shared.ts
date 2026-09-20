@@ -25,6 +25,7 @@ import {
   formatWc3statsSlotMapLines,
   listLeagueWc3statsSlotMaps,
 } from '../../services/wc3stats/index.js';
+import { listLeagueHeroChampionRoles } from '../../services/hero-champion-roles/index.js';
 import {
   formatOcrNickAliasLines,
   formatOcrNickAliasSection,
@@ -254,6 +255,26 @@ export function formatApiTokenConfigLine(
   return '**API token:** `set`';
 }
 
+export function formatHeroChampionRolesLine(
+  enabled: boolean,
+  mappings: {
+    heroId: number;
+    heroName: string;
+    discordRoleId: string;
+    holderDiscordId: string | null;
+  }[],
+): string {
+  const header = `**Hero champion roles:** \`${enabled ? 'on' : 'off'}\``;
+  if (mappings.length === 0) {
+    return `${header} · no heroes mapped`;
+  }
+  const lines = mappings.map((m) => {
+    const holder = m.holderDiscordId ? `<@${m.holderDiscordId}>` : '`none`';
+    return `• ${m.heroName} (\`${m.heroId}\`) → <@&${m.discordRoleId}> · holder ${holder}`;
+  });
+  return [header, ...lines].join('\n');
+}
+
 /** Build `/config view` output for guild-wide and league-scoped settings. */
 export async function buildConfigViewContent(
   interaction: ChatInputCommandInteraction,
@@ -271,6 +292,7 @@ export async function buildConfigViewContent(
   const leagueId = leagueContext.league.id;
   const leagueConfig = await resolveLeagueConfig(leagueId);
   const slotMaps = await listLeagueWc3statsSlotMaps(leagueId);
+  const heroChampionRoles = await listLeagueHeroChampionRoles(leagueId);
   const ocrNickAliases = await listLeagueOcrNickAliases(leagueId);
 
   return [
@@ -307,6 +329,7 @@ export async function buildConfigViewContent(
     formatRankResetLine(leagueConfig.rankResetEnabled, leagueConfig.rankResetCooldownDays),
     formatBalanceStaticSigmaLine(leagueConfig.balanceStaticSigmaEnabled),
     formatSideWinLossLine(leagueConfig.showSideWinLoss),
+    formatHeroChampionRolesLine(leagueConfig.heroChampionRolesEnabled, heroChampionRoles),
     formatDecayLine(
       leagueConfig.decayEnabled,
       leagueConfig.seasonEndsAt,

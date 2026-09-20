@@ -37,6 +37,7 @@ function testContext() {
     decayEnabled: true,
     balanceStaticSigmaEnabled: false,
     showSideWinLoss: false,
+    heroChampionRolesEnabled: false,
     seasonEndsAt: undefined,
     decayInCrunch: false,
     decaySettings: DEFAULT_DECAY_SETTINGS,

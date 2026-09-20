@@ -8,7 +8,7 @@ import {
 import type { ButtonInteraction, Interaction } from 'discord.js';
 import { prisma } from '../../lib/prisma.js';
 import { resolveGuildConfig } from '../../services/guild/index.js';
-import { refreshLeagueLeaderboard } from '../../services/leaderboard/index.js';
+import { notifyLeagueRatingChanged } from '../../services/hero-champion-roles/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
 import {
   applyRankReset,
@@ -103,7 +103,7 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
       expectedPlayerId: parsed.playerId,
     });
 
-    await refreshLeagueLeaderboard(interaction.client, parsed.leagueId);
+    await notifyLeagueRatingChanged(interaction.client, parsed.leagueId);
     await interaction.editReply({
       content: result.staffOverride
         ? `Reset **${result.username}**'s rank. Their overall and hero ki have been reset.`

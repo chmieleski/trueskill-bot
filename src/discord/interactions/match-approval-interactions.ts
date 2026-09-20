@@ -14,8 +14,8 @@ import { resolveGuildConfig, winnerLabel } from '../../services/guild/index.js';
 import {
   refreshGuildGrieferLeaderboard,
   refreshGuildQuitterLeaderboard,
-  refreshLeagueLeaderboard,
 } from '../../services/leaderboard/index.js';
+import { notifyLeagueRatingChanged } from '../../services/hero-champion-roles/index.js';
 import {
   approveWaitingMatch,
   assertHasMatchModRole,
@@ -270,7 +270,7 @@ async function handleApprove(interaction: ButtonInteraction, matchId: string): P
     winningTeam,
     postToMatchLog: true,
   });
-  await refreshLeagueLeaderboard(interaction.client, requireLeagueId(result.match));
+  await notifyLeagueRatingChanged(interaction.client, requireLeagueId(result.match));
   if (interaction.guildId) {
     await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
     await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);

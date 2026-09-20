@@ -36,7 +36,7 @@ Screenshot → Gemini OCR → normalizeNick (in lobby-ocr)
   → rewrite nick on exact fromNick hit
   → apply roster
 
-/league_config set|clear ocr_nick_alias
+Staff configure aliases with `/ocr_nick_alias_config` (split from `/league_config` for Discord’s 8KB slash-command size limit).
   → assertConfigStaff → CRUD service → Prisma
 ```
 
@@ -65,10 +65,10 @@ model LeagueOcrNickAlias {
 
 ## Commands
 
-- `/league_config set ocr_nick_alias` — `from`, `to`
-- `/league_config clear ocr_nick_alias` — `from` (one entry)
-- `/league_config clear ocr_nick_aliases` — all entries for the league
-- `/league_config view` / `/config view` — list aliases (compact lines)
+- `/ocr_nick_alias_config set` — `from`, `to`
+- `/ocr_nick_alias_config clear` — `from` (one entry)
+- `/ocr_nick_alias_config clear_all` — all entries for the league
+- `/config view` — list aliases (compact lines)
 
 English ephemeral replies. Auth: existing `assertConfigStaff`.
 

@@ -54,4 +54,6 @@ Host prompts (if on) **must** use this channel. `/league bind` separately for au
 
 **8) Decay** — `/league_config set decay enabled:true|false` (see rating-decay guide).
 
+**9) Hero champion roles (UDBR)** — create Discord roles → `/hero_champion_config map` → `/hero_champion_config enable`. See **a10-hero-champion-roles**.
+
 **See everything:** `/config view`
