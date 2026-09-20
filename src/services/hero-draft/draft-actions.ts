@@ -27,10 +27,12 @@ import {
   type HeroDraftTeam,
 } from './draft-types.js';
 import {
+  buildHeroDraftActionLogContent,
   buildHeroDraftComponents,
   buildHeroDraftEmbed,
   buildHeroDraftPingContent,
   resolveHeroEmojiMap,
+  type HeroDraftActionLogOptions,
   type HeroEmojiRef,
 } from './draft-ui.js';
 import { clearHeroDraftTimer, scheduleHeroDraftTimeout } from './draft-timer.js';
@@ -64,11 +66,42 @@ function deadlineFromNow(timerSeconds: number): string {
   return new Date(Date.now() + timerSeconds * 1000).toISOString();
 }
 
+async function postHeroDraftActionLog(input: {
+  client: Client;
+  threadId: string;
+  draftId: string;
+  previous: HeroDraftState;
+  next: HeroDraftState;
+  options?: HeroDraftActionLogOptions;
+}): Promise<void> {
+  try {
+    const channel = await input.client.channels.fetch(input.threadId);
+    if (!channel?.isTextBased() || channel.isDMBased()) {
+      return;
+    }
+    const emojiMap = await loadEmojiMap(input.client, input.next);
+    const logMessage = buildHeroDraftActionLogContent(
+      input.previous,
+      input.next,
+      emojiMap,
+      input.options,
+    );
+    await channel.send({
+      content: logMessage.content,
+      allowedMentions: { users: logMessage.mentionUserIds },
+    });
+  } catch (error) {
+    log.warn({ err: error, draftId: input.draftId }, 'Failed to post hero draft action log');
+  }
+}
+
 async function persistAndSchedule(
   client: Client,
   draft: HeroDraft,
+  previousState: HeroDraftState,
   state: HeroDraftState,
   status: 'ACTIVE' | 'COMPLETE' | 'CANCELLED',
+  logOptions: HeroDraftActionLogOptions = { reason: 'action' },
 ): Promise<HeroDraft> {
   let nextState = state;
   if (status === 'ACTIVE' && !isHeroDraftComplete(nextState)) {
@@ -87,6 +120,14 @@ async function persistAndSchedule(
   }
 
   await syncHeroDraftLiveMessage(client, saved.id);
+  await postHeroDraftActionLog({
+    client,
+    threadId: draft.threadId,
+    draftId: draft.id,
+    previous: previousState,
+    next: nextState,
+    options: logOptions,
+  });
   return saved;
 }
 
@@ -128,8 +169,13 @@ export type StartHeroDraftInput = {
   sourceCaptainDraftId?: string | null;
 };
 
+export type StartHeroDraftResult = {
+  draft: HeroDraft;
+  pinFailed: boolean;
+};
+
 /** Create a public thread and begin an ACTIVE hero draft. */
-export async function startHeroDraft(input: StartHeroDraftInput): Promise<HeroDraft> {
+export async function startHeroDraft(input: StartHeroDraftInput): Promise<StartHeroDraftResult> {
   if (input.gameId !== WARCRAFT3_WOS_GAME_ID) {
     throw new HeroDraftError('Hero draft is only available for Warcraft III WOS leagues.');
   }
@@ -190,9 +236,17 @@ export async function startHeroDraft(input: StartHeroDraftInput): Promise<HeroDr
     data: { liveMessageId: message.id },
   });
 
+  let pinFailed = false;
+  try {
+    await message.pin();
+  } catch (error) {
+    pinFailed = true;
+    log.warn({ err: error, draftId: saved.id }, 'Failed to pin hero draft live panel');
+  }
+
   scheduleHeroDraftTimeout(input.client, saved.id, state.actionDeadlineAt);
   log.info({ draftId: saved.id, threadId: thread.id }, 'Hero draft started');
-  return saved;
+  return { draft: saved, pinFailed };
 }
 
 export async function cancelHeroDraft(input: {
@@ -205,18 +259,18 @@ export async function cancelHeroDraft(input: {
   }
 
   clearHeroDraftTimer(draft.id);
-  const state = setActionDeadline(parseHeroDraftState(draft), null);
+  const previous = parseHeroDraftState(draft);
+  const state = setActionDeadline(previous, null);
   const saved = await saveHeroDraftState(draft.id, 'CANCELLED', state);
   await syncHeroDraftLiveMessage(input.client, saved.id);
-
-  try {
-    const channel = await input.client.channels.fetch(draft.threadId);
-    if (channel?.isTextBased() && !channel.isDMBased()) {
-      await channel.send('Hero draft cancelled by a moderator.');
-    }
-  } catch {
-    // ignore
-  }
+  await postHeroDraftActionLog({
+    client: input.client,
+    threadId: draft.threadId,
+    draftId: draft.id,
+    previous,
+    next: state,
+    options: { reason: 'cancel' },
+  });
 
   return saved;
 }
@@ -238,7 +292,7 @@ async function applyMutation(input: {
 
   let next = input.mutate(state);
   const status = isHeroDraftComplete(next) ? 'COMPLETE' : 'ACTIVE';
-  return persistAndSchedule(input.client, draft, next, status);
+  return persistAndSchedule(input.client, draft, state, next, status, { reason: 'action' });
 }
 
 export async function applyHeroBan(input: {
@@ -323,5 +377,5 @@ export async function applyTimeoutAction(input: {
   clearHeroDraftTimer(draft.id);
   let next = applyTimeout(state);
   const status = isHeroDraftComplete(next) ? 'COMPLETE' : 'ACTIVE';
-  return persistAndSchedule(input.client, draft, next, status);
+  return persistAndSchedule(input.client, draft, state, next, status, { reason: 'timeout' });
 }

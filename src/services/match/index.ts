@@ -99,6 +99,17 @@ export {
 } from './match-waiting-approval.js';
 export { approveWaitingMatch, rejectWaitingMatch, setApprovalWinner } from './match-approval.js';
 export {
+  approveMitigationMatch,
+  buildMitigationApprovalComponents,
+  buildMitigationApprovalCustomId,
+  formatMitigationApprovalContent,
+  MITIGATION_APPROVAL_CUSTOM_ID_PREFIX,
+  parseMitigationApprovalCustomId,
+  rejectMitigationMatch,
+  requestMitigationApproval,
+  setPendingMitigationPercent,
+} from './match-mitigation-approval.js';
+export {
   buildApprovalApproveCustomId,
   buildApprovalGriefersCustomId,
   buildApprovalQuittersCustomId,

@@ -26,6 +26,11 @@ import {
   listLeagueWc3statsSlotMaps,
 } from '../../services/wc3stats/index.js';
 import { listLeagueHeroChampionRoles } from '../../services/hero-champion-roles/index.js';
+import {
+  formatOcrNickAliasLines,
+  formatOcrNickAliasSection,
+  listLeagueOcrNickAliases,
+} from '../../services/lobby/ocr-nick-aliases.js';
 import { MatchServiceError } from '../../services/match/index.js';
 import { assertHasMatchModRole } from '../../services/match/match-auth.js';
 
@@ -288,6 +293,7 @@ export async function buildConfigViewContent(
   const leagueConfig = await resolveLeagueConfig(leagueId);
   const slotMaps = await listLeagueWc3statsSlotMaps(leagueId);
   const heroChampionRoles = await listLeagueHeroChampionRoles(leagueId);
+  const ocrNickAliases = await listLeagueOcrNickAliases(leagueId);
 
   return [
     'Bot configuration for this server:',
@@ -341,6 +347,7 @@ export async function buildConfigViewContent(
       leagueConfig.wc3statsHostPromptPingsEnabled,
     ),
     formatWc3statsMapSection(formatWc3statsSlotMapLines(slotMaps)),
+    formatOcrNickAliasSection(formatOcrNickAliasLines(ocrNickAliases)),
   ].join('\n');
 }
 

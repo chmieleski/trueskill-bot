@@ -25,6 +25,7 @@ import {
   loadPreMatchGlobalByPlayer,
   type RatingRosterEntry,
 } from '../rating/rating-update.js';
+import { normalizeMitigationPercent } from '../rating/rating-mitigation.js';
 import { resolveQuitterSlots } from './match-report.js';
 import type { CompleteMatchResult } from './match-report.js';
 import { persistMatchRatingPreviewToPlayers } from './match-history-preview.js';
@@ -602,7 +603,8 @@ export async function flipCompletedMatch(
     const preMatchGamesByPlayer = gamesByPlayerFromStats(preMatchDisplayStats);
     await accrueGrieferPenalties(matchId, entries, preMatchGlobal, preMatchGamesByPlayer, tx);
     const completedAt = match.completedAt ?? new Date();
-    await applyMatchRatings(leagueId, entries, winningTeam, completedAt, tx);
+    const mitigation = normalizeMitigationPercent(match.ratingMitigationPercent);
+    await applyMatchRatings(leagueId, entries, winningTeam, completedAt, tx, mitigation);
 
     const displayStats = await loadMatchDisplayStatsByPlayer(leagueId, playerIds, tx);
     const gamesByPlayer = gamesByPlayerFromStats(displayStats);

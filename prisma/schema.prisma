@@ -101,6 +101,7 @@ model League {
   rankResets        PlayerRankReset[]
   wc3statsSlotMaps  LeagueWc3statsSlotMap[]
   heroChampionRoles LeagueHeroChampionRole[]
+  ocrNickAliases    LeagueOcrNickAlias[]
   predecessor       League?                 @relation("LeagueSuccession", fields: [predecessorLeagueId], references: [id])
   successors        League[]                @relation("LeagueSuccession")
   rolloverDrafts    LeagueRolloverDraft[]
@@ -122,6 +123,20 @@ model LeagueWc3statsSlotMap {
   @@id([leagueId, wc3statsSlot])
   @@index([leagueId])
   @@index([leagueId, heroId])
+}
+
+/// Screenshot OCR nick remaps (exact match after normalizeNick). Not used for wc3stats/WOS/manual.
+model LeagueOcrNickAlias {
+  leagueId  String
+  fromNick  String
+  toNick    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+
+  @@id([leagueId, fromNick])
+  @@index([leagueId])
 }
 
 model LeagueChannelBinding {
@@ -324,8 +339,12 @@ model Match {
   completedAt      DateTime?
   /// Mod-recorded quitter/griefer incident without a real lobby (RMK etc.).
   isManualSanction Boolean       @default(false)
-  /// Proposed/selected winning team while WAITING_FOR_APPROVAL (1 or 2).
+  /// Proposed/selected winning team while WAITING_FOR_APPROVAL or WAITING_FOR_MITIGATION_APPROVAL (1 or 2).
   approvalWinnerTeam Int?
+  /// Soft-result mitigation percent applied (or pending): 25 | 35 | 50. Null = none.
+  ratingMitigationPercent Int?
+  /// Discord message id for host-requested mitigation approval (lobby channel).
+  mitigationApprovalMessageId String?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   league           League?       @relation(fields: [leagueId], references: [id], onDelete: Restrict)
@@ -456,6 +475,7 @@ enum MatchStatus {
   PENDING // Lobby created, waiting for players
   IN_PROGRESS // Match started
   WAITING_FOR_APPROVAL
+  WAITING_FOR_MITIGATION_APPROVAL // Host requested soft-result; awaiting mod
   COMPLETED // Match finished with results
   CANCELLED // Match cancelled before completion
 }

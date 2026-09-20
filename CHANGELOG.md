@@ -1,3 +1,36 @@
+# [1.57.0](https://github.com/chmieleski/trueskill-bot/compare/v1.56.1...v1.57.0) (2026-09-20)
+
+
+### Bug Fixes
+
+* **wos:** stop auto-flagging quitters on API report ingest ([#172](https://github.com/chmieleski/trueskill-bot/issues/172)) ([5bd06d1](https://github.com/chmieleski/trueskill-bot/commit/5bd06d129bc7c62dbb246a669e77fb050972dbf0))
+
+
+### Features
+
+* **hero-draft:** pinned duel panel and action log UX ([#171](https://github.com/chmieleski/trueskill-bot/issues/171)) ([ee316d1](https://github.com/chmieleski/trueskill-bot/commit/ee316d1f2f654184b527751adbf5b0e1c44fcee3))
+
+## [1.56.1](https://github.com/chmieleski/trueskill-bot/compare/v1.56.0...v1.56.1) (2026-09-20)
+
+
+### Bug Fixes
+
+* **wos:** stop auto-flagging quitters on API report ingest ([#170](https://github.com/chmieleski/trueskill-bot/issues/170)) ([4a6acce](https://github.com/chmieleski/trueskill-bot/commit/4a6acceae835fd2949d5ec7c6a1b52d5628614a0))
+
+# [1.56.0](https://github.com/chmieleski/trueskill-bot/compare/v1.55.1...v1.56.0) (2026-09-20)
+
+
+### Features
+
+* **rating:** soft-result mitigation with host mod approval ([#168](https://github.com/chmieleski/trueskill-bot/issues/168)) ([2f90b85](https://github.com/chmieleski/trueskill-bot/commit/2f90b85ccf2f9523a658ba97d28aaf3b7f570957))
+
+## [1.55.1](https://github.com/chmieleski/trueskill-bot/compare/v1.55.0...v1.55.1) (2026-09-20)
+
+
+### Bug Fixes
+
+* **deploy:** raise Node heap for stage tsc on t3.micro ([#167](https://github.com/chmieleski/trueskill-bot/issues/167)) ([02899f7](https://github.com/chmieleski/trueskill-bot/commit/02899f75c68bd6a0fb5da360fdd92ae65f9f8d87))
+
 # [1.55.0](https://github.com/chmieleski/trueskill-bot/compare/v1.54.0...v1.55.0) (2026-09-20)
 
 

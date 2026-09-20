@@ -23,15 +23,22 @@ describe('encodeReportSlots / decodeReportSlots', () => {
 });
 
 describe('buildReportConfirmCustomId / parseReportConfirmCustomId', () => {
-  it('round-trips griefer and quitter slots', () => {
-    const customId = buildReportConfirmCustomId('match-abc', 2, [2, 8], [1, 7]);
-    expect(customId).toBe('match:rw:ok:match-abc:2:2-8:1-7');
+  it('round-trips griefer, quitter slots, and mitigation', () => {
+    const customId = buildReportConfirmCustomId('match-abc', 2, [2, 8], [1, 7], 35);
+    expect(customId).toBe('match:rw:ok:match-abc:2:2-8:1-7:35');
     expect(parseReportConfirmCustomId(customId)).toEqual({
       matchId: 'match-abc',
       winningTeam: 2,
       grieferSlots: [2, 8],
       quitterSlots: [1, 7],
+      mitigationPercent: 35,
     });
+  });
+
+  it('defaults mitigation to 0 when omitted from builder', () => {
+    expect(buildReportConfirmCustomId('match-abc', 1, [], [])).toBe(
+      'match:rw:ok:match-abc:1:-:-:0',
+    );
   });
 
   it('returns null for unrelated custom ids', () => {

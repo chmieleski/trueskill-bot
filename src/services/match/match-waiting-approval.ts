@@ -146,17 +146,6 @@ async function resolvePlayersInTx(
   return resolved;
 }
 
-/** Prefill isQuitter from report `left` flags, matched by normalized nick. */
-function applyQuittersFromReport(players: LobbyPlayer[], report: Wos2BotReport): LobbyPlayer[] {
-  const leftByNick = new Map(
-    report.players.map((player) => [normalizeNick(player.name), player.left === true]),
-  );
-  return players.map((player) => ({
-    ...player,
-    isQuitter: leftByNick.get(normalizeNick(player.nick)) === true,
-  }));
-}
-
 /**
  * Create a WAITING_FOR_APPROVAL match with roster (no Discord post, no PENDING hop).
  */
@@ -251,7 +240,6 @@ export async function ingestWosReportForApproval(
 
   const suggested = inferSuggestedWinner(report);
   const approvalWinnerTeam = suggested?.team ?? null;
-  const players = applyQuittersFromReport(lobbyPlayers, report);
 
   // Reject duplicates before create so we never leave an orphan WAITING_FOR_APPROVAL match.
   await assertWos2ReportExternalIdUnused(
@@ -264,7 +252,9 @@ export async function ingestWosReportForApproval(
     hostDiscordId: input.hostDiscordId,
     discordChannelId: matchApprovalChannelId,
     approvalWinnerTeam,
-    players,
+    // Do not auto-flag quitters from report `left` — crash/DC looks the same as leave;
+    // mods mark quitters manually during approval.
+    players: lobbyPlayers,
     profile,
   });
 

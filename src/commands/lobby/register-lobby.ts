@@ -548,7 +548,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   let wc3statsUnavailable = false;
 
   if (source.kind === 'screenshot') {
-    players = await tryExtractLobbyPlayers(source.url, source.mimeType);
+    players = await tryExtractLobbyPlayers(source.url, source.mimeType, leagueId);
   }
 
   if (wc3statsReady && (source.kind === 'wc3stats' || wc3statsId)) {

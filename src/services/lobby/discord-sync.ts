@@ -167,9 +167,23 @@ export async function syncLobbyDiscordMessage(
           requireLeagueId(match),
           matchPlayersToRatingEntries(match.players),
         );
+    const pendingMitigation =
+      match.status === 'WAITING_FOR_MITIGATION_APPROVAL'
+        ? `\nAwaiting mod approval for **${match.ratingMitigationPercent ?? '?'}%** mitigation.`
+        : '';
+    const inProgressEmbed = buildMatchInProgressEmbed(match.id, players, {
+      ratingPreview,
+      profile,
+      eventName,
+    });
+    if (pendingMitigation) {
+      const prior = inProgressEmbed.data.description ?? '';
+      inProgressEmbed.setDescription(`${prior}${pendingMitigation}`);
+    }
     payload = {
-      embeds: [buildMatchInProgressEmbed(match.id, players, { ratingPreview, profile, eventName })],
-      components: buildMatchReportButtons(profile),
+      embeds: [inProgressEmbed],
+      components:
+        match.status === 'WAITING_FOR_MITIGATION_APPROVAL' ? [] : buildMatchReportButtons(profile),
     };
   } else if (mode === 'completed') {
     const ratingPreview = isEvent
@@ -186,6 +200,7 @@ export async function syncLobbyDiscordMessage(
           winningTeam: determineWinningTeam(match.players),
           profile,
           eventName,
+          mitigationPercent: match.ratingMitigationPercent,
         }),
       ],
       components: [],

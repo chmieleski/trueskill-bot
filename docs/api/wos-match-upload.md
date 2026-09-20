@@ -164,7 +164,7 @@ Rules the server enforces:
 - Container `id`, `ID|value=`, and `END|id=` must match; MACs must verify
 - At least one player row
 - Player names are Battle.net-style nicks; unknown nicks are **created** as players
-- `left=1` is treated as a suggested quitter for mods
+- `left=1` is **not** auto-applied as a quitter (crash/DC looks the same as leave); mods flag quitters manually during approval
 
 **Idempotency:** if you upload the same report `ID` twice for a live (non-cancelled) match, you get **`409`**. Safe to treat as “already submitted.”
 
