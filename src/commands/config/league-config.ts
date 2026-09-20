@@ -47,12 +47,6 @@ import {
   refreshLeagueLeaderboard,
   setupLiveLeaderboard,
 } from '../../services/leaderboard/index.js';
-import {
-  clearHeroChampionHolder,
-  setLeagueHeroChampionRole,
-  setLeagueHeroChampionRolesEnabled,
-  syncHeroChampionRoles,
-} from '../../services/hero-champion-roles/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
 import { RankResetServiceError } from '../../services/rating/index.js';
 import {
@@ -326,40 +320,6 @@ export const data = new SlashCommandBuilder()
                 .setRequired(true),
             ),
         ),
-      )
-      .addSubcommand((subcommand) =>
-        withSubcommandLeagueOption(
-          subcommand
-            .setName('hero_champion_roles')
-            .setDescription('Enable #1 hero-ki Discord roles for this league (UDBR)')
-            .addBooleanOption((option) =>
-              option
-                .setName('enabled')
-                .setDescription('On: sync champion roles after rating changes')
-                .setRequired(true),
-            ),
-        ),
-      )
-      .addSubcommand((subcommand) =>
-        withSubcommandLeagueOption(
-          subcommand
-            .setName('hero_champion_role')
-            .setDescription('Map a Discord role to the #1 player for one hero')
-            .addIntegerOption((option) =>
-              option
-                .setName('hero')
-                .setDescription('Hero / lobby slot (1–12 for UDBR)')
-                .setRequired(true)
-                .setMinValue(1)
-                .setMaxValue(12),
-            )
-            .addRoleOption((option) =>
-              option
-                .setName('role')
-                .setDescription('Discord role for that hero’s #1 player')
-                .setRequired(true),
-            ),
-        ),
       ),
   )
   .addSubcommandGroup((group) =>
@@ -421,21 +381,6 @@ export const data = new SlashCommandBuilder()
           subcommand
             .setName('wc3stats_host_prompt')
             .setDescription('Disable host lobby prompts and clear the prompt channel'),
-        ),
-      )
-      .addSubcommand((subcommand) =>
-        withSubcommandLeagueOption(
-          subcommand
-            .setName('hero_champion_role')
-            .setDescription('Remove the #1 hero Discord role mapping for one hero')
-            .addIntegerOption((option) =>
-              option
-                .setName('hero')
-                .setDescription('Hero / lobby slot (1–12 for UDBR)')
-                .setRequired(true)
-                .setMinValue(1)
-                .setMaxValue(12),
-            ),
         ),
       ),
   );
@@ -977,77 +922,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       });
       return;
     }
-
-    if (subcommand === 'hero_champion_roles') {
-      const leagueId = await requireLeagueId(interaction);
-      if (!leagueId) return;
-
-      const enabled = interaction.options.getBoolean('enabled', true);
-      try {
-        await setLeagueHeroChampionRolesEnabled(leagueId, enabled);
-      } catch (error) {
-        if (error instanceof MatchServiceError) {
-          await interaction.reply({
-            content: error.message,
-            flags: MessageFlags.Ephemeral,
-          });
-          return;
-        }
-        throw error;
-      }
-
-      if (enabled) {
-        await syncHeroChampionRoles(interaction.client, leagueId);
-      }
-      log.info(
-        { guildId: interaction.guildId, leagueId, enabled, userId: interaction.user.id },
-        'Hero champion roles setting updated',
-      );
-      await interaction.reply({
-        content: enabled
-          ? 'Hero champion roles enabled. Mapped #1 hero roles will sync after rating changes.'
-          : 'Hero champion roles disabled. Existing Discord roles are unchanged until you clear mappings.',
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    if (subcommand === 'hero_champion_role') {
-      const leagueId = await requireLeagueId(interaction);
-      if (!leagueId) return;
-
-      const heroId = interaction.options.getInteger('hero', true);
-      const role = interaction.options.getRole('role', true);
-      try {
-        await setLeagueHeroChampionRole(leagueId, heroId, role.id);
-      } catch (error) {
-        if (error instanceof MatchServiceError) {
-          await interaction.reply({
-            content: error.message,
-            flags: MessageFlags.Ephemeral,
-          });
-          return;
-        }
-        throw error;
-      }
-
-      await syncHeroChampionRoles(interaction.client, leagueId);
-      log.info(
-        {
-          guildId: interaction.guildId,
-          leagueId,
-          heroId,
-          roleId: role.id,
-          userId: interaction.user.id,
-        },
-        'Hero champion role mapping updated',
-      );
-      await interaction.reply({
-        content: `Mapped hero \`${heroId}\` → <@&${role.id}>.`,
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
   }
 
   if (subcommandGroup === 'clear') {
@@ -1165,34 +1039,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           removed > 0
             ? `Cleared ${removed} wc3stats→hero mapping(s). Imports will use legacy index+1 until remapped.`
             : 'No wc3stats→hero mappings to clear.',
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    if (subcommand === 'hero_champion_role') {
-      const leagueId = await requireLeagueId(interaction);
-      if (!leagueId) return;
-
-      const heroId = interaction.options.getInteger('hero', true);
-      try {
-        await clearHeroChampionHolder(interaction.client, leagueId, heroId);
-      } catch (error) {
-        if (error instanceof MatchServiceError) {
-          await interaction.reply({
-            content: error.message,
-            flags: MessageFlags.Ephemeral,
-          });
-          return;
-        }
-        throw error;
-      }
-      log.info(
-        { guildId: interaction.guildId, leagueId, heroId, userId: interaction.user.id },
-        'Hero champion role mapping cleared',
-      );
-      await interaction.reply({
-        content: `Cleared hero champion role mapping for hero \`${heroId}\`.`,
         flags: MessageFlags.Ephemeral,
       });
       return;

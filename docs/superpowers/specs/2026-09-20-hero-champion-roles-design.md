@@ -82,12 +82,14 @@ Discord failures log a warning and do not fail match completion.
 
 ## Staff commands
 
-| Action                                              | Behavior                                           |
-| --------------------------------------------------- | -------------------------------------------------- |
-| `/league_config set hero_champion_roles enabled:`   | Toggle; refuse unsupported games                   |
-| `/league_config set hero_champion_role hero: role:` | Upsert mapping; unique role per league; sync after |
-| `/league_config clear hero_champion_role hero:`     | Delete mapping; strip role from holder if possible |
-| `/league_config view` (or equivalent show)          | Include enabled flag, mappings, holders            |
+Split from `/league_config` so Discord’s 8KB slash-command size limit is not exceeded (same pattern as `/decay_config`).
+
+| Action                                  | Behavior                                           |
+| --------------------------------------- | -------------------------------------------------- |
+| `/hero_champion_config enable enabled:` | Toggle; refuse unsupported games                   |
+| `/hero_champion_config map hero: role:` | Upsert mapping; unique role per league; sync after |
+| `/hero_champion_config unmap hero:`     | Delete mapping; strip role from holder if possible |
+| `/config view`                          | Include enabled flag, mappings, holders            |
 
 ## Edge cases
 

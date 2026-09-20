@@ -18,7 +18,7 @@
 • `rank_reset` / `rank_reset_cooldown`
 • `wc3stats_map_preset` (UDBR) · `wc3stats_slot` / `map` · `wc3stats_host_prompt` · `wc3stats_host_prompt_pings`
 • `decay` (`enabled:true|false`)
-• `hero_champion_roles` / `hero_champion_role` (UDBR #1 hero roles — see **a10**)
+• `/hero_champion_config` — UDBR #1 hero roles (see **a10**)
 
 **Decay config (Manage Server)**
 • `/decay_config …` — grace/rates/cap/crunch/prize lock/min games · `preset name:strict_crunch` (`clear_*` resets defaults)

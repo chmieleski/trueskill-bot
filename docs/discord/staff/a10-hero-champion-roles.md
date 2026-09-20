@@ -9,7 +9,7 @@ Give the **#1 hero-ki** player a Discord role per character. The bot adds/remove
 **2) Map each hero → role**
 
 ```
-/league_config set hero_champion_role hero:1 role:@#1 Goku
+/hero_champion_config map hero:1 role:@#1 Goku
 ```
 
 Hero `1–12` = UDBR lobby slots. Remapping the same hero replaces the role and clears the sticky holder until the next sync.
@@ -17,13 +17,13 @@ Hero `1–12` = UDBR lobby slots. Remapping the same hero replaces the role and 
 **3) Enable**
 
 ```
-/league_config set hero_champion_roles enabled:True
+/hero_champion_config enable enabled:True
 ```
 
 **4) Clear one mapping**
 
 ```
-/league_config clear hero_champion_role hero:1
+/hero_champion_config unmap hero:1
 ```
 
 Removes the mapping and tries to strip the role from the current holder.
