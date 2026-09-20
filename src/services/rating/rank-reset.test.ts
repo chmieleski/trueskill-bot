@@ -237,7 +237,14 @@ describe('previewRankReset', () => {
         playerId: PLAYER.id,
         match: {
           leagueId: 'league-1',
-          status: { in: ['PENDING', 'IN_PROGRESS', 'WAITING_FOR_APPROVAL'] },
+          status: {
+            in: [
+              'PENDING',
+              'IN_PROGRESS',
+              'WAITING_FOR_APPROVAL',
+              'WAITING_FOR_MITIGATION_APPROVAL',
+            ],
+          },
         },
       },
     });

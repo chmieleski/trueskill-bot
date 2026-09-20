@@ -32,12 +32,29 @@ import {
   setQuitters,
   WOS_MATCH_REPORT_REQUIRED_MESSAGE,
   type MatchWithPlayers,
+  assertCanManageMatch,
+  assertHasMatchModRole,
+  hasMatchModRole,
+  requestMitigationApproval,
+  approveMitigationMatch,
+  rejectMitigationMatch,
+  setPendingMitigationPercent,
+  parseMitigationApprovalCustomId,
+  buildMitigationApprovalComponents,
+  formatMitigationApprovalContent,
+  MITIGATION_APPROVAL_CUSTOM_ID_PREFIX,
 } from '../../services/match/index.js';
-import { assertCanManageMatch } from '../../services/match/index.js';
 import { assertTeam, type GameProfile } from '../../domain/game-profile.js';
 import { resolveGuildConfig, winnerLabel } from '../../services/guild/index.js';
 import {
+  RATING_MITIGATION_PERCENTS,
+  normalizeMitigationPercent,
+  type RatingMitigationInput,
+  type RatingMitigationPercent,
+} from '../../services/rating/rating-mitigation.js';
+import {
   buildReportConfirmCustomId,
+  buildReportMitigationCustomId,
   buildReportQuitterSelectOptions,
   buildReportSuggestedWinnerCustomId,
   buildReportWinnerCustomId,
@@ -421,13 +438,53 @@ function buildConfirmRow(
   winningTeam: 1 | 2,
   grieferSlots: number[],
   quitterSlots: number[],
+  mitigationPercent: RatingMitigationInput = 0,
 ): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(buildReportConfirmCustomId(matchId, winningTeam, grieferSlots, quitterSlots))
+      .setCustomId(
+        buildReportConfirmCustomId(
+          matchId,
+          winningTeam,
+          grieferSlots,
+          quitterSlots,
+          mitigationPercent,
+        ),
+      )
       .setLabel('Confirm Result')
       .setStyle(ButtonStyle.Success),
   );
+}
+
+function buildMitigationPresetRow(
+  matchId: string,
+  winningTeam: 1 | 2,
+  grieferSlots: number[],
+  quitterSlots: number[],
+  selected: RatingMitigationInput,
+): ActionRowBuilder<ButtonBuilder> {
+  const none = new ButtonBuilder()
+    .setCustomId(buildReportMitigationCustomId(matchId, winningTeam, grieferSlots, quitterSlots, 0))
+    .setLabel(selected === 0 ? 'None ✓' : 'None')
+    .setStyle(selected === 0 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+
+  const presets = RATING_MITIGATION_PERCENTS.map((pct) =>
+    new ButtonBuilder()
+      .setCustomId(
+        buildReportMitigationCustomId(matchId, winningTeam, grieferSlots, quitterSlots, pct),
+      )
+      .setLabel(selected === pct ? `${pct}% ✓` : `${pct}%`)
+      .setStyle(selected === pct ? ButtonStyle.Primary : ButtonStyle.Secondary),
+  );
+
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(none, ...presets);
+}
+
+function formatMitigationLine(mitigationPercent: RatingMitigationInput): string {
+  if (mitigationPercent <= 0) {
+    return 'Mitigation: **none** (full strength)';
+  }
+  return `Mitigation: **${mitigationPercent}%** (both sides keep ${100 - mitigationPercent}% of team ki Δ)`;
 }
 
 function buildReportStatsRefreshRow(
@@ -452,18 +509,22 @@ async function showReportConfirmStep(
   winningTeam: 1 | 2,
   grieferSlots: number[],
   quitterSlots: number[],
+  mitigationPercent: RatingMitigationInput = 0,
 ): Promise<void> {
   const profile = await profileForMatch(match);
   const content = [
     `Winner: **${winnerLabel(winningTeam, profile)}**`,
     formatGrieferSummary(match, grieferSlots),
     formatQuitterSummary(match, quitterSlots),
+    formatMitigationLine(mitigationPercent),
     '',
+    'Optional soft result: reduce both teams’ ki Δ equally. Hosts need mod approval when mitigation is set.',
     'Confirm to complete the match and apply ratings.',
   ].join('\n');
 
   await updateEphemeral(interaction, content, [
-    buildConfirmRow(match.id, winningTeam, grieferSlots, quitterSlots),
+    buildMitigationPresetRow(match.id, winningTeam, grieferSlots, quitterSlots, mitigationPercent),
+    buildConfirmRow(match.id, winningTeam, grieferSlots, quitterSlots, mitigationPercent),
   ]);
 }
 
@@ -491,9 +552,18 @@ async function showReportStatsStep(
       '**Match stats**',
       ...formatMatchStatsSummaryLines(stats),
       '',
-      'Confirm to complete the match.',
+      'Continue to confirm (mitigation optional).',
     );
-    components.push(buildConfirmRow(match.id, winningTeam, grieferSlots, quitterSlots));
+    components.push(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(
+            `match:rw:toconfirm:${match.id}:${winningTeam}:${encodeSlots(grieferSlots)}:${encodeSlots(quitterSlots)}`,
+          )
+          .setLabel('Continue')
+          .setStyle(ButtonStyle.Primary),
+      ),
+    );
   } else {
     lines.push(
       'Upload the WOS bot match `.txt` report with `/match upload_report`, then tap **Refresh**.',
@@ -928,24 +998,222 @@ async function handleConfirmResult(
   winningTeam: 1 | 2,
   grieferSlots: number[],
   quitterSlots: number[],
+  mitigationPercent: RatingMitigationInput,
 ): Promise<void> {
   const match = await resolveById(interaction, matchId);
   const profile = await profileForMatch(match);
+  const mitigation = normalizeMitigationPercent(mitigationPercent);
+
+  if (!interaction.guildId) {
+    throw new MatchServiceError('This action can only be used in a server.');
+  }
+
+  const guildConfig = await resolveGuildConfig(interaction.guildId);
+  const isMod = hasMatchModRole({
+    actorDiscordId: interaction.user.id,
+    memberRoleIds: memberRoleIds(interaction),
+    matchModRoleId: guildConfig.matchModRoleId,
+  });
+
+  if (!isMod && mitigation > 0) {
+    await showWorking(interaction, 'Requesting moderator approval for mitigation…');
+    await requestMitigationApproval({
+      matchId,
+      winningTeam,
+      quitterSlots,
+      grieferSlots,
+      mitigationPercent: mitigation as RatingMitigationPercent,
+      client: interaction.client,
+      requestedByTag: `<@${interaction.user.id}>`,
+      winnerLabel: winnerLabel(winningTeam, profile),
+      quitterSummary: formatQuitterSummary(match, quitterSlots),
+      grieferSummary: formatGrieferSummary(match, grieferSlots),
+    });
+    await syncLobbyDiscordMessage(interaction.client, (await getMatchById(matchId))!, 'started');
+    await interaction.editReply({
+      content: [
+        `Mitigation **${mitigation}%** requested for match \`${matchId}\`.`,
+        'A moderator must **Approve** the request in this channel before ratings apply.',
+      ].join('\n'),
+      components: [],
+    });
+    return;
+  }
+
   await showWorking(
     interaction,
     'Updating ratings and completing the match… This can take a few seconds.',
   );
 
-  const completed = await completeMatch(matchId, winningTeam, quitterSlots, grieferSlots);
+  const completed = await completeMatch(
+    matchId,
+    winningTeam,
+    quitterSlots,
+    grieferSlots,
+    mitigation,
+  );
   void refreshAllLeaderboardChannels(interaction.client).catch(() => undefined);
   await syncLobbyDiscordMessage(interaction.client, completed.match, 'completed', {
     ratingPreview: completed.ratingPreview,
     postToMatchLog: true,
   });
+  const mitNote = mitigation > 0 ? ` Mitigation: **${mitigation}%**.` : '';
   await interaction.editReply({
-    content: `Match \`${matchId}\` completed. Winner: **${winnerLabel(winningTeam, profile)}**.`,
+    content: `Match \`${matchId}\` completed. Winner: **${winnerLabel(winningTeam, profile)}**.${mitNote}`,
     components: [],
   });
+}
+
+async function handleReportMitigationChoice(
+  interaction: ButtonInteraction,
+  matchId: string,
+  winningTeam: 1 | 2,
+  grieferSlots: number[],
+  quitterSlots: number[],
+  mitigationPercent: RatingMitigationInput,
+): Promise<void> {
+  const match = await resolveById(interaction, matchId);
+  await showReportConfirmStep(
+    interaction,
+    match,
+    winningTeam,
+    grieferSlots,
+    quitterSlots,
+    mitigationPercent,
+  );
+}
+
+async function handleReportToConfirm(
+  interaction: ButtonInteraction,
+  matchId: string,
+  winningTeam: 1 | 2,
+  grieferSlots: number[],
+  quitterSlots: number[],
+): Promise<void> {
+  const match = await resolveById(interaction, matchId);
+  await showReportConfirmStep(interaction, match, winningTeam, grieferSlots, quitterSlots, 0);
+}
+
+async function editMitigationApprovalMessage(
+  interaction: ButtonInteraction,
+  match: MatchWithPlayers,
+  content: string,
+  components: ComponentRow[] = [],
+): Promise<void> {
+  const messageId = match.mitigationApprovalMessageId;
+  if (!messageId) {
+    return;
+  }
+  try {
+    const channel = await interaction.client.channels.fetch(match.discordChannelId);
+    if (channel && 'messages' in channel) {
+      await channel.messages.edit(messageId, { content, components });
+    }
+  } catch (error) {
+    log.warn(
+      { err: error, matchId: match.id, messageId },
+      'Failed to edit mitigation approval message',
+    );
+  }
+}
+
+async function assertMitigationMod(interaction: ButtonInteraction): Promise<void> {
+  if (!interaction.guildId) {
+    throw new MatchServiceError('This action can only be used in a server.');
+  }
+  const config = await resolveGuildConfig(interaction.guildId);
+  assertHasMatchModRole({
+    actorDiscordId: interaction.user.id,
+    memberRoleIds: memberRoleIds(interaction),
+    matchModRoleId: config.matchModRoleId,
+  });
+}
+
+async function handleMitigationApprovalButton(interaction: ButtonInteraction): Promise<boolean> {
+  const parsed = parseMitigationApprovalCustomId(interaction.customId);
+  if (!parsed) {
+    return false;
+  }
+
+  await assertMitigationMod(interaction);
+  const profile = await profileForMatch(await resolveMitigationMatch(parsed.matchId));
+
+  if (parsed.action === 'set') {
+    const updated = await setPendingMitigationPercent(parsed.matchId, parsed.percent ?? 0);
+    const winningTeam = (updated.approvalWinnerTeam === 2 ? 2 : 1) as 1 | 2;
+    const mitigation = normalizeMitigationPercent(updated.ratingMitigationPercent);
+    const content = formatMitigationApprovalContent({
+      matchId: updated.id,
+      winnerLabel: winnerLabel(winningTeam, profile),
+      mitigationPercent: mitigation,
+      quitterSummary: formatQuitterSummary(
+        updated,
+        updated.players.filter((p) => p.isQuitter).map((p) => p.slot),
+      ),
+      grieferSummary: formatGrieferSummary(
+        updated,
+        updated.players.filter((p) => p.isGriefer).map((p) => p.slot),
+      ),
+      requestedByTag: 'host',
+    });
+    await interaction.update({
+      content,
+      components: buildMitigationApprovalComponents(updated.id, mitigation),
+    });
+    return true;
+  }
+
+  if (parsed.action === 'reject') {
+    const rejected = await rejectMitigationMatch(parsed.matchId);
+    await editMitigationApprovalMessage(
+      interaction,
+      { ...rejected, mitigationApprovalMessageId: interaction.message.id },
+      `Mitigation request for match \`${parsed.matchId}\` was **rejected**. Match is in progress again.`,
+      [],
+    );
+    await syncLobbyDiscordMessage(interaction.client, rejected, 'started');
+    if (interaction.replied || interaction.deferred) {
+      await interaction.editReply({ content: 'Mitigation request rejected.', components: [] });
+    } else {
+      await interaction.update({
+        content: `Mitigation request for match \`${parsed.matchId}\` was **rejected**. Match is in progress again.`,
+        components: [],
+      });
+    }
+    return true;
+  }
+
+  // approve
+  await interaction.deferUpdate();
+  const completed = await approveMitigationMatch(parsed.matchId);
+  const winnerTeam =
+    completed.match.players.find((p) => p.result === 'WIN' && !p.isQuitter)?.team === 2 ? 2 : 1;
+  const mitigation = normalizeMitigationPercent(completed.match.ratingMitigationPercent);
+  void refreshAllLeaderboardChannels(interaction.client).catch(() => undefined);
+  await syncLobbyDiscordMessage(interaction.client, completed.match, 'completed', {
+    ratingPreview: completed.ratingPreview,
+    postToMatchLog: true,
+  });
+  await interaction.message.edit({
+    content: [
+      `Match \`${parsed.matchId}\` **approved** and completed.`,
+      `Winner: **${winnerLabel(winnerTeam as 1 | 2, profile)}**.`,
+      mitigation > 0 ? `Mitigation: **${mitigation}%**.` : 'Mitigation: none.',
+    ].join('\n'),
+    components: [],
+  });
+  return true;
+}
+
+async function resolveMitigationMatch(matchId: string): Promise<MatchWithPlayers> {
+  const match = await getMatchById(matchId);
+  if (!match) {
+    throw new MatchServiceError('This match was not found.');
+  }
+  if (match.status !== 'WAITING_FOR_MITIGATION_APPROVAL') {
+    throw new MatchServiceError('This match is not awaiting mitigation approval.');
+  }
+  return match;
 }
 
 async function handleQuittersSet(
@@ -1042,6 +1310,13 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
   log.debug({ customId: interaction.customId, userId: interaction.user.id }, 'Match button');
 
   await safeHandle(interaction, async () => {
+    if (interaction.customId.startsWith(MITIGATION_APPROVAL_CUSTOM_ID_PREFIX)) {
+      const handled = await handleMitigationApprovalButton(interaction);
+      if (handled) {
+        return;
+      }
+    }
+
     if (interaction.customId === 'match:upload_stats') {
       await handleUploadStatsEntry(interaction);
       return;
@@ -1167,6 +1442,44 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
       return;
     }
 
+    if (
+      parts[1] === 'rw' &&
+      parts[2] === 'toconfirm' &&
+      parts[3] &&
+      parts[4] &&
+      parts[5] &&
+      parts[6]
+    ) {
+      await handleReportToConfirm(
+        interaction,
+        parts[3],
+        decodeTeam(parts[4]),
+        decodeSlots(parts[5]),
+        decodeSlots(parts[6]),
+      );
+      return;
+    }
+
+    if (
+      parts[1] === 'rw' &&
+      parts[2] === 'mit' &&
+      parts[3] &&
+      parts[4] &&
+      parts[5] &&
+      parts[6] &&
+      parts[7]
+    ) {
+      await handleReportMitigationChoice(
+        interaction,
+        parts[3],
+        decodeTeam(parts[4]),
+        decodeSlots(parts[5]),
+        decodeSlots(parts[6]),
+        normalizeMitigationPercent(Number(parts[7])),
+      );
+      return;
+    }
+
     if (parts[1] === 'rw' && parts[2] === 'ok' && parts[3] && parts[4] && parts[5] && parts[6]) {
       await handleConfirmResult(
         interaction,
@@ -1174,6 +1487,7 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
         decodeTeam(parts[4]),
         decodeSlots(parts[5]),
         decodeSlots(parts[6]),
+        normalizeMitigationPercent(Number(parts[7] ?? '0')),
       );
       return;
     }

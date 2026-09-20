@@ -511,6 +511,8 @@ export function buildMatchCompletedEmbed(
     /** Defaults to now; prefer match.completedAt for historical show. */
     timestamp?: Date;
     eventName?: string | null;
+    /** Soft-result mitigation percent applied (25/35/50). */
+    mitigationPercent?: number | null;
   },
 ): EmbedBuilder {
   const profile = resolvedProfile(options.profile);
@@ -526,9 +528,16 @@ export function buildMatchCompletedEmbed(
     ? ''
     : '\n_Rating changes were not recorded for this match._';
 
+  const mitigation =
+    options.mitigationPercent === 25 ||
+    options.mitigationPercent === 35 ||
+    options.mitigationPercent === 50
+      ? `\nSoft result: **${options.mitigationPercent}%** mitigation (both sides).`
+      : '';
+
   const embed = new EmbedBuilder()
     .setTitle('Match Completed')
-    .setDescription(`${winnerLabel} won the match.${ratingNote}`)
+    .setDescription(`${winnerLabel} won the match.${mitigation}${ratingNote}`)
     .addFields(
       {
         name: `${TEAM_A_EMOJI} ${teamDisplayName(1, profile)} (${teamACount})`,

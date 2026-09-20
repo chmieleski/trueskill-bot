@@ -71,6 +71,17 @@ scaleLoss = clamp(1 + 0.25×t, 0.75, 1.25)   // above avg → more loss
 - Quitter synthetic path is **not** scaled.
 - Spec: `docs/superpowers/specs/2026-08-18-lobby-relative-rating-scale-design.md`
 
+## Soft-result mitigation (after lobby scaling)
+
+Optional staff/host soft result shrinks **both** sides’ team Δμ equally:
+
+```text
+keep = 1 − mitigationPercent/100   // presets 25 | 35 | 50
+Δμ_final = Δμ_after_lobby × keep
+```
+
+Quit/griefer synthetics are **not** scaled. Hosts need mod approval in the lobby channel when mitigation ≠ none. Spec: `docs/superpowers/specs/2026-09-20-rating-mitigation-design.md`.
+
 ## Public ki (leaderboard / embeds)
 
 Public **ki** is display-only (does not change OpenSkill `rate()`):

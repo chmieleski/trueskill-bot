@@ -8,7 +8,8 @@ People with the **mod role** help when the host is gone or stuck.
 • Pass `match_id` whenever you are not the host
 
 **Matches in progress**
-• `/match complete` — report winner (+ optional quitters/griefers)
+• `/match complete` — report winner (+ optional quitters/griefers + optional **mitigation** 25/35/50%)
+• Host soft-result (**mitigation** on Report Winner / `/match complete`) posts Approve/Reject in the lobby channel — mods only
 • `/match quitters` / `/match griefers` — mark slots
 • `/match cancel` — cancel (+ optional griefers)
 

@@ -28,8 +28,13 @@ import {
   WOS_MATCH_REPORT_REQUIRED_MESSAGE,
   addManualSanction,
   removeManualSanction,
+  requestMitigationApproval,
   type ManualSanctionType,
 } from '../../services/match/index.js';
+import {
+  normalizeMitigationPercent,
+  type RatingMitigationPercent,
+} from '../../services/rating/rating-mitigation.js';
 import {
   assertHasMatchModRole,
   buildMatchHistoryEmbed,
@@ -543,6 +548,20 @@ export const data = new SlashCommandBuilder()
           .setName('match_id')
           .setDescription('In-progress match id (required if you have more than one)')
           .setRequired(false),
+      )
+      .addIntegerOption((option) =>
+        option
+          .setName('mitigation')
+          .setDescription(
+            'Soft result: reduce both teams’ ki Δ (mods apply immediately; hosts need approval)',
+          )
+          .setRequired(false)
+          .addChoices(
+            { name: 'None (full strength)', value: 0 },
+            { name: '25%', value: 25 },
+            { name: '35%', value: 35 },
+            { name: '50%', value: 50 },
+          ),
       )
       .addAttachmentOption((option) =>
         option.setName('report').setDescription('WOS bot match report (.txt)').setRequired(false),
@@ -1093,6 +1112,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const griefersRaw = interaction.options.getString('griefers');
       const grieferSlots = griefersRaw === null ? undefined : parseGrieferSlots(griefersRaw);
       const reportAttachment = interaction.options.getAttachment('report');
+      const mitigation = normalizeMitigationPercent(
+        interaction.options.getInteger('mitigation') ?? 0,
+      );
 
       await interaction.editReply({
         content: 'Updating ratings and completing the match… This can take a few seconds.',
@@ -1117,10 +1139,54 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         throw new MatchServiceError(WOS_MATCH_REPORT_REQUIRED_MESSAGE);
       }
 
-      const completed = await completeMatch(match.id, winner, quitterSlots, grieferSlots);
+      const isMod = hasMatchModeratorRole(interaction, guildConfig?.matchModRoleId);
+      if (!isMod && mitigation > 0) {
+        const resolvedQuitters =
+          quitterSlots ?? match.players.filter((p) => p.isQuitter).map((p) => p.slot);
+        const resolvedGriefers =
+          grieferSlots ?? match.players.filter((p) => p.isGriefer).map((p) => p.slot);
+        await requestMitigationApproval({
+          matchId: match.id,
+          winningTeam: winner,
+          quitterSlots: resolvedQuitters,
+          grieferSlots: resolvedGriefers,
+          mitigationPercent: mitigation as RatingMitigationPercent,
+          client: interaction.client,
+          requestedByTag: `<@${interaction.user.id}>`,
+          winnerLabel: winnerLabel(winner, profile),
+          quitterSummary:
+            resolvedQuitters.length === 0
+              ? 'Quitters: none'
+              : `Quitters: ${resolvedQuitters.join(', ')}`,
+          grieferSummary:
+            resolvedGriefers.length === 0
+              ? 'Griefers: none'
+              : `Griefers: ${resolvedGriefers.join(', ')}`,
+        });
+        const pending = await getMatchById(match.id);
+        if (pending) {
+          await syncLobbyDiscordMessage(interaction.client, pending, 'started');
+        }
+        await interaction.editReply({
+          content: [
+            `Mitigation **${mitigation}%** requested for match \`${match.id}\`.`,
+            'A moderator must **Approve** the request in this channel before ratings apply.',
+          ].join('\n'),
+        });
+        return;
+      }
+
+      const completed = await completeMatch(
+        match.id,
+        winner,
+        quitterSlots,
+        grieferSlots,
+        mitigation,
+      );
       void refreshAllLeaderboardChannels(interaction.client).catch(() => undefined);
 
-      const completionMessage = `Match \`${completed.match.id}\` completed. Winner: **${winnerLabel(winner, profile)}**.`;
+      const mitNote = mitigation > 0 ? ` Mitigation: **${mitigation}%**.` : '';
+      const completionMessage = `Match \`${completed.match.id}\` completed. Winner: **${winnerLabel(winner, profile)}**.${mitNote}`;
 
       await applyMatchMutation(interaction, completed.match, 'completed', completionMessage, {
         ratingPreview: completed.ratingPreview,

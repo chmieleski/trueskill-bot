@@ -18,6 +18,7 @@ import {
 } from '../rating/rating-preview.js';
 import type { BalancePredictWinOptions } from '../rating/rating-entities.js';
 import { simulatePostMatchRatings, type RatingRosterEntry } from '../rating/rating-update.js';
+import { normalizeMitigationPercent } from '../rating/rating-mitigation.js';
 import type { MatchWithPlayers } from './match-service.js';
 import { requireLeagueId } from './match-service.js';
 
@@ -196,6 +197,7 @@ export async function rebuildCompletedRatingPreview(
         [...heroByKey.entries()].map(([key, value]) => [key, { mu: value.mu, sigma: value.sigma }]),
       ),
       globalGames,
+      normalizeMitigationPercent(match.ratingMitigationPercent),
     );
   } catch {
     return undefined;

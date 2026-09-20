@@ -1,5 +1,10 @@
 /** Pure helpers for Report Winner custom ids and quitter select filtering. */
 
+import {
+  normalizeMitigationPercent,
+  type RatingMitigationInput,
+} from '../../services/rating/rating-mitigation.js';
+
 export function encodeReportSlots(slots: number[]): string {
   const normalized = [...new Set(slots)].sort((a, b) => a - b);
   return normalized.length > 0 ? normalized.join('-') : '-';
@@ -35,13 +40,25 @@ export function buildReportSuggestedWinnerCustomId(
   return `match:rw:suggested:${matchId}:${winningTeam}:${encodeReportSlots(grieferSlots)}:${encodeReportSlots(quitterSlots)}`;
 }
 
+/** Select a mitigation preset on the confirm step (refreshes the step). */
+export function buildReportMitigationCustomId(
+  matchId: string,
+  winningTeam: 1 | 2,
+  grieferSlots: number[],
+  quitterSlots: number[],
+  mitigationPercent: RatingMitigationInput,
+): string {
+  return `match:rw:mit:${matchId}:${winningTeam}:${encodeReportSlots(grieferSlots)}:${encodeReportSlots(quitterSlots)}:${mitigationPercent}`;
+}
+
 export function buildReportConfirmCustomId(
   matchId: string,
   winningTeam: 1 | 2,
   grieferSlots: number[],
   quitterSlots: number[],
+  mitigationPercent: RatingMitigationInput = 0,
 ): string {
-  return `match:rw:ok:${matchId}:${winningTeam}:${encodeReportSlots(grieferSlots)}:${encodeReportSlots(quitterSlots)}`;
+  return `match:rw:ok:${matchId}:${winningTeam}:${encodeReportSlots(grieferSlots)}:${encodeReportSlots(quitterSlots)}:${mitigationPercent}`;
 }
 
 export function parseReportConfirmCustomId(customId: string): {
@@ -49,9 +66,10 @@ export function parseReportConfirmCustomId(customId: string): {
   winningTeam: 1 | 2;
   grieferSlots: number[];
   quitterSlots: number[];
+  mitigationPercent: RatingMitigationInput;
 } | null {
   const parts = customId.split(':');
-  if (parts.length !== 7 || parts[0] !== 'match' || parts[1] !== 'rw' || parts[2] !== 'ok') {
+  if (parts.length !== 8 || parts[0] !== 'match' || parts[1] !== 'rw' || parts[2] !== 'ok') {
     return null;
   }
 
@@ -66,6 +84,34 @@ export function parseReportConfirmCustomId(customId: string): {
     winningTeam: Number(teamRaw) as 1 | 2,
     grieferSlots: decodeReportSlots(parts[5]),
     quitterSlots: decodeReportSlots(parts[6]),
+    mitigationPercent: normalizeMitigationPercent(Number(parts[7])),
+  };
+}
+
+export function parseReportMitigationCustomId(customId: string): {
+  matchId: string;
+  winningTeam: 1 | 2;
+  grieferSlots: number[];
+  quitterSlots: number[];
+  mitigationPercent: RatingMitigationInput;
+} | null {
+  const parts = customId.split(':');
+  if (parts.length !== 8 || parts[0] !== 'match' || parts[1] !== 'rw' || parts[2] !== 'mit') {
+    return null;
+  }
+
+  const matchId = parts[3];
+  const teamRaw = parts[4];
+  if (!matchId || (teamRaw !== '1' && teamRaw !== '2')) {
+    return null;
+  }
+
+  return {
+    matchId,
+    winningTeam: Number(teamRaw) as 1 | 2,
+    grieferSlots: decodeReportSlots(parts[5]),
+    quitterSlots: decodeReportSlots(parts[6]),
+    mitigationPercent: normalizeMitigationPercent(Number(parts[7])),
   };
 }
 

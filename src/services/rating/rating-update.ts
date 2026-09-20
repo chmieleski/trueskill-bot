@@ -13,6 +13,11 @@ import { computeGrieferKiAccrual } from './griefer-tax.js';
 import { computePairedNewKeys, entryPairKey } from './new-player-partition.js';
 import { ensurePlayerRatings } from './rating-preview.js';
 import { gamesByPlayerFromStats, loadMatchDisplayStatsByPlayer } from './rank-reset-display.js';
+import {
+  applyMitigationToMu,
+  normalizeMitigationPercent,
+  type RatingMitigationInput,
+} from './rating-mitigation.js';
 
 const DEFAULT_MU = 25;
 const DEFAULT_SIGMA = 8.333;
@@ -376,6 +381,46 @@ function applyLobbyRelativeScalingToResults(
   }
 }
 
+/**
+ * Soft-result mitigation: shrink both sides' team Δμ equally after lobby scaling.
+ * Quit/griefer synthetics are applied outside this path and are not scaled.
+ * Mutates `updatedByPlayer` in place; σ is unchanged.
+ */
+function applyMitigationScalingToResults(
+  active: RatingRosterEntry[],
+  preGlobal: Map<string, MuSigma>,
+  preHero: Map<string, MuSigma>,
+  updatedByPlayer: Map<string, UpdatedPlayerRating>,
+  mitigationPercent: RatingMitigationInput,
+): void {
+  if (mitigationPercent <= 0) {
+    return;
+  }
+
+  for (const entry of active) {
+    const beforeGlobal = preGlobal.get(entry.playerId);
+    const updated = updatedByPlayer.get(entry.playerId);
+    if (!beforeGlobal || !updated) {
+      continue;
+    }
+
+    const mitigatedGlobalMu = applyMitigationToMu(
+      beforeGlobal.mu,
+      updated.global.mu,
+      mitigationPercent,
+    );
+    updated.global = rating({ mu: mitigatedGlobalMu, sigma: updated.global.sigma });
+
+    if (entry.heroId == null || !updated.hero) {
+      continue;
+    }
+
+    const heroBefore = preHero.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity();
+    const mitigatedHeroMu = applyMitigationToMu(heroBefore.mu, updated.hero.mu, mitigationPercent);
+    updated.hero = rating({ mu: mitigatedHeroMu, sigma: updated.hero.sigma });
+  }
+}
+
 function buildOverallTeamEntities(
   team: RatingRosterEntry[],
   globalByPlayer: Map<string, { mu: number; sigma: number }>,
@@ -406,6 +451,7 @@ function rateActiveMatchTeams(
   globalByPlayer: Map<string, MuSigma>,
   heroByKey: Map<string, MuSigma>,
   globalGamesByPlayer: Map<string, number>,
+  mitigationPercent: RatingMitigationInput = 0,
 ): Map<string, UpdatedPlayerRating> {
   const { teamA, teamB } = splitRosterByTeam(activeRateable);
   const winningRoster = winningTeam === 1 ? teamA : teamB;
@@ -476,6 +522,14 @@ function rateActiveMatchTeams(
     globalGamesByPlayer,
   );
 
+  applyMitigationScalingToResults(
+    activeRateable,
+    preGlobal,
+    preHero,
+    updatedByPlayer,
+    mitigationPercent,
+  );
+
   return updatedByPlayer;
 }
 
@@ -516,9 +570,11 @@ export async function applyMatchRatings(
   winningTeam: 1 | 2,
   completedAt: Date,
   db: Db = prisma,
+  mitigationPercent: RatingMitigationInput = 0,
 ): Promise<void> {
   const sorted = [...entries].sort((left, right) => left.slot - right.slot);
   const { activeRateable } = partitionRosterForRating(sorted);
+  const mitigation = normalizeMitigationPercent(mitigationPercent);
 
   if (!canRunTeamRate(activeRateable)) {
     await resetIdleDecayStreakForNonQuit(leagueId, sorted, completedAt, db);
@@ -566,6 +622,7 @@ export async function applyMatchRatings(
     globalByPlayer,
     heroByKey,
     globalGamesByPlayer,
+    mitigation,
   );
 
   const activityReset = idleDecayActivityReset(completedAt);
@@ -627,11 +684,13 @@ export function simulatePostMatchRatings(
   startingGlobal: Map<string, MuSigma>,
   startingHero: Map<string, MuSigma>,
   globalGamesByPlayer: Map<string, number> = new Map(),
+  mitigationPercent: RatingMitigationInput = 0,
 ): { globalByPlayer: Map<string, MuSigma>; heroByKey: Map<string, MuSigma> } {
   const globalByPlayer = new Map(startingGlobal);
   const heroByKey = new Map(startingHero);
   const sorted = [...entries].sort((left, right) => left.slot - right.slot);
   const { quitters, activeRateable } = partitionRosterForRating(sorted);
+  const mitigation = normalizeMitigationPercent(mitigationPercent);
 
   for (const entry of quitters) {
     const global = globalByPlayer.get(entry.playerId) ?? defaultRatingEntity();
@@ -659,6 +718,7 @@ export function simulatePostMatchRatings(
     globalByPlayer,
     heroByKey,
     globalGamesByPlayer,
+    mitigation,
   );
 
   for (const entry of activeRateable) {
