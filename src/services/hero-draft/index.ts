@@ -8,6 +8,7 @@ export {
   startHeroDraft,
   syncHeroDraftLiveMessage,
 } from './draft-actions.js';
+export type { StartHeroDraftResult } from './draft-actions.js';
 export { assertHeroDraftMod, assertOnClockCaptain } from './draft-auth.js';
 export {
   applyBan,
@@ -43,17 +44,27 @@ export {
   scheduleHeroDraftTimeout,
 } from './draft-timer.js';
 export {
+  HERO_DRAFT_EMBED_FIELD_MAX,
   HERO_DRAFT_PAGE_NAV_PREFIX,
   HERO_DRAFT_PAGE_SIZE,
+  buildHeroDraftActionLogContent,
   buildHeroDraftComponents,
   buildHeroDraftCustomId,
   buildHeroDraftEmbed,
   buildHeroDraftPingContent,
+  filterAvailableHeroesForAutocomplete,
+  formatHeroLabel,
   heroApplicationEmojiName,
   parseHeroDraftCustomId,
   resolveHeroEmojiMap,
+  truncateEmbedField,
 } from './draft-ui.js';
-export type { HeroDraftCustomId, HeroEmojiRef } from './draft-ui.js';
+export type {
+  HeroDraftActionLogOptions,
+  HeroDraftActionLogResult,
+  HeroDraftCustomId,
+  HeroEmojiRef,
+} from './draft-ui.js';
 export type {
   HeroDraftActionKind,
   HeroDraftMember,
