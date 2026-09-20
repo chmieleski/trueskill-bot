@@ -1,3 +1,10 @@
+## [1.55.1](https://github.com/chmieleski/trueskill-bot/compare/v1.55.0...v1.55.1) (2026-09-20)
+
+
+### Bug Fixes
+
+* **deploy:** raise Node heap for stage tsc on t3.micro ([#167](https://github.com/chmieleski/trueskill-bot/issues/167)) ([02899f7](https://github.com/chmieleski/trueskill-bot/commit/02899f75c68bd6a0fb5da360fdd92ae65f9f8d87))
+
 # [1.55.0](https://github.com/chmieleski/trueskill-bot/compare/v1.54.0...v1.55.0) (2026-09-20)
 
 
