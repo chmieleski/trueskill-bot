@@ -4,6 +4,8 @@ import { createLogger } from '../../lib/logger.js';
 import {
   clearAllLeagueOcrNickAliases,
   clearLeagueOcrNickAlias,
+  formatOcrNickAliasLines,
+  listLeagueOcrNickAliases,
   setLeagueOcrNickAlias,
 } from '../../services/lobby/ocr-nick-aliases.js';
 import {
@@ -50,6 +52,11 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     withSubcommandLeagueOption(
       subcommand.setName('clear_all').setDescription('Remove all OCR nick aliases for this league'),
+    ),
+  )
+  .addSubcommand((subcommand) =>
+    withSubcommandLeagueOption(
+      subcommand.setName('list').setDescription('List OCR nick aliases for this league'),
     ),
   );
 
@@ -166,6 +173,19 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         removed === 0
           ? 'No OCR nick aliases to clear.'
           : `Cleared ${removed} OCR nick alias${removed === 1 ? '' : 'es'}.`,
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  if (subcommand === 'list') {
+    const leagueId = await requireLeagueId(interaction);
+    if (!leagueId) return;
+
+    const aliases = await listLeagueOcrNickAliases(leagueId);
+    const lines = formatOcrNickAliasLines(aliases);
+    await interaction.reply({
+      content: ['**OCR nick aliases**', ...lines.map((line) => `• ${line}`)].join('\n'),
       flags: MessageFlags.Ephemeral,
     });
     return;
