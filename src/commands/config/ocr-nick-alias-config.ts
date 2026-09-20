@@ -2,34 +2,37 @@ import { MessageFlags, SlashCommandBuilder } from 'discord.js';
 import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import {
-  respondLeagueAutocomplete,
-  withSubcommandLeagueOption,
-} from '../../services/league/index.js';
-import {
   clearAllLeagueOcrNickAliases,
   clearLeagueOcrNickAlias,
   formatOcrNickAliasLines,
   listLeagueOcrNickAliases,
   setLeagueOcrNickAlias,
 } from '../../services/lobby/ocr-nick-aliases.js';
+import {
+  respondLeagueAutocomplete,
+  withSubcommandLeagueOption,
+} from '../../services/league/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
 import { assertConfigStaff, requireLeagueId } from './config-shared.js';
 
-const log = createLogger('ocr_nick_alias_cmd');
+const log = createLogger('ocr_nick_alias_config_cmd');
 
 /**
- * Staff command for screenshot OCR nick remaps (split from league_config for Discord size limits).
+ * Staff command for OCR nick aliases (split from league_config for Discord size limits).
  */
 export const data = new SlashCommandBuilder()
-  .setName('ocr_nick_alias')
-  .setDescription('Map OCR misread nicks to correct nicks per league')
+  .setName('ocr_nick_alias_config')
+  .setDescription('Map OCR misread nicks to the correct in-game nick')
   .addSubcommand((subcommand) =>
     withSubcommandLeagueOption(
       subcommand
         .setName('set')
-        .setDescription('Add or update one OCR nick alias')
+        .setDescription('Map a wrong OCR nick to the correct nick')
         .addStringOption((option) =>
-          option.setName('from').setDescription('Wrong nick as OCR reads it').setRequired(true),
+          option
+            .setName('from')
+            .setDescription('Wrong nick as OCR usually reads it')
+            .setRequired(true),
         )
         .addStringOption((option) =>
           option.setName('to').setDescription('Correct in-game nick').setRequired(true),
@@ -42,7 +45,7 @@ export const data = new SlashCommandBuilder()
         .setName('clear')
         .setDescription('Remove one OCR nick alias')
         .addStringOption((option) =>
-          option.setName('from').setDescription('Wrong nick alias key').setRequired(true),
+          option.setName('from').setDescription('Wrong nick alias key to remove').setRequired(true),
         ),
     ),
   )
@@ -84,10 +87,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
 
   const subcommand = interaction.options.getSubcommand(true);
-  const leagueId = await requireLeagueId(interaction);
-  if (!leagueId) return;
 
   if (subcommand === 'set') {
+    const leagueId = await requireLeagueId(interaction);
+    if (!leagueId) return;
+
     const from = interaction.options.getString('from', true);
     const to = interaction.options.getString('to', true);
     try {
@@ -120,6 +124,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
 
   if (subcommand === 'clear') {
+    const leagueId = await requireLeagueId(interaction);
+    if (!leagueId) return;
+
     const from = interaction.options.getString('from', true);
     try {
       const removed = await clearLeagueOcrNickAlias(leagueId, from);
@@ -153,6 +160,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
 
   if (subcommand === 'clear_all') {
+    const leagueId = await requireLeagueId(interaction);
+    if (!leagueId) return;
+
     const removed = await clearAllLeagueOcrNickAliases(leagueId);
     log.info(
       { guildId: interaction.guildId, leagueId, removed, userId: interaction.user.id },
@@ -169,11 +179,20 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
 
   if (subcommand === 'list') {
+    const leagueId = await requireLeagueId(interaction);
+    if (!leagueId) return;
+
     const aliases = await listLeagueOcrNickAliases(leagueId);
     const lines = formatOcrNickAliasLines(aliases);
     await interaction.reply({
       content: ['**OCR nick aliases**', ...lines.map((line) => `• ${line}`)].join('\n'),
       flags: MessageFlags.Ephemeral,
     });
+    return;
   }
+
+  await interaction.reply({
+    content: 'Unknown OCR nick alias config subcommand.',
+    flags: MessageFlags.Ephemeral,
+  });
 }

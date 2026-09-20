@@ -10,8 +10,8 @@ import { resolveGuildConfig } from '../../services/guild/index.js';
 import {
   refreshGuildGrieferLeaderboard,
   refreshGuildQuitterLeaderboard,
-  refreshLeagueLeaderboard,
 } from '../../services/leaderboard/index.js';
+import { notifyLeagueRatingChanged } from '../../services/hero-champion-roles/index.js';
 import {
   assertHasMatchModRole,
   flipCompletedMatch,
@@ -96,7 +96,7 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
       parsed.quitterSlots,
     );
     await syncLobbyDiscordMessage(interaction.client, updated, 'completed', { ratingPreview });
-    await refreshLeagueLeaderboard(interaction.client, requireLeagueId(updated));
+    await notifyLeagueRatingChanged(interaction.client, requireLeagueId(updated));
     if (interaction.guildId) {
       await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
       await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);
@@ -111,7 +111,7 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
       cancelReason: 'by a moderator',
       postToMatchLog: true,
     });
-    await refreshLeagueLeaderboard(interaction.client, requireLeagueId(updated));
+    await notifyLeagueRatingChanged(interaction.client, requireLeagueId(updated));
     if (interaction.guildId) {
       await refreshGuildQuitterLeaderboard(interaction.client, interaction.guildId);
       await refreshGuildGrieferLeaderboard(interaction.client, interaction.guildId);

@@ -77,6 +77,7 @@ export interface ResolvedLeagueConfig {
   decayEnabled: boolean;
   balanceStaticSigmaEnabled: boolean;
   showSideWinLoss: boolean;
+  heroChampionRolesEnabled: boolean;
   seasonEndsAt: Date | undefined;
   decayInCrunch: boolean;
   decaySettings: ResolvedDecaySettings;
@@ -117,6 +118,7 @@ export async function resolveLeagueConfig(leagueId: string): Promise<ResolvedLea
     decayEnabled,
     balanceStaticSigmaEnabled: row?.balanceStaticSigmaEnabled === true,
     showSideWinLoss: row?.showSideWinLoss === true,
+    heroChampionRolesEnabled: row?.heroChampionRolesEnabled === true,
     seasonEndsAt,
     decayInCrunch,
     decaySettings,

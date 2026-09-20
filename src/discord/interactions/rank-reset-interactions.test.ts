@@ -2,11 +2,11 @@ import type { Interaction } from 'discord.js';
 import { ButtonStyle, MessageFlags } from 'discord.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { applyRankReset, playerFindUnique, refreshLeagueLeaderboard, resolveGuildConfig } =
+const { applyRankReset, playerFindUnique, notifyLeagueRatingChanged, resolveGuildConfig } =
   vi.hoisted(() => ({
     applyRankReset: vi.fn(),
     playerFindUnique: vi.fn(),
-    refreshLeagueLeaderboard: vi.fn(),
+    notifyLeagueRatingChanged: vi.fn(),
     resolveGuildConfig: vi.fn(),
   }));
 
@@ -20,8 +20,8 @@ vi.mock('../../services/guild/index.js', () => ({
   resolveGuildConfig,
 }));
 
-vi.mock('../../services/leaderboard/index.js', () => ({
-  refreshLeagueLeaderboard,
+vi.mock('../../services/hero-champion-roles/index.js', () => ({
+  notifyLeagueRatingChanged,
 }));
 
 vi.mock('../../services/match/index.js', () => {
@@ -182,7 +182,7 @@ describe('handleRankResetInteraction', () => {
       matchModRoleId: 'mod-role',
       expectedPlayerId: 'player-1',
     });
-    expect(refreshLeagueLeaderboard).toHaveBeenCalledWith(interaction.client, 'league-1');
+    expect(notifyLeagueRatingChanged).toHaveBeenCalledWith(interaction.client, 'league-1');
     expect(interaction.editReply).toHaveBeenCalledWith({
       content: "Reset **Goku**'s rank. Their overall and hero ki have been reset.",
       components: [],
@@ -228,6 +228,6 @@ describe('handleRankResetInteraction', () => {
       content: error.message,
       components: [],
     });
-    expect(refreshLeagueLeaderboard).not.toHaveBeenCalled();
+    expect(notifyLeagueRatingChanged).not.toHaveBeenCalled();
   });
 });

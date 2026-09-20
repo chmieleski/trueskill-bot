@@ -18,15 +18,15 @@ Staff can map screenshot-OCR misreads to canonical in-game nicks **per league** 
 
 ## Decisions (locked)
 
-| Topic         | Choice                                                                                        |
-| ------------- | --------------------------------------------------------------------------------------------- |
-| Scope         | Screenshot OCR only                                                                           |
-| Tenancy       | Per `leagueId`                                                                                |
-| Matching      | Exact key after `normalizeNick`                                                               |
-| Target nick   | Free-form (normalized); no Player existence check                                             |
-| Admin UX      | `/ocr_nick_alias` set / clear / clear_all / list (config staff); also shown on `/config view` |
-| Storage       | Child table `LeagueOcrNickAlias` (not JSON on `League`)                                       |
-| Event lobbies | Skip aliases (no league)                                                                      |
+| Topic         | Choice                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------- |
+| Scope         | Screenshot OCR only                                                                                  |
+| Tenancy       | Per `leagueId`                                                                                       |
+| Matching      | Exact key after `normalizeNick`                                                                      |
+| Target nick   | Free-form (normalized); no Player existence check                                                    |
+| Admin UX      | `/ocr_nick_alias_config` set / clear / clear_all / list (config staff); also shown on `/config view` |
+| Storage       | Child table `LeagueOcrNickAlias` (not JSON on `League`)                                              |
+| Event lobbies | Skip aliases (no league)                                                                             |
 
 ## Architecture
 
@@ -36,7 +36,7 @@ Screenshot → Gemini OCR → normalizeNick (in lobby-ocr)
   → rewrite nick on exact fromNick hit
   → apply roster
 
-/league_config set|clear ocr_nick_alias
+Staff configure aliases with `/ocr_nick_alias_config` (split from `/league_config` for Discord’s 8KB slash-command size limit).
   → assertConfigStaff → CRUD service → Prisma
 ```
 
@@ -67,10 +67,10 @@ model LeagueOcrNickAlias {
 
 Split from `/league_config` so that command stays under Discord’s 8000-byte payload limit (same pattern as `/decay_config`).
 
-- `/ocr_nick_alias set` — `from`, `to`
-- `/ocr_nick_alias clear` — `from` (one entry)
-- `/ocr_nick_alias clear_all` — all entries for the league
-- `/ocr_nick_alias list` — list aliases for the league
+- `/ocr_nick_alias_config set` — `from`, `to`
+- `/ocr_nick_alias_config clear` — `from` (one entry)
+- `/ocr_nick_alias_config clear_all` — all entries for the league
+- `/ocr_nick_alias_config list` — list aliases for the league
 - `/config view` — also lists aliases (compact lines)
 
 English ephemeral replies. Auth: existing `assertConfigStaff`.
