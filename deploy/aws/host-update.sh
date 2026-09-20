@@ -89,12 +89,26 @@ sudo -u "${APP_USER}" git config --global url."https://github.com/".insteadOf gi
 echo "==> Upgrading npm to 11 (Node 22 ships npm 10; openskill git dep fails on npm 10)"
 npm install -g npm@11
 
+# t3.micro (~1GiB): Node's default heap (~450MB) OOMs on tsc after hero-draft grew the graph.
+# Raise V8 heap for the stage compile only; swap (ensure-swap.sh) covers RAM + live bot pressure.
+BUILD_MAX_OLD_SPACE_SIZE="${BUILD_MAX_OLD_SPACE_SIZE:-1024}"
+BUILD_NODE_OPTIONS="--max-old-space-size=${BUILD_MAX_OLD_SPACE_SIZE}"
+
 echo "==> Installing and building in stage (live bot stays up)"
-if ! sudo -u "${APP_USER}" bash -lc "cd '${STAGE_DIR}' && HUSKY=0 npm ci && npm run build && npm run deploy-commands"; then
+# #region agent log
+echo "==> debug-511b9e pre-build MemAvailable=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)kB SwapFree=$(awk '/SwapFree:/ {print $2}' /proc/meminfo)kB BUILD_NODE_OPTIONS=${BUILD_NODE_OPTIONS}"
+# #endregion
+if ! sudo -u "${APP_USER}" bash -lc "cd '${STAGE_DIR}' && HUSKY=0 npm ci && NODE_OPTIONS='${BUILD_NODE_OPTIONS}' npm run build && npm run deploy-commands"; then
   echo "Stage prepare failed; leaving live bot running" >&2
+  # #region agent log
+  echo "==> debug-511b9e stage-prepare-failed MemAvailable=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)kB SwapFree=$(awk '/SwapFree:/ {print $2}' /proc/meminfo)kB" >&2
+  # #endregion
   rm -rf "${STAGE_DIR}"
   exit 1
 fi
+# #region agent log
+echo "==> debug-511b9e stage-build-ok MemAvailable=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)kB SwapFree=$(awk '/SwapFree:/ {print $2}' /proc/meminfo)kB"
+# #endregion
 
 echo "==> Stopping dbz-bot for migrate and swap"
 systemctl stop dbz-bot || true

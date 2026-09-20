@@ -204,6 +204,15 @@ describe('host-update.sh cut-over order', () => {
     );
   });
 
+  it('raises Node heap for stage tsc on small EC2 instances', () => {
+    const sh = readFileSync(join(repoRoot, 'deploy/aws/host-update.sh'), 'utf8');
+    expect(sh).toContain('BUILD_MAX_OLD_SPACE_SIZE="${BUILD_MAX_OLD_SPACE_SIZE:-1024}"');
+    expect(sh).toContain("NODE_OPTIONS='${BUILD_NODE_OPTIONS}' npm run build");
+    expect(sh.indexOf("NODE_OPTIONS='${BUILD_NODE_OPTIONS}' npm run build")).toBeGreaterThan(
+      sh.indexOf('HUSKY=0 npm ci'),
+    );
+  });
+
   it('pins live git fetch/checkout/pull to APP_DIR', () => {
     const sh = readFileSync(join(repoRoot, 'deploy/aws/host-update.sh'), 'utf8');
     expect(sh).toMatch(/git -C "\$\{APP_DIR\}" fetch --all/);
