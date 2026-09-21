@@ -1,7 +1,3 @@
-allowBuilds:
-  '@google/genai': true
-  '@prisma/engines': true
-  esbuild: true
-  'openskill@https://codeload.github.com/philihp/openskill.js/tar.gz/b52cce61ea4362df4b338feabb2c85ed35f579c4': true
-  prisma: true
-  protobufjs: true
+packages:
+  - 'apps/*'
+  - 'packages/*'

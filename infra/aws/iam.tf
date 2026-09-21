@@ -43,6 +43,18 @@ data "aws_iam_policy_document" "bot_ssm" {
       values   = ["ssm.${var.aws_region}.amazonaws.com"]
     }
   }
+
+  statement {
+    sid       = "ListReleaseBucket"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.release.arn]
+  }
+
+  statement {
+    sid       = "ReadReleaseArtifacts"
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.release.arn}/bot/*"]
+  }
 }
 
 resource "aws_iam_role_policy" "bot_ssm" {

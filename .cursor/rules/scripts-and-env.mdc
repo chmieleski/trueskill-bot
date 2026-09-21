@@ -1,28 +1,34 @@
 ---
-description: npm scripts and required environment variables
+description: pnpm scripts and required environment variables
 alwaysApply: true
 ---
 
 # Scripts & Environment
 
+Monorepo (pnpm + Turborepo). Prefer root scripts; filters target `@dbz/bot`, `@dbz/web`, `@dbz/db`.
+
 | Script | Purpose |
 |--------|---------|
-| `npm run dev` | tsx watch, auto-restart, auto-deploy commands |
-| `npm run build` | Prisma generate + TypeScript compile |
-| `npm run typecheck` | `tsc --noEmit` (CI Test job; same gate as host `npm run build`) |
-| `npm start` | Production from `dist/` |
-| `npm run deploy-commands` | Manual slash command deploy (guild if `GUILD_ID` set, else global) |
-| `npm run db:migrate` | Create/apply Prisma migration |
-| `npm run db:push` | Push schema without migration |
-| `npm run db:studio` | Prisma Studio |
-| `npm run db:generate` | Regenerate Prisma client |
-| `npm run db:up` | Start local Postgres (Docker Compose, port 5433) |
-| `npm run db:down` | Stop local Postgres (volume kept) |
-| `npm run db:clone` | Dump hosted public data → local Postgres |
-| `npm run db:clone:heroes` | Same clone, `"Hero"` table only |
-| `npm run db:backup` | Gzipped schema+data dump of hosted prod → `.local/backups/` |
-| `npm run db:restore` | Restore a backup into local Docker only (`-- path.sql.gz` optional) |
-| `npm run db:migrate-multi-league` | Probe schema, `migrate deploy` if needed, ensure Game/UDBR leagues for multi-league IHL |
+| `pnpm dev` / `pnpm dev:bot` | Bot tsx watch (`@dbz/bot`) |
+| `pnpm dev:web` | Next.js web shell (`@dbz/web`) |
+| `pnpm build` | Turbo build (db generate + bot + web) |
+| `pnpm build:bot` / `pnpm build:web` | Filtered builds |
+| `pnpm typecheck` | Turbo typecheck |
+| `pnpm start` | Production bot from `apps/bot/dist/` |
+| `pnpm deploy-commands` | Manual slash command deploy |
+| `pnpm db:migrate` | Prisma migrate dev (`@dbz/db`) |
+| `pnpm db:push` | Push schema without migration |
+| `pnpm db:studio` | Prisma Studio |
+| `pnpm db:generate` | Regenerate Prisma client |
+| `pnpm db:up` | Start local Postgres (Docker Compose, port 5433) |
+| `pnpm db:down` | Stop local Postgres (volume kept) |
+| `pnpm db:clone` | Dump hosted public data → local Postgres |
+| `pnpm db:clone:heroes` | Same clone, `"Hero"` table only |
+| `pnpm db:backup` | Gzipped schema+data dump of hosted prod → `.local/backups/` |
+| `pnpm db:restore` | Restore a backup into local Docker only (`-- path.sql.gz` optional) |
+| `pnpm db:migrate-multi-league` | Probe schema, migrate deploy if needed, ensure Game/UDBR leagues |
+
+Keep a **root** `.env` for local `DATABASE_URL` / `DIRECT_URL` (shared by bot + Prisma CLI).
 
 ## Env vars
 
@@ -30,8 +36,8 @@ alwaysApply: true
 - `GUILD_ID` — optional; guild-scoped command deploy when set (typical for dev). Empty/unset = global deploy (production)
 - `DATABASE_URL` — Supabase pooled (6543), or local `127.0.0.1:5433` when using Docker Compose
 - `DIRECT_URL` — Supabase session/direct (5432), or the same local URL as `DATABASE_URL`
-- `PROD_DIRECT_URL` — hosted session/direct URL (5432) for `npm run db:clone` after `.env` points at local Postgres. Never the 6543 pooler.
-- `MULTI_LEAGUE_LEGACY_GUILD_ID` — Discord guild snowflake that owns pre-multi-league Match/rating history for `npm run db:migrate-multi-league` (falls back to `GUILD_ID` if unset)
+- `PROD_DIRECT_URL` — hosted session/direct URL (5432) for `pnpm db:clone` after `.env` points at local Postgres. Never the 6543 pooler.
+- `MULTI_LEAGUE_LEGACY_GUILD_ID` — Discord guild snowflake that owns pre-multi-league Match/rating history for `pnpm db:migrate-multi-league` (falls back to `GUILD_ID` if unset)
 - `NODE_ENV` — `development` | `production`
 - `AUTO_DEPLOY_COMMANDS` — auto-register commands on startup
 - `GEMINI_API_KEY` — Google Gemini API key for lobby screenshot OCR
@@ -54,3 +60,4 @@ alwaysApply: true
 - `CLICKUP_API_TOKEN` — **local-only** ClickUp personal API token for agents when the ClickUp MCP is rate-limited. Not read by the bot; skip AWS SSM. See `.cursor/rules/clickup-api-fallback.mdc`
 
 Production: every **bot** env key must also live in AWS SSM and `deploy/aws/refresh-env.sh` — see `.cursor/rules/env-aws-sync.mdc`.
+Web (Vercel) needs no DB env for the base shell.

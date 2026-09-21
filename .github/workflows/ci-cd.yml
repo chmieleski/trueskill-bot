@@ -22,18 +22,29 @@ jobs:
       HUSKY: '0'
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: npm
+          node-version: '24'
+          cache: pnpm
       - run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
       - run: 'git config --global url."https://github.com/".insteadOf git@github.com:'
       - run: git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
-      - run: npm install -g npm@11
-      - run: npm ci
-      - run: npx prisma generate
-      - run: npm run typecheck
-      - run: npm test
+      - run: pnpm install --frozen-lockfile
+      - name: Cache Turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.ref_name }}-
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            turbo-${{ runner.os }}-
+      - run: pnpm --filter @dbz/db generate
+      - run: pnpm exec turbo run typecheck test --filter=@dbz/bot
+      - run: pnpm exec turbo run build --filter=@dbz/web
 
   format:
     name: Format
@@ -44,16 +55,18 @@ jobs:
       HUSKY: '0'
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: npm
+          node-version: '24'
+          cache: pnpm
       - run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
       - run: 'git config --global url."https://github.com/".insteadOf git@github.com:'
       - run: git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
-      - run: npm install -g npm@11
-      - run: npm ci
-      - run: npm run format:check
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run format:check
 
   commitlint:
     name: Commitlint
@@ -65,19 +78,21 @@ jobs:
       HUSKY: '0'
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: npm
+          node-version: '24'
+          cache: pnpm
       - run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
       - run: 'git config --global url."https://github.com/".insteadOf git@github.com:'
       - run: git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
-      - run: npm install -g npm@11
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
       - name: Lint PR title
         env:
           TITLE: ${{ github.event.pull_request.title }}
-        run: printf '%s\n' "$TITLE" | npx commitlint
+        run: printf '%s\n' "$TITLE" | pnpm exec commitlint
 
   release:
     name: Release
@@ -95,16 +110,18 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: npm
+          node-version: '24'
+          cache: pnpm
       - run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
       - run: 'git config --global url."https://github.com/".insteadOf git@github.com:'
       - run: git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
-      - run: npm install -g npm@11
-      - run: npm ci
-      - run: npx semantic-release
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GIT_AUTHOR_NAME: github-actions[bot]
@@ -112,7 +129,7 @@ jobs:
           GIT_COMMITTER_NAME: github-actions[bot]
           GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
       - name: Format changelog after release
-        run: npx prettier --write CHANGELOG.md
+        run: pnpm exec prettier --write CHANGELOG.md
       - name: Commit formatted changelog
         run: |
           if git diff --quiet CHANGELOG.md; then
@@ -146,6 +163,8 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION || 'eu-central-1' }}
       EC2_NAME_TAG: ${{ vars.EC2_NAME_TAG || 'punch-machine-prod' }}
       APP_DIR: /home/ubuntu/bot
+      RELEASE_BUCKET: ${{ vars.RELEASE_BUCKET }}
+      HUSKY: '0'
     steps:
       - name: Verify AWS_ROLE_ARN secret
         env:
@@ -167,6 +186,56 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-actions-deploy
+
+      # After semantic-release, ship main tip (bumped package.json), not the pre-release merge SHA.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Resolve release SHA
+        run: |
+          set -euo pipefail
+          RELEASE_SHA="$(git rev-parse HEAD)"
+          echo "RELEASE_SHA=${RELEASE_SHA}" >> "${GITHUB_ENV}"
+          echo "Shipping release tip ${RELEASE_SHA} (trigger ${GITHUB_SHA})"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - name: Cache Turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.ref_name }}-
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            turbo-${{ runner.os }}-
+      - run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+      - run: 'git config --global url."https://github.com/".insteadOf git@github.com:'
+      - run: git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @dbz/db generate
+      - run: pnpm exec turbo run build --filter=@dbz/bot
+      - name: Pack release
+        env:
+          PACK_OUT_DIR: ${{ runner.temp }}/release
+        run: bash deploy/aws/pack-release.sh
+      - name: Upload release to S3
+        env:
+          RELEASE_BUCKET: ${{ vars.RELEASE_BUCKET }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${RELEASE_BUCKET}" ]]; then
+            echo "::error::Set repository variable RELEASE_BUCKET to the Terraform release_bucket_name output" >&2
+            exit 1
+          fi
+          TAR="${RUNNER_TEMP}/release/bot-${RELEASE_SHA}.tar.gz"
+          aws s3 cp "${TAR}" "s3://${RELEASE_BUCKET}/bot/${RELEASE_SHA}.tar.gz"
+          aws s3 cp "${TAR}" "s3://${RELEASE_BUCKET}/bot/latest"
 
       - name: Deploy via SSM
         run: |
@@ -281,31 +350,49 @@ jobs:
           fi
 
           # Single bash -lc so pipefail works under SSM (default shell is dash).
-          # git pull loads the new host-update.sh; that script stops the bot only
-          # after the stage build succeeds.
+          # Inline S3 bootstrap (same as update-bot.sh) so first cutover works even
+          # when live update-bot.sh is still the old git wrapper. Keep update-bot.sh
+          # for manual ops; subsequent deploys use stage host-update.sh via this path.
           COMMAND_ID="$(aws ssm send-command \
             --instance-ids "${INSTANCE_ID}" \
             --document-name AWS-RunShellScript \
-            --comment "dbz-bot deploy ${GITHUB_SHA}" \
+            --comment "dbz-bot deploy ${RELEASE_SHA}" \
             --timeout-seconds 3600 \
             --parameters commands="$(jq -cn \
               --arg app "$APP_DIR" \
-              --arg sha "$GITHUB_SHA" \
+              --arg sha "$RELEASE_SHA" \
+              --arg bucket "$RELEASE_BUCKET" \
+              --arg region "$AWS_REGION" \
               '
                 [
                   (
                     [
                       "set -euo pipefail",
                       "echo \"==> deploy \($sha)\"",
-                      "ORIGIN=$(sudo -u ubuntu git -C \($app) remote get-url origin 2>/dev/null || true)",
-                      "MASKED=$(printf %s \"${ORIGIN}\" | sed -E \"s#https://[^@/]+@#https://***@#g\")",
-                      "echo \"==> origin=${MASKED}\"",
-                      "if [[ \"${ORIGIN}\" == /* || \"${ORIGIN}\" == file://* || \"${ORIGIN}\" == ./* ]]; then if [[ -f /etc/dbz-bot/git-remote.url ]]; then echo \"==> Repairing local origin from /etc/dbz-bot/git-remote.url\"; sudo -u ubuntu git -C \($app) remote set-url origin \"$(head -n1 /etc/dbz-bot/git-remote.url)\"; else echo \"Local origin and missing /etc/dbz-bot/git-remote.url — restore a credentialed remote (PAT in URL) before deploy\" >&2; exit 1; fi; fi",
-                      "sudo -u ubuntu git -C \($app) fetch --all",
-                      "sudo -u ubuntu git -C \($app) checkout main",
-                      "sudo -u ubuntu git -C \($app) pull --ff-only origin main",
-                      "if [[ -f \($app)/deploy/aws/ensure-swap.sh ]]; then sudo bash \($app)/deploy/aws/ensure-swap.sh; fi",
-                      "sudo bash \($app)/deploy/aws/host-update.sh"
+                      "echo \"==> Inline S3 bootstrap (same as update-bot.sh)\"",
+                      "RELEASE_BUCKET=\($bucket)",
+                      "RELEASE_SHA=\($sha)",
+                      "APP_DIR=\($app)",
+                      "AWS_REGION=\($region)",
+                      "APP_USER=ubuntu",
+                      "if [[ -z \"${RELEASE_BUCKET}\" ]]; then echo \"RELEASE_BUCKET is empty\" >&2; exit 1; fi",
+                      "STAGE_DIR=\"${APP_DIR}.next\"",
+                      "TMP_TAR=\"$(mktemp /tmp/dbz-bot-release.XXXXXX.tar.gz)\"",
+                      "TMP_EXTRACT=\"$(mktemp -d /tmp/dbz-bot-extract.XXXXXX)\"",
+                      "KEY=\"bot/${RELEASE_SHA}.tar.gz\"",
+                      "echo \"==> Downloading s3://${RELEASE_BUCKET}/${KEY}\"",
+                      "aws s3 cp \"s3://${RELEASE_BUCKET}/${KEY}\" \"${TMP_TAR}\" --region \"${AWS_REGION}\"",
+                      "echo \"==> Unpacking to ${STAGE_DIR}\"",
+                      "sudo rm -rf \"${STAGE_DIR}\"",
+                      "mkdir -p \"${TMP_EXTRACT}\"",
+                      "tar -xzf \"${TMP_TAR}\" -C \"${TMP_EXTRACT}\"",
+                      "if [[ -f \"${TMP_EXTRACT}/apps/bot/dist/index.js\" ]]; then sudo mv \"${TMP_EXTRACT}\" \"${STAGE_DIR}\"; TMP_EXTRACT=\"\"; else echo \"Tarball missing apps/bot/dist/index.js\" >&2; rm -f \"${TMP_TAR}\"; rm -rf \"${TMP_EXTRACT}\"; exit 1; fi",
+                      "sudo chown -R \"${APP_USER}:${APP_USER}\" \"${STAGE_DIR}\"",
+                      "HOST_UPDATE=\"${STAGE_DIR}/deploy/aws/host-update.sh\"",
+                      "if [[ ! -f \"${HOST_UPDATE}\" ]]; then echo \"host-update.sh missing in stage\" >&2; rm -f \"${TMP_TAR}\"; exit 1; fi",
+                      "rm -f \"${TMP_TAR}\"",
+                      "export APP_DIR APP_USER",
+                      "exec sudo -E APP_DIR=\"${APP_DIR}\" APP_USER=\"${APP_USER}\" bash \"${HOST_UPDATE}\""
                     ] | join("; ")
                   ) as $body
                   | "bash -lc " + ($body | @sh)

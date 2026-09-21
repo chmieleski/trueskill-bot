@@ -1,6 +1,6 @@
 ---
 description: Prefer shared domain/use-case functions over duplicating button and command paths
-globs: src/**/*.ts
+globs: apps/bot/src/**/*.ts
 alwaysApply: false
 ---
 

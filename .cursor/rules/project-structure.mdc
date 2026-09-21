@@ -1,13 +1,23 @@
 ---
 description: Source layout and bootstrap flow for the Discord bot
-globs: src/**/*.ts
+globs: apps/bot/src/**/*.ts
 alwaysApply: false
 ---
 
 # Project Structure
 
+Monorepo layout (pnpm + Turborepo):
+
 ```
-src/
+apps/bot/src/                 # Discord bot (@dbz/bot)
+apps/web/                     # Next.js web shell (@dbz/web) — Vercel
+packages/db/                  # Prisma schema + client (@dbz/db)
+```
+
+Bot source:
+
+```
+apps/bot/src/
 ├── index.ts
 ├── deploy-commands.ts
 ├── config/env.ts

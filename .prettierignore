@@ -1,12 +1,16 @@
 node_modules/
 dist/
+.next/
 package-lock.json
+pnpm-lock.yaml
 # semantic-release writes CHANGELOG.md; release job runs prettier on it after each release
 CHANGELOG.md
 src/generated/
 .local/
 .worktrees/
+.turbo/
 **/.terraform/
 **/*.tfstate
 **/*.tfstate.*
 examples/
+prod-data.sql

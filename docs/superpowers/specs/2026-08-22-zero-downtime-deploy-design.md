@@ -133,4 +133,4 @@ Order:
 
 - Automatic swap-back if `systemctl start` fails
 - `nice`/`ionice` on stage `npm ci` if the live bot becomes sluggish under swap
-- Build artifacts in GitHub Actions to avoid `npm ci` on t3.micro
+- ~~Build artifacts in GitHub Actions to avoid `npm ci` on t3.micro~~ — **Done / superseded** by [`2026-09-21-artifact-deploy-design.md`](2026-09-21-artifact-deploy-design.md)

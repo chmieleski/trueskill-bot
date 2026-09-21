@@ -22,6 +22,7 @@ repo_url    = "https://github.com/YOUR_USER/YOUR_REPO.git"
 repo_branch = "main"
 # GitHub repo allowed to assume the deploy IAM role via OIDC (push to main only)
 github_repository = "chmieleski/trueskill-bot"
+# After `tofu apply`, set GitHub repo variable RELEASE_BUCKET to output release_bucket_name
 app_dir     = "/home/ubuntu/bot"
 
 deploy_commands_on_boot = true

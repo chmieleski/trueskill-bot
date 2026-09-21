@@ -1,49 +1,39 @@
 {
-  "name": "dbz-wc3-bot",
-  "version": "1.59.1",
+  "name": "dbz-monorepo",
+  "private": true,
   "type": "module",
-  "description": "Discord bot for managing DBZ Warcraft III 5v5 matches",
-  "main": "dist/index.js",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "dev": "NODE_ENV=development tsx watch --clear-screen=false src/index.ts",
-    "build": "prisma generate && tsc",
-    "start": "NODE_ENV=production node dist/index.js",
-    "deploy-commands": "tsx src/deploy-commands.ts",
-    "db:migrate": "prisma migrate dev",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:studio": "prisma studio",
+    "dev": "turbo run dev --filter=@dbz/bot",
+    "dev:web": "turbo run dev --filter=@dbz/web",
+    "dev:bot": "turbo run dev --filter=@dbz/bot",
+    "build": "turbo run build",
+    "build:bot": "turbo run build --filter=@dbz/bot",
+    "build:web": "turbo run build --filter=@dbz/web",
+    "start": "pnpm --filter @dbz/bot start",
+    "deploy-commands": "pnpm --filter @dbz/bot deploy-commands",
+    "db:migrate": "pnpm --filter @dbz/db migrate:dev",
+    "db:generate": "pnpm --filter @dbz/db generate",
+    "db:push": "pnpm --filter @dbz/db push",
+    "db:studio": "pnpm --filter @dbz/db studio",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "db:clone": "bash scripts/db-clone-local.sh",
-    "db:clone:heroes": "bash scripts/db-clone-local.sh --heroes-only",
-    "db:backup": "bash scripts/db-backup.sh",
-    "db:restore": "bash scripts/db-restore-local.sh",
-    "db:migrate-multi-league": "tsx scripts/migrate-multi-league.ts",
-    "seed:veterans": "tsx scripts/seed-veteran-ratings.ts",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
+    "db:clone": "bash apps/bot/scripts/db-clone-local.sh",
+    "db:clone:heroes": "bash apps/bot/scripts/db-clone-local.sh --heroes-only",
+    "db:backup": "bash apps/bot/scripts/db-backup.sh",
+    "db:restore": "bash apps/bot/scripts/db-restore-local.sh",
+    "db:migrate-multi-league": "pnpm --filter @dbz/bot db:migrate-multi-league",
+    "seed:veterans": "pnpm --filter @dbz/bot seed:veterans",
+    "test": "turbo run test --filter=@dbz/bot",
+    "test:watch": "pnpm --filter @dbz/bot test:watch",
+    "typecheck": "turbo run typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "pack:bot": "bash deploy/aws/pack-release.sh",
     "prepare": "husky"
-  },
-  "keywords": [
-    "discord",
-    "bot",
-    "warcraft3",
-    "dragon-ball-z"
-  ],
-  "license": "MIT",
-  "dependencies": {
-    "@google/genai": "^2.16.0",
-    "@prisma/adapter-pg": "^7.9.1",
-    "@prisma/client": "^7.9.1",
-    "discord.js": "^14.21.0",
-    "dotenv": "^16.4.7",
-    "openskill": "git+https://github.com/philihp/openskill.js.git#b52cce61ea4362df4b338feabb2c85ed35f579c4",
-    "pg": "^8.23.0",
-    "pino": "^10.3.1"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",
@@ -54,21 +44,23 @@
     "@semantic-release/github": "^12.0.9",
     "@semantic-release/npm": "^13.1.5",
     "@semantic-release/release-notes-generator": "^14.1.1",
-    "@types/node": "^22.13.10",
-    "@types/pg": "^8.21.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.3.0",
-    "pino-pretty": "^13.1.3",
     "prettier": "^3.9.6",
-    "prisma": "^7.9.1",
     "semantic-release": "^25.0.9",
-    "tsx": "^4.19.3",
-    "typescript": "^5.8.2",
-    "vitest": "^4.1.10"
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.2"
   },
-  "allowScripts": {
-    "@prisma/engines@7.9.1": true,
-    "prisma@7.9.1": true
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "prisma",
+      "protobufjs",
+      "sharp",
+      "unrs-resolver"
+    ]
   },
   "lint-staged": {
     "*.{ts,tsx,js,mjs,cjs,json,md,yml,yaml}": "prettier --write"
