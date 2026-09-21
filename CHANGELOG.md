@@ -1,3 +1,10 @@
+## [1.60.2](https://github.com/chmieleski/trueskill-bot/compare/v1.60.1...v1.60.2) (2026-09-21)
+
+
+### Bug Fixes
+
+* **deploy:** surface deploy-commands errors in SSM logs ([#184](https://github.com/chmieleski/trueskill-bot/issues/184)) ([e6ccd1b](https://github.com/chmieleski/trueskill-bot/commit/e6ccd1ba7e1b36d81083d9e0e6e261b928a3397e))
+
 ## [1.60.1](https://github.com/chmieleski/trueskill-bot/compare/v1.60.0...v1.60.1) (2026-09-21)
 
 
