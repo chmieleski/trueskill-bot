@@ -145,6 +145,6 @@ Every new bot-read key must update:
 
 ## Related
 
-- Tech debt: OpenTelemetry + Prometheus + Grafana (GitHub issue linked after open)
+- Tech debt: OpenTelemetry + Prometheus + Grafana — https://github.com/chmieleski/trueskill-bot/issues/179
 - Existing logger: `src/lib/logger.ts` (pino)
 - Existing WOS API: `src/api/http-server.ts` (unchanged for obs)
