@@ -108,6 +108,15 @@ resource "aws_instance" "bot" {
     Name = local.name_prefix
   })
 
+  # Existing host was imported; AMI / user_data drift must not recreate production.
+  lifecycle {
+    ignore_changes = [
+      ami,
+      user_data,
+      user_data_base64,
+    ]
+  }
+
   depends_on = [
     aws_ssm_parameter.discord_token,
     aws_ssm_parameter.database_url,
