@@ -32,6 +32,7 @@
     "typecheck": "turbo run typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "pack:bot": "bash deploy/aws/pack-release.sh",
     "prepare": "husky"
   },
   "devDependencies": {
