@@ -44,6 +44,43 @@ mkdir -p "${STAGING}/node_modules/@dbz"
 rm -rf "${STAGING}/node_modules/@dbz/db"
 ln -s ../../packages/db "${STAGING}/node_modules/@dbz/db"
 
+# pnpm deploy does not copy the generated Prisma client (`.prisma`), and our bare
+# packages/db has no node_modules — so `@prisma/client` would not resolve from
+# packages/db/index.js. Restore both before tarring.
+STAGED_CLIENT_NM=""
+for candidate in "${STAGING}/node_modules/.pnpm"/@prisma+client@*/node_modules; do
+  if [[ -d "${candidate}/@prisma/client" ]]; then
+    STAGED_CLIENT_NM="${candidate}"
+    break
+  fi
+done
+if [[ -z "${STAGED_CLIENT_NM}" ]]; then
+  echo "@prisma/client missing from packed node_modules" >&2
+  exit 1
+fi
+
+WS_DOT_PRISMA=""
+for candidate in "${ROOT}/node_modules/.pnpm"/@prisma+client@*/node_modules/.prisma; do
+  if [[ -f "${candidate}/client/default.js" ]]; then
+    WS_DOT_PRISMA="${candidate}"
+    break
+  fi
+done
+if [[ -z "${WS_DOT_PRISMA}" ]]; then
+  echo "Generated .prisma/client missing — run pnpm --filter @dbz/db generate first" >&2
+  exit 1
+fi
+rm -rf "${STAGED_CLIENT_NM}/.prisma"
+cp -a "${WS_DOT_PRISMA}" "${STAGED_CLIENT_NM}/.prisma"
+
+mkdir -p "${STAGING}/packages/db/node_modules/@prisma" "${STAGING}/node_modules/@prisma"
+REL_CLIENT_FROM_DB="$(realpath --relative-to="${STAGING}/packages/db/node_modules/@prisma" "${STAGED_CLIENT_NM}/@prisma/client")"
+ln -sfn "${REL_CLIENT_FROM_DB}" "${STAGING}/packages/db/node_modules/@prisma/client"
+if [[ ! -e "${STAGING}/node_modules/@prisma/client" ]]; then
+  REL_CLIENT_TOP="$(realpath --relative-to="${STAGING}/node_modules/@prisma" "${STAGED_CLIENT_NM}/@prisma/client")"
+  ln -sfn "${REL_CLIENT_TOP}" "${STAGING}/node_modules/@prisma/client"
+fi
+
 # pnpm deploy leaves the prisma CLI under the transitive .pnpm store, not always at
 # node_modules/.bin/prisma. Relocating the store also breaks absolute NODE_PATH in
 # pnpm bin shims — vendor a portable top-level CLI for host migrate + tests.

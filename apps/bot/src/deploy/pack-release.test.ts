@@ -56,6 +56,22 @@ describe('pack-release.sh', () => {
     expect(existsSync(join(root, 'docs/discord/public'))).toBe(true);
     expect(existsSync(join(root, 'node_modules/.bin/prisma'))).toBe(true);
     expect(existsSync(join(root, 'node_modules/@dbz/db'))).toBe(true);
+    expect(existsSync(join(root, 'packages/db/node_modules/@prisma/client'))).toBe(true);
+    expect(existsSync(join(root, 'node_modules/@prisma/client'))).toBe(true);
+
+    execFileSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        "import { PrismaClient } from '@dbz/db'; if (typeof PrismaClient !== 'function') process.exit(2);",
+      ],
+      {
+        cwd: root,
+        env: { ...process.env, NODE_ENV: 'production' },
+        stdio: 'inherit',
+      },
+    );
 
     execFileSync(join(root, 'node_modules/.bin/prisma'), ['-v'], {
       cwd: root,

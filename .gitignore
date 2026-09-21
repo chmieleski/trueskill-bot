@@ -35,3 +35,7 @@ ruvector.db
 # Turbo
 .turbo/
 .pnpm-store/
+
+# Local pack / deploy scratch
+.tmp/
+.release-out/
