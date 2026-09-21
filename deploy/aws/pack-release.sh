@@ -35,7 +35,7 @@ cp CHANGELOG.md pnpm-workspace.yaml "${STAGING}/"
 cp -a docs/discord "${STAGING}/docs/"
 
 # Portable production dependency tree for @dbz/bot (includes workspace @dbz/db + prisma CLI).
-pnpm --filter @dbz/bot deploy --prod "${STAGING}/.pnpm-deploy"
+HUSKY=0 pnpm --filter @dbz/bot deploy --prod "${STAGING}/.pnpm-deploy"
 cp -a "${STAGING}/.pnpm-deploy/node_modules" "${STAGING}/"
 rm -rf "${STAGING}/.pnpm-deploy"
 

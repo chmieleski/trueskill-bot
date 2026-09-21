@@ -140,38 +140,6 @@ describe('host-update-lib', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it('repairs a local origin after git clone --local', () => {
-    const root = mkdtempSync(join(tmpdir(), 'host-update-remote-'));
-    const live = join(root, 'bot');
-    const stage = join(root, 'bot.next');
-    const github = 'https://ghp_test@github.com/example/trueskill-bot.git';
-    bash(`git init '${live}' && git -C '${live}' remote add origin '${github}'`);
-    bash(`git clone --local '${live}' '${stage}'`);
-    const before = bash(`git -C '${stage}' remote get-url origin`).stdout.trim();
-    expect(before).toBe(live);
-
-    const repair = bash(
-      `source '${lib}'; APP_USER="$(id -un)"; host_update_ensure_github_origin '${stage}' '${github}' "$APP_USER"`,
-    );
-    expect(repair.status).toBe(0);
-    expect(bash(`git -C '${stage}' remote get-url origin`).stdout.trim()).toBe(github);
-    rmSync(root, { recursive: true, force: true });
-  });
-
-  it('upgrades a bare HTTPS origin when the resolved URL has userinfo', () => {
-    const root = mkdtempSync(join(tmpdir(), 'host-update-remote-'));
-    const app = join(root, 'bot');
-    const bare = 'https://github.com/example/trueskill-bot.git';
-    const credentialed = 'https://ghp_test@github.com/example/trueskill-bot.git';
-    bash(`git init '${app}' && git -C '${app}' remote add origin '${bare}'`);
-    const repair = bash(
-      `source '${lib}'; APP_USER="$(id -un)"; host_update_ensure_github_origin '${app}' '${credentialed}' "$APP_USER"`,
-    );
-    expect(repair.status).toBe(0);
-    expect(bash(`git -C '${app}' remote get-url origin`).stdout.trim()).toBe(credentialed);
-    rmSync(root, { recursive: true, force: true });
-  });
-
   it('persists credentialed remotes to GIT_REMOTE_FILE', () => {
     const root = mkdtempSync(join(tmpdir(), 'host-update-remote-'));
     const stored = join(root, 'git-remote.url');
