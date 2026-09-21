@@ -81,7 +81,8 @@ echo "==> Stopping dbz-bot for migrate and swap"
 systemctl stop dbz-bot || true
 
 echo "==> Migrating database from stage"
-if ! sudo -u "${APP_USER}" bash -lc "set -a; source '${STAGE_DIR}/.env'; set +a; cd '${STAGE_DIR}' && ./node_modules/.bin/prisma migrate deploy --schema packages/db/prisma/schema.prisma"; then
+# Prisma 7 loads packages/db/prisma.config.ts (schema + DIRECT_URL); run from that package.
+if ! sudo -u "${APP_USER}" bash -lc "set -a; source '${STAGE_DIR}/.env'; set +a; cd '${STAGE_DIR}/packages/db' && ../../node_modules/.bin/prisma migrate deploy"; then
   echo "Migrate failed; restarting previous bot" >&2
   rm -rf "${STAGE_DIR}"
   systemctl start dbz-bot || true

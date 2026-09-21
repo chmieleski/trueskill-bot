@@ -25,13 +25,13 @@ cp -a apps/bot/dist "${STAGING}/apps/bot/"
 cp apps/bot/package.json "${STAGING}/apps/bot/"
 
 cp -a packages/db/prisma "${STAGING}/packages/db/"
-cp packages/db/package.json packages/db/index.js "${STAGING}/packages/db/"
+cp packages/db/package.json packages/db/index.js packages/db/prisma.config.ts "${STAGING}/packages/db/"
 if [[ -f packages/db/index.d.ts ]]; then
   cp packages/db/index.d.ts "${STAGING}/packages/db/"
 fi
 
 cp -a deploy "${STAGING}/"
-cp CHANGELOG.md "${STAGING}/"
+cp CHANGELOG.md pnpm-workspace.yaml "${STAGING}/"
 cp -a docs/discord "${STAGING}/docs/"
 
 # Portable production dependency tree for @dbz/bot (includes workspace @dbz/db + prisma CLI).

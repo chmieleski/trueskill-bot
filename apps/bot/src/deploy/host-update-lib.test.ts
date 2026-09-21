@@ -199,6 +199,8 @@ describe('host-update.sh artifact cut-over', () => {
     expect(sh).toContain('host_update_stage_dir');
     expect(sh).toContain('systemctl stop dbz-bot');
     expect(sh).toMatch(/prisma migrate deploy/);
+    expect(sh).toMatch(/cd '\$\{STAGE_DIR\}\/packages\/db'/);
+    expect(sh).toContain('../../node_modules/.bin/prisma migrate deploy');
     expect(sh.indexOf('prisma migrate deploy')).toBeGreaterThan(
       sh.indexOf('systemctl stop dbz-bot'),
     );
@@ -253,6 +255,19 @@ describe('CI deploy SSM command', () => {
     expect(yml).not.toContain('Repairing local origin from /etc/dbz-bot/git-remote.url');
   });
 
+  it('packs from main tip RELEASE_SHA after semantic-release', () => {
+    const yml = readFileSync(join(repoRoot, '.github/workflows/ci-cd.yml'), 'utf8');
+    const deployIdx = yml.indexOf('name: Deploy');
+    expect(deployIdx).toBeGreaterThan(-1);
+    const deploy = yml.slice(deployIdx);
+    expect(deploy).toMatch(/ref:\s*main/);
+    expect(deploy).toMatch(/fetch-depth:\s*0/);
+    expect(deploy).toContain('RELEASE_SHA="$(git rev-parse HEAD)"');
+    expect(deploy).toContain('echo "RELEASE_SHA=${RELEASE_SHA}" >> "${GITHUB_ENV}"');
+    // Pack/upload must not hard-pin the pre-release merge SHA.
+    expect(deploy).not.toMatch(/Pack release[\s\S]*RELEASE_SHA:\s*\$\{\{\s*github\.sha\s*\}\}/);
+  });
+
   it('does not pre-check the deploy lock from CI (host-update blocks on flock)', () => {
     const yml = readFileSync(join(repoRoot, '.github/workflows/ci-cd.yml'), 'utf8');
     expect(yml).not.toContain('lock-check');
@@ -262,5 +277,13 @@ describe('CI deploy SSM command', () => {
     const sh = readFileSync(join(repoRoot, 'deploy/aws/host-update.sh'), 'utf8');
     expect(sh).toContain('flock -w 1800 9');
     expect(sh).not.toContain('flock -n 9');
+  });
+});
+
+describe('pack-release.sh contract', () => {
+  it('includes prisma.config.ts and pnpm-workspace.yaml', () => {
+    const sh = readFileSync(join(repoRoot, 'deploy/aws/pack-release.sh'), 'utf8');
+    expect(sh).toContain('packages/db/prisma.config.ts');
+    expect(sh).toMatch(/cp CHANGELOG\.md pnpm-workspace\.yaml/);
   });
 });

@@ -49,11 +49,18 @@ describe('pack-release.sh', () => {
     expect(existsSync(join(root, 'apps/bot/package.json'))).toBe(true);
     expect(existsSync(join(root, 'packages/db/prisma/schema.prisma'))).toBe(true);
     expect(existsSync(join(root, 'packages/db/prisma/migrations'))).toBe(true);
+    expect(existsSync(join(root, 'packages/db/prisma.config.ts'))).toBe(true);
+    expect(existsSync(join(root, 'pnpm-workspace.yaml'))).toBe(true);
     expect(existsSync(join(root, 'deploy/aws/host-update.sh'))).toBe(true);
     expect(existsSync(join(root, 'CHANGELOG.md'))).toBe(true);
     expect(existsSync(join(root, 'docs/discord/public'))).toBe(true);
     expect(existsSync(join(root, 'node_modules/.bin/prisma'))).toBe(true);
     expect(existsSync(join(root, 'node_modules/@dbz/db'))).toBe(true);
+
+    execFileSync(join(root, 'node_modules/.bin/prisma'), ['-v'], {
+      cwd: root,
+      stdio: 'inherit',
+    });
 
     const release = JSON.parse(readFileSync(join(root, 'RELEASE.json'), 'utf8')) as {
       sha: string;

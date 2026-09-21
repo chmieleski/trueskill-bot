@@ -42,7 +42,7 @@ echo "==> Unpacking to ${STAGE_DIR}"
 rm -rf "${STAGE_DIR}"
 mkdir -p "${TMP_EXTRACT}"
 tar -xzf "${TMP_TAR}" -C "${TMP_EXTRACT}"
-# Support tarballs with or without a single top-level folder
+# Release tarballs are flat (apps/, packages/, deploy/ at extract root).
 if [[ -f "${TMP_EXTRACT}/apps/bot/dist/index.js" ]]; then
   mv "${TMP_EXTRACT}" "${STAGE_DIR}"
   TMP_EXTRACT=""  # moved; skip rm in trap for extract
