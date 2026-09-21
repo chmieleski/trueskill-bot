@@ -9,7 +9,7 @@
     "dev": "NODE_ENV=development tsx watch --clear-screen=false src/index.ts",
     "build": "tsc",
     "start": "NODE_ENV=production node dist/index.js",
-    "deploy-commands": "tsx src/deploy-commands.ts",
+    "deploy-commands": "node dist/deploy-commands.js",
     "db:migrate-multi-league": "tsx scripts/migrate-multi-league.ts",
     "seed:veterans": "tsx scripts/seed-veteran-ratings.ts",
     "test": "vitest run",
