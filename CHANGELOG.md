@@ -1,3 +1,10 @@
+## [1.58.3](https://github.com/chmieleski/trueskill-bot/compare/v1.58.2...v1.58.3) (2026-09-21)
+
+
+### Bug Fixes
+
+* **config:** keep /config view under Discord 2000-char limit ([#178](https://github.com/chmieleski/trueskill-bot/issues/178)) ([8edab0a](https://github.com/chmieleski/trueskill-bot/commit/8edab0a6eb1ba1afa29f0fd87a560a387ccbbc0b))
+
 ## [1.58.2](https://github.com/chmieleski/trueskill-bot/compare/v1.58.1...v1.58.2) (2026-09-21)
 
 
