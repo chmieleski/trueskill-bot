@@ -31,3 +31,8 @@ output "github_actions_role_arn" {
   description = "IAM role ARN for GitHub Actions OIDC (set as repo secret AWS_ROLE_ARN)"
   value       = aws_iam_role.gha.arn
 }
+
+output "release_bucket_name" {
+  description = "S3 bucket for bot release tarballs (set GitHub Actions var RELEASE_BUCKET)"
+  value       = aws_s3_bucket.release.bucket
+}

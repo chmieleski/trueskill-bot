@@ -87,6 +87,21 @@ data "aws_iam_policy_document" "gha_deploy" {
     actions   = ["ec2:DescribeInstances"]
     resources = ["*"]
   }
+
+  statement {
+    sid       = "ListReleaseBucket"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.release.arn]
+  }
+
+  statement {
+    sid = "UploadReleaseArtifacts"
+    actions = [
+      "s3:PutObject",
+      "s3:AbortMultipartUpload",
+    ]
+    resources = ["${aws_s3_bucket.release.arn}/bot/*"]
+  }
 }
 
 resource "aws_iam_role_policy" "gha_deploy" {
