@@ -1,3 +1,10 @@
+# [1.59.0](https://github.com/chmieleski/trueskill-bot/compare/v1.58.3...v1.59.0) (2026-09-21)
+
+
+### Features
+
+* **obs:** Discord ops alerts and agent HTTP status ([#180](https://github.com/chmieleski/trueskill-bot/issues/180)) ([90fd89e](https://github.com/chmieleski/trueskill-bot/commit/90fd89e3bf8687abcdfec1642955ad3440d08151))
+
 ## [1.58.3](https://github.com/chmieleski/trueskill-bot/compare/v1.58.2...v1.58.3) (2026-09-21)
 
 
