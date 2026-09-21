@@ -255,6 +255,11 @@ export function formatApiTokenConfigLine(
   return '**API token:** `set`';
 }
 
+/**
+ * One-line summary for `/config view`.
+ * Full per-hero role/holder lists blow Discord's 2000-char message limit once
+ * 12 heroes are mapped alongside wc3stats slot maps and decay settings.
+ */
 export function formatHeroChampionRolesLine(
   enabled: boolean,
   mappings: {
@@ -268,11 +273,8 @@ export function formatHeroChampionRolesLine(
   if (mappings.length === 0) {
     return `${header} · no heroes mapped`;
   }
-  const lines = mappings.map((m) => {
-    const holder = m.holderDiscordId ? `<@${m.holderDiscordId}>` : '`none`';
-    return `• ${m.heroName} (\`${m.heroId}\`) → <@&${m.discordRoleId}> · holder ${holder}`;
-  });
-  return [header, ...lines].join('\n');
+  const n = mappings.length;
+  return `${header} · \`${n}\` hero${n === 1 ? '' : 'es'} mapped · manage with \`/hero_champion_config\``;
 }
 
 /** Build `/config view` output for guild-wide and league-scoped settings. */
