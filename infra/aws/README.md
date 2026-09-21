@@ -57,11 +57,13 @@ CI waits for SSM `Online` (or a send-command probe) and `/var/lib/dbz-bot/ready`
 
 Preferred: merge to `main` (see **CI/CD** below).
 
-On the instance (break-glass):
+On the instance (break-glass — same S3 → stage → promote path as CI):
 
 ```bash
-sudo dbz-bot-update
+sudo RELEASE_BUCKET=... RELEASE_SHA=... bash /home/ubuntu/bot/deploy/aws/update-bot.sh
 ```
+
+Omit `RELEASE_SHA` to deploy `bot/latest` from the bucket.
 
 After changing secrets **or non-secret config** in `terraform.tfvars`, run `tofu apply` (updates SSM), then on the host:
 
@@ -105,7 +107,9 @@ sudo chmod 755 /usr/local/bin/dbz-bot-refresh-env
 
 ## CI/CD (push to `main`)
 
-Pull requests run `npm test`. A push to `main` runs the same tests, then AWS SSM `git pull`s and runs `deploy/aws/host-update.sh`. The live bot stays up through `npm ci` / `tsc` in `/home/ubuntu/bot.next`. Restart is only the cut-over (stop → migrate → swap → start). A failed prepare leaves the current process running.
+Pull requests run `npm test`. A push to `main` runs the same tests, **packs a release tarball in GitHub Actions**, uploads it to S3 (`bot/<sha>.tar.gz` and `bot/latest`), then uses AWS SSM to **download → unpack** into `/home/ubuntu/bot.next` and run `deploy/aws/host-update.sh`. There is no `git pull` or on-host build on the deploy hot path. The live bot stays up until cut-over (`systemctl stop` → **Prisma migrate on the host** → directory swap → start). A failed prepare (before stop) leaves the current process running.
+
+Design: `docs/superpowers/specs/2026-09-21-artifact-deploy-design.md`.
 
 ### One-time setup
 
@@ -127,6 +131,7 @@ Pull requests run `npm test`. A push to `main` runs the same tests, then AWS SSM
 
 3. In the GitHub repo: **Settings → Secrets and variables → Actions**
    - Secret `AWS_ROLE_ARN` = that ARN
+   - Variable `RELEASE_BUCKET` = `release_bucket_name` from `tofu output` (private S3 bucket for release tarballs)
    - Optional variable `AWS_REGION` (default in workflow: `eu-central-1`)
    - Optional variable `EC2_NAME_TAG` (default: `punch-machine-prod`)
 
@@ -134,19 +139,21 @@ Do **not** put `DISCORD_TOKEN`, `DATABASE_URL`, or `GEMINI_API_KEY` in GitHub. T
 
 Until `AWS_ROLE_ARN` is set, the Test job still runs; Deploy fails at OIDC.
 
-### Manual update (unchanged)
+### Manual update
 
 ```bash
-sudo dbz-bot-update
+sudo RELEASE_BUCKET=... RELEASE_SHA=... bash /home/ubuntu/bot/deploy/aws/update-bot.sh
 ```
 
-New instances use the repo script via that wrapper. The existing host keeps the old baked wrapper until recreate; GitHub Actions does not call it — it `git pull`s and runs `deploy/aws/host-update.sh` directly.
+`RELEASE_BUCKET` must match the GitHub variable (from Terraform). `RELEASE_SHA` is optional (defaults to `bot/latest`). CI uses inline S3 bootstrap in the workflow; this script is the same path for ops on the instance.
+
+Legacy `/usr/local/bin/dbz-bot-update` only execs `host-update.sh` and requires an existing `bot.next` stage — prefer `update-bot.sh` for a full manual deploy.
 
 ### After guild wc3stats config release
 
 wc3stats lobby import is **per Discord server** (`GuildConfig`), not process env. After merging/deploying that release:
 
-1. **Deploy app + run migration** — CI `host-update.sh` runs migrate on push to `main`; break-glass: `sudo dbz-bot-update`.
+1. **Deploy app + run migration** — CI S3 deploy runs migrate on the host via `host-update.sh`; break-glass: `update-bot.sh` (above).
 2. **Enable import per guild** — in each server that needs wc3stats: `/config set wc3stats_map_preset preset:UDBR` (staff with Manage Guild). Default after deploy is **off** until this runs.
 3. **Drop legacy SSM keys** — remove `wc3stats_enabled`, `wc3stats_map_pattern`, and `wc3stats_map_sha1` from `terraform.tfvars` (if still present), then `tofu apply` so the three parameters leave state/SSM. Keep `wc3stats_timeout_ms`.
 4. **Refresh host env** — `sudo dbz-bot-refresh-env` (or the next deploy); `refresh-env.sh` no longer writes the removed keys. `WC3STATS_TIMEOUT_MS` stays.
