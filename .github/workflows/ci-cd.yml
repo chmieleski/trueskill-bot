@@ -164,6 +164,9 @@ jobs:
       EC2_NAME_TAG: ${{ vars.EC2_NAME_TAG || 'punch-machine-prod' }}
       APP_DIR: /home/ubuntu/bot
       RELEASE_BUCKET: ${{ vars.RELEASE_BUCKET }}
+      # Prisma 7 loads prisma.config.ts which requires DIRECT_URL even for `generate`
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/ci
       HUSKY: '0'
     steps:
       - name: Verify AWS_ROLE_ARN secret
