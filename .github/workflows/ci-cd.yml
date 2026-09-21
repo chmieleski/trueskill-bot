@@ -22,18 +22,21 @@ jobs:
       HUSKY: '0'
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
+          cache: pnpm
       - run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
       - run: 'git config --global url."https://github.com/".insteadOf git@github.com:'
       - run: git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
-      - run: npm install -g npm@11
-      - run: npm ci
-      - run: npx prisma generate
-      - run: npm run typecheck
-      - run: npm test
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @dbz/db generate
+      - run: pnpm --filter @dbz/bot typecheck
+      - run: pnpm --filter @dbz/bot test
+      - run: pnpm --filter @dbz/web build
 
   format:
     name: Format
@@ -44,16 +47,18 @@ jobs:
       HUSKY: '0'
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
+          cache: pnpm
       - run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
       - run: 'git config --global url."https://github.com/".insteadOf git@github.com:'
       - run: git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
-      - run: npm install -g npm@11
-      - run: npm ci
-      - run: npm run format:check
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run format:check
 
   commitlint:
     name: Commitlint
@@ -65,19 +70,21 @@ jobs:
       HUSKY: '0'
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
+          cache: pnpm
       - run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
       - run: 'git config --global url."https://github.com/".insteadOf git@github.com:'
       - run: git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
-      - run: npm install -g npm@11
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
       - name: Lint PR title
         env:
           TITLE: ${{ github.event.pull_request.title }}
-        run: printf '%s\n' "$TITLE" | npx commitlint
+        run: printf '%s\n' "$TITLE" | pnpm exec commitlint
 
   release:
     name: Release
@@ -95,16 +102,18 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
+          cache: pnpm
       - run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
       - run: 'git config --global url."https://github.com/".insteadOf git@github.com:'
       - run: git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
-      - run: npm install -g npm@11
-      - run: npm ci
-      - run: npx semantic-release
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GIT_AUTHOR_NAME: github-actions[bot]
@@ -112,7 +121,7 @@ jobs:
           GIT_COMMITTER_NAME: github-actions[bot]
           GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
       - name: Format changelog after release
-        run: npx prettier --write CHANGELOG.md
+        run: pnpm exec prettier --write CHANGELOG.md
       - name: Commit formatted changelog
         run: |
           if git diff --quiet CHANGELOG.md; then

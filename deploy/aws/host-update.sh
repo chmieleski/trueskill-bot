@@ -28,7 +28,7 @@ source "${SCRIPT_DIR}/host-update-lib.sh"
 STAGE_DIR="$(host_update_stage_dir "${APP_DIR}")"
 PREV_DIR="$(host_update_prev_dir "${APP_DIR}")"
 
-echo "==> Ensuring swap (t3.micro has 1GiB RAM; npm ci needs headroom)"
+echo "==> Ensuring swap (t3.micro has 1GiB RAM; pnpm install needs headroom)"
 if [[ -f "${APP_DIR}/deploy/aws/ensure-swap.sh" ]]; then
   bash "${APP_DIR}/deploy/aws/ensure-swap.sh"
 else
@@ -86,8 +86,9 @@ sudo -u "${APP_USER}" git config --global url."https://github.com/".insteadOf ss
 sudo -u "${APP_USER}" git config --global url."https://github.com/".insteadOf git@github.com:
 sudo -u "${APP_USER}" git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
 
-echo "==> Upgrading npm to 11 (Node 22 ships npm 10; openskill git dep fails on npm 10)"
-npm install -g npm@11
+echo "==> Ensuring pnpm (corepack)"
+corepack enable
+corepack prepare pnpm@9.15.9 --activate
 
 # t3.micro (~1GiB): Node's default heap (~450MB) OOMs on tsc after hero-draft grew the graph.
 # Raise V8 heap for the stage compile only; swap (ensure-swap.sh) covers RAM + live bot pressure.
@@ -98,7 +99,7 @@ echo "==> Installing and building in stage (live bot stays up)"
 # #region agent log
 echo "==> debug-511b9e pre-build MemAvailable=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)kB SwapFree=$(awk '/SwapFree:/ {print $2}' /proc/meminfo)kB BUILD_NODE_OPTIONS=${BUILD_NODE_OPTIONS}"
 # #endregion
-if ! sudo -u "${APP_USER}" bash -lc "cd '${STAGE_DIR}' && HUSKY=0 npm ci && NODE_OPTIONS='${BUILD_NODE_OPTIONS}' npm run build && npm run deploy-commands"; then
+if ! sudo -u "${APP_USER}" bash -lc "cd '${STAGE_DIR}' && HUSKY=0 pnpm install --frozen-lockfile && NODE_OPTIONS='${BUILD_NODE_OPTIONS}' pnpm --filter @dbz/db generate && NODE_OPTIONS='${BUILD_NODE_OPTIONS}' pnpm --filter @dbz/bot build && pnpm --filter @dbz/bot deploy-commands"; then
   echo "Stage prepare failed; leaving live bot running" >&2
   # #region agent log
   echo "==> debug-511b9e stage-prepare-failed MemAvailable=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)kB SwapFree=$(awk '/SwapFree:/ {print $2}' /proc/meminfo)kB" >&2
@@ -114,7 +115,7 @@ echo "==> Stopping dbz-bot for migrate and swap"
 systemctl stop dbz-bot || true
 
 echo "==> Migrating database from stage"
-if ! sudo -u "${APP_USER}" bash -lc "cd '${STAGE_DIR}' && npx prisma migrate deploy"; then
+if ! sudo -u "${APP_USER}" bash -lc "cd '${STAGE_DIR}' && pnpm --filter @dbz/db migrate:deploy"; then
   echo "Migrate failed; restarting previous bot" >&2
   rm -rf "${STAGE_DIR}"
   systemctl start dbz-bot || true

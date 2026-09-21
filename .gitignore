@@ -1,9 +1,11 @@
 node_modules/
 dist/
+.next/
 .env
 *.log
 
 /src/generated/prisma
+apps/*/src/generated/prisma
 
 # Ruflo local secrets and runtime data
 .env.local
@@ -29,3 +31,6 @@ ruvector.db
 **/terraform.tfvars
 **/*.tfstate
 **/*.tfstate.*
+
+# Turbo
+.turbo/

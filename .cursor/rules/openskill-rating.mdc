@@ -1,6 +1,6 @@
 ---
 description: OpenSkill rating business rules — μ/σ, dual persisted ratings, ordinal, edge cases
-globs: src/**/*.{ts},prisma/**/*.{prisma,sql,ts}
+globs: apps/bot/src/**/*.{ts},packages/db/prisma/**/*.{prisma,sql,ts}
 alwaysApply: false
 ---
 
