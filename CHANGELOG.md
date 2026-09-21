@@ -1,3 +1,10 @@
+## [1.60.4](https://github.com/chmieleski/trueskill-bot/compare/v1.60.3...v1.60.4) (2026-09-21)
+
+
+### Bug Fixes
+
+* **deploy:** reinstall systemd unit on every promote ([a674b3f](https://github.com/chmieleski/trueskill-bot/commit/a674b3f5a51bb27b409f63fe573a4a8ce70d595a))
+
 ## [1.60.3](https://github.com/chmieleski/trueskill-bot/compare/v1.60.2...v1.60.3) (2026-09-21)
 
 
