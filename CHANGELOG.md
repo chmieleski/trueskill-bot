@@ -1,3 +1,10 @@
+## [1.59.1](https://github.com/chmieleski/trueskill-bot/compare/v1.59.0...v1.59.1) (2026-09-21)
+
+
+### Bug Fixes
+
+* **infra:** ignore AMI/user_data drift and add import helper ([550e86d](https://github.com/chmieleski/trueskill-bot/commit/550e86df94c4c38657bc43f3eaded48f21841269))
+
 # [1.59.0](https://github.com/chmieleski/trueskill-bot/compare/v1.58.3...v1.59.0) (2026-09-21)
 
 
