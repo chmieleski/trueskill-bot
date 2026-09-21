@@ -68,9 +68,11 @@ Omit `RELEASE_SHA` to deploy `bot/latest` from the bucket.
 After changing secrets **or non-secret config** in `terraform.tfvars`, run `tofu apply` (updates SSM), then on the host:
 
 ```bash
-sudo dbz-bot-refresh-env   # or: sudo bash deploy/aws/host-update.sh
+sudo dbz-bot-refresh-env
 sudo systemctl restart dbz-bot
 ```
+
+Env-only refresh does **not** run `host-update.sh` (that promotes a staged release). Full break-glass deploy remains `update-bot.sh` above.
 
 `deploy/aws/refresh-env.sh` pulls **all** parameters under the SSM prefix (plus fixed `NODE_ENV` / `AUTO_DEPLOY_COMMANDS`). New keys only need a Terraform SSM parameter + a line in that script (see `.cursor/rules/env-aws-sync.mdc`).
 

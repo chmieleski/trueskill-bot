@@ -187,7 +187,17 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-actions-deploy
 
+      # After semantic-release, ship main tip (bumped package.json), not the pre-release merge SHA.
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Resolve release SHA
+        run: |
+          set -euo pipefail
+          RELEASE_SHA="$(git rev-parse HEAD)"
+          echo "RELEASE_SHA=${RELEASE_SHA}" >> "${GITHUB_ENV}"
+          echo "Shipping release tip ${RELEASE_SHA} (trigger ${GITHUB_SHA})"
       - uses: pnpm/action-setup@v4
         with:
           version: 9.15.9
@@ -212,13 +222,11 @@ jobs:
       - run: pnpm exec turbo run build --filter=@dbz/bot
       - name: Pack release
         env:
-          RELEASE_SHA: ${{ github.sha }}
           PACK_OUT_DIR: ${{ runner.temp }}/release
         run: bash deploy/aws/pack-release.sh
       - name: Upload release to S3
         env:
           RELEASE_BUCKET: ${{ vars.RELEASE_BUCKET }}
-          RELEASE_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           if [[ -z "${RELEASE_BUCKET}" ]]; then
@@ -348,11 +356,11 @@ jobs:
           COMMAND_ID="$(aws ssm send-command \
             --instance-ids "${INSTANCE_ID}" \
             --document-name AWS-RunShellScript \
-            --comment "dbz-bot deploy ${GITHUB_SHA}" \
+            --comment "dbz-bot deploy ${RELEASE_SHA}" \
             --timeout-seconds 3600 \
             --parameters commands="$(jq -cn \
               --arg app "$APP_DIR" \
-              --arg sha "$GITHUB_SHA" \
+              --arg sha "$RELEASE_SHA" \
               --arg bucket "$RELEASE_BUCKET" \
               --arg region "$AWS_REGION" \
               '
