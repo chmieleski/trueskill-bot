@@ -14,3 +14,6 @@ src/generated/
 **/*.tfstate.*
 examples/
 prod-data.sql
+
+.tmp/
+.release-out/
