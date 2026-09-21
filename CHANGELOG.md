@@ -1,3 +1,10 @@
+# [1.60.0](https://github.com/chmieleski/trueskill-bot/compare/v1.59.1...v1.60.0) (2026-09-21)
+
+
+### Features
+
+* monorepo web base and S3 artifact bot deploy ([#181](https://github.com/chmieleski/trueskill-bot/issues/181)) ([d4278dc](https://github.com/chmieleski/trueskill-bot/commit/d4278dcbfc50e8b95c3e73c1dfae3e300d7ea7f6)), closes [dbz/db#build](https://github.com/dbz/db/issues/build)
+
 ## [1.59.1](https://github.com/chmieleski/trueskill-bot/compare/v1.59.0...v1.59.1) (2026-09-21)
 
 
