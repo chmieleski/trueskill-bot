@@ -117,6 +117,25 @@ host_update_ensure_github_origin() {
   fi
 }
 
+# Install/refresh systemd unit from the live app tree. Call after promote, before start.
+host_update_install_unit() {
+  local app_dir="$1"
+  local unit_src="${app_dir}/deploy/aws/dbz-bot.service"
+  local unit_dst="/etc/systemd/system/dbz-bot.service"
+
+  if [[ ! -f "${unit_src}" ]]; then
+    echo "Missing ${unit_src}" >&2
+    return 1
+  fi
+
+  echo "==> Installing systemd unit from ${unit_src}"
+  # Keep WorkingDirectory in sync with APP_DIR (same pattern as user-data).
+  sed "s|WorkingDirectory=.*|WorkingDirectory=${app_dir}|" \
+    "${unit_src}" >"${unit_dst}"
+  systemctl daemon-reload
+  systemctl enable dbz-bot >/dev/null
+}
+
 # unit_active: "yes" if systemctl is-active dbz-bot, otherwise "no".
 host_update_handle_leftover_prev() {
   local app_dir="$1"
