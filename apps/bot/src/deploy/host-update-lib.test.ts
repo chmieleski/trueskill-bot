@@ -213,6 +213,17 @@ describe('host-update.sh artifact cut-over', () => {
   });
 });
 
+/** jq `--parameters commands` block for the post-upload SSM deploy step. */
+function ssmDeployCommandBody(yml: string): string {
+  const deployStep = yml.indexOf('Deploy via SSM');
+  expect(deployStep).toBeGreaterThan(-1);
+  const jqStart = yml.indexOf('--parameters commands="$(jq -cn', deployStep);
+  expect(jqStart).toBeGreaterThan(-1);
+  const jqEnd = yml.indexOf("--query 'Command.CommandId'", jqStart);
+  expect(jqEnd).toBeGreaterThan(jqStart);
+  return yml.slice(jqStart, jqEnd);
+}
+
 describe('CI deploy SSM command', () => {
   it('does not stop dbz-bot before host-update.sh', () => {
     const yml = readFileSync(join(repoRoot, '.github/workflows/ci-cd.yml'), 'utf8');
@@ -225,8 +236,19 @@ describe('CI deploy SSM command', () => {
   // enabled in Task 7
   it('bootstraps from S3 instead of git pull', () => {
     const yml = readFileSync(join(repoRoot, '.github/workflows/ci-cd.yml'), 'utf8');
-    expect(yml).toMatch(/aws s3 cp/);
-    expect(yml).toContain('update-bot.sh');
+    const ssmBody = ssmDeployCommandBody(yml);
+
+    expect(ssmBody).toContain('STAGE_DIR');
+    expect(ssmBody).toMatch(/bot\/\$\{RELEASE_SHA\}\.tar\.gz/);
+    expect(ssmBody).toMatch(/aws s3 cp.*RELEASE_BUCKET.*KEY/);
+    expect(ssmBody).toMatch(/Unpacking to \$\{STAGE_DIR\}/);
+    expect(ssmBody).toMatch(/HOST_UPDATE.*host-update\.sh/);
+    expect(ssmBody).toMatch(/exec sudo.*HOST_UPDATE/);
+
+    expect(ssmBody).not.toContain('pull --ff-only origin main');
+    expect(ssmBody).not.toContain('Repairing local origin from /etc/dbz-bot/git-remote.url');
+    expect(ssmBody).not.toMatch(/git-remote\.url/);
+
     expect(yml).not.toContain('pull --ff-only origin main');
     expect(yml).not.toContain('Repairing local origin from /etc/dbz-bot/git-remote.url');
   });
