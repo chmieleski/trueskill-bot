@@ -36,7 +36,7 @@ else
 fi
 
 echo "==> Downloading s3://${RELEASE_BUCKET}/${KEY}"
-aws s3 cp "s3://${RELEASE_BUCKET}/${KEY}" "${TMP_TAR}" --region "${AWS_REGION}"
+aws s3 cp "s3://${RELEASE_BUCKET}/${KEY}" "${TMP_TAR}" --region "${AWS_REGION}" --no-progress
 
 echo "==> Unpacking to ${STAGE_DIR}"
 rm -rf "${STAGE_DIR}"

@@ -180,6 +180,8 @@ describe('host-update.sh artifact cut-over', () => {
     const stopIdx = sh.indexOf('systemctl stop dbz-bot');
     expect(deployIdx).toBeGreaterThan(-1);
     expect(stopIdx).toBeGreaterThan(deployIdx);
+    expect(sh).toContain('DEPLOY_CMDS_LOG');
+    expect(sh).toMatch(/cat "\$\{DEPLOY_CMDS_LOG\}" >&2/);
   });
 });
 
@@ -210,7 +212,7 @@ describe('CI deploy SSM command', () => {
 
     expect(ssmBody).toContain('STAGE_DIR');
     expect(ssmBody).toMatch(/bot\/\$\{RELEASE_SHA\}\.tar\.gz/);
-    expect(ssmBody).toMatch(/aws s3 cp.*RELEASE_BUCKET.*KEY/);
+    expect(ssmBody).toMatch(/aws s3 cp.*RELEASE_BUCKET.*KEY.*--no-progress/);
     expect(ssmBody).toMatch(/Unpacking to \$\{STAGE_DIR\}/);
     expect(ssmBody).toMatch(/HOST_UPDATE.*host-update\.sh/);
     expect(ssmBody).toMatch(/exec sudo.*HOST_UPDATE/);

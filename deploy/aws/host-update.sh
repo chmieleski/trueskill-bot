@@ -71,11 +71,17 @@ else
 fi
 
 echo "==> Deploying slash commands from stage"
-if ! sudo -u "${APP_USER}" bash -lc "cd '${STAGE_DIR}' && node apps/bot/dist/deploy-commands.js"; then
+# Replay node output on stderr — SSM stdout is capped (~24KB) and often truncated.
+DEPLOY_CMDS_LOG="$(mktemp /tmp/dbz-deploy-commands.XXXXXX.log)"
+if ! sudo -u "${APP_USER}" bash -lc "cd '${STAGE_DIR}' && node apps/bot/dist/deploy-commands.js" \
+  >"${DEPLOY_CMDS_LOG}" 2>&1; then
   echo "deploy-commands failed; leaving live bot running" >&2
+  cat "${DEPLOY_CMDS_LOG}" >&2 || true
+  rm -f "${DEPLOY_CMDS_LOG}"
   rm -rf "${STAGE_DIR}"
   exit 1
 fi
+rm -f "${DEPLOY_CMDS_LOG}"
 
 echo "==> Stopping dbz-bot for migrate and swap"
 systemctl stop dbz-bot || true
