@@ -22,7 +22,7 @@
     "@prisma/adapter-pg": "^7.9.1",
     "discord.js": "^14.21.0",
     "dotenv": "^16.4.7",
-    "openskill": "git+https://github.com/philihp/openskill.js.git#b52cce61ea4362df4b338feabb2c85ed35f579c4",
+    "openskill": "5.0.1",
     "pg": "^8.23.0",
     "pino": "^10.3.1"
   },

@@ -69,8 +69,8 @@ importers:
         specifier: ^16.4.7
         version: 16.6.1
       openskill:
-        specifier: git+https://github.com/philihp/openskill.js.git#b52cce61ea4362df4b338feabb2c85ed35f579c4
-        version: https://codeload.github.com/philihp/openskill.js/tar.gz/b52cce61ea4362df4b338feabb2c85ed35f579c4
+        specifier: 5.0.1
+        version: 5.0.1
       pg:
         specifier: ^8.23.0
         version: 8.23.0
@@ -1886,8 +1886,8 @@ packages:
   '@types/pg@8.23.1':
     resolution: {integrity: sha512-fKVHpikPdg4GKks3JuLEhvwSyvwzF23hnabPy6DD8ljVbC7+6J5dQzdv4arV6jqq57djnMgs1HKBxX4P8aBI3A==}
 
-  '@types/ramda@0.32.0':
-    resolution: {integrity: sha512-eTRIFYUxjVvZimlPNpXzXc3j4tnSYc7lBsD7X3zwtRvJML3qXclM4+m8vvmAZAHhBASKPmZAp6qu2C/DwJpBGQ==}
+  '@types/ramda@0.31.1':
+    resolution: {integrity: sha512-Vt6sFXnuRpzaEj+yeutA0q3bcAsK7wdPuASIzR9LXqL4gJPyFw8im9qchlbp4ltuf3kDEIRmPJTD/Fkg60dn7g==}
 
   '@types/react-dom@19.3.0':
     resolution: {integrity: sha512-ZI7bU42mZXXKHn/qNLEw2IrbiINU7X5+vfgdixBHkCNpYWXjKgfQ/P+uyGb5CjOLB9UcnTeg3rylQtV2hym44Q==}
@@ -3129,9 +3129,8 @@ packages:
     resolution: {integrity: sha512-1FlR+gjXK7X+AsAHso35MnyN5KqGwJRi/31ft6x0M194ht7S+rWAvd7PHss9xSKMzE0asv1pyIHaJYq+BbacAQ==}
     engines: {node: '>=12'}
 
-  openskill@https://codeload.github.com/philihp/openskill.js/tar.gz/b52cce61ea4362df4b338feabb2c85ed35f579c4:
-    resolution: {tarball: https://codeload.github.com/philihp/openskill.js/tar.gz/b52cce61ea4362df4b338feabb2c85ed35f579c4}
-    version: 5.0.1
+  openskill@5.0.1:
+    resolution: {integrity: sha512-fXNrNCY0QOeG+lA+aG5m9bRjWy4ilLoDqGXRz0Xu4leR/1OOV9gpBSmqFl0rp2ApafWA0LpisRKWxL+Nbq5Bww==}
     engines: {node: '>=20.0.0'}
 
   p-each-series@3.0.0:
@@ -3561,9 +3560,9 @@ packages:
   sonic-boom@4.2.1:
     resolution: {integrity: sha512-w6AxtubXa2wTXAUsZMMWERrsIRAdrK0Sc+FUytWvYAhBJLyuI4llrMIC1DtlNSdI99EI86KZum2MMq3EAZlF9Q==}
 
-  sort-unwind@4.1.0:
-    resolution: {integrity: sha512-Hh8/g0txeWYjnbO9oHhvoWAJP4Ls8KknQcmogAU4wUzhXjcuzedecJf0alEZM3k8vDmapZ49eAO4Co6SrEzpeQ==}
-    engines: {node: '>=22.0.0'}
+  sort-unwind@3.1.0:
+    resolution: {integrity: sha512-9NJPZtqwIHNXBqY3SWZrwd/VU+lFo2i1Q79cuaRpMMkZFuf+Y54XVAADyy/w6r8t409KkNwo6cKaEKM56XaSNQ==}
+    engines: {node: '>=18.0.0'}
 
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
@@ -3782,8 +3781,8 @@ packages:
     resolution: {integrity: sha512-YGYEVz3Fm5iy/AybuA0oyNFq7H4CgQNfRp/qfe8nurE1kuCeNm3/vfm9X4Mtl+qLyaKJUh5xrFZwogr41SMjYA==}
     engines: {node: '>=20'}
 
-  types-ramda@0.32.0:
-    resolution: {integrity: sha512-iZtriSUdsDqOlip/wUaDNcoiskbVf5RdcqLNpQdUcOM1JKFClochCvPZCDjn/cc9HzoBzi4DEB4iPr1PbrhN1w==}
+  types-ramda@0.31.0:
+    resolution: {integrity: sha512-vaoC35CRC3xvL8Z6HkshDbi6KWM1ezK0LHN0YyxXWUn9HKzBNg/T3xSGlJZjCYspnOD3jE7bcizsp0bUXZDxnQ==}
 
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
@@ -5815,9 +5814,9 @@ snapshots:
       pg-protocol: 1.16.0
       pg-types: 2.2.0
 
-  '@types/ramda@0.32.0':
+  '@types/ramda@0.31.1':
     dependencies:
-      types-ramda: 0.32.0
+      types-ramda: 0.31.0
 
   '@types/react-dom@19.3.0(@types/react@19.2.18)':
     dependencies:
@@ -6995,13 +6994,13 @@ snapshots:
     dependencies:
       mimic-fn: 4.0.0
 
-  openskill@https://codeload.github.com/philihp/openskill.js/tar.gz/b52cce61ea4362df4b338feabb2c85ed35f579c4:
+  openskill@5.0.1:
     dependencies:
       '@stdlib/math-base-special-erf': 0.2.6
       '@stdlib/stats-base-dists-normal-quantile': 0.3.1
-      '@types/ramda': 0.32.0
+      '@types/ramda': 0.31.1
       ramda: 0.32.0
-      sort-unwind: 4.1.0
+      sort-unwind: 3.1.0
     transitivePeerDependencies:
       - supports-color
 
@@ -7490,7 +7489,7 @@ snapshots:
     dependencies:
       atomic-sleep: 1.0.0
 
-  sort-unwind@4.1.0: {}
+  sort-unwind@3.1.0: {}
 
   source-map-js@1.2.1: {}
 
@@ -7680,7 +7679,7 @@ snapshots:
     dependencies:
       tagged-tag: 1.0.0
 
-  types-ramda@0.32.0:
+  types-ramda@0.31.0:
     dependencies:
       ts-toolbelt: 9.6.0
 
