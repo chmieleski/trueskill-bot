@@ -1,3 +1,10 @@
+## [1.60.1](https://github.com/chmieleski/trueskill-bot/compare/v1.60.0...v1.60.1) (2026-09-21)
+
+
+### Bug Fixes
+
+* **ci:** supply DIRECT_URL for Deploy prisma generate ([#182](https://github.com/chmieleski/trueskill-bot/issues/182)) ([6c14e16](https://github.com/chmieleski/trueskill-bot/commit/6c14e16111a9b9baf79d5cdd5f71103a4d702819))
+
 # [1.60.0](https://github.com/chmieleski/trueskill-bot/compare/v1.59.1...v1.60.0) (2026-09-21)
 
 
