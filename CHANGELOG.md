@@ -1,3 +1,10 @@
+## [1.60.3](https://github.com/chmieleski/trueskill-bot/compare/v1.60.2...v1.60.3) (2026-09-21)
+
+
+### Bug Fixes
+
+* **deploy:** pack generated Prisma client for host runtime ([#185](https://github.com/chmieleski/trueskill-bot/issues/185)) ([9fdbee4](https://github.com/chmieleski/trueskill-bot/commit/9fdbee4d73f6ec054ed1fca28823edb3c1250324))
+
 ## [1.60.2](https://github.com/chmieleski/trueskill-bot/compare/v1.60.1...v1.60.2) (2026-09-21)
 
 
