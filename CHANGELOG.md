@@ -1,3 +1,10 @@
+## [1.58.2](https://github.com/chmieleski/trueskill-bot/compare/v1.58.1...v1.58.2) (2026-09-21)
+
+
+### Bug Fixes
+
+* **league:** defer hero_champion_config before role sync ([dc97521](https://github.com/chmieleski/trueskill-bot/commit/dc97521ce0490032d99886eb1ca61319695c259c))
+
 ## [1.58.1](https://github.com/chmieleski/trueskill-bot/compare/v1.58.0...v1.58.1) (2026-09-20)
 
 
