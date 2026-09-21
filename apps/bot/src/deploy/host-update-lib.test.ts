@@ -223,7 +223,7 @@ describe('CI deploy SSM command', () => {
   });
 
   // enabled in Task 7
-  it.skip('bootstraps from S3 instead of git pull', () => {
+  it('bootstraps from S3 instead of git pull', () => {
     const yml = readFileSync(join(repoRoot, '.github/workflows/ci-cd.yml'), 'utf8');
     expect(yml).toMatch(/aws s3 cp/);
     expect(yml).toContain('update-bot.sh');
