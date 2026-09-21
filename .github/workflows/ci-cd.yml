@@ -7,8 +7,44 @@ on:
   workflow_dispatch:
 
 jobs:
+  affected:
+    name: Affected
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      bot: ${{ steps.resolve.outputs.bot }}
+      web: ${{ steps.resolve.outputs.web }}
+      force_all: ${{ steps.resolve.outputs.force_all }}
+      base: ${{ steps.resolve.outputs.base }}
+    env:
+      HUSKY: '0'
+      GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch PR base for affected compare
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags origin "${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+      - run: 'git config --global url."https://github.com/".insteadOf git@github.com:'
+      - run: git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
+      - run: pnpm install --frozen-lockfile
+      - name: Resolve affected packages
+        id: resolve
+        run: bash scripts/ci/affected.sh >> "$GITHUB_OUTPUT"
+
   test:
     name: Test
+    needs: [affected]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -42,9 +78,21 @@ jobs:
             turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.ref_name }}-
             turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
             turbo-${{ runner.os }}-
-      - run: pnpm --filter @dbz/db generate
-      - run: pnpm exec turbo run typecheck test --filter=@dbz/bot
-      - run: pnpm exec turbo run build --filter=@dbz/web
+      - name: Generate Prisma client
+        if: needs.affected.outputs.bot == 'true' || needs.affected.outputs.force_all == 'true'
+        run: pnpm --filter @dbz/db generate
+      - name: Typecheck and test bot
+        if: needs.affected.outputs.bot == 'true' || needs.affected.outputs.force_all == 'true'
+        run: pnpm exec turbo run typecheck test --filter=@dbz/bot
+      - name: Build web
+        if: needs.affected.outputs.web == 'true' || needs.affected.outputs.force_all == 'true'
+        run: pnpm exec turbo run build --filter=@dbz/web
+      - name: No package tasks
+        if: >
+          needs.affected.outputs.bot != 'true' &&
+          needs.affected.outputs.web != 'true' &&
+          needs.affected.outputs.force_all != 'true'
+        run: echo "No @dbz/bot or @dbz/web packages affected; skipping Turbo tasks"
 
   format:
     name: Format
@@ -144,10 +192,15 @@ jobs:
 
   deploy:
     name: Deploy
-    needs: [test, release]
+    needs: [affected, test, release]
     if: |
       always() &&
       needs.test.result == 'success' &&
+      (
+        needs.affected.outputs.bot == 'true' ||
+        needs.affected.outputs.force_all == 'true' ||
+        github.event_name == 'workflow_dispatch'
+      ) &&
       (
         github.event_name == 'workflow_dispatch' ||
         (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.release.result == 'success')
