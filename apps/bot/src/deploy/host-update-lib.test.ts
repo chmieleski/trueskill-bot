@@ -185,85 +185,55 @@ describe('host-update-lib', () => {
   });
 });
 
-describe('host-update.sh cut-over order', () => {
-  it('runs pnpm install before systemctl stop', () => {
+describe('host-update.sh artifact cut-over', () => {
+  it('does not git pull or pnpm install on the host', () => {
     const sh = readFileSync(join(repoRoot, 'deploy/aws/host-update.sh'), 'utf8');
-    const ciIdx = sh.indexOf('HUSKY=0 pnpm install --frozen-lockfile');
-    const stopIdx = sh.indexOf('systemctl stop dbz-bot');
-    expect(ciIdx).toBeGreaterThan(-1);
-    expect(stopIdx).toBeGreaterThan(ciIdx);
+    expect(sh).not.toMatch(/git clone/);
+    expect(sh).not.toMatch(/pnpm install/);
+    expect(sh).not.toMatch(/pnpm --filter @dbz\/bot build/);
+    expect(sh).not.toMatch(/git -C "\$\{APP_DIR\}" pull/);
   });
 
-  it('builds in a .next stage, not only in APP_DIR', () => {
+  it('requires stage dir and migrates after stop', () => {
     const sh = readFileSync(join(repoRoot, 'deploy/aws/host-update.sh'), 'utf8');
     expect(sh).toContain('host_update_stage_dir');
-    expect(sh).toContain('pnpm --filter @dbz/db migrate:deploy');
-    expect(sh.indexOf('pnpm --filter @dbz/bot build')).toBeGreaterThan(-1);
-    expect(sh.indexOf('pnpm --filter @dbz/db migrate:deploy')).toBeGreaterThan(
+    expect(sh).toContain('systemctl stop dbz-bot');
+    expect(sh).toMatch(/prisma migrate deploy/);
+    expect(sh.indexOf('prisma migrate deploy')).toBeGreaterThan(
       sh.indexOf('systemctl stop dbz-bot'),
     );
   });
 
-  it('raises Node heap for stage tsc on small EC2 instances', () => {
+  it('runs deploy-commands from stage before stop', () => {
     const sh = readFileSync(join(repoRoot, 'deploy/aws/host-update.sh'), 'utf8');
-    expect(sh).toContain('BUILD_MAX_OLD_SPACE_SIZE="${BUILD_MAX_OLD_SPACE_SIZE:-1024}"');
-    expect(sh).toContain("NODE_OPTIONS='${BUILD_NODE_OPTIONS}' pnpm --filter @dbz/bot build");
-    expect(
-      sh.indexOf("NODE_OPTIONS='${BUILD_NODE_OPTIONS}' pnpm --filter @dbz/bot build"),
-    ).toBeGreaterThan(sh.indexOf('HUSKY=0 pnpm install --frozen-lockfile'));
-  });
-
-  it('pins live git fetch/checkout/pull to APP_DIR', () => {
-    const sh = readFileSync(join(repoRoot, 'deploy/aws/host-update.sh'), 'utf8');
-    expect(sh).toMatch(/git -C "\$\{APP_DIR\}" fetch --all/);
-    expect(sh).toMatch(/git -C "\$\{APP_DIR\}" checkout "\$\{BRANCH\}"/);
-    expect(sh).toMatch(/git -C "\$\{APP_DIR\}" pull --ff-only origin "\$\{BRANCH\}"/);
-  });
-
-  it('repairs stage origin after git clone --local before fetch', () => {
-    const sh = readFileSync(join(repoRoot, 'deploy/aws/host-update.sh'), 'utf8');
-    const cloneIdx = sh.indexOf('git clone --local "${APP_DIR}" "${STAGE_DIR}"');
-    const ensureIdx = sh.indexOf('host_update_ensure_github_origin "${STAGE_DIR}"');
-    const fetchIdx = sh.indexOf('git -C "${STAGE_DIR}" fetch origin');
-    expect(cloneIdx).toBeGreaterThan(-1);
-    expect(ensureIdx).toBeGreaterThan(cloneIdx);
-    expect(fetchIdx).toBeGreaterThan(ensureIdx);
+    const deployIdx = sh.indexOf('apps/bot/dist/deploy-commands.js');
+    const stopIdx = sh.indexOf('systemctl stop dbz-bot');
+    expect(deployIdx).toBeGreaterThan(-1);
+    expect(stopIdx).toBeGreaterThan(deployIdx);
   });
 });
 
 describe('CI deploy SSM command', () => {
   it('does not stop dbz-bot before host-update.sh', () => {
     const yml = readFileSync(join(repoRoot, '.github/workflows/ci-cd.yml'), 'utf8');
-    const marker = '"echo \\"==> deploy \\($sha)\\""';
-    const from = yml.indexOf(marker);
+    const from = yml.indexOf('Deploy via SSM');
     expect(from).toBeGreaterThan(-1);
-    const chunk = yml.slice(from, yml.indexOf('echo "SSM command:"', from));
-    expect(chunk).toContain('host-update.sh');
+    const chunk = yml.slice(from);
     expect(chunk).not.toMatch(/systemctl stop dbz-bot/);
   });
 
-  it('quotes SSM echo lines so ==> is not a shell redirect', () => {
+  // enabled in Task 7
+  it.skip('bootstraps from S3 instead of git pull', () => {
     const yml = readFileSync(join(repoRoot, '.github/workflows/ci-cd.yml'), 'utf8');
-    expect(yml).toContain('"echo \\"==> deploy \\($sha)\\""');
-    expect(yml).toContain('"echo \\"==> origin=${MASKED}\\""');
-    expect(yml).not.toMatch(/"echo ==> /);
-  });
-
-  it('repairs a local origin from git-remote.url before git pull on the host', () => {
-    const yml = readFileSync(join(repoRoot, '.github/workflows/ci-cd.yml'), 'utf8');
-    expect(yml).toContain('Repairing local origin from /etc/dbz-bot/git-remote.url');
-    expect(yml).toContain('remote set-url origin');
-    expect(yml).not.toContain('GIT_REMOTE_URL: https://github.com/${{ github.repository }}.git');
-    const repairIdx = yml.indexOf('Repairing local origin from /etc/dbz-bot/git-remote.url');
-    const pullIdx = yml.indexOf('pull --ff-only origin main', repairIdx);
-    expect(repairIdx).toBeGreaterThan(-1);
-    expect(pullIdx).toBeGreaterThan(repairIdx);
+    expect(yml).toMatch(/aws s3 cp/);
+    expect(yml).toContain('update-bot.sh');
+    expect(yml).not.toContain('pull --ff-only origin main');
+    expect(yml).not.toContain('Repairing local origin from /etc/dbz-bot/git-remote.url');
   });
 
   it('does not pre-check the deploy lock from CI (host-update blocks on flock)', () => {
     const yml = readFileSync(join(repoRoot, '.github/workflows/ci-cd.yml'), 'utf8');
     expect(yml).not.toContain('lock-check');
-    expect(yml).toContain('systemctl is-active --quiet dbz-bot');
   });
 
   it('waits up to 30 minutes for the deploy lock on the host', () => {

@@ -1,6 +1,8 @@
 #!/bin/bash
 # Canonical production updater. Must run as root on the EC2 host.
+# Prerequisite: ${APP_DIR}.next is a full release tree (see update-bot.sh).
 # Usage: sudo bash /home/ubuntu/bot/deploy/aws/host-update.sh
+#    or: sudo bash /home/ubuntu/bot.next/deploy/aws/host-update.sh
 set -euo pipefail
 
 if [[ "${EUID}" -ne 0 ]]; then
@@ -9,16 +11,15 @@ if [[ "${EUID}" -ne 0 ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_DIR="${APP_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
-BRANCH="${BRANCH:-main}"
+# When invoked from bot.next/deploy/aws, APP_DIR should still be the live path.
+APP_DIR="${APP_DIR:-/home/ubuntu/bot}"
 APP_USER="${APP_USER:-ubuntu}"
 LOCK_FILE="${LOCK_FILE:-/var/lock/dbz-bot-update.lock}"
 READY_FILE="${READY_FILE:-/var/lib/dbz-bot/ready}"
 
-# Serialize deploys (CI + manual + overlapping cloud-init repair).
 exec 9>"${LOCK_FILE}"
 if ! flock -w 1800 9; then
-  echo "Timed out waiting for deploy lock ${LOCK_FILE} (another host-update held it for 30+ minutes)" >&2
+  echo "Timed out waiting for deploy lock ${LOCK_FILE}" >&2
   exit 1
 fi
 
@@ -28,11 +29,21 @@ source "${SCRIPT_DIR}/host-update-lib.sh"
 STAGE_DIR="$(host_update_stage_dir "${APP_DIR}")"
 PREV_DIR="$(host_update_prev_dir "${APP_DIR}")"
 
-echo "==> Ensuring swap (t3.micro has 1GiB RAM; pnpm install needs headroom)"
-if [[ -f "${APP_DIR}/deploy/aws/ensure-swap.sh" ]]; then
-  bash "${APP_DIR}/deploy/aws/ensure-swap.sh"
-else
-  echo "WARN: ensure-swap.sh missing; continuing without swap setup" >&2
+if [[ ! -d "${STAGE_DIR}" ]]; then
+  echo "Missing stage ${STAGE_DIR} — run update-bot.sh (S3 unpack) first" >&2
+  exit 1
+fi
+if [[ ! -f "${STAGE_DIR}/apps/bot/dist/index.js" ]]; then
+  echo "Stage missing apps/bot/dist/index.js" >&2
+  exit 1
+fi
+if [[ ! -f "${STAGE_DIR}/RELEASE.json" ]]; then
+  echo "Stage missing RELEASE.json" >&2
+  exit 1
+fi
+
+if [[ -f "${STAGE_DIR}/deploy/aws/ensure-swap.sh" ]]; then
+  bash "${STAGE_DIR}/deploy/aws/ensure-swap.sh" || true
 fi
 
 UNIT_ACTIVE="no"
@@ -40,27 +51,6 @@ if systemctl is-active --quiet dbz-bot; then
   UNIT_ACTIVE="yes"
 fi
 host_update_handle_leftover_prev "${APP_DIR}" "${UNIT_ACTIVE}"
-
-GITHUB_REMOTE="$(host_update_resolve_github_remote "${APP_DIR}" "${APP_USER}")"
-host_update_persist_github_remote "${GITHUB_REMOTE}"
-host_update_ensure_github_origin "${APP_DIR}" "${GITHUB_REMOTE}" "${APP_USER}"
-
-echo "==> Updating ${APP_DIR} from origin/${BRANCH}"
-sudo -u "${APP_USER}" git -C "${APP_DIR}" fetch --all
-sudo -u "${APP_USER}" git -C "${APP_DIR}" checkout "${BRANCH}"
-sudo -u "${APP_USER}" git -C "${APP_DIR}" pull --ff-only origin "${BRANCH}"
-
-if [[ -f "${APP_DIR}/deploy/aws/ensure-swap.sh" ]]; then
-  bash "${APP_DIR}/deploy/aws/ensure-swap.sh"
-fi
-
-echo "==> Preparing stage ${STAGE_DIR}"
-rm -rf "${STAGE_DIR}"
-sudo -u "${APP_USER}" git clone --local "${APP_DIR}" "${STAGE_DIR}"
-host_update_ensure_github_origin "${STAGE_DIR}" "${GITHUB_REMOTE}" "${APP_USER}"
-sudo -u "${APP_USER}" git -C "${STAGE_DIR}" fetch origin
-sudo -u "${APP_USER}" git -C "${STAGE_DIR}" checkout "${BRANCH}"
-sudo -u "${APP_USER}" git -C "${STAGE_DIR}" reset --hard "origin/${BRANCH}"
 
 echo "==> Refreshing stage .env from SSM"
 if [[ -f /etc/dbz-bot/ssm.env ]]; then
@@ -73,7 +63,6 @@ if [[ -f "${STAGE_DIR}/deploy/aws/refresh-env.sh" && -n "${SSM_PREFIX:-}" ]]; th
   export SSM_PREFIX AWS_DEFAULT_REGION AWS_REGION APP_USER
   APP_DIR="${STAGE_DIR}" bash "${STAGE_DIR}/deploy/aws/refresh-env.sh"
 elif [[ -x /usr/local/bin/dbz-bot-refresh-env ]]; then
-  echo "WARN: SSM_PREFIX unset or no /etc/dbz-bot/ssm.env — using legacy dbz-bot-refresh-env into stage." >&2
   APP_DIR="${STAGE_DIR}" /usr/local/bin/dbz-bot-refresh-env
 else
   echo "No refresh-env.sh (with SSM_PREFIX) and no /usr/local/bin/dbz-bot-refresh-env" >&2
@@ -81,41 +70,18 @@ else
   exit 1
 fi
 
-echo "==> Configuring git for HTTPS GitHub deps (openskill, etc.)"
-sudo -u "${APP_USER}" git config --global url."https://github.com/".insteadOf ssh://git@github.com/
-sudo -u "${APP_USER}" git config --global url."https://github.com/".insteadOf git@github.com:
-sudo -u "${APP_USER}" git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/
-
-echo "==> Ensuring pnpm (corepack)"
-corepack enable
-corepack prepare pnpm@9.15.9 --activate
-
-# t3.micro (~1GiB): Node's default heap (~450MB) OOMs on tsc after hero-draft grew the graph.
-# Raise V8 heap for the stage compile only; swap (ensure-swap.sh) covers RAM + live bot pressure.
-BUILD_MAX_OLD_SPACE_SIZE="${BUILD_MAX_OLD_SPACE_SIZE:-1024}"
-BUILD_NODE_OPTIONS="--max-old-space-size=${BUILD_MAX_OLD_SPACE_SIZE}"
-
-echo "==> Installing and building in stage (live bot stays up)"
-# #region agent log
-echo "==> debug-511b9e pre-build MemAvailable=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)kB SwapFree=$(awk '/SwapFree:/ {print $2}' /proc/meminfo)kB BUILD_NODE_OPTIONS=${BUILD_NODE_OPTIONS}"
-# #endregion
-if ! sudo -u "${APP_USER}" bash -lc "cd '${STAGE_DIR}' && HUSKY=0 pnpm install --frozen-lockfile && NODE_OPTIONS='${BUILD_NODE_OPTIONS}' pnpm --filter @dbz/db generate && NODE_OPTIONS='${BUILD_NODE_OPTIONS}' pnpm --filter @dbz/bot build && pnpm --filter @dbz/bot deploy-commands"; then
-  echo "Stage prepare failed; leaving live bot running" >&2
-  # #region agent log
-  echo "==> debug-511b9e stage-prepare-failed MemAvailable=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)kB SwapFree=$(awk '/SwapFree:/ {print $2}' /proc/meminfo)kB" >&2
-  # #endregion
+echo "==> Deploying slash commands from stage"
+if ! sudo -u "${APP_USER}" bash -lc "cd '${STAGE_DIR}' && node apps/bot/dist/deploy-commands.js"; then
+  echo "deploy-commands failed; leaving live bot running" >&2
   rm -rf "${STAGE_DIR}"
   exit 1
 fi
-# #region agent log
-echo "==> debug-511b9e stage-build-ok MemAvailable=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)kB SwapFree=$(awk '/SwapFree:/ {print $2}' /proc/meminfo)kB"
-# #endregion
 
 echo "==> Stopping dbz-bot for migrate and swap"
 systemctl stop dbz-bot || true
 
 echo "==> Migrating database from stage"
-if ! sudo -u "${APP_USER}" bash -lc "cd '${STAGE_DIR}' && pnpm --filter @dbz/db migrate:deploy"; then
+if ! sudo -u "${APP_USER}" bash -lc "set -a; source '${STAGE_DIR}/.env'; set +a; cd '${STAGE_DIR}' && ./node_modules/.bin/prisma migrate deploy --schema packages/db/prisma/schema.prisma"; then
   echo "Migrate failed; restarting previous bot" >&2
   rm -rf "${STAGE_DIR}"
   systemctl start dbz-bot || true
@@ -144,4 +110,4 @@ rm -rf "${PREV_DIR}"
 mkdir -p "$(dirname "${READY_FILE}")"
 touch "${READY_FILE}"
 
-echo "==> Update complete ($(sudo -u "${APP_USER}" git -C "${APP_DIR}" rev-parse --short HEAD))"
+echo "==> Update complete ($(cat "${APP_DIR}/RELEASE.json"))"
