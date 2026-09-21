@@ -24,6 +24,38 @@ interface EnvConfig {
   apiPort: number;
   /** HTTP API bind address. */
   apiBind: string;
+  /** Start process observability (sampler, Discord alerter, obs HTTP). */
+  obsEnabled: boolean;
+  /** Observability HTTP bind address. */
+  obsBind: string;
+  /** Observability HTTP listen port. */
+  obsPort: number;
+  /** Bearer token for obs HTTP when bind is not loopback. */
+  obsToken: string | undefined;
+  /** Process-wide Discord channel for ops alerts (fallback). */
+  opsAlertChannelId: string | undefined;
+  /** RSS MiB threshold for Discord high-memory alerts. */
+  obsRssMbWarn: number;
+  /** Event-loop delay p99 ms threshold for Discord lag alerts. */
+  obsEventLoopMsWarn: number;
+  /** Health sampler interval in milliseconds. */
+  obsSampleIntervalMs: number;
+}
+
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(value ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function optionalTrimmed(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : undefined;
+}
+
+/** True when the bind address is loopback (token optional). */
+export function isLoopbackBind(bind: string): boolean {
+  const normalized = bind.trim().toLowerCase();
+  return normalized === '127.0.0.1' || normalized === '::1' || normalized === 'localhost';
 }
 
 function parseLogLevel(value: string | undefined): string | undefined {
@@ -82,4 +114,12 @@ export const env: EnvConfig = {
   apiEnabled: parseBoolean(process.env.API_ENABLED, false),
   apiPort: Number.parseInt(process.env.API_PORT ?? '8787', 10) || 8787,
   apiBind: process.env.API_BIND?.trim() || '0.0.0.0',
+  obsEnabled: parseBoolean(process.env.OBS_ENABLED, true),
+  obsBind: process.env.OBS_BIND?.trim() || '127.0.0.1',
+  obsPort: parsePositiveInt(process.env.OBS_PORT, 8790),
+  obsToken: optionalTrimmed(process.env.OBS_TOKEN),
+  opsAlertChannelId: optionalTrimmed(process.env.OPS_ALERT_CHANNEL_ID),
+  obsRssMbWarn: parsePositiveInt(process.env.OBS_RSS_MB_WARN, 512),
+  obsEventLoopMsWarn: parsePositiveInt(process.env.OBS_EVENT_LOOP_MS_WARN, 200),
+  obsSampleIntervalMs: parsePositiveInt(process.env.OBS_SAMPLE_INTERVAL_MS, 15_000),
 };

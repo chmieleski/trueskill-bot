@@ -25,6 +25,7 @@
 ### Task 1: Env + AWS sync scaffolding
 
 **Files:**
+
 - Modify: `src/config/env.ts`
 - Modify: `.env.example`
 - Modify: `.cursor/rules/scripts-and-env.mdc`
@@ -40,6 +41,7 @@
 ### Task 2: Prisma ops channel
 
 **Files:**
+
 - Modify: `prisma/schema.prisma` (`GuildConfig.opsAlertChannelId`)
 - Create: migration via `npm run db:migrate` name `guild_ops_alert_channel`
 - Modify: `src/services/guild/guild-config.ts` (+ tests + index exports)
@@ -51,6 +53,7 @@
 ### Task 3: Core observability module (TDD)
 
 **Files:**
+
 - Create: `src/services/observability/registry.ts`
 - Create: `src/services/observability/thresholds.ts`
 - Create: `src/services/observability/channel-resolver.ts`
@@ -65,6 +68,7 @@
 ### Task 4: Sampler + alerter + HTTP
 
 **Files:**
+
 - Create: `src/services/observability/sampler.ts`
 - Create: `src/services/observability/alerter.ts`
 - Create: `src/services/observability/http-server.ts`
@@ -79,6 +83,7 @@
 ### Task 5: Bootstrap + Discord lifecycle hooks
 
 **Files:**
+
 - Modify: `src/events/ready.ts`
 - Modify: `src/index.ts`
 - Create: `src/events/shard-disconnect.ts` or hook in ready via `client.on`
@@ -91,6 +96,7 @@
 ### Task 6: `/config set ops_channel`
 
 **Files:**
+
 - Modify: `src/commands/config/config.ts`
 - Modify: `src/commands/config/config-shared.ts`
 

@@ -111,3 +111,67 @@ resource "aws_ssm_parameter" "api_bind" {
   value       = var.api_bind
   tags        = local.common_tags
 }
+
+resource "aws_ssm_parameter" "obs_enabled" {
+  name        = "${local.ssm_prefix}/OBS_ENABLED"
+  description = "Start process observability"
+  type        = "String"
+  value       = var.obs_enabled
+  tags        = local.common_tags
+}
+
+resource "aws_ssm_parameter" "obs_bind" {
+  name        = "${local.ssm_prefix}/OBS_BIND"
+  description = "Observability HTTP bind address"
+  type        = "String"
+  value       = var.obs_bind
+  tags        = local.common_tags
+}
+
+resource "aws_ssm_parameter" "obs_port" {
+  name        = "${local.ssm_prefix}/OBS_PORT"
+  description = "Observability HTTP listen port"
+  type        = "String"
+  value       = var.obs_port
+  tags        = local.common_tags
+}
+
+resource "aws_ssm_parameter" "obs_token" {
+  name        = "${local.ssm_prefix}/OBS_TOKEN"
+  description = "Observability HTTP Bearer token"
+  type        = "SecureString"
+  value       = var.obs_token == "" ? local.ssm_empty : var.obs_token
+  tags        = local.common_tags
+}
+
+resource "aws_ssm_parameter" "ops_alert_channel_id" {
+  name        = "${local.ssm_prefix}/OPS_ALERT_CHANNEL_ID"
+  description = "Process-wide Discord ops alert channel"
+  type        = "String"
+  value       = var.ops_alert_channel_id == "" ? local.ssm_empty : var.ops_alert_channel_id
+  tags        = local.common_tags
+}
+
+resource "aws_ssm_parameter" "obs_rss_mb_warn" {
+  name        = "${local.ssm_prefix}/OBS_RSS_MB_WARN"
+  description = "RSS MiB alert threshold"
+  type        = "String"
+  value       = var.obs_rss_mb_warn
+  tags        = local.common_tags
+}
+
+resource "aws_ssm_parameter" "obs_event_loop_ms_warn" {
+  name        = "${local.ssm_prefix}/OBS_EVENT_LOOP_MS_WARN"
+  description = "Event-loop p99 ms alert threshold"
+  type        = "String"
+  value       = var.obs_event_loop_ms_warn
+  tags        = local.common_tags
+}
+
+resource "aws_ssm_parameter" "obs_sample_interval_ms" {
+  name        = "${local.ssm_prefix}/OBS_SAMPLE_INTERVAL_MS"
+  description = "Health sampler interval in milliseconds"
+  type        = "String"
+  value       = var.obs_sample_interval_ms
+  tags        = local.common_tags
+}

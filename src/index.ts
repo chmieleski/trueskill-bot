@@ -8,6 +8,11 @@ import { registerCommands } from './handlers/register-commands.js';
 import { createLogger } from './lib/logger.js';
 import { stopMatchCleanupScheduler } from './services/match/index.js';
 import { stopLeaderboardRefreshScheduler } from './services/leaderboard/index.js';
+import {
+  metricsRegistry,
+  sendOpsAlert,
+  stopObservability,
+} from './services/observability/index.js';
 import { stopWc3statsHostPromptScheduler } from './services/wc3stats/index.js';
 import { rehydrateHeroDraftTimers } from './services/hero-draft/index.js';
 
@@ -21,6 +26,7 @@ async function bootstrap(): Promise<void> {
       autoDeployCommands: env.autoDeployCommands,
       isDev: env.isDev,
       logLevel: env.logLevel ?? (env.isDev ? 'debug' : 'info'),
+      obsEnabled: env.obsEnabled,
     },
     'Starting bot',
   );
@@ -55,6 +61,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   stopMatchCleanupScheduler();
   stopLeaderboardRefreshScheduler();
   stopWc3statsHostPromptScheduler();
+  await stopObservability(signal);
   await stopBotApiServer();
 
   if (client) {
@@ -74,12 +81,17 @@ process.on('SIGTERM', (signal) => {
 });
 
 process.on('unhandledRejection', (reason) => {
+  metricsRegistry.recordUnhandledRejection();
   log.error({ err: reason }, 'Unhandled promise rejection');
+  const detail = reason instanceof Error ? reason.message : String(reason);
+  void sendOpsAlert('unhandled_rejection', detail.slice(0, 1500));
 });
 
 process.on('uncaughtException', (error) => {
   log.fatal({ err: error }, 'Uncaught exception');
-  process.exit(1);
+  void sendOpsAlert('crash', error.message.slice(0, 1500)).finally(() => {
+    process.exit(1);
+  });
 });
 
 bootstrap().catch((error: unknown) => {

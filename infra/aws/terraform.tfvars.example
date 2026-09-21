@@ -50,3 +50,13 @@ wc3stats_timeout_ms = "4000"
 # api_bind           = "0.0.0.0"
 # enable_api_ingress = false
 # api_ingress_cidr   = "127.0.0.1/32"
+
+# Process observability (Discord ops + agent HTTP). On by default; bind loopback.
+# obs_enabled             = "true"
+# obs_bind                = "127.0.0.1"
+# obs_port                = "8790"
+# obs_token               = ""
+# ops_alert_channel_id    = ""
+# obs_rss_mb_warn         = "512"
+# obs_event_loop_ms_warn  = "200"
+# obs_sample_interval_ms  = "15000"

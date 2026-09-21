@@ -162,6 +162,55 @@ variable "api_bind" {
   default     = "0.0.0.0"
 }
 
+variable "obs_enabled" {
+  description = "OBS_ENABLED — process observability (sampler, Discord alerter, obs HTTP)"
+  type        = string
+  default     = "true"
+}
+
+variable "obs_bind" {
+  description = "OBS_BIND address (default loopback)"
+  type        = string
+  default     = "127.0.0.1"
+}
+
+variable "obs_port" {
+  description = "OBS_PORT listen port"
+  type        = string
+  default     = "8790"
+}
+
+variable "obs_token" {
+  description = "OBS_TOKEN Bearer for obs HTTP when bind is not loopback"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "ops_alert_channel_id" {
+  description = "OPS_ALERT_CHANNEL_ID process-wide Discord ops alert channel"
+  type        = string
+  default     = ""
+}
+
+variable "obs_rss_mb_warn" {
+  description = "OBS_RSS_MB_WARN RSS MiB alert threshold"
+  type        = string
+  default     = "512"
+}
+
+variable "obs_event_loop_ms_warn" {
+  description = "OBS_EVENT_LOOP_MS_WARN event-loop p99 ms alert threshold"
+  type        = string
+  default     = "200"
+}
+
+variable "obs_sample_interval_ms" {
+  description = "OBS_SAMPLE_INTERVAL_MS health sampler interval"
+  type        = string
+  default     = "15000"
+}
+
 variable "enable_api_ingress" {
   description = "Open security-group ingress for API_PORT"
   type        = bool

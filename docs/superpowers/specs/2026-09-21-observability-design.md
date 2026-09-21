@@ -19,15 +19,15 @@ Give humans a light Discord ops signal when the bot process is unhealthy or life
 
 ## Decisions (locked)
 
-| Topic | Choice |
-| ----- | ------ |
-| Audience | Humans (Discord) + agent (HTTP) |
-| Human surface | Discord ops embeds — lifecycle + health + crashes only |
-| Agent surface | Dedicated obs HTTP listener, independent of WOS `API_ENABLED` |
-| Auth | Default bind `127.0.0.1`; Bearer `OBS_TOKEN` required when bind is not loopback |
+| Topic              | Choice                                                                                  |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| Audience           | Humans (Discord) + agent (HTTP)                                                         |
+| Human surface      | Discord ops embeds — lifecycle + health + crashes only                                  |
+| Agent surface      | Dedicated obs HTTP listener, independent of WOS `API_ENABLED`                           |
+| Auth               | Default bind `127.0.0.1`; Bearer `OBS_TOKEN` required when bind is not loopback         |
 | Ops channel config | Env `OPS_ALERT_CHANNEL_ID` fallback + per-guild `GuildConfig.opsAlertChannelId` fan-out |
-| Logs | Existing pino → stdout → journald unchanged for deep digs |
-| Infra | Full env → OpenTofu SSM + `refresh-env.sh` sync for every new bot-read key |
+| Logs               | Existing pino → stdout → journald unchanged for deep digs                               |
+| Infra              | Full env → OpenTofu SSM + `refresh-env.sh` sync for every new bot-read key              |
 
 ## Architecture
 
@@ -40,13 +40,13 @@ pino stdout ──► journald (systemd)
 
 ### Modules
 
-| Unit | Responsibility |
-| ---- | ---------------- |
+| Unit             | Responsibility                                                                                             |
+| ---------------- | ---------------------------------------------------------------------------------------------------------- |
 | Metrics registry | In-process gauges/counters: startedAt, Discord ready, sampler readings, minimal interaction/error counters |
-| Health sampler | Periodic: RSS/heap, event-loop delay p99, `SELECT 1` DB ping |
-| Channel resolver | Union of env channel + all configured guild ops channels; dedupe by channel id |
-| Ops alerter | Post embeds; per-alert-type cooldown; never block process exit |
-| Obs HTTP | `GET /health`, `GET /status`; Bearer check when non-loopback |
+| Health sampler   | Periodic: RSS/heap, event-loop delay p99, `SELECT 1` DB ping                                               |
+| Channel resolver | Union of env channel + all configured guild ops channels; dedupe by channel id                             |
+| Ops alerter      | Post embeds; per-alert-type cooldown; never block process exit                                             |
+| Obs HTTP         | `GET /health`, `GET /status`; Bearer check when non-loopback                                               |
 
 Reuse `extractBearerToken` from `src/api/auth.ts`. Do **not** mount obs routes on the WOS HTTP server.
 
@@ -86,16 +86,16 @@ Counters stay minimal in v1 (cheap hooks only; no request tracing).
 
 ## Discord alert catalog
 
-| Event | Trigger |
-| ----- | ------- |
-| Boot / Ready | After Discord ready |
-| Disconnect | Discord WS disconnect / invalid session |
-| Shutdown | SIGINT / SIGTERM path (best-effort) |
-| Crash | `uncaughtException` (best-effort before exit) |
+| Event               | Trigger                                                    |
+| ------------------- | ---------------------------------------------------------- |
+| Boot / Ready        | After Discord ready                                        |
+| Disconnect          | Discord WS disconnect / invalid session                    |
+| Shutdown            | SIGINT / SIGTERM path (best-effort)                        |
+| Crash               | `uncaughtException` (best-effort before exit)              |
 | Unhandled rejection | Rate-limited (counts toward counters; Discord on cooldown) |
-| High RSS | `rssMb >= OBS_RSS_MB_WARN` (default 512), cooldown |
-| Event-loop lag | p99 ms >= `OBS_EVENT_LOOP_MS_WARN` (default 200), cooldown |
-| DB unhealthy | Ping fail, cooldown; recovery embed when OK again |
+| High RSS            | `rssMb >= OBS_RSS_MB_WARN` (default 512), cooldown         |
+| Event-loop lag      | p99 ms >= `OBS_EVENT_LOOP_MS_WARN` (default 200), cooldown |
+| DB unhealthy        | Ping fail, cooldown; recovery embed when OK again          |
 
 Cooldown per alert type: **10–15 minutes**. No hourly pulse. Application `log.error()` lines stay in journald only.
 
@@ -103,16 +103,16 @@ Cooldown per alert type: **10–15 minutes**. No hourly pulse. Application `log.
 
 ### Env
 
-| Key | Default | Notes |
-| --- | ------- | ----- |
-| `OBS_ENABLED` | `true` | When false, no obs HTTP / sampler / Discord alerter |
-| `OBS_BIND` | `127.0.0.1` | |
-| `OBS_PORT` | `8790` | Distinct from `API_PORT` (8787) |
-| `OBS_TOKEN` | empty | Required off-loopback |
-| `OPS_ALERT_CHANNEL_ID` | empty | Process-wide fallback destination |
-| `OBS_RSS_MB_WARN` | `512` | |
-| `OBS_EVENT_LOOP_MS_WARN` | `200` | |
-| `OBS_SAMPLE_INTERVAL_MS` | `15000` | |
+| Key                      | Default     | Notes                                               |
+| ------------------------ | ----------- | --------------------------------------------------- |
+| `OBS_ENABLED`            | `true`      | When false, no obs HTTP / sampler / Discord alerter |
+| `OBS_BIND`               | `127.0.0.1` |                                                     |
+| `OBS_PORT`               | `8790`      | Distinct from `API_PORT` (8787)                     |
+| `OBS_TOKEN`              | empty       | Required off-loopback                               |
+| `OPS_ALERT_CHANNEL_ID`   | empty       | Process-wide fallback destination                   |
+| `OBS_RSS_MB_WARN`        | `512`       |                                                     |
+| `OBS_EVENT_LOOP_MS_WARN` | `200`       |                                                     |
+| `OBS_SAMPLE_INTERVAL_MS` | `15000`     |                                                     |
 
 ### Guild
 

@@ -68,6 +68,7 @@ export interface ResolvedGuildConfig {
   changelogChannelId: string | undefined;
   changelogDraftChannelId: string | undefined;
   completedMatchLogChannelId: string | undefined;
+  opsAlertChannelId: string | undefined;
 }
 
 function resolveField(
@@ -116,6 +117,7 @@ export async function resolveGuildConfig(guildId: string): Promise<ResolvedGuild
     changelogChannelId: trimOptionalId(row?.changelogChannelId),
     changelogDraftChannelId: trimOptionalId(row?.changelogDraftChannelId),
     completedMatchLogChannelId: trimOptionalId(row?.completedMatchLogChannelId),
+    opsAlertChannelId: trimOptionalId(row?.opsAlertChannelId),
   };
 }
 
@@ -135,6 +137,22 @@ export async function clearCompletedMatchLogChannel(guildId: string): Promise<vo
     where: { guildId },
     create: { guildId },
     update: { completedMatchLogChannelId: null },
+  });
+}
+
+export async function setOpsAlertChannel(guildId: string, channelId: string): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: { guildId, opsAlertChannelId: channelId },
+    update: { opsAlertChannelId: channelId },
+  });
+}
+
+export async function clearOpsAlertChannel(guildId: string): Promise<void> {
+  await prisma.guildConfig.upsert({
+    where: { guildId },
+    create: { guildId },
+    update: { opsAlertChannelId: null },
   });
 }
 

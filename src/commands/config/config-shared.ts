@@ -231,6 +231,10 @@ export function formatCompletedMatchLogLine(channelId: string | undefined): stri
     : '**Completed match log:** `unset`';
 }
 
+export function formatOpsAlertChannelLine(channelId: string | undefined): string {
+  return channelId ? `**Ops alert channel:** <#${channelId}>` : '**Ops alert channel:** `unset`';
+}
+
 export function formatLeagueLine(name: string | undefined): string {
   return `**League:** ${name ? `\`${name}\`` : '`unset`'}`;
 }
@@ -317,6 +321,7 @@ export async function buildConfigViewContent(
     formatChangelogChannelLine(resolved.changelogChannelId),
     formatChangelogDraftLine(resolved.changelogDraftChannelId),
     formatCompletedMatchLogLine(resolved.completedMatchLogChannelId),
+    formatOpsAlertChannelLine(resolved.opsAlertChannelId),
     formatLeaderboardLine(
       leagueConfig.leaderboardChannelId,
       leagueConfig.leaderboardMessageId,

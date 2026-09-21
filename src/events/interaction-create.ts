@@ -18,12 +18,15 @@ import { handleNewPlayerInteraction } from '../discord/interactions/new-player-i
 import { handleWc3statsHostPromptInteraction } from '../discord/interactions/wc3stats-host-prompt-interactions.js';
 import { createLogger } from '../lib/logger.js';
 import { getLobbyChannelSlashDenial } from '../services/league/index.js';
+import { metricsRegistry } from '../services/observability/index.js';
 
 const log = createLogger('interaction');
 
 export const name = Events.InteractionCreate;
 
 export async function execute(interaction: Interaction): Promise<void> {
+  metricsRegistry.recordInteraction();
+
   log.verbose(
     {
       type: interaction.type,
