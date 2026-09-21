@@ -1,6 +1,15 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalPassThroughEnv": ["DATABASE_URL", "DIRECT_URL"],
+  "globalPassThroughEnv": [
+    "DATABASE_URL",
+    "DIRECT_URL",
+    "DISCORD_TOKEN",
+    "CLIENT_ID",
+    "GUILD_ID",
+    "GEMINI_API_KEY",
+    "NODE_ENV",
+    "HUSKY"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
