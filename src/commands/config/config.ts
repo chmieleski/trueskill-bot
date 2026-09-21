@@ -18,6 +18,8 @@ import {
   setGrieferLeaderboardSize,
   setGrieferLeaderboardSort,
   setCompletedMatchLogChannel,
+  setOpsAlertChannel,
+  clearOpsAlertChannel,
   type GrieferLeaderboardDisplayValue,
   type GrieferLeaderboardSortValue,
   type QuitterLeaderboardDisplayValue,
@@ -225,6 +227,17 @@ export const data = new SlashCommandBuilder()
               .setDescription('Channel where completed matches are logged')
               .setRequired(true),
           ),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('ops_channel')
+          .setDescription('Set the channel for bot process ops alerts')
+          .addChannelOption((option) =>
+            option
+              .setName('channel')
+              .setDescription('Channel where lifecycle and health alerts are posted')
+              .setRequired(true),
+          ),
       ),
   )
   .addSubcommandGroup((group) =>
@@ -285,6 +298,11 @@ export const data = new SlashCommandBuilder()
         subcommand
           .setName('completed_match_log_channel')
           .setDescription('Remove the completed match log channel'),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('ops_channel')
+          .setDescription('Remove the bot process ops alert channel'),
       ),
   );
 
@@ -632,6 +650,33 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         });
         return;
       }
+
+      if (subcommand === 'ops_channel') {
+        const channel = interaction.options.getChannel('channel', true);
+        const allowedTypes = new Set([ChannelType.GuildText, ChannelType.GuildAnnouncement]);
+        if (!allowedTypes.has(channel.type)) {
+          await interaction.reply({
+            content: 'Choose a server text or announcement channel for ops alerts.',
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
+        await setOpsAlertChannel(interaction.guildId, channel.id);
+        log.info(
+          {
+            guildId: interaction.guildId,
+            channelId: channel.id,
+            userId: interaction.user.id,
+          },
+          'Ops alert channel updated',
+        );
+        await interaction.reply({
+          content: `Ops alert channel set to <#${channel.id}>.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
     }
 
     if (subcommandGroup === 'clear') {
@@ -779,6 +824,19 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         );
         await interaction.reply({
           content: 'Completed match log channel cleared.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (subcommand === 'ops_channel') {
+        await clearOpsAlertChannel(interaction.guildId);
+        log.info(
+          { guildId: interaction.guildId, userId: interaction.user.id },
+          'Ops alert channel cleared',
+        );
+        await interaction.reply({
+          content: 'Ops alert channel cleared.',
           flags: MessageFlags.Ephemeral,
         });
         return;

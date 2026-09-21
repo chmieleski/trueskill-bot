@@ -43,6 +43,14 @@ alwaysApply: true
 - `API_ENABLED` — start HTTP listener in the bot process (default `false`)
 - `API_PORT` — HTTP API listen port (default `8787`)
 - `API_BIND` — HTTP API bind address (default `0.0.0.0`)
+- `OBS_ENABLED` — process observability: sampler, Discord ops alerter, obs HTTP (default `true`)
+- `OBS_BIND` — obs HTTP bind (default `127.0.0.1`)
+- `OBS_PORT` — obs HTTP port (default `8790`)
+- `OBS_TOKEN` — Bearer token required when `OBS_BIND` is not loopback
+- `OPS_ALERT_CHANNEL_ID` — process-wide Discord ops alert channel; also `/config set ops_channel` per guild
+- `OBS_RSS_MB_WARN` — RSS MiB alert threshold (default `512`)
+- `OBS_EVENT_LOOP_MS_WARN` — event-loop p99 ms alert threshold (default `200`)
+- `OBS_SAMPLE_INTERVAL_MS` — health sampler interval (default `15000`)
 - `CLICKUP_API_TOKEN` — **local-only** ClickUp personal API token for agents when the ClickUp MCP is rate-limited. Not read by the bot; skip AWS SSM. See `.cursor/rules/clickup-api-fallback.mdc`
 
 Production: every **bot** env key must also live in AWS SSM and `deploy/aws/refresh-env.sh` — see `.cursor/rules/env-aws-sync.mdc`.

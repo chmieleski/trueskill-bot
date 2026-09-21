@@ -122,6 +122,14 @@ resource "aws_instance" "bot" {
     aws_ssm_parameter.api_enabled,
     aws_ssm_parameter.api_port,
     aws_ssm_parameter.api_bind,
+    aws_ssm_parameter.obs_enabled,
+    aws_ssm_parameter.obs_bind,
+    aws_ssm_parameter.obs_port,
+    aws_ssm_parameter.obs_token,
+    aws_ssm_parameter.ops_alert_channel_id,
+    aws_ssm_parameter.obs_rss_mb_warn,
+    aws_ssm_parameter.obs_event_loop_ms_warn,
+    aws_ssm_parameter.obs_sample_interval_ms,
   ]
 }
 

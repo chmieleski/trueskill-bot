@@ -14,6 +14,7 @@ import {
   refreshAllLeaderboardChannels,
   scheduleLeaderboardRefresh,
 } from '../services/leaderboard/index.js';
+import { startObservability } from '../services/observability/index.js';
 import { syncCurrentReleaseDraft } from '../services/release/index.js';
 import { startWc3statsHostPromptScheduler } from '../services/wc3stats/index.js';
 
@@ -40,6 +41,12 @@ export async function execute(client: Client<true>): Promise<void> {
       hostDiscordId: client.user.id,
       postApprovalMessage: async (input) => postMatchApprovalMessage(client, input),
     });
+  }
+
+  try {
+    await startObservability(client);
+  } catch (error) {
+    log.warn({ err: error }, 'Failed to start observability');
   }
 
   if (!env.isDev) {

@@ -52,6 +52,7 @@ const quitterDefaults = {
   changelogChannelId: undefined,
   changelogDraftChannelId: undefined,
   completedMatchLogChannelId: undefined,
+  opsAlertChannelId: undefined,
 };
 
 const grieferDefaults = {
