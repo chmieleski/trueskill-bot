@@ -104,6 +104,13 @@ if ! mv "${STAGE_DIR}" "${APP_DIR}"; then
   exit 1
 fi
 
+# Refresh unit after promote so ExecStart tracks the release (monorepo path, etc.).
+if ! host_update_install_unit "${APP_DIR}"; then
+  echo "Unit install failed; previous tree is at ${PREV_DIR}" >&2
+  systemctl --no-pager --full status dbz-bot || true
+  exit 1
+fi
+
 echo "==> Starting dbz-bot"
 if ! systemctl start dbz-bot; then
   echo "Start failed; previous tree is at ${PREV_DIR}" >&2

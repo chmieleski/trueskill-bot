@@ -183,6 +183,24 @@ describe('host-update.sh artifact cut-over', () => {
     expect(sh).toContain('DEPLOY_CMDS_LOG');
     expect(sh).toMatch(/cat "\$\{DEPLOY_CMDS_LOG\}" >&2/);
   });
+
+  it('installs systemd unit after promote and before start', () => {
+    const sh = readFileSync(join(repoRoot, 'deploy/aws/host-update.sh'), 'utf8');
+    const lib = readFileSync(join(repoRoot, 'deploy/aws/host-update-lib.sh'), 'utf8');
+    const unit = readFileSync(join(repoRoot, 'deploy/aws/dbz-bot.service'), 'utf8');
+    expect(lib).toContain('host_update_install_unit()');
+    expect(lib).toContain('deploy/aws/dbz-bot.service');
+    expect(lib).toContain('/etc/systemd/system/dbz-bot.service');
+    expect(lib).toContain('systemctl daemon-reload');
+    expect(unit).toContain('ExecStart=/usr/bin/node apps/bot/dist/index.js');
+    expect(sh).toContain('host_update_install_unit "${APP_DIR}"');
+    const promoteIdx = sh.indexOf('Promoting stage to');
+    const unitIdx = sh.indexOf('host_update_install_unit "${APP_DIR}"');
+    const startIdx = sh.indexOf('Starting dbz-bot');
+    expect(promoteIdx).toBeGreaterThan(-1);
+    expect(unitIdx).toBeGreaterThan(promoteIdx);
+    expect(startIdx).toBeGreaterThan(unitIdx);
+  });
 });
 
 /** jq `--parameters commands` block for the post-upload SSM deploy step. */
