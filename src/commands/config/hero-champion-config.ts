@@ -116,22 +116,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     if (enabled) {
-      // #region agent log
-      const syncT0 = Date.now();
-      // #endregion
       await syncHeroChampionRoles(interaction.client, leagueId);
-      // #region agent log
-      log.info(
-        {
-          debugSessionId: '72203a',
-          hypothesisId: 'A',
-          syncMs: Date.now() - syncT0,
-          leagueId,
-          subcommand: 'enable',
-        },
-        'debug hero_champion_config sync timing',
-      );
-      // #endregion
     }
     log.info(
       { guildId: interaction.guildId, leagueId, enabled, userId: interaction.user.id },
@@ -146,9 +131,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
 
   if (subcommand === 'map') {
-    // #region agent log
-    const mapT0 = Date.now();
-    // #endregion
     const leagueId = await requireLeagueId(interaction);
     if (!leagueId) return;
 
@@ -157,19 +139,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     // Defer before DB upsert + sync so Discord does not show "did not respond".
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    // #region agent log
-    log.info(
-      {
-        debugSessionId: '72203a',
-        hypothesisId: 'A',
-        location: 'map:deferred',
-        msToDefer: Date.now() - mapT0,
-        leagueId,
-        heroId,
-      },
-      'debug hero_champion_config deferred',
-    );
-    // #endregion
 
     try {
       await setLeagueHeroChampionRole(leagueId, heroId, role.id);
@@ -181,25 +150,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       throw error;
     }
 
-    // #region agent log
-    const syncT0 = Date.now();
-    // #endregion
     await syncHeroChampionRoles(interaction.client, leagueId);
-    // #region agent log
-    log.info(
-      {
-        debugSessionId: '72203a',
-        hypothesisId: 'A',
-        location: 'map:afterSync',
-        syncMs: Date.now() - syncT0,
-        totalMs: Date.now() - mapT0,
-        overDiscord3s: Date.now() - mapT0 > 3000,
-        leagueId,
-        heroId,
-      },
-      'debug hero_champion_config sync timing',
-    );
-    // #endregion
     log.info(
       {
         guildId: interaction.guildId,
