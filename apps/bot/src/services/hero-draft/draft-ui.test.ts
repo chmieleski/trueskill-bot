@@ -79,8 +79,39 @@ describe('buildHeroDraftComponents', () => {
     const rows = buildHeroDraftComponents('draft-1', state);
     expect(rows).toHaveLength(2);
     const select = rows[0]!.components[0]!;
-    expect(select.toJSON()).toMatchObject({ type: 3, placeholder: '🚫 Select a hero to ban' });
+    expect(select.toJSON()).toMatchObject({ type: 3, placeholder: '🚫 Ban a hero (page 1/2)' });
     expect(rows[1]!.components[0]!.toJSON()).toMatchObject({ label: 'Skip ban' });
+  });
+
+  it('keeps Next page within the Discord 25-option select limit', () => {
+    const largePool = Array.from({ length: 40 }, (_, i) => ({
+      objectId: i + 1,
+      name: `Hero ${i + 1}`,
+    }));
+    const state = emptyHeroDraftState([team(1), team(2)], largePool);
+    const select = buildHeroDraftComponents('draft-1', state)[0]!.components[0]!.toJSON() as {
+      options: Array<{ label: string; value: string }>;
+    };
+    expect(select.options.length).toBeLessThanOrEqual(25);
+    expect(select.options.some((o) => o.label === 'Next page →')).toBe(true);
+    expect(select.options.some((o) => o.value.startsWith('__page__:'))).toBe(true);
+  });
+
+  it('keeps Previous and Next page on middle pages without dropping heroes past the cap', () => {
+    const largePool = Array.from({ length: 60 }, (_, i) => ({
+      objectId: i + 1,
+      name: `Hero ${i + 1}`,
+    }));
+    const state = { ...emptyHeroDraftState([team(1), team(2)], largePool), selectPage: 1 };
+    const select = buildHeroDraftComponents('draft-1', state)[0]!.components[0]!.toJSON() as {
+      options: Array<{ label: string; value: string }>;
+    };
+    expect(select.options.length).toBeLessThanOrEqual(25);
+    expect(select.options[0]?.label).toBe('← Previous page');
+    expect(select.options.at(-1)?.label).toBe('Next page →');
+    const heroOptions = select.options.filter((o) => !o.value.startsWith('__page__:'));
+    expect(heroOptions.length).toBeGreaterThan(0);
+    expect(heroOptions.length + 2).toBe(select.options.length);
   });
 });
 
@@ -98,6 +129,7 @@ describe('buildHeroDraftEmbed', () => {
     expect(embed.fields![0]!.value).toContain('<:wos_3:e3> Piccolo');
     expect(embed.fields![0]!.value).toContain('✅ Picks');
     expect(embed.fields![2]!.value).toContain('/hero_draft select');
+    expect(embed.fields![2]!.value).toMatch(/ban\/pick with search/i);
   });
 });
 

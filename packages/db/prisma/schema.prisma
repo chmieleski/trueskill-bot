@@ -600,7 +600,7 @@ model HeroDraft {
   threadId             String
   hostDiscordId        String
   status               String
-  timerSeconds         Int      @default(30)
+  timerSeconds         Int      @default(60)
   state                Json
   liveMessageId        String?
   sourceCaptainDraftId String?

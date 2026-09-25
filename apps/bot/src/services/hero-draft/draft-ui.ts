@@ -20,8 +20,10 @@ import {
   type HeroPoolEntry,
 } from './draft-types.js';
 
-export const HERO_DRAFT_PAGE_SIZE = 25;
+/** Heroes per select page. Discord allows 25 options; reserve 2 for ←/→ nav. */
+export const HERO_DRAFT_PAGE_SIZE = 23;
 export const HERO_DRAFT_PAGE_NAV_PREFIX = '__page__:';
+export const HERO_DRAFT_SELECT_OPTION_MAX = 25;
 export const HERO_DRAFT_EMBED_FIELD_MAX = 1024;
 
 export type HeroEmojiRef = { id: string; name: string };
@@ -181,7 +183,7 @@ export function buildHeroDraftEmbed(
     embed.addFields({
       name: 'Pool',
       value: truncateEmbedField(
-        `${availableHeroes(state).length} heroes remaining · Select below or \`/hero_draft select\``,
+        `${availableHeroes(state).length} heroes remaining · Select below, or \`/hero_draft select\` to ban/pick with search`,
       ),
     });
   } else if (complete) {
@@ -298,12 +300,28 @@ export function buildHeroDraftComponents(
   const page = state.selectPage;
   const totalPages = Math.max(1, Math.ceil(available.length / HERO_DRAFT_PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
+  const hasPrev = safePage > 0;
+  const hasNext = safePage + 1 < totalPages;
+  const heroSlots = HERO_DRAFT_SELECT_OPTION_MAX - (hasPrev ? 1 : 0) - (hasNext ? 1 : 0);
   const pageItems = available.slice(
     safePage * HERO_DRAFT_PAGE_SIZE,
-    safePage * HERO_DRAFT_PAGE_SIZE + HERO_DRAFT_PAGE_SIZE,
+    safePage * HERO_DRAFT_PAGE_SIZE + Math.min(HERO_DRAFT_PAGE_SIZE, heroSlots),
   );
 
-  const options = pageItems.map((hero) => {
+  const options: Array<{
+    label: string;
+    value: string;
+    emoji?: APIMessageComponentEmoji;
+  }> = [];
+
+  if (hasPrev) {
+    options.push({
+      label: '← Previous page',
+      value: `${HERO_DRAFT_PAGE_NAV_PREFIX}${safePage - 1}`,
+    });
+  }
+
+  for (const hero of pageItems) {
     const emoji = emojiMap.get(hero.objectId);
     const option: {
       label: string;
@@ -316,16 +334,10 @@ export function buildHeroDraftComponents(
     if (emoji) {
       option.emoji = { id: emoji.id, name: emoji.name };
     }
-    return option;
-  });
-
-  if (safePage > 0) {
-    options.unshift({
-      label: '← Previous page',
-      value: `${HERO_DRAFT_PAGE_NAV_PREFIX}${safePage - 1}`,
-    });
+    options.push(option);
   }
-  if (safePage + 1 < totalPages) {
+
+  if (hasNext) {
     options.push({
       label: 'Next page →',
       value: `${HERO_DRAFT_PAGE_NAV_PREFIX}${safePage + 1}`,
@@ -334,14 +346,15 @@ export function buildHeroDraftComponents(
 
   const rows: ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>[] = [];
   if (options.length > 0) {
+    const pageHint = totalPages > 1 ? ` (page ${safePage + 1}/${totalPages})` : '';
     rows.push(
       new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId(buildHeroDraftCustomId('sel', draftId, safePage))
           .setPlaceholder(
-            turn.kind === 'ban' ? '🚫 Select a hero to ban' : '✅ Select a hero to pick',
+            turn.kind === 'ban' ? `🚫 Ban a hero${pageHint}` : `✅ Pick a hero${pageHint}`,
           )
-          .addOptions(options.slice(0, 25)),
+          .addOptions(options.slice(0, HERO_DRAFT_SELECT_OPTION_MAX)),
       ),
     );
   }

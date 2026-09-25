@@ -76,6 +76,7 @@ export type {
   HeroPoolEntry,
 } from './draft-types.js';
 export {
+  HERO_DRAFT_DEFAULT_TIMER_SECONDS,
   HERO_DRAFT_MIN_POOL_SIZE,
   HERO_DRAFT_SEQUENCE,
   HeroDraftError,
