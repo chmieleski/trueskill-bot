@@ -1,3 +1,10 @@
+## [1.60.5](https://github.com/chmieleski/trueskill-bot/compare/v1.60.4...v1.60.5) (2026-09-25)
+
+
+### Bug Fixes
+
+* **hero-draft:** keep page nav inside Discord select limit ([#186](https://github.com/chmieleski/trueskill-bot/issues/186)) ([c711d85](https://github.com/chmieleski/trueskill-bot/commit/c711d859d510c1d4d40219e41b527e6ce6500140))
+
 ## [1.60.4](https://github.com/chmieleski/trueskill-bot/compare/v1.60.3...v1.60.4) (2026-09-21)
 
 
