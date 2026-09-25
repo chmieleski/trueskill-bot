@@ -183,7 +183,7 @@ export function buildHeroDraftEmbed(
     embed.addFields({
       name: 'Pool',
       value: truncateEmbedField(
-        `${availableHeroes(state).length} heroes remaining · Select below or \`/hero_draft select\``,
+        `${availableHeroes(state).length} heroes remaining · Select below, or \`/hero_draft select\` to ban/pick with search`,
       ),
     });
   } else if (complete) {

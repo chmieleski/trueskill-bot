@@ -129,6 +129,7 @@ describe('buildHeroDraftEmbed', () => {
     expect(embed.fields![0]!.value).toContain('<:wos_3:e3> Piccolo');
     expect(embed.fields![0]!.value).toContain('✅ Picks');
     expect(embed.fields![2]!.value).toContain('/hero_draft select');
+    expect(embed.fields![2]!.value).toMatch(/ban\/pick with search/i);
   });
 });
 
