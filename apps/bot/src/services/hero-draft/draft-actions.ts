@@ -22,6 +22,7 @@ import {
 } from './draft-state.js';
 import {
   emptyHeroDraftState,
+  HERO_DRAFT_DEFAULT_TIMER_SECONDS,
   HeroDraftError,
   type HeroDraftState,
   type HeroDraftTeam,
@@ -189,7 +190,7 @@ export async function startHeroDraft(input: StartHeroDraftInput): Promise<StartH
   const timerSeconds =
     input.timerSeconds !== undefined && Number.isFinite(input.timerSeconds)
       ? Math.max(5, Math.min(300, Math.floor(input.timerSeconds)))
-      : 30;
+      : HERO_DRAFT_DEFAULT_TIMER_SECONDS;
 
   const pool = await snapshotGameHeroPool(input.gameId);
   let state = emptyHeroDraftState([input.team1, input.team2], pool);

@@ -29,6 +29,9 @@ export type HeroDraftTurn = {
   team: HeroDraftTeamSide;
 };
 
+/** Default seconds per ban/pick when `/hero_draft start` omits `timer`. */
+export const HERO_DRAFT_DEFAULT_TIMER_SECONDS = 60;
+
 /** Fixed ban/pick sequence (Team 1 = first ban). */
 export const HERO_DRAFT_SEQUENCE: readonly HeroDraftTurn[] = [
   { kind: 'ban', team: 1 },

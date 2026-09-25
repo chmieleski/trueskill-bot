@@ -53,11 +53,11 @@ export const data = new SlashCommandBuilder()
     withSubcommandLeagueOption(
       subcommand
         .setName('start')
-        .setDescription('Start a hero draft in a new public thread (mods only)')
+        .setDescription('Start a hero draft in a new public thread')
         .addIntegerOption((option) =>
           option
             .setName('timer')
-            .setDescription('Seconds per ban/pick action (default 30)')
+            .setDescription('Seconds per ban/pick action (default 60)')
             .setMinValue(5)
             .setMaxValue(300)
             .setRequired(false),
@@ -187,9 +187,6 @@ async function executeStart(interaction: ChatInputCommandInteraction): Promise<v
     });
     return;
   }
-
-  const guildConfig = await resolveGuildConfig(interaction.guildId!);
-  assertHeroDraftMod(interaction, guildConfig);
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 

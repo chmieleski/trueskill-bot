@@ -12,7 +12,7 @@ function memberRoleIds(interaction: { member: unknown }): string[] {
   return [...member.roles.cache.keys()];
 }
 
-/** Require match moderator role for hero-draft setup/cancel. */
+/** Require match moderator role for hero-draft cancel. */
 export function assertHeroDraftMod(
   interaction: ChatInputCommandInteraction,
   guildConfig: ResolvedGuildConfig,
