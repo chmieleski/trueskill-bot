@@ -1,3 +1,10 @@
+# [1.63.0](https://github.com/chmieleski/trueskill-bot/compare/v1.62.0...v1.63.0) (2026-09-27)
+
+
+### Features
+
+* **league:** soft-pause ranked play after season end ([#189](https://github.com/chmieleski/trueskill-bot/issues/189)) ([2649cb2](https://github.com/chmieleski/trueskill-bot/commit/2649cb2c0267c0fa1031eefebbf1253d0076197e))
+
 # [1.62.0](https://github.com/chmieleski/trueskill-bot/compare/v1.61.0...v1.62.0) (2026-09-27)
 
 
