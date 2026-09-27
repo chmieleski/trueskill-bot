@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const upsertMock = vi.fn();
 const findManyMock = vi.fn();
 const findFirstMock = vi.fn();
+const findUniqueMock = vi.fn();
 const updateManyMock = vi.fn();
 
 vi.mock('../../lib/prisma.js', () => ({
@@ -11,6 +12,7 @@ vi.mock('../../lib/prisma.js', () => ({
       upsert: (...args: unknown[]) => upsertMock(...args),
       findMany: (...args: unknown[]) => findManyMock(...args),
       findFirst: (...args: unknown[]) => findFirstMock(...args),
+      findUnique: (...args: unknown[]) => findUniqueMock(...args),
     },
     matchPlayerStats: {
       findFirst: (...args: unknown[]) => findFirstMock(...args),
@@ -23,6 +25,7 @@ import {
   formatHeroDisplayName,
   renameGameHeroDisplayName,
   resolveHeroDisplayNames,
+  resolveHeroSelectionByObjectId,
   statsRowMatchesHeroSelection,
   upsertGameHeroesFromReport,
 } from './game-hero-catalog.js';
@@ -126,5 +129,57 @@ describe('renameGameHeroDisplayName', () => {
         update: { name: 'Raiden' },
       }),
     );
+  });
+});
+
+describe('resolveHeroSelectionByObjectId', () => {
+  beforeEach(() => {
+    findUniqueMock.mockReset();
+    findFirstMock.mockReset();
+  });
+
+  it('returns catalog selection when gameHero exists', async () => {
+    findUniqueMock.mockResolvedValue({ objectId: 101, name: 'Raiden' });
+
+    await expect(resolveHeroSelectionByObjectId('warcraft3_wos', 'league-1', 101)).resolves.toEqual(
+      {
+        objectId: 101,
+        nameKey: 'raiden',
+        displayName: 'Raiden',
+      },
+    );
+    expect(findFirstMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to completed league stats row when catalog misses', async () => {
+    findUniqueMock.mockResolvedValue(null);
+    findFirstMock.mockResolvedValue({ heroObjectId: 101, heroName: 'Raiden Ei' });
+
+    await expect(resolveHeroSelectionByObjectId('warcraft3_wos', 'league-1', 101)).resolves.toEqual(
+      {
+        objectId: 101,
+        nameKey: 'raiden ei',
+        displayName: 'Raiden Ei',
+      },
+    );
+    expect(findFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          heroObjectId: 101,
+          matchPlayer: {
+            match: expect.objectContaining({ leagueId: 'league-1' }),
+          },
+        }),
+      }),
+    );
+  });
+
+  it('returns null when object id is unknown in catalog and league', async () => {
+    findUniqueMock.mockResolvedValue(null);
+    findFirstMock.mockResolvedValue(null);
+
+    await expect(
+      resolveHeroSelectionByObjectId('warcraft3_wos', 'league-1', 404),
+    ).resolves.toBeNull();
   });
 });

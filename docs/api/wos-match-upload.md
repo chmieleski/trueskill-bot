@@ -5,6 +5,8 @@ For app developers who upload finished **Warcraft III WOS** matches into Punch M
 **Base URL (production):** `http://63.186.224.240:8787`  
 **Protocol:** HTTP JSON (HTTPS + Cloudflare planned later — see issue #163)
 
+**Related APIs:** [WOS hero & match combat stats](./wos-hero-stats.md) — read hero aggregates and per-match stats with the same Bearer token.
+
 ---
 
 ## What this API does
@@ -196,5 +198,6 @@ Rules the server enforces:
 ## Support
 
 - Bot / league config: Discord server staff
+- Hero / match stats (GET): [`docs/api/wos-hero-stats.md`](./wos-hero-stats.md)
 - API contract / bugs: repo `chmieleski/trueskill-bot` (design: `docs/superpowers/specs/2026-09-07-api-wos-match-approval-design.md`)
 - Future HTTPS domain: GitHub issue [#163](https://github.com/chmieleski/trueskill-bot/issues/163)

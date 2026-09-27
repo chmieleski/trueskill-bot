@@ -106,6 +106,45 @@ export function statsRowMatchesHeroSelection(
   return heroName != null && normalizeHeroNameKey(heroName) === selection.nameKey;
 }
 
+/** Resolve selection from a numeric WC3 object id for this game/league. */
+export async function resolveHeroSelectionByObjectId(
+  gameId: string,
+  leagueId: string,
+  objectId: number,
+): Promise<HeroSelection | null> {
+  const catalogMatch = await prisma.gameHero.findUnique({
+    where: { gameId_objectId: { gameId, objectId } },
+    select: { objectId: true, name: true },
+  });
+  if (catalogMatch) {
+    return {
+      objectId: catalogMatch.objectId,
+      nameKey: normalizeHeroNameKey(catalogMatch.name),
+      displayName: catalogMatch.name,
+    };
+  }
+
+  const statRow = await prisma.matchPlayerStats.findFirst({
+    where: {
+      heroObjectId: objectId,
+      matchPlayer: {
+        match: { leagueId, status: MatchStatus.COMPLETED },
+      },
+    },
+    select: { heroObjectId: true, heroName: true },
+  });
+  if (statRow?.heroObjectId != null) {
+    const displayName = formatHeroDisplayName(objectId, new Map(), statRow.heroName);
+    return {
+      objectId: statRow.heroObjectId,
+      nameKey: normalizeHeroNameKey(displayName),
+      displayName,
+    };
+  }
+
+  return null;
+}
+
 /**
  * Resolve a user-provided hero name to an object id (when known) and display label.
  * Matches catalog display names, then report names in the league, then name-only rows.

@@ -166,7 +166,7 @@ export function filterRowsToLast20Matches(rows: HeroStatsRow[]): HeroStatsRow[] 
   return filterRowsToLastNMatches(rows, STATS_RECENT_MATCH_COUNT);
 }
 
-function formatKda(kills: number, deaths: number): string {
+export function formatKda(kills: number, deaths: number): string {
   if (deaths === 0) {
     return '—';
   }
