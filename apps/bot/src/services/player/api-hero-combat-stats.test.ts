@@ -460,7 +460,7 @@ describe('loadApiHeroCombatStats', () => {
     expect(resolveHeroSelectionMock).not.toHaveBeenCalled();
   });
 
-  it('decodes name keys, builds both windows, and recentGames from last pool', async () => {
+  it('resolves already-decoded name keys, builds both windows, and recentGames from last pool', async () => {
     resolveHeroSelectionMock.mockResolvedValue(raidenSelection);
     matchPlayerFindMany.mockResolvedValue([
       prismaCombatSource({
@@ -499,7 +499,7 @@ describe('loadApiHeroCombatStats', () => {
     const result = await loadApiHeroCombatStats({
       leagueId: 'league-1',
       gameId: 'warcraft3_wos',
-      heroKey: 'Raiden%20Ei',
+      heroKey: 'Raiden Ei',
       query: defaultQuery({ scope: 'both', games: 1, recentLimit: 5, topPlayers: 0 }),
     });
 

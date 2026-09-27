@@ -4,6 +4,8 @@ import { createLogger } from '../lib/logger.js';
 import type { ingestWosReportForApproval } from '../services/match/match-waiting-approval.js';
 import type { resolveLeagueFromApiToken } from '../services/league/league-api-token.js';
 import { sendJson } from './http-io.js';
+import { handleHeroesRoutes } from './routes/heroes.js';
+import { handleMatchStatsRoute } from './routes/match-stats.js';
 import { handleWosReportRoute } from './routes/wos-report.js';
 
 const log = createLogger('api');
@@ -26,7 +28,10 @@ export async function handleApiRequest(
   deps: ApiServerDeps,
 ): Promise<void> {
   try {
-    const handled = await handleWosReportRoute(req, res, deps);
+    const handled =
+      (await handleWosReportRoute(req, res, deps)) ||
+      (await handleHeroesRoutes(req, res, deps)) ||
+      (await handleMatchStatsRoute(req, res, deps));
     if (!handled) {
       sendJson(res, 404, { error: 'Not Found' });
     }

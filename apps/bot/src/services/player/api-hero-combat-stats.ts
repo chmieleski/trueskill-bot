@@ -440,16 +440,16 @@ export function pickRecentApiCombatGames(
     .map((row) => toApiRecentGame(row, names));
 }
 
+/** Resolve hero selection from an already-decoded path key (digits → objectId). */
 async function resolveHeroSelectionFromKey(
   gameId: string,
   leagueId: string,
   heroKey: string,
 ): Promise<HeroSelection | null> {
-  const decoded = decodeURIComponent(heroKey);
-  if (/^\d+$/.test(decoded)) {
-    return resolveHeroSelectionByObjectId(gameId, leagueId, Number(decoded));
+  if (/^\d+$/.test(heroKey)) {
+    return resolveHeroSelectionByObjectId(gameId, leagueId, Number(heroKey));
   }
-  return resolveHeroSelection(gameId, leagueId, decoded);
+  return resolveHeroSelection(gameId, leagueId, heroKey);
 }
 
 function windowRowsForScope(
@@ -491,7 +491,10 @@ function windowRowsForScope(
   return { windows, recentPool: lastRows ?? [] };
 }
 
-/** Load league-wide combat aggregates for one hero (name or objectId path key). */
+/**
+ * Load league-wide combat aggregates for one hero (name or objectId path key).
+ * `heroKey` must already be URI-decoded by the HTTP route.
+ */
 export async function loadApiHeroCombatStats(input: {
   leagueId: string;
   gameId: string;
