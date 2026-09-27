@@ -2,8 +2,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createLogger } from '../../lib/logger.js';
 import { MatchServiceError } from '../../services/match/match-service.js';
 import { attachApprovalDiscordMessage } from '../../services/match/match-waiting-approval.js';
-import { extractBearerToken } from '../auth.js';
 import { readJsonBody, sendJson } from '../http-io.js';
+import { requireLeagueApiAuth } from '../league-auth.js';
 import type { ApiServerDeps } from '../http-server.js'; // type-only — avoid runtime cycle with http-server
 
 const log = createLogger('api-wos-report');
@@ -29,17 +29,11 @@ export async function handleWosReportRoute(
     return true;
   }
 
-  const token = extractBearerToken(req.headers.authorization);
-  if (token === null) {
-    sendJson(res, 401, { error: 'Unauthorized' });
+  const auth = await requireLeagueApiAuth(req, res, deps.resolveToken, { requireWos: true });
+  if (!auth.ok) {
     return true;
   }
-
-  const league = await deps.resolveToken(token);
-  if (league === null) {
-    sendJson(res, 401, { error: 'Unauthorized' });
-    return true;
-  }
+  const { league } = auth;
 
   let body: unknown;
   try {
