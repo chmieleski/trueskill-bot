@@ -26,6 +26,7 @@ const {
   restoreMatchRatingSnapshots,
   clearMatchGriefers,
   clearMatchQuitters,
+  clearMatchDcs,
   getMatchById,
 } = vi.hoisted(() => ({
   leagueFindUnique: vi.fn(),
@@ -46,6 +47,7 @@ const {
   restoreMatchRatingSnapshots: vi.fn(),
   clearMatchGriefers: vi.fn(),
   clearMatchQuitters: vi.fn(),
+  clearMatchDcs: vi.fn(),
   getMatchById: vi.fn(),
 }));
 
@@ -101,6 +103,7 @@ vi.mock('../rating/rating-preview.js', () => ({
 vi.mock('./match-report.js', () => ({
   clearMatchGriefers,
   clearMatchQuitters,
+  clearMatchDcs,
 }));
 
 vi.mock('./match-service.js', async (importOriginal) => {
@@ -119,7 +122,7 @@ describe('addManualSanction', () => {
     matchCreate.mockResolvedValue({ id: 'sanction-1' });
     matchPlayerCreate.mockResolvedValue({});
     loadMatchDisplayStatsByPlayer.mockResolvedValue(
-      new Map([['p1', { games: 5, wins: 3, losses: 2, quits: 2, griefs: 0 }]]),
+      new Map([['p1', { games: 5, wins: 3, losses: 2, quits: 2, griefs: 0, dcs: 0 }]]),
     );
     matchPlayerFindUnique.mockResolvedValue({ grieferKiAccrued: null });
     transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) => {
@@ -178,6 +181,35 @@ describe('addManualSanction', () => {
     expect(result.grieferKiAccrued).toBe(125);
   });
 
+  it('creates a cancelled manual DC match with no rating side effects', async () => {
+    loadMatchDisplayStatsByPlayer.mockResolvedValue(
+      new Map([['p1', { games: 5, wins: 3, losses: 2, quits: 0, griefs: 0, dcs: 3 }]]),
+    );
+
+    const result = await addManualSanction({
+      leagueId: 'league-1',
+      playerId: 'p1',
+      type: 'dc',
+      actorDiscordId: 'mod-1',
+      discordChannelId: 'chan-1',
+    });
+
+    expect(matchPlayerCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        playerId: 'p1',
+        isQuitter: false,
+        isGriefer: false,
+        isDc: true,
+      }),
+    });
+    expect(ensurePlayerRatings).not.toHaveBeenCalled();
+    expect(writeMatchRatingSnapshots).not.toHaveBeenCalled();
+    expect(applyQuitterPenalties).not.toHaveBeenCalled();
+    expect(accrueGrieferPenalties).not.toHaveBeenCalled();
+    expect(result.dcs).toBe(3);
+    expect(result.grieferKiAccrued).toBeNull();
+  });
+
   it('rejects archived leagues', async () => {
     leagueFindUnique.mockResolvedValue({ status: 'ARCHIVED' });
 
@@ -208,6 +240,23 @@ describe('findLatestManualSanctionMatchId', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           isQuitter: true,
+          match: expect.objectContaining({ isManualSanction: true, status: 'CANCELLED' }),
+        }),
+      }),
+    );
+  });
+
+  it('queries manual cancelled rows for DCs', async () => {
+    playerFindFirst.mockResolvedValue({ matchId: 'm-dc' });
+
+    const id = await findLatestManualSanctionMatchId('league-1', 'p1', 'dc');
+
+    expect(id).toBe('m-dc');
+    expect(playerFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          isDc: true,
+          isQuitter: false,
           match: expect.objectContaining({ isManualSanction: true, status: 'CANCELLED' }),
         }),
       }),
@@ -275,6 +324,26 @@ describe('removeManualSanction', () => {
     expect(result.mode).toBe('delegated_clear');
   });
 
+  it('delegates to clearMatchDcs for latest manual DC', async () => {
+    playerFindFirst.mockResolvedValue({ matchId: 'sanction-dc' });
+    getMatchById.mockResolvedValue({
+      id: 'sanction-dc',
+      leagueId: 'league-1',
+      isManualSanction: true,
+      players: [{ playerId: 'p1', slot: 1, isQuitter: false, isGriefer: false, isDc: true }],
+    });
+
+    const result = await removeManualSanction({
+      leagueId: 'league-1',
+      playerId: 'p1',
+      username: 'goku',
+      type: 'dc',
+    });
+
+    expect(clearMatchDcs).toHaveBeenCalledWith('sanction-dc');
+    expect(result.mode).toBe('delegated_clear');
+  });
+
   it('throws when no manual sanction exists', async () => {
     playerFindFirst.mockResolvedValue(null);
 
@@ -310,6 +379,26 @@ describe('removeManualSanction', () => {
     });
 
     expect(clearMatchQuitters).toHaveBeenCalledWith('match-9', [1]);
+    expect(result.mode).toBe('delegated_clear');
+  });
+
+  it('delegates to clearMatchDcs when match_id is provided for DC', async () => {
+    getMatchById.mockResolvedValue({
+      id: 'match-dc',
+      leagueId: 'league-1',
+      isManualSanction: false,
+      players: [{ playerId: 'p1', slot: 3, isQuitter: false, isGriefer: false, isDc: true }],
+    });
+
+    const result = await removeManualSanction({
+      leagueId: 'league-1',
+      playerId: 'p1',
+      username: 'goku',
+      type: 'dc',
+      matchId: 'match-dc',
+    });
+
+    expect(clearMatchDcs).toHaveBeenCalledWith('match-dc', [3]);
     expect(result.mode).toBe('delegated_clear');
   });
 });

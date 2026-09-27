@@ -103,7 +103,7 @@ async function lockInProgressMatch(
   );
 }
 
-/** Lock for setQuitters / setGriefers / completeMatch (in progress or awaiting approval). */
+/** Lock for setQuitters / setGriefers / setDcs / completeMatch (in progress or awaiting approval). */
 async function lockReportableMatch(
   tx: Prisma.TransactionClient,
   matchId: string,
@@ -160,21 +160,40 @@ export function resolveGrieferSlots(
   );
 }
 
+export function resolveDcSlots(
+  persistedFlags: Pick<MatchWithPlayers['players'][number], 'slot' | 'isDc'>[],
+  dcSlots?: number[],
+): number[] {
+  if (dcSlots !== undefined) {
+    return normalizeSlots(dcSlots);
+  }
+
+  return normalizeSlots(
+    persistedFlags.filter((player) => player.isDc).map((player) => player.slot),
+  );
+}
+
 function toRatingEntries(
   match: MatchWithPlayers,
   quitterSlots: Set<number>,
   grieferSlots: Set<number>,
+  dcSlots: Set<number> = new Set(),
   wasNewByPlayerId?: Map<string, boolean>,
 ): RatingRosterEntry[] {
-  return match.players.map((player) => ({
-    playerId: player.playerId,
-    slot: player.slot,
-    team: assertTeam(player.team),
-    heroId: player.heroId,
-    isQuitter: quitterSlots.has(player.slot),
-    isGriefer: grieferSlots.has(player.slot),
-    wasNewPlayer: wasNewByPlayerId?.get(player.playerId) === true,
-  }));
+  return match.players.map((player) => {
+    const isQuitter = quitterSlots.has(player.slot);
+    return {
+      playerId: player.playerId,
+      slot: player.slot,
+      team: assertTeam(player.team),
+      heroId: player.heroId,
+      isQuitter,
+      isGriefer: grieferSlots.has(player.slot),
+      // Optional on roster; rating math ignores DC. Quitter wins over DC.
+      isDc: !isQuitter && dcSlots.has(player.slot),
+      wasNewPlayer: wasNewByPlayerId?.get(player.playerId) === true,
+    };
+  });
 }
 
 function assertKnownSlots(match: MatchWithPlayers, slots: Set<number>, label: string): void {
@@ -218,7 +237,7 @@ export async function setQuitters(
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
         data: {
           isQuitter,
-          ...(isQuitter ? { isGriefer: false } : {}),
+          ...(isQuitter ? { isGriefer: false, isDc: false } : {}),
         },
       });
     }
@@ -270,15 +289,58 @@ export async function setGriefers(
   return updated!;
 }
 
+/**
+ * Set disconnect (DC) flags on a reportable match.
+ * DC clears quitter on that slot; griefer is kept (flags may stack).
+ */
+export async function setDcs(matchId: string, dcSlots: number[]): Promise<MatchWithPlayers> {
+  const match = requireReportableMatch(await getMatchById(matchId));
+  const dcSet = new Set(dcSlots);
+
+  assertKnownSlots(match, dcSet, 'DC');
+
+  await prisma.$transaction(async (tx) => {
+    const current = await tx.match.findUnique({
+      where: { id: matchId },
+      select: { status: true },
+    });
+
+    if (!current) {
+      throw new MatchServiceError('This match was not found.');
+    }
+
+    if (!isReportableStatus(current.status)) {
+      throw new MatchServiceError('This match is not awaiting approval or in progress.');
+    }
+
+    for (const player of match.players) {
+      const isDc = dcSet.has(player.slot);
+      await tx.matchPlayer.update({
+        where: { matchId_playerId: { matchId, playerId: player.playerId } },
+        data: {
+          isDc,
+          ...(isDc ? { isQuitter: false } : {}),
+        },
+      });
+    }
+  });
+
+  const updated = await getMatchById(matchId);
+  log.info({ matchId, dcSlots: [...dcSet] }, 'DCs updated');
+  return updated!;
+}
+
 export async function completeMatch(
   matchId: string,
   winningTeam: 1 | 2,
   quitterSlots?: number[],
   grieferSlots?: number[],
+  dcSlots?: number[],
   mitigationPercent: number = 0,
 ): Promise<CompleteMatchResult> {
   let resolvedQuitterSlots: number[] = [];
   let resolvedGrieferSlots: number[] = [];
+  let resolvedDcSlots: number[] = [];
   let ratingPreview: LobbyRatingPreview = { players: [] };
   const mitigation = normalizeMitigationPercent(mitigationPercent);
 
@@ -296,10 +358,13 @@ export async function completeMatch(
     }
     resolvedQuitterSlots = resolveQuitterSlots(match.players, quitterSlots);
     resolvedGrieferSlots = resolveGrieferSlots(match.players, grieferSlots);
+    resolvedDcSlots = resolveDcSlots(match.players, dcSlots);
     const quitterSet = new Set(resolvedQuitterSlots);
     const grieferSet = new Set(resolvedGrieferSlots);
+    const dcSet = new Set(resolvedDcSlots);
     assertKnownSlots(match, quitterSet, 'quitter');
     assertKnownSlots(match, grieferSet, 'griefer');
+    assertKnownSlots(match, dcSet, 'DC');
 
     const activeForTeams = match.players
       .filter((p) => !quitterSet.has(p.slot))
@@ -317,6 +382,7 @@ export async function completeMatch(
           data: {
             isQuitter,
             isGriefer: grieferSet.has(player.slot),
+            isDc: isQuitter ? false : dcSet.has(player.slot),
             result: won ? 'WIN' : 'LOSS',
             wasNewPlayer: false,
           },
@@ -338,6 +404,7 @@ export async function completeMatch(
         ...player,
         isQuitter: quitterSet.has(player.slot),
         isGriefer: grieferSet.has(player.slot),
+        isDc: !quitterSet.has(player.slot) && dcSet.has(player.slot),
       })),
     );
 
@@ -350,7 +417,7 @@ export async function completeMatch(
     );
     const playerIds = match.players.map((p) => p.playerId);
     const isNewByPlayerId = await loadIsNewPlayerByPlayerId(leagueId, playerIds, tx);
-    const entries = toRatingEntries(match, quitterSet, grieferSet, isNewByPlayerId);
+    const entries = toRatingEntries(match, quitterSet, grieferSet, dcSet, isNewByPlayerId);
     const active = entries.filter((entry) => !entry.isQuitter);
     assertBothTeamsHaveActivePlayers(active);
 
@@ -375,6 +442,7 @@ export async function completeMatch(
         data: {
           isQuitter,
           isGriefer: grieferSet.has(player.slot),
+          isDc: isQuitter ? false : dcSet.has(player.slot),
           result: won ? 'WIN' : 'LOSS',
           wasNewPlayer: isNewByPlayerId.get(player.playerId) === true,
         },
@@ -429,6 +497,7 @@ export async function completeMatch(
       winningTeam,
       quitterSlots: resolvedQuitterSlots,
       grieferSlots: resolvedGrieferSlots,
+      dcSlots: resolvedDcSlots,
       mitigationPercent: mitigation,
     },
     'Match completed',
@@ -439,16 +508,21 @@ export async function completeMatch(
 export async function cancelInProgressMatch(
   matchId: string,
   grieferSlots?: number[],
+  dcSlots?: number[],
 ): Promise<MatchWithPlayers> {
   let quitterSlots: number[] = [];
   let resolvedGrieferSlots: number[] = [];
+  let resolvedDcSlots: number[] = [];
 
   await prisma.$transaction(async (tx) => {
     const match = await lockInProgressMatch(tx, matchId);
     quitterSlots = resolveQuitterSlots(match.players);
     resolvedGrieferSlots = resolveGrieferSlots(match.players, grieferSlots);
+    resolvedDcSlots = resolveDcSlots(match.players, dcSlots);
     const grieferSet = new Set(resolvedGrieferSlots);
+    const dcSet = new Set(resolvedDcSlots);
     assertKnownSlots(match, grieferSet, 'griefer');
+    assertKnownSlots(match, dcSet, 'DC');
 
     if (grieferSlots !== undefined) {
       for (const player of match.players) {
@@ -463,6 +537,19 @@ export async function cancelInProgressMatch(
       }
     }
 
+    if (dcSlots !== undefined) {
+      for (const player of match.players) {
+        const isDc = dcSet.has(player.slot);
+        await tx.matchPlayer.update({
+          where: { matchId_playerId: { matchId, playerId: player.playerId } },
+          data: {
+            isDc,
+            ...(isDc ? { isQuitter: false } : {}),
+          },
+        });
+      }
+    }
+
     if (isEventMatch(match)) {
       await tx.match.update({
         where: { id: matchId },
@@ -472,7 +559,10 @@ export async function cancelInProgressMatch(
     }
 
     const leagueId = requireLeagueId(match);
-    const entries = toRatingEntries(match, new Set(quitterSlots), grieferSet);
+    const quitterSet = new Set(quitterSlots);
+    // Quitter wins over DC for roster flags used by penalty helpers.
+    const effectiveDcSet = new Set([...dcSet].filter((slot) => !quitterSet.has(slot)));
+    const entries = toRatingEntries(match, quitterSet, grieferSet, effectiveDcSet);
     const playerIds = match.players.map((p) => p.playerId);
 
     if (quitterSlots.length > 0) {
@@ -501,7 +591,7 @@ export async function cancelInProgressMatch(
 
   const updated = await getMatchById(matchId);
   log.info(
-    { matchId, quitterSlots, grieferSlots: resolvedGrieferSlots },
+    { matchId, quitterSlots, grieferSlots: resolvedGrieferSlots, dcSlots: resolvedDcSlots },
     'In-progress match cancelled',
   );
   return updated!;
@@ -577,6 +667,76 @@ export async function clearMatchGriefers(
 
   const updated = await getMatchById(matchId);
   log.info({ matchId, cleared }, 'Griefers cleared from match');
+  return { match: updated!, cleared };
+}
+
+export type ClearedMatchDc = {
+  slot: number;
+  playerId: string;
+};
+
+/**
+ * Clear disconnect (DC) flags on a finished match (mods).
+ * When `slots` is omitted or empty, clears every DC on the match.
+ * Does not touch ratings or griefer/quitter flags.
+ */
+export async function clearMatchDcs(
+  matchId: string,
+  slots?: number[],
+): Promise<{ match: MatchWithPlayers; cleared: ClearedMatchDc[] }> {
+  const match = await getMatchById(matchId);
+
+  if (!match) {
+    throw new MatchServiceError('This match was not found.');
+  }
+
+  if (match.status !== 'COMPLETED' && match.status !== 'CANCELLED') {
+    throw new MatchServiceError('DC flags can only be cleared on completed or cancelled matches.');
+  }
+
+  const targetSlots =
+    slots !== undefined && slots.length > 0
+      ? new Set(slots)
+      : new Set(match.players.filter((player) => player.isDc).map((player) => player.slot));
+
+  if (targetSlots.size === 0) {
+    throw new MatchServiceError('This match has no DCs to clear.');
+  }
+
+  if (slots !== undefined && slots.length > 0) {
+    assertKnownSlots(match, targetSlots, 'DC');
+  }
+
+  const cleared: ClearedMatchDc[] = [];
+
+  await prisma.$transaction(async (tx) => {
+    for (const player of match.players) {
+      if (!targetSlots.has(player.slot)) {
+        continue;
+      }
+
+      if (!player.isDc) {
+        continue;
+      }
+
+      cleared.push({
+        slot: player.slot,
+        playerId: player.playerId,
+      });
+
+      await tx.matchPlayer.update({
+        where: { matchId_playerId: { matchId, playerId: player.playerId } },
+        data: { isDc: false },
+      });
+    }
+  });
+
+  if (cleared.length === 0) {
+    throw new MatchServiceError('The selected slots are not marked as DCs.');
+  }
+
+  const updated = await getMatchById(matchId);
+  log.info({ matchId, cleared }, 'DCs cleared from match');
   return { match: updated!, cleared };
 }
 

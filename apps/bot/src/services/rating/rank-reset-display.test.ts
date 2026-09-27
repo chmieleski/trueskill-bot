@@ -120,12 +120,16 @@ describe('aggregateMatchDisplayStats', () => {
           playerId: 'p1',
           result: MatchResult.WIN,
           isQuitter: false,
+          isGriefer: false,
+          isDc: false,
           completedAt: BEFORE,
         },
         {
           playerId: 'p1',
           result: MatchResult.LOSS,
           isQuitter: true,
+          isGriefer: false,
+          isDc: false,
           completedAt: AFTER,
         },
       ],
@@ -138,6 +142,7 @@ describe('aggregateMatchDisplayStats', () => {
       losses: 1,
       quits: 1,
       griefs: 0,
+      dcs: 0,
     });
   });
 
@@ -148,18 +153,24 @@ describe('aggregateMatchDisplayStats', () => {
           playerId: 'p1',
           result: MatchResult.WIN,
           isQuitter: false,
+          isGriefer: false,
+          isDc: false,
           completedAt: BEFORE,
         },
         {
           playerId: 'p1',
           result: MatchResult.LOSS,
           isQuitter: true,
+          isGriefer: false,
+          isDc: false,
           completedAt: BEFORE,
         },
         {
           playerId: 'p1',
           result: MatchResult.WIN,
           isQuitter: false,
+          isGriefer: false,
+          isDc: false,
           completedAt: AFTER,
         },
       ],
@@ -172,6 +183,7 @@ describe('aggregateMatchDisplayStats', () => {
       losses: 0,
       quits: 0,
       griefs: 0,
+      dcs: 0,
     });
   });
 
@@ -182,6 +194,8 @@ describe('aggregateMatchDisplayStats', () => {
           playerId: 'p1',
           result: MatchResult.WIN,
           isQuitter: false,
+          isGriefer: false,
+          isDc: false,
           completedAt: BEFORE,
         },
       ],
@@ -194,6 +208,7 @@ describe('aggregateMatchDisplayStats', () => {
       losses: 0,
       quits: 0,
       griefs: 0,
+      dcs: 0,
     });
   });
 
@@ -204,12 +219,16 @@ describe('aggregateMatchDisplayStats', () => {
           playerId: 'p1',
           result: MatchResult.WIN,
           isQuitter: false,
+          isGriefer: false,
+          isDc: false,
           completedAt: BEFORE,
         },
         {
           playerId: 'p2',
           result: MatchResult.LOSS,
           isQuitter: false,
+          isGriefer: false,
+          isDc: false,
           completedAt: BEFORE,
         },
       ],
@@ -223,6 +242,7 @@ describe('aggregateMatchDisplayStats', () => {
       losses: 1,
       quits: 0,
       griefs: 0,
+      dcs: 0,
     });
   });
 });
@@ -231,8 +251,8 @@ describe('gamesByPlayerFromStats', () => {
   it('maps games for displayOrdinal callers', () => {
     const games = gamesByPlayerFromStats(
       new Map([
-        ['p1', { games: 5, wins: 3, losses: 2, quits: 0, griefs: 0 }],
-        ['p2', { games: 0, wins: 0, losses: 0, quits: 1, griefs: 0 }],
+        ['p1', { games: 5, wins: 3, losses: 2, quits: 0, griefs: 0, dcs: 0 }],
+        ['p2', { games: 0, wins: 0, losses: 0, quits: 1, griefs: 0, dcs: 0 }],
       ]),
     );
     expect(games.get('p1')).toBe(5);
@@ -262,6 +282,8 @@ describe('aggregateHeroMatchDisplayStats', () => {
           heroId: 1,
           result: MatchResult.WIN,
           isQuitter: false,
+          isGriefer: false,
+          isDc: false,
           completedAt: AFTER,
         },
         {
@@ -269,6 +291,8 @@ describe('aggregateHeroMatchDisplayStats', () => {
           heroId: 1,
           result: MatchResult.LOSS,
           isQuitter: false,
+          isGriefer: false,
+          isDc: false,
           completedAt: AFTER,
         },
         {
@@ -276,6 +300,8 @@ describe('aggregateHeroMatchDisplayStats', () => {
           heroId: 2,
           result: MatchResult.WIN,
           isQuitter: false,
+          isGriefer: false,
+          isDc: false,
           completedAt: AFTER,
         },
         {
@@ -283,6 +309,8 @@ describe('aggregateHeroMatchDisplayStats', () => {
           heroId: null,
           result: MatchResult.WIN,
           isQuitter: false,
+          isGriefer: false,
+          isDc: false,
           completedAt: AFTER,
         },
       ],
@@ -302,6 +330,8 @@ describe('aggregateHeroMatchDisplayStats', () => {
           heroId: 1,
           result: MatchResult.WIN,
           isQuitter: false,
+          isGriefer: false,
+          isDc: false,
           completedAt: BEFORE,
         },
         {
@@ -309,6 +339,8 @@ describe('aggregateHeroMatchDisplayStats', () => {
           heroId: 1,
           result: MatchResult.LOSS,
           isQuitter: true,
+          isGriefer: false,
+          isDc: false,
           completedAt: AFTER,
         },
         {
@@ -316,6 +348,8 @@ describe('aggregateHeroMatchDisplayStats', () => {
           heroId: 1,
           result: null,
           isQuitter: true,
+          isGriefer: false,
+          isDc: false,
           completedAt: AFTER,
         },
       ],
@@ -335,6 +369,8 @@ describe('aggregateSideMatchDisplayStats', () => {
           team: 1,
           result: MatchResult.WIN,
           isQuitter: false,
+          isGriefer: false,
+          isDc: false,
           completedAt: AFTER,
         },
         {
@@ -342,6 +378,8 @@ describe('aggregateSideMatchDisplayStats', () => {
           team: 1,
           result: MatchResult.LOSS,
           isQuitter: false,
+          isGriefer: false,
+          isDc: false,
           completedAt: AFTER,
         },
         {
@@ -349,6 +387,8 @@ describe('aggregateSideMatchDisplayStats', () => {
           team: 2,
           result: MatchResult.WIN,
           isQuitter: false,
+          isGriefer: false,
+          isDc: false,
           completedAt: AFTER,
         },
         {
@@ -356,6 +396,8 @@ describe('aggregateSideMatchDisplayStats', () => {
           team: 2,
           result: null,
           isQuitter: true,
+          isGriefer: false,
+          isDc: false,
           completedAt: AFTER,
         },
       ],
@@ -376,6 +418,8 @@ describe('aggregateSideMatchDisplayStats', () => {
           team: 1,
           result: MatchResult.WIN,
           isQuitter: false,
+          isGriefer: false,
+          isDc: false,
           completedAt: BEFORE,
         },
         {
@@ -383,6 +427,8 @@ describe('aggregateSideMatchDisplayStats', () => {
           team: 2,
           result: MatchResult.LOSS,
           isQuitter: false,
+          isGriefer: false,
+          isDc: false,
           completedAt: AFTER,
         },
       ],

@@ -45,6 +45,7 @@ export async function handleMatchHistoryInteraction(interaction: Interaction): P
     username: player.username,
     page: parsed.page,
     griefersOnly: parsed.griefersOnly,
+    dcsOnly: parsed.dcsOnly,
   });
   const profile = await getGameProfileForLeague(parsed.leagueId);
   await interaction.editReply({
@@ -60,6 +61,7 @@ export async function handleMatchHistoryInteraction(interaction: Interaction): P
       page: pageData.page,
       totalPages: pageData.totalPages,
       griefersOnly: pageData.griefersOnly,
+      dcsOnly: pageData.dcsOnly,
     }),
   });
   return true;

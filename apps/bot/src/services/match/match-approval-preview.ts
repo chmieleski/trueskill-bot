@@ -32,14 +32,17 @@ export const MATCH_APPROVAL_CUSTOM_ID_PREFIX = 'match:ap:';
 export type MatchApprovalAction =
   | { kind: 'quitters'; matchId: string }
   | { kind: 'griefers'; matchId: string }
+  | { kind: 'dcs'; matchId: string }
   | { kind: 'winner'; matchId: string }
   | { kind: 'win'; matchId: string; winningTeam: 1 | 2 }
   | { kind: 'approve'; matchId: string }
   | { kind: 'reject'; matchId: string }
   | { kind: 'qset'; matchId: string }
   | { kind: 'gset'; matchId: string }
+  | { kind: 'dset'; matchId: string }
   | { kind: 'qok'; matchId: string; slots: number[] }
-  | { kind: 'gok'; matchId: string; slots: number[] };
+  | { kind: 'gok'; matchId: string; slots: number[] }
+  | { kind: 'dok'; matchId: string; slots: number[] };
 
 /** Encode sorted unique slots for compact custom ids (`-` when empty). */
 export function encodeApprovalSlots(slots: number[]): string {
@@ -67,6 +70,10 @@ export function buildApprovalGriefersCustomId(matchId: string): string {
   return `match:ap:griefers:${matchId}`;
 }
 
+export function buildApprovalDcsCustomId(matchId: string): string {
+  return `match:ap:dcs:${matchId}`;
+}
+
 export function buildApprovalWinnerCustomId(matchId: string): string {
   return `match:ap:winner:${matchId}`;
 }
@@ -91,12 +98,20 @@ export function buildApprovalGrieferSelectCustomId(matchId: string): string {
   return `match:ap:gset:${matchId}`;
 }
 
+export function buildApprovalDcSelectCustomId(matchId: string): string {
+  return `match:ap:dset:${matchId}`;
+}
+
 export function buildApprovalQuitterKeepCustomId(matchId: string, slots: number[]): string {
   return `match:ap:qok:${matchId}:${encodeApprovalSlots(slots)}`;
 }
 
 export function buildApprovalGrieferKeepCustomId(matchId: string, slots: number[]): string {
   return `match:ap:gok:${matchId}:${encodeApprovalSlots(slots)}`;
+}
+
+export function buildApprovalDcKeepCustomId(matchId: string, slots: number[]): string {
+  return `match:ap:dok:${matchId}:${encodeApprovalSlots(slots)}`;
 }
 
 /**
@@ -121,11 +136,13 @@ export function parseMatchApprovalCustomId(customId: string): MatchApprovalActio
   switch (action) {
     case 'quitters':
     case 'griefers':
+    case 'dcs':
     case 'winner':
     case 'approve':
     case 'reject':
     case 'qset':
     case 'gset':
+    case 'dset':
       if (parts.length !== 4) {
         return null;
       }
@@ -141,7 +158,8 @@ export function parseMatchApprovalCustomId(customId: string): MatchApprovalActio
       return { kind: 'win', matchId, winningTeam: Number(teamRaw) as 1 | 2 };
     }
     case 'qok':
-    case 'gok': {
+    case 'gok':
+    case 'dok': {
       if (parts.length !== 5) {
         return null;
       }
@@ -165,6 +183,9 @@ function formatApprovalRosterLine(player: ApprovalPlayer): string {
   }
   if (player.isGriefer) {
     marks.push('🐛');
+  }
+  if (player.isDc && !player.isQuitter) {
+    marks.push('🔌');
   }
   const suffix = marks.length > 0 ? ` ${marks.join(' ')}` : '';
   return `**${player.slot}.** ${player.player.username}${suffix}`;
@@ -210,7 +231,7 @@ export function buildMatchApprovalEmbed(
   const embed = new EmbedBuilder()
     .setTitle('Match Awaiting Approval')
     .setDescription(
-      'Match moderators can edit quitters, griefers, and winner, then approve or reject.',
+      'Match moderators can edit quitters, griefers, DCs, and winner, then approve or reject.',
     )
     .addFields(
       {
@@ -254,6 +275,11 @@ export function buildMatchApprovalButtons(matchId: string): ActionRowBuilder<But
         .setCustomId(buildApprovalGriefersCustomId(matchId))
         .setLabel('Griefers')
         .setEmoji('🐛')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId(buildApprovalDcsCustomId(matchId))
+        .setLabel('DCs')
+        .setEmoji('🔌')
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId(buildApprovalWinnerCustomId(matchId))
@@ -331,6 +357,26 @@ export function buildMatchApprovalGrieferSelect(
   );
 }
 
+/** DC multi-select for approval edits. */
+export function buildMatchApprovalDcSelect(
+  match: MatchWithPlayers,
+): ActionRowBuilder<StringSelectMenuBuilder> {
+  const options = sortedPlayers(match).map((player) => ({
+    label: `Slot ${player.slot}: ${player.player.username}`.slice(0, 100),
+    value: String(player.slot),
+    default: player.isDc && !player.isQuitter,
+  }));
+
+  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(buildApprovalDcSelectCustomId(match.id))
+      .setPlaceholder('Select DCs (disconnects)')
+      .setMinValues(0)
+      .setMaxValues(options.length)
+      .addOptions(options),
+  );
+}
+
 /**
  * Discord does not fire a select when defaults are left unchanged — offer Save selected.
  */
@@ -359,6 +405,21 @@ export function buildMatchApprovalGrieferKeepRow(
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(buildApprovalGrieferKeepCustomId(matchId, grieferSlots))
+      .setLabel('Save selected')
+      .setStyle(ButtonStyle.Primary),
+  );
+}
+
+export function buildMatchApprovalDcKeepRow(
+  matchId: string,
+  dcSlots: number[],
+): ActionRowBuilder<ButtonBuilder> | null {
+  if (dcSlots.length === 0) {
+    return null;
+  }
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(buildApprovalDcKeepCustomId(matchId, dcSlots))
       .setLabel('Save selected')
       .setStyle(ButtonStyle.Primary),
   );

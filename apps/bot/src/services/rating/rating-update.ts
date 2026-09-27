@@ -36,6 +36,8 @@ export type RatingRosterEntry = {
   heroId: number | null;
   isQuitter: boolean;
   isGriefer?: boolean;
+  /** Disconnect incident; not used by OpenSkill apply (season tax only). */
+  isDc?: boolean;
   /** Snapshot of New at apply time; missing/false means not New. */
   wasNewPlayer?: boolean;
 };

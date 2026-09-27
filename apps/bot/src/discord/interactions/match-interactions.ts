@@ -28,6 +28,7 @@ import {
   loadMatchPlayerStatsLines,
   loadSuggestedWinnerForMatch,
   MatchServiceError,
+  setDcs,
   setGriefers,
   setQuitters,
   WOS_MATCH_REPORT_REQUIRED_MESSAGE,
@@ -137,6 +138,17 @@ function formatGrieferSummary(match: MatchWithPlayers, grieferSlots: number[]): 
   return `Griefers:\n${griefers.map((player) => `- ${formatPlayer(player)}`).join('\n')}`;
 }
 
+function formatDcSummary(match: MatchWithPlayers, dcSlots: number[]): string {
+  const dcSet = new Set(dcSlots);
+  const dcs = sortedPlayers(match).filter((player) => dcSet.has(player.slot));
+
+  if (dcs.length === 0) {
+    return 'DCs: none';
+  }
+
+  return `DCs:\n${dcs.map((player) => `- ${formatPlayer(player)}`).join('\n')}`;
+}
+
 /** Slots already flagged as quitters on the match (for select defaults / Continue). */
 function preselectedQuitterSlots(match: MatchWithPlayers): number[] {
   return sortedPlayers(match)
@@ -147,6 +159,12 @@ function preselectedQuitterSlots(match: MatchWithPlayers): number[] {
 function preselectedGrieferSlots(match: MatchWithPlayers): number[] {
   return sortedPlayers(match)
     .filter((player) => player.isGriefer)
+    .map((player) => player.slot);
+}
+
+function preselectedDcSlots(match: MatchWithPlayers): number[] {
+  return sortedPlayers(match)
+    .filter((player) => player.isDc && !player.isQuitter)
     .map((player) => player.slot);
 }
 
@@ -217,12 +235,73 @@ function buildReportGrieferContinueRow(
   );
 }
 
+function buildReportDcSkipRow(
+  matchId: string,
+  grieferSlots: number[],
+): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`match:rw:dskip:${matchId}:${encodeSlots(grieferSlots)}`)
+      .setLabel('No DCs')
+      .setStyle(ButtonStyle.Secondary),
+  );
+}
+
+function buildReportDcContinueRow(
+  matchId: string,
+  grieferSlots: number[],
+  dcSlots: number[],
+): ActionRowBuilder<ButtonBuilder> | null {
+  if (dcSlots.length === 0) {
+    return null;
+  }
+
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`match:rw:dok:${matchId}:${encodeSlots(grieferSlots)}:${encodeSlots(dcSlots)}`)
+      .setLabel('Continue with selected')
+      .setStyle(ButtonStyle.Primary),
+  );
+}
+
+/**
+ * Persist wizard DC selections to the match so later custom ids stay under Discord's
+ * 100-char limit (griefers + quitters already consume the slot-encoding budget).
+ */
+async function persistReportDcSlots(matchId: string, dcSlots: number[]): Promise<MatchWithPlayers> {
+  return setDcs(matchId, dcSlots);
+}
+
+async function showReportDcStep(
+  interaction: MessageComponentInteraction,
+  match: MatchWithPlayers,
+  grieferSlots: number[],
+): Promise<void> {
+  const preselected = preselectedDcSlots(match);
+  const components: ComponentRow[] = [
+    buildDcSelectRow(match, `match:rw:d:${match.id}:${encodeSlots(grieferSlots)}`),
+  ];
+  const continueRow = buildReportDcContinueRow(match.id, grieferSlots, preselected);
+  if (continueRow) {
+    components.push(continueRow);
+  }
+  components.push(buildReportDcSkipRow(match.id, grieferSlots));
+
+  const hint =
+    preselected.length > 0
+      ? `${formatGrieferSummary(match, grieferSlots)}\n\nSelect any DCs (disconnects), or Continue with selected, then quitters and winner:`
+      : `${formatGrieferSummary(match, grieferSlots)}\n\nSelect any DCs (disconnects), then quitters and winner:`;
+
+  await updateEphemeral(interaction, hint, components);
+}
+
 function buildQuitterSelectRowForReport(
   match: MatchWithPlayers,
   matchId: string,
   grieferSlots: number[],
+  dcSlots: number[],
 ): ActionRowBuilder<StringSelectMenuBuilder> | null {
-  const options = buildReportQuitterSelectOptions(match.players, grieferSlots);
+  const options = buildReportQuitterSelectOptions(match.players, grieferSlots, dcSlots);
   if (options.length === 0) {
     return null;
   }
@@ -237,31 +316,38 @@ function buildQuitterSelectRowForReport(
   );
 }
 
-function preselectedReportQuitterSlots(match: MatchWithPlayers, grieferSlots: number[]): number[] {
-  const grieferSet = new Set(grieferSlots);
-  return preselectedQuitterSlots(match).filter((slot) => !grieferSet.has(slot));
+function preselectedReportQuitterSlots(
+  match: MatchWithPlayers,
+  grieferSlots: number[],
+  dcSlots: number[],
+): number[] {
+  const excluded = new Set([...grieferSlots, ...dcSlots]);
+  return preselectedQuitterSlots(match).filter((slot) => !excluded.has(slot));
 }
 
 function reportQuitterStepHint(
   match: MatchWithPlayers,
   grieferSlots: number[],
+  dcSlots: number[],
   preselected: number[],
 ): string {
   const grieferLine = formatGrieferSummary(match, grieferSlots);
+  const dcLine = formatDcSummary(match, dcSlots);
   const quitterHint =
     preselected.length > 0
       ? 'Select any players who quit (or Continue with selected), then choose the winner:'
       : 'Select any players who quit, then choose the winner:';
-  return `${grieferLine}\n\n${quitterHint}`;
+  return `${grieferLine}\n${dcLine}\n\n${quitterHint}`;
 }
 
 function reportQuitterStepComponents(
   match: MatchWithPlayers,
   grieferSlots: number[],
+  dcSlots: number[],
 ): ComponentRow[] {
-  const preselected = preselectedReportQuitterSlots(match, grieferSlots);
+  const preselected = preselectedReportQuitterSlots(match, grieferSlots, dcSlots);
   const components: ComponentRow[] = [];
-  const selectRow = buildQuitterSelectRowForReport(match, match.id, grieferSlots);
+  const selectRow = buildQuitterSelectRowForReport(match, match.id, grieferSlots, dcSlots);
   if (selectRow) {
     components.push(selectRow);
   }
@@ -278,11 +364,12 @@ async function showReportQuitterStep(
   match: MatchWithPlayers,
   grieferSlots: number[],
 ): Promise<void> {
-  const preselected = preselectedReportQuitterSlots(match, grieferSlots);
+  const dcSlots = preselectedDcSlots(match);
+  const preselected = preselectedReportQuitterSlots(match, grieferSlots, dcSlots);
   await updateEphemeral(
     interaction,
-    reportQuitterStepHint(match, grieferSlots, preselected),
-    reportQuitterStepComponents(match, grieferSlots),
+    reportQuitterStepHint(match, grieferSlots, dcSlots, preselected),
+    reportQuitterStepComponents(match, grieferSlots, dcSlots),
   );
 }
 
@@ -314,6 +401,7 @@ async function showReportWinnerStep(
 
   const lines = [
     formatGrieferSummary(match, grieferSlots),
+    formatDcSummary(match, preselectedDcSlots(match)),
     formatQuitterSummary(match, quitterSlots),
     '',
   ];
@@ -391,6 +479,26 @@ function buildGrieferSelectRow(
     new StringSelectMenuBuilder()
       .setCustomId(customId)
       .setPlaceholder('Select griefers (bug abuse)')
+      .setMinValues(0)
+      .setMaxValues(options.length)
+      .addOptions(options),
+  );
+}
+
+function buildDcSelectRow(
+  match: MatchWithPlayers,
+  customId: string,
+): ActionRowBuilder<StringSelectMenuBuilder> {
+  const options = sortedPlayers(match).map((player) => ({
+    label: formatPlayer(player).slice(0, 100),
+    value: String(player.slot),
+    default: player.isDc && !player.isQuitter,
+  }));
+
+  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(customId)
+      .setPlaceholder('Select DCs (disconnects)')
       .setMinValues(0)
       .setMaxValues(options.length)
       .addOptions(options),
@@ -515,6 +623,7 @@ async function showReportConfirmStep(
   const content = [
     `Winner: **${winnerLabel(winningTeam, profile)}**`,
     formatGrieferSummary(match, grieferSlots),
+    formatDcSummary(match, preselectedDcSlots(match)),
     formatQuitterSummary(match, quitterSlots),
     formatMitigationLine(mitigationPercent),
     '',
@@ -540,6 +649,7 @@ async function showReportStatsStep(
   const lines = [
     `Winner: **${winnerLabel(winningTeam, profile)}**`,
     formatGrieferSummary(match, grieferSlots),
+    formatDcSummary(match, preselectedDcSlots(match)),
     formatQuitterSummary(match, quitterSlots),
     '',
   ];
@@ -599,6 +709,81 @@ function buildCancelGrieferContinueRow(
       .setCustomId(`match:cancel:gok:${matchId}:${slotsCsv}`)
       .setLabel('Continue with selected')
       .setStyle(ButtonStyle.Primary),
+  );
+}
+
+function buildCancelDcSkipRow(
+  matchId: string,
+  grieferSlots: number[],
+): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`match:cancel:dskip:${matchId}:${encodeSlots(grieferSlots)}`)
+      .setLabel('No DCs')
+      .setStyle(ButtonStyle.Secondary),
+  );
+}
+
+function buildCancelDcContinueRow(
+  matchId: string,
+  grieferSlots: number[],
+  dcSlots: number[],
+): ActionRowBuilder<ButtonBuilder> | null {
+  if (dcSlots.length === 0) {
+    return null;
+  }
+
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(
+        `match:cancel:dok:${matchId}:${encodeSlots(grieferSlots)}:${encodeSlots(dcSlots)}`,
+      )
+      .setLabel('Continue with selected')
+      .setStyle(ButtonStyle.Primary),
+  );
+}
+
+async function showCancelDcStep(
+  interaction: MessageComponentInteraction,
+  match: MatchWithPlayers,
+  grieferSlots: number[],
+): Promise<void> {
+  const preselected = preselectedDcSlots(match);
+  const components: ComponentRow[] = [
+    buildDcSelectRow(match, `match:cancel:dset:${match.id}:${encodeSlots(grieferSlots)}`),
+  ];
+  const continueRow = buildCancelDcContinueRow(match.id, grieferSlots, preselected);
+  if (continueRow) {
+    components.push(continueRow);
+  }
+  components.push(buildCancelDcSkipRow(match.id, grieferSlots));
+
+  const hint =
+    preselected.length > 0
+      ? `${formatGrieferSummary(match, grieferSlots)}\n\nSelect any DCs (disconnects), or Continue with selected, then confirm cancel:`
+      : `${formatGrieferSummary(match, grieferSlots)}\n\nSelect any DCs (disconnects), then confirm cancel:`;
+
+  await updateEphemeral(interaction, hint, components);
+}
+
+async function showCancelConfirmStep(
+  interaction: MessageComponentInteraction,
+  match: MatchWithPlayers,
+  matchId: string,
+  grieferSlots: number[],
+  dcSlots: number[],
+): Promise<void> {
+  await updateEphemeral(
+    interaction,
+    [
+      `Cancel match \`${matchId}\`?`,
+      formatGrieferSummary(match, grieferSlots),
+      formatDcSummary(match, dcSlots),
+      '',
+      'Griefers accrue season-end ki tax (25%, max 500 ki per incident).',
+      'DCs count toward season disconnect tax (every 3 → −300 ki at rollover).',
+    ].join('\n'),
+    [buildCancelConfirmRow(matchId, grieferSlots)],
   );
 }
 
@@ -830,17 +1015,7 @@ async function handleCancelGriefers(
 ): Promise<void> {
   const match = await resolveById(interaction, matchId);
   const grieferSlots = interaction.values.map((slot) => Number(slot));
-
-  await updateEphemeral(
-    interaction,
-    [
-      `Cancel match \`${matchId}\`?`,
-      formatGrieferSummary(match, grieferSlots),
-      '',
-      'Griefers accrue season-end ki tax (25%, max 500 ki per incident).',
-    ].join('\n'),
-    [buildCancelConfirmRow(matchId, grieferSlots)],
-  );
+  await showCancelDcStep(interaction, match, grieferSlots);
 }
 
 async function handleCancelGriefersKeep(
@@ -849,32 +1024,41 @@ async function handleCancelGriefersKeep(
   grieferSlots: number[],
 ): Promise<void> {
   const match = await resolveById(interaction, matchId);
-
-  await updateEphemeral(
-    interaction,
-    [
-      `Cancel match \`${matchId}\`?`,
-      formatGrieferSummary(match, grieferSlots),
-      '',
-      'Griefers accrue season-end ki tax (25%, max 500 ki per incident).',
-    ].join('\n'),
-    [buildCancelConfirmRow(matchId, grieferSlots)],
-  );
+  await showCancelDcStep(interaction, match, grieferSlots);
 }
 
 async function handleCancelSkip(interaction: ButtonInteraction, matchId: string): Promise<void> {
   const match = await resolveById(interaction, matchId);
+  await showCancelDcStep(interaction, match, []);
+}
 
-  await updateEphemeral(
-    interaction,
-    [
-      `Cancel match \`${matchId}\`?`,
-      'Griefers: none',
-      '',
-      'Quitter penalties still apply if any are marked.',
-    ].join('\n'),
-    [buildCancelConfirmRow(matchId, [])],
-  );
+async function handleCancelDcs(
+  interaction: StringSelectMenuInteraction,
+  matchId: string,
+  grieferSlots: number[],
+): Promise<void> {
+  const dcSlots = interaction.values.map((slot) => Number(slot));
+  const match = await persistReportDcSlots(matchId, dcSlots);
+  await showCancelConfirmStep(interaction, match, matchId, grieferSlots, dcSlots);
+}
+
+async function handleCancelDcsKeep(
+  interaction: ButtonInteraction,
+  matchId: string,
+  grieferSlots: number[],
+  dcSlots: number[],
+): Promise<void> {
+  const match = await persistReportDcSlots(matchId, dcSlots);
+  await showCancelConfirmStep(interaction, match, matchId, grieferSlots, dcSlots);
+}
+
+async function handleCancelDcSkip(
+  interaction: ButtonInteraction,
+  matchId: string,
+  grieferSlots: number[],
+): Promise<void> {
+  const match = await persistReportDcSlots(matchId, []);
+  await showCancelConfirmStep(interaction, match, matchId, grieferSlots, []);
 }
 
 async function handleReportGriefers(
@@ -883,7 +1067,7 @@ async function handleReportGriefers(
 ): Promise<void> {
   const match = await resolveById(interaction, matchId);
   const grieferSlots = interaction.values.map((slot) => Number(slot));
-  await showReportQuitterStep(interaction, match, grieferSlots);
+  await showReportDcStep(interaction, match, grieferSlots);
 }
 
 async function handleReportGriefersKeep(
@@ -892,7 +1076,7 @@ async function handleReportGriefersKeep(
   grieferSlots: number[],
 ): Promise<void> {
   const match = await resolveById(interaction, matchId);
-  await showReportQuitterStep(interaction, match, grieferSlots);
+  await showReportDcStep(interaction, match, grieferSlots);
 }
 
 async function handleReportGrieferSkip(
@@ -900,7 +1084,36 @@ async function handleReportGrieferSkip(
   matchId: string,
 ): Promise<void> {
   const match = await resolveById(interaction, matchId);
-  await showReportQuitterStep(interaction, match, []);
+  await showReportDcStep(interaction, match, []);
+}
+
+async function handleReportDcs(
+  interaction: StringSelectMenuInteraction,
+  matchId: string,
+  grieferSlots: number[],
+): Promise<void> {
+  const dcSlots = interaction.values.map((slot) => Number(slot));
+  const match = await persistReportDcSlots(matchId, dcSlots);
+  await showReportQuitterStep(interaction, match, grieferSlots);
+}
+
+async function handleReportDcsKeep(
+  interaction: ButtonInteraction,
+  matchId: string,
+  grieferSlots: number[],
+  dcSlots: number[],
+): Promise<void> {
+  const match = await persistReportDcSlots(matchId, dcSlots);
+  await showReportQuitterStep(interaction, match, grieferSlots);
+}
+
+async function handleReportDcSkip(
+  interaction: ButtonInteraction,
+  matchId: string,
+  grieferSlots: number[],
+): Promise<void> {
+  const match = await persistReportDcSlots(matchId, []);
+  await showReportQuitterStep(interaction, match, grieferSlots);
 }
 
 async function handleReportQuitters(
@@ -1028,6 +1241,7 @@ async function handleConfirmResult(
       winnerLabel: winnerLabel(winningTeam, profile),
       quitterSummary: formatQuitterSummary(match, quitterSlots),
       grieferSummary: formatGrieferSummary(match, grieferSlots),
+      dcSummary: formatDcSummary(match, preselectedDcSlots(match)),
     });
     await syncLobbyDiscordMessage(interaction.client, (await getMatchById(matchId))!, 'started');
     await interaction.editReply({
@@ -1050,6 +1264,7 @@ async function handleConfirmResult(
     winningTeam,
     quitterSlots,
     grieferSlots,
+    undefined,
     mitigation,
   );
   void refreshAllLeaderboardChannels(interaction.client).catch(() => undefined);
@@ -1153,6 +1368,10 @@ async function handleMitigationApprovalButton(interaction: ButtonInteraction): P
       grieferSummary: formatGrieferSummary(
         updated,
         updated.players.filter((p) => p.isGriefer).map((p) => p.slot),
+      ),
+      dcSummary: formatDcSummary(
+        updated,
+        updated.players.filter((p) => p.isDc && !p.isQuitter).map((p) => p.slot),
       ),
       requestedByTag: 'host',
     });
@@ -1281,6 +1500,78 @@ async function handleGriefersKeep(
   });
 }
 
+async function handleDcsEntry(interaction: ButtonInteraction): Promise<void> {
+  const match = await resolveByMessage(interaction);
+
+  if (match.players.length === 0) {
+    throw new MatchServiceError('This match has no players to update.');
+  }
+
+  const preselected = preselectedDcSlots(match);
+  const components: ComponentRow[] = [buildDcSelectRow(match, `match:dset:${match.id}`)];
+  const continueRow = buildDcContinueRow(match.id, preselected);
+  if (continueRow) {
+    components.push(continueRow);
+  }
+
+  const hint =
+    preselected.length > 0
+      ? 'Select DCs (disconnects), or Save selected to keep the current flags:'
+      : 'Select players who disconnected:';
+
+  await replyEphemeral(interaction, hint, components);
+}
+
+function buildDcContinueRow(
+  matchId: string,
+  dcSlots: number[],
+): ActionRowBuilder<ButtonBuilder> | null {
+  if (dcSlots.length === 0) {
+    return null;
+  }
+
+  const slotsCsv = encodeSlots(dcSlots);
+
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`match:dok:${matchId}:${slotsCsv}`)
+      .setLabel('Save selected')
+      .setStyle(ButtonStyle.Primary),
+  );
+}
+
+async function handleDcsSet(
+  interaction: StringSelectMenuInteraction,
+  matchId: string,
+): Promise<void> {
+  await resolveById(interaction, matchId);
+  await showWorking(interaction, 'Saving DCs…');
+
+  const dcSlots = interaction.values.map((slot) => Number(slot));
+  const updated = await setDcs(matchId, dcSlots);
+  await syncLobbyDiscordMessage(interaction.client, updated, 'started');
+  await interaction.editReply({
+    content: `DCs updated.\n${formatDcSummary(updated, dcSlots)}`,
+    components: [],
+  });
+}
+
+async function handleDcsKeep(
+  interaction: ButtonInteraction,
+  matchId: string,
+  dcSlots: number[],
+): Promise<void> {
+  await resolveById(interaction, matchId);
+  await showWorking(interaction, 'Saving DCs…');
+
+  const updated = await setDcs(matchId, dcSlots);
+  await syncLobbyDiscordMessage(interaction.client, updated, 'started');
+  await interaction.editReply({
+    content: `DCs updated.\n${formatDcSummary(updated, dcSlots)}`,
+    components: [],
+  });
+}
+
 async function handleCancelConfirm(
   interaction: ButtonInteraction,
   matchId: string,
@@ -1289,9 +1580,10 @@ async function handleCancelConfirm(
   await resolveById(interaction, matchId);
   await showWorking(
     interaction,
-    'Cancelling the match… Applying quitter penalties and recording griefer season tax if any are marked.',
+    'Cancelling the match… Applying quitter penalties and recording griefer/DC season tax if any are marked.',
   );
 
+  // DC slots were persisted on the match during the cancel wizard DC step.
   const cancelled = await cancelInProgressMatch(matchId, grieferSlots);
   await syncLobbyDiscordMessage(interaction.client, cancelled, 'cancelled');
   await interaction.editReply({
@@ -1337,6 +1629,11 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
       return;
     }
 
+    if (interaction.customId === 'match:dcs') {
+      await handleDcsEntry(interaction);
+      return;
+    }
+
     if (interaction.customId === 'match:cancel') {
       await handleCancelEntry(interaction);
       return;
@@ -1349,6 +1646,21 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
 
     if (parts[1] === 'rw' && parts[2] === 'gok' && parts[3] && parts[4]) {
       await handleReportGriefersKeep(interaction, parts[3], decodeSlots(parts[4]));
+      return;
+    }
+
+    if (parts[1] === 'rw' && parts[2] === 'dskip' && parts[3] && parts[4]) {
+      await handleReportDcSkip(interaction, parts[3], decodeSlots(parts[4]));
+      return;
+    }
+
+    if (parts[1] === 'rw' && parts[2] === 'dok' && parts[3] && parts[4] && parts[5]) {
+      await handleReportDcsKeep(
+        interaction,
+        parts[3],
+        decodeSlots(parts[4]),
+        decodeSlots(parts[5]),
+      );
       return;
     }
 
@@ -1374,6 +1686,11 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
 
     if (parts[1] === 'gok' && parts[2] && parts[3]) {
       await handleGriefersKeep(interaction, parts[2], decodeSlots(parts[3]));
+      return;
+    }
+
+    if (parts[1] === 'dok' && parts[2] && parts[3]) {
+      await handleDcsKeep(interaction, parts[2], decodeSlots(parts[3]));
       return;
     }
 
@@ -1502,6 +1819,21 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
       return;
     }
 
+    if (parts[1] === 'cancel' && parts[2] === 'dskip' && parts[3] && parts[4]) {
+      await handleCancelDcSkip(interaction, parts[3], decodeSlots(parts[4]));
+      return;
+    }
+
+    if (parts[1] === 'cancel' && parts[2] === 'dok' && parts[3] && parts[4] && parts[5]) {
+      await handleCancelDcsKeep(
+        interaction,
+        parts[3],
+        decodeSlots(parts[4]),
+        decodeSlots(parts[5]),
+      );
+      return;
+    }
+
     if (parts[1] === 'cancel' && parts[2] === 'ok' && parts[3] && parts[4]) {
       await handleCancelConfirm(interaction, parts[3], decodeSlots(parts[4]));
       return;
@@ -1534,6 +1866,11 @@ async function handleSelect(interaction: StringSelectMenuInteraction): Promise<v
       return;
     }
 
+    if (parts[1] === 'rw' && parts[2] === 'd' && parts[3] && parts[4]) {
+      await handleReportDcs(interaction, parts[3], decodeSlots(parts[4]));
+      return;
+    }
+
     if (parts[1] === 'rw' && parts[2] === 'q' && parts[3] && parts[4]) {
       await handleReportQuitters(interaction, parts[3], decodeSlots(parts[4]));
       return;
@@ -1549,8 +1886,18 @@ async function handleSelect(interaction: StringSelectMenuInteraction): Promise<v
       return;
     }
 
+    if (parts[1] === 'cancel' && parts[2] === 'dset' && parts[3] && parts[4]) {
+      await handleCancelDcs(interaction, parts[3], decodeSlots(parts[4]));
+      return;
+    }
+
     if (parts[1] === 'gset' && parts[2]) {
       await handleGriefersSet(interaction, parts[2]);
+      return;
+    }
+
+    if (parts[1] === 'dset' && parts[2]) {
+      await handleDcsSet(interaction, parts[2]);
       return;
     }
 

@@ -171,16 +171,17 @@ type ReportQuitterPlayer = {
   player: { username: string };
 };
 
-/** Quitter multi-select options with griefer slots excluded (mutual exclusivity). */
+/** Quitter multi-select options with griefer/DC slots excluded (mutual exclusivity). */
 export function buildReportQuitterSelectOptions(
   players: ReportQuitterPlayer[],
   grieferSlots: number[],
+  dcSlots: number[] = [],
 ): Array<{ label: string; value: string; default: boolean }> {
-  const grieferSet = new Set(grieferSlots);
+  const excluded = new Set([...grieferSlots, ...dcSlots]);
 
   return [...players]
     .sort((left, right) => left.slot - right.slot)
-    .filter((player) => !grieferSet.has(player.slot))
+    .filter((player) => !excluded.has(player.slot))
     .map((player) => ({
       label: `Slot ${player.slot}: ${player.player.username}`.slice(0, 100),
       value: String(player.slot),

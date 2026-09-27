@@ -16,12 +16,14 @@ import {
 import { notifyLeagueRatingChanged } from '../../services/hero-champion-roles/index.js';
 import {
   cancelInProgressMatch,
+  clearMatchDcs,
   clearMatchGriefers,
   clearMatchQuitters,
   completeMatch,
   fetchTextAttachment,
   hasMatchStatsReport,
   isTextReportAttachment,
+  setDcs,
   setGriefers,
   setQuitters,
   uploadMatchStatsReport,
@@ -29,6 +31,7 @@ import {
   addManualSanction,
   removeManualSanction,
   requestMitigationApproval,
+  type ClearedMatchDc,
   type ManualSanctionType,
 } from '../../services/match/index.js';
 import {
@@ -138,6 +141,15 @@ export function parseQuitterSlots(slotsRaw: string | null | undefined): number[]
 }
 
 export function parseGrieferSlots(slotsRaw: string | null | undefined): number[] {
+  return parseFlagSlots(slotsRaw, 'griefer');
+}
+
+/** Parse comma-separated DC slots (same rules as griefers). */
+export function parseDcSlots(slotsRaw: string | null | undefined): number[] {
+  return parseFlagSlots(slotsRaw, 'DC');
+}
+
+function parseFlagSlots(slotsRaw: string | null | undefined, label: string): number[] {
   const trimmed = slotsRaw?.trim();
 
   if (!trimmed) {
@@ -157,7 +169,7 @@ export function parseGrieferSlots(slotsRaw: string | null | undefined): number[]
 
     if (!Number.isInteger(slot) || slot < MIN_SLOT || slot > MAX_SLOT) {
       throw new MatchServiceError(
-        `Invalid griefer slot "${value}". Slots must be between ${MIN_SLOT} and ${MAX_SLOT}.`,
+        `Invalid ${label} slot "${value}". Slots must be between ${MIN_SLOT} and ${MAX_SLOT}.`,
       );
     }
 
@@ -269,7 +281,7 @@ async function resolveCompletedMatchForModCorrection(
   return match;
 }
 
-/** Mod-only lookup for clearing griefers/quitters on a finished match. */
+/** Mod-only lookup for clearing griefers/quitters/DCs on a finished match. */
 async function resolveFinishedMatchForModClear(
   interaction: ChatInputCommandInteraction,
 ): Promise<MatchWithPlayers> {
@@ -306,6 +318,11 @@ function formatClearedGriefersMessage(
   return `Cleared griefer flag on match \`${matchId}\`: ${lines.join(', ')}.`;
 }
 
+function formatClearedDcsMessage(matchId: string, cleared: ClearedMatchDc[]): string {
+  const slots = cleared.map((row) => row.slot).join(', ');
+  return `Cleared DC flag on match \`${matchId}\`: slots ${slots}.`;
+}
+
 function formatClearedQuittersMessage(
   matchId: string,
   cleared: ClearedMatchQuitter[],
@@ -337,12 +354,14 @@ function formatManualSanctionAddMessage(result: {
   type: ManualSanctionType;
   quits: number;
   griefs: number;
+  dcs: number;
   grieferKiAccrued: number | null;
 }): string {
-  const label = result.type === 'quitter' ? 'quitter' : 'griefer';
+  const label =
+    result.type === 'quitter' ? 'quitter' : result.type === 'griefer' ? 'griefer' : 'DC';
   const lines = [
     `Manual ${label} sanction recorded for **${result.username}** (match \`${result.matchId}\`).`,
-    `Quits: **${result.quits}** · Griefs: **${result.griefs}** (league).`,
+    `Quits: **${result.quits}** · Griefs: **${result.griefs}** · DCs: **${result.dcs}** (league).`,
   ];
   if (result.type === 'griefer' && result.grieferKiAccrued != null && result.grieferKiAccrued > 0) {
     lines.push(`Deferred ki tax: **${result.grieferKiAccrued}**.`);
@@ -356,7 +375,8 @@ function formatManualSanctionRemoveMessage(result: {
   type: ManualSanctionType;
   mode: 'manual_restored' | 'delegated_clear';
 }): string {
-  const label = result.type === 'quitter' ? 'quitter' : 'griefer';
+  const label =
+    result.type === 'quitter' ? 'quitter' : result.type === 'griefer' ? 'griefer' : 'DC';
   const restored =
     result.type === 'quitter' && result.mode === 'manual_restored' ? ' Ratings were restored.' : '';
   return `Removed manual ${label} sanction for **${result.username}** (match \`${result.matchId}\`).${restored}`;
@@ -460,6 +480,14 @@ export const data = new SlashCommandBuilder()
               'Only show matches where this player was marked a griefer (includes cancelled)',
             )
             .setRequired(false),
+        )
+        .addBooleanOption((option) =>
+          option
+            .setName('dcs_only')
+            .setDescription(
+              'Only show matches where this player was marked DC (includes cancelled; ignored if griefers_only)',
+            )
+            .setRequired(false),
         ),
     ),
   )
@@ -519,6 +547,23 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand((subcommand) =>
     subcommand
+      .setName('dcs')
+      .setDescription('Mark players who disconnected (host or mod)')
+      .addStringOption((option) =>
+        option
+          .setName('slots')
+          .setDescription('Comma-separated slots like "1,3,7"')
+          .setRequired(false),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('match_id')
+          .setDescription('In-progress match id (required if you have more than one)')
+          .setRequired(false),
+      ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
       .setName('complete')
       .setDescription('Complete a match and apply ratings')
       .addStringOption((option) =>
@@ -541,6 +586,14 @@ export const data = new SlashCommandBuilder()
         option
           .setName('griefers')
           .setDescription('Comma-separated griefer slots like "2,8" (bug abuse penalty)')
+          .setRequired(false),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('dcs')
+          .setDescription(
+            'Comma-separated DC slots like "2,8" (disconnect; season tax at rollover)',
+          )
           .setRequired(false),
       )
       .addStringOption((option) =>
@@ -589,6 +642,14 @@ export const data = new SlashCommandBuilder()
         option
           .setName('griefers')
           .setDescription('Comma-separated griefer slots like "2,8" (bug abuse penalty)')
+          .setRequired(false),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('dcs')
+          .setDescription(
+            'Comma-separated DC slots like "2,8" (disconnect; season tax at rollover)',
+          )
           .setRequired(false),
       )
       .addStringOption((option) =>
@@ -649,6 +710,23 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand((subcommand) =>
     subcommand
+      .setName('undc')
+      .setDescription('Clear DC flags on a finished match (mods only)')
+      .addStringOption((option) =>
+        option
+          .setName('match_id')
+          .setDescription('Completed or cancelled match id')
+          .setRequired(true),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('slots')
+          .setDescription('Comma-separated slots to clear; omit to clear all DCs on the match')
+          .setRequired(false),
+      ),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
       .setName('unquit')
       .setDescription(
         'Clear quitter flags on a finished match; restore ratings when possible (mods only)',
@@ -669,12 +747,12 @@ export const data = new SlashCommandBuilder()
   .addSubcommandGroup((group) =>
     group
       .setName('sanction')
-      .setDescription('Add or remove quitter/griefer markers without a match (mods only)')
+      .setDescription('Add or remove quitter/griefer/DC markers without a match (mods only)')
       .addSubcommand((subcommand) =>
         withSubcommandLeagueOption(
           subcommand
             .setName('add')
-            .setDescription('Record one quitter or griefer incident (mods only)')
+            .setDescription('Record one quitter, griefer, or DC incident (mods only)')
             .addStringOption((option) =>
               option
                 .setName('type')
@@ -683,6 +761,7 @@ export const data = new SlashCommandBuilder()
                 .addChoices(
                   { name: 'Quitter', value: 'quitter' },
                   { name: 'Griefer', value: 'griefer' },
+                  { name: 'DC', value: 'dc' },
                 ),
             )
             .addUserOption((option) =>
@@ -697,7 +776,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('remove')
-            .setDescription('Remove one quitter or griefer marker (mods only)')
+            .setDescription('Remove one quitter, griefer, or DC marker (mods only)')
             .addStringOption((option) =>
               option
                 .setName('type')
@@ -706,6 +785,7 @@ export const data = new SlashCommandBuilder()
                 .addChoices(
                   { name: 'Quitter', value: 'quitter' },
                   { name: 'Griefer', value: 'griefer' },
+                  { name: 'DC', value: 'dc' },
                 ),
             )
             .addUserOption((option) =>
@@ -790,12 +870,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
       const pageNum = interaction.options.getInteger('page') ?? 1;
       const griefersOnly = interaction.options.getBoolean('griefers_only') === true;
+      const dcsOnly = interaction.options.getBoolean('dcs_only') === true;
       const pageData = await loadMatchHistoryPage({
         leagueId: resolved.leagueId,
         playerId: player.id,
         username: player.username,
         page: pageNum,
         griefersOnly,
+        dcsOnly,
       });
       const embed = buildMatchHistoryEmbed(
         pageData,
@@ -810,6 +892,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         page: pageData.page,
         totalPages: pageData.totalPages,
         griefersOnly: pageData.griefersOnly,
+        dcsOnly: pageData.dcsOnly,
       });
       await replyMatchRead(interaction, { embeds: [embed], components });
       return;
@@ -956,6 +1039,27 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
 
+    if (subcommand === 'undc') {
+      await resolveFinishedMatchForModClear(interaction);
+      const matchId = interaction.options.getString('match_id', true);
+      const slotsRaw = interaction.options.getString('slots');
+      const slots = slotsRaw === null ? undefined : parseDcSlots(slotsRaw);
+
+      await interaction.editReply({ content: 'Clearing DC flags…' });
+      const { match, cleared } = await clearMatchDcs(matchId, slots);
+
+      await syncLobbyDiscordMessage(
+        interaction.client,
+        match,
+        match.status === 'COMPLETED' ? 'completed' : 'cancelled',
+      );
+
+      await interaction.editReply({
+        content: formatClearedDcsMessage(match.id, cleared),
+      });
+      return;
+    }
+
     if (subcommand === 'unquit') {
       await resolveFinishedMatchForModClear(interaction);
       const matchId = interaction.options.getString('match_id', true);
@@ -998,7 +1102,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
       const player = await resolveSanctionTargetPlayer(interaction, resolved.leagueId);
       const type = interaction.options.getString('type', true);
-      if (type !== 'quitter' && type !== 'griefer') {
+      if (type !== 'quitter' && type !== 'griefer' && type !== 'dc') {
         throw new MatchServiceError('Invalid sanction type.');
       }
 
@@ -1077,6 +1181,19 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
 
+    if (subcommand === 'dcs') {
+      const dcSlots = parseDcSlots(interaction.options.getString('slots'));
+      await interaction.editReply({ content: 'Saving DCs…' });
+      const updated = await setDcs(match.id, dcSlots);
+      await applyMatchMutation(
+        interaction,
+        updated,
+        'started',
+        `DCs updated in match \`${updated.id}\`.`,
+      );
+      return;
+    }
+
     if (subcommand === 'upload_report') {
       const attachment = interaction.options.getAttachment('report', true);
       if (!isTextReportAttachment(attachment)) {
@@ -1111,6 +1228,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const quitterSlots = quittersRaw === null ? undefined : parseQuitterSlots(quittersRaw);
       const griefersRaw = interaction.options.getString('griefers');
       const grieferSlots = griefersRaw === null ? undefined : parseGrieferSlots(griefersRaw);
+      const dcsRaw = interaction.options.getString('dcs');
+      const dcSlots = dcsRaw === null ? undefined : parseDcSlots(dcsRaw);
       const reportAttachment = interaction.options.getAttachment('report');
       const mitigation = normalizeMitigationPercent(
         interaction.options.getInteger('mitigation') ?? 0,
@@ -1145,11 +1264,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           quitterSlots ?? match.players.filter((p) => p.isQuitter).map((p) => p.slot);
         const resolvedGriefers =
           grieferSlots ?? match.players.filter((p) => p.isGriefer).map((p) => p.slot);
+        const resolvedDcs = dcSlots ?? match.players.filter((p) => p.isDc).map((p) => p.slot);
         await requestMitigationApproval({
           matchId: match.id,
           winningTeam: winner,
           quitterSlots: resolvedQuitters,
           grieferSlots: resolvedGriefers,
+          dcSlots: resolvedDcs,
           mitigationPercent: mitigation as RatingMitigationPercent,
           client: interaction.client,
           requestedByTag: `<@${interaction.user.id}>`,
@@ -1162,6 +1283,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
             resolvedGriefers.length === 0
               ? 'Griefers: none'
               : `Griefers: ${resolvedGriefers.join(', ')}`,
+          dcSummary: resolvedDcs.length === 0 ? 'DCs: none' : `DCs: ${resolvedDcs.join(', ')}`,
         });
         const pending = await getMatchById(match.id);
         if (pending) {
@@ -1181,6 +1303,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         winner,
         quitterSlots,
         grieferSlots,
+        dcSlots,
         mitigation,
       );
       void refreshAllLeaderboardChannels(interaction.client).catch(() => undefined);
@@ -1198,11 +1321,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (subcommand === 'cancel') {
       const griefersRaw = interaction.options.getString('griefers');
       const grieferSlots = griefersRaw === null ? undefined : parseGrieferSlots(griefersRaw);
+      const dcsRaw = interaction.options.getString('dcs');
+      const dcSlots = dcsRaw === null ? undefined : parseDcSlots(dcsRaw);
       await interaction.editReply({
         content:
-          'Cancelling the match… Applying quitter penalties and recording griefer season tax if any are marked.',
+          'Cancelling the match… Applying quitter penalties and recording griefer/DC season tax if any are marked.',
       });
-      const cancelled = await cancelInProgressMatch(match.id, grieferSlots);
+      const cancelled = await cancelInProgressMatch(match.id, grieferSlots, dcSlots);
       await applyMatchMutation(
         interaction,
         cancelled,

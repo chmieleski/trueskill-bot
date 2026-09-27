@@ -88,6 +88,11 @@ describe('buildReportQuitterSelectOptions', () => {
     expect(options.map((option) => option.value)).toEqual(['1', '7']);
   });
 
+  it('excludes DC slots from quitter options', () => {
+    const options = buildReportQuitterSelectOptions(players, [], [1, 7]);
+    expect(options.map((option) => option.value)).toEqual(['2', '8']);
+  });
+
   it('preserves default quitter flags on eligible slots', () => {
     const options = buildReportQuitterSelectOptions(players, [8]);
     expect(options).toEqual([

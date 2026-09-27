@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildApprovalApproveCustomId,
+  buildApprovalDcsCustomId,
   buildApprovalGriefersCustomId,
   buildApprovalQuittersCustomId,
   buildApprovalRejectCustomId,
@@ -19,6 +20,10 @@ describe('match approval custom ids', () => {
     });
     expect(parseMatchApprovalCustomId(buildApprovalGriefersCustomId('m1'))).toEqual({
       kind: 'griefers',
+      matchId: 'm1',
+    });
+    expect(parseMatchApprovalCustomId(buildApprovalDcsCustomId('m1'))).toEqual({
+      kind: 'dcs',
       matchId: 'm1',
     });
     expect(parseMatchApprovalCustomId(buildApprovalWinnerCustomId('m1'))).toEqual({

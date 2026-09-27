@@ -36,6 +36,7 @@ export const LOBBY_CUSTOM_IDS = {
   reportWinner: 'match:report',
   quitters: 'match:quitters',
   griefers: 'match:griefers',
+  dcs: 'match:dcs',
   cancelInProgress: 'match:cancel',
   uploadStats: 'match:upload_stats',
 } as const;
@@ -104,9 +105,9 @@ function formatKiCell(ki: number, leagueGames: number, delta: number | undefined
  * Prefixes each occupied line with the lobby slot (1–12) so hosts can add/move
  * by number. Uses monospace padding so rating columns align. When deltas are
  * present (completed match), appends signed change inline. Habitual 50%+ quit
- * lines get trailing ⚠️ outside the code span (before 🚪 / 🐛). Quitter lines
- * get a trailing 🚪 marker outside the code span; griefer lines get 🐛. New
- * players get ` · New` beside those marks.
+ * lines get trailing ⚠️ outside the code span (before 🚪 / 🐛 / 🔌). Quitter lines
+ * get a trailing 🚪 marker outside the code span; griefer lines get 🐛; DC lines
+ * get 🔌 (griefer and DC may both show). New players get ` · New` beside those marks.
  */
 export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): string {
   if (players.length === 0) {
@@ -134,9 +135,10 @@ export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): st
       const habitualMark = player.habitualQuitter ? ' ⚠️' : '';
       const quitterMark = player.isQuitter ? ' 🚪' : '';
       const grieferMark = !player.isQuitter && player.isGriefer ? ' 🐛' : '';
+      const dcMark = !player.isQuitter && player.isDc ? ' 🔌' : '';
       const newMark = player.isNewPlayer || player.wasNewPlayer ? NEW_PLAYER_ROSTER_MARKER : '';
       const lockMark = player.locked ? ' 🔒' : '';
-      const flagMark = `${habitualMark}${quitterMark}${grieferMark}${newMark}${lockMark}`;
+      const flagMark = `${habitualMark}${quitterMark}${grieferMark}${dcMark}${newMark}${lockMark}`;
       if (player.showHero === false) {
         return `\`${slotLabel}  ${nick}   ${global}\`${flagMark}`;
       }
@@ -477,6 +479,11 @@ export function buildMatchReportButtons(profile?: GameProfile): ActionRowBuilder
       .setCustomId(LOBBY_CUSTOM_IDS.griefers)
       .setLabel('Griefer')
       .setEmoji('🐛')
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId(LOBBY_CUSTOM_IDS.dcs)
+      .setLabel('DC')
+      .setEmoji('🔌')
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
       .setCustomId(LOBBY_CUSTOM_IDS.cancelInProgress)

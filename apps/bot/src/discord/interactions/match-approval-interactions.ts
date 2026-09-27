@@ -25,12 +25,15 @@ import {
   rejectWaitingMatch,
   requireLeagueId,
   setApprovalWinner,
+  setDcs,
   setGriefers,
   setQuitters,
   winningTeamFromPlayers,
   type MatchWithPlayers,
 } from '../../services/match/index.js';
 import {
+  buildMatchApprovalDcKeepRow,
+  buildMatchApprovalDcSelect,
   buildMatchApprovalGrieferKeepRow,
   buildMatchApprovalGrieferSelect,
   buildMatchApprovalQuitterKeepRow,
@@ -133,6 +136,12 @@ function preselectedGrieferSlots(match: MatchWithPlayers): number[] {
   return match.players.filter((player) => player.isGriefer).map((player) => player.slot);
 }
 
+function preselectedDcSlots(match: MatchWithPlayers): number[] {
+  return match.players
+    .filter((player) => player.isDc && !player.isQuitter)
+    .map((player) => player.slot);
+}
+
 function formatSlotSummary(
   match: MatchWithPlayers,
   slots: number[],
@@ -195,6 +204,29 @@ async function handleGriefersEntry(interaction: ButtonInteraction, matchId: stri
   await replyEphemeral(interaction, hint, components);
 }
 
+async function handleDcsEntry(interaction: ButtonInteraction, matchId: string): Promise<void> {
+  await assertApprovalMod(interaction);
+  const match = await requireWaitingMatch(matchId);
+
+  if (match.players.length === 0) {
+    throw new MatchServiceError('This match has no players to update.');
+  }
+
+  const preselected = preselectedDcSlots(match);
+  const components: ComponentRow[] = [buildMatchApprovalDcSelect(match)];
+  const keepRow = buildMatchApprovalDcKeepRow(matchId, preselected);
+  if (keepRow) {
+    components.push(keepRow);
+  }
+
+  const hint =
+    preselected.length > 0
+      ? 'Select DCs (disconnects), or Save selected to keep the current flags:'
+      : 'Select any DCs (disconnects):';
+
+  await replyEphemeral(interaction, hint, components);
+}
+
 async function handleWinnerEntry(interaction: ButtonInteraction, matchId: string): Promise<void> {
   await assertApprovalMod(interaction);
   const match = await requireWaitingMatch(matchId);
@@ -235,6 +267,23 @@ async function persistGriefers(
   await syncMatchApprovalMessage(interaction.client, updated, 'waiting');
   await interaction.editReply({
     content: `Griefers updated.\n${formatSlotSummary(updated, slots, 'Griefers: none', 'Griefers:')}`,
+    components: [],
+  });
+}
+
+async function persistDcs(
+  interaction: MessageComponentInteraction,
+  matchId: string,
+  slots: number[],
+): Promise<void> {
+  await assertApprovalMod(interaction);
+  await requireWaitingMatch(matchId);
+  await showWorking(interaction, 'Saving DCs…');
+
+  const updated = await setDcs(matchId, slots);
+  await syncMatchApprovalMessage(interaction.client, updated, 'waiting');
+  await interaction.editReply({
+    content: `DCs updated.\n${formatSlotSummary(updated, slots, 'DCs: none', 'DCs:')}`,
     components: [],
   });
 }
@@ -306,6 +355,12 @@ async function dispatchAction(
       }
       await handleGriefersEntry(interaction, action.matchId);
       return;
+    case 'dcs':
+      if (!interaction.isButton()) {
+        return;
+      }
+      await handleDcsEntry(interaction, action.matchId);
+      return;
     case 'winner':
       if (!interaction.isButton()) {
         return;
@@ -350,6 +405,16 @@ async function dispatchAction(
         interaction.values.map((value) => Number(value)).filter((slot) => Number.isInteger(slot)),
       );
       return;
+    case 'dset':
+      if (!interaction.isStringSelectMenu()) {
+        return;
+      }
+      await persistDcs(
+        interaction,
+        action.matchId,
+        interaction.values.map((value) => Number(value)).filter((slot) => Number.isInteger(slot)),
+      );
+      return;
     case 'qok':
       if (!interaction.isButton()) {
         return;
@@ -361,6 +426,12 @@ async function dispatchAction(
         return;
       }
       await persistGriefers(interaction, action.matchId, action.slots);
+      return;
+    case 'dok':
+      if (!interaction.isButton()) {
+        return;
+      }
+      await persistDcs(interaction, action.matchId, action.slots);
       return;
     default: {
       const _exhaustive: never = action;

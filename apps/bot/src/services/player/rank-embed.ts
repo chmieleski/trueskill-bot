@@ -19,6 +19,19 @@ export function formatGrieferPoolField(
   return `Loses **${profile.pendingGrieferKiTax} ${ratingLabel}** at season end (${griefLabel})`;
 }
 
+/** Embed field value for pending disconnect season tax; null when nothing is pending. */
+export function formatDcPoolField(
+  profile: Pick<PlayerProfile, 'dcs' | 'pendingDcSeasonTax'>,
+  ratingLabel = 'ki',
+): string | null {
+  if (profile.pendingDcSeasonTax <= 0) {
+    return null;
+  }
+
+  const dcLabel = profile.dcs === 1 ? '1 DC' : `${profile.dcs} DCs`;
+  return `Loses **${profile.pendingDcSeasonTax} ${ratingLabel}** at season end (${dcLabel})`;
+}
+
 export function formatHeroTable(heroes: PlayerProfileHero[], leagueGames: number): string {
   if (heroes.length === 0) {
     return '_No hero games yet_';
@@ -77,8 +90,8 @@ export function buildRankEmbed(
     : `Rank #${profile.rankPosition} · ${profile.globalKi} ${ratingLabel}`;
   const record =
     profile.winRatePercent === null
-      ? `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q · ${profile.griefs}G`
-      : `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q · ${profile.griefs}G · ${profile.winRatePercent}% WR`;
+      ? `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q · ${profile.griefs}G · ${profile.dcs}D`
+      : `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q · ${profile.griefs}G · ${profile.dcs}D · ${profile.winRatePercent}% WR`;
 
   const sideLine =
     profile.sideWinLoss && options?.teamNames
@@ -100,6 +113,11 @@ export function buildRankEmbed(
   const grieferPool = formatGrieferPoolField(profile, ratingLabel);
   if (grieferPool) {
     embed.addFields({ name: 'Griefer pool', value: grieferPool });
+  }
+
+  const dcPool = formatDcPoolField(profile, ratingLabel);
+  if (dcPool) {
+    embed.addFields({ name: 'Disconnect pool', value: dcPool });
   }
 
   // Omit when empty (no hero ratings / stats yet).

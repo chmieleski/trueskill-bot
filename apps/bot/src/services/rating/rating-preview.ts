@@ -57,6 +57,8 @@ export interface LobbyRatingPlayerLine {
   heroDelta?: number;
   isQuitter?: boolean;
   isGriefer?: boolean;
+  /** Disconnect incident; season tax only (no immediate μ change). */
+  isDc?: boolean;
   /** Live PENDING/in-progress: from PlayerRating.isNewPlayer. */
   isNewPlayer?: boolean;
   /** Completed/history: from MatchPlayer.wasNewPlayer snapshot. */
@@ -86,6 +88,7 @@ export type RatingPreviewRosterEntry = {
   nick: string;
   isQuitter?: boolean;
   isGriefer?: boolean;
+  isDc?: boolean;
   /** Live PENDING/in-progress lobby (`PlayerRating.isNewPlayer`). */
   isNewPlayer?: boolean;
   /** Completed/history snapshot (`MatchPlayer.wasNewPlayer`). */
@@ -356,6 +359,7 @@ export function buildCompletedRatingPreview(
         heroDelta: after.hero - before.hero,
         isQuitter: entry.isQuitter,
         isGriefer: entry.isGriefer,
+        isDc: entry.isDc,
         ...(entry.wasNewPlayer === true ? { wasNewPlayer: true as const } : {}),
         showHero: entry.heroId != null,
         leagueGames: leagueGamesByPlayer.get(entry.playerId) ?? 0,
@@ -438,6 +442,7 @@ export async function loadLobbyRatingPreview(
           heroOrdinal: globalOrdinal,
           isQuitter: entry.isQuitter,
           isGriefer: entry.isGriefer,
+          isDc: entry.isDc,
           ...newFlag,
           showHero: false,
           leagueGames: globalGames,
@@ -456,6 +461,7 @@ export async function loadLobbyRatingPreview(
         heroOrdinal: displayOrdinal(hero.mu, hero.sigma, heroGames),
         isQuitter: entry.isQuitter,
         isGriefer: entry.isGriefer,
+        isDc: entry.isDc,
         ...newFlag,
         showHero: true,
         leagueGames: globalGames,
@@ -562,6 +568,7 @@ export function matchPlayersToRatingEntries(
     heroId: number | null;
     isQuitter?: boolean;
     isGriefer?: boolean;
+    isDc?: boolean;
     wasNewPlayer?: boolean;
     locked?: boolean;
     player: { username: string };
@@ -575,6 +582,7 @@ export function matchPlayersToRatingEntries(
     nick: entry.player.username,
     isQuitter: entry.isQuitter,
     isGriefer: entry.isGriefer,
+    isDc: entry.isDc,
     wasNewPlayer: entry.wasNewPlayer,
     locked: entry.locked === true,
   }));

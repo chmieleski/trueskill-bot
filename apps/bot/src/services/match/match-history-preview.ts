@@ -176,6 +176,7 @@ export async function rebuildCompletedRatingPreview(
     heroId: player.heroId,
     isQuitter: player.isQuitter,
     isGriefer: player.isGriefer,
+    isDc: player.isDc,
     wasNewPlayer: player.wasNewPlayer,
   }));
 

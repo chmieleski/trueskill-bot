@@ -5,6 +5,7 @@ import { prisma } from '../../lib/prisma.js';
 import { getMatchById, MatchServiceError, type MatchWithPlayers } from './match-service.js';
 import {
   completeMatch,
+  resolveDcSlots,
   resolveGrieferSlots,
   resolveQuitterSlots,
   type CompleteMatchResult,
@@ -111,6 +112,7 @@ export function formatMitigationApprovalContent(input: {
   mitigationPercent: RatingMitigationInput;
   quitterSummary: string;
   grieferSummary: string;
+  dcSummary?: string;
   requestedByTag: string;
 }): string {
   const mitLine =
@@ -124,6 +126,7 @@ export function formatMitigationApprovalContent(input: {
     `Winner: **${input.winnerLabel}**`,
     mitLine,
     input.grieferSummary,
+    input.dcSummary ?? 'DCs: none',
     input.quitterSummary,
     '',
     'Mods: adjust mitigation if needed, then **Approve** or **Reject**.',
@@ -135,12 +138,15 @@ export type RequestMitigationApprovalInput = {
   winningTeam: 1 | 2;
   quitterSlots: number[];
   grieferSlots: number[];
+  /** When omitted, existing MatchPlayer.isDc values are preserved (quitter still clears DC). */
+  dcSlots?: number[];
   mitigationPercent: RatingMitigationPercent;
   client: Client;
   requestedByTag: string;
   winnerLabel: string;
   quitterSummary: string;
   grieferSummary: string;
+  dcSummary?: string;
 };
 
 /**
@@ -164,6 +170,7 @@ export async function requestMitigationApproval(
 
   const quitterSet = new Set(input.quitterSlots);
   const grieferSet = new Set(input.grieferSlots);
+  const dcSet = input.dcSlots !== undefined ? new Set(input.dcSlots) : null;
 
   await prisma.$transaction(async (tx) => {
     await tx.$queryRaw<{ id: string }[]>`
@@ -175,11 +182,13 @@ export async function requestMitigationApproval(
     for (const player of match.players) {
       const isQuitter = quitterSet.has(player.slot);
       const isGriefer = grieferSet.has(player.slot);
+      const isDc = dcSet !== null ? dcSet.has(player.slot) : player.isDc;
       await tx.matchPlayer.update({
         where: { matchId_playerId: { matchId: input.matchId, playerId: player.playerId } },
         data: {
           isQuitter,
           isGriefer: isQuitter ? false : isGriefer,
+          isDc: isQuitter ? false : isDc,
         },
       });
     }
@@ -200,6 +209,7 @@ export async function requestMitigationApproval(
     mitigationPercent: mitigation,
     quitterSummary: input.quitterSummary,
     grieferSummary: input.grieferSummary,
+    dcSummary: input.dcSummary,
     requestedByTag: input.requestedByTag,
   });
 
@@ -260,9 +270,10 @@ export async function approveMitigationMatch(matchId: string): Promise<CompleteM
   const winningTeam = match.approvalWinnerTeam;
   const quitterSlots = resolveQuitterSlots(match.players);
   const grieferSlots = resolveGrieferSlots(match.players);
+  const dcSlots = resolveDcSlots(match.players);
   const mitigation = normalizeMitigationPercent(match.ratingMitigationPercent);
 
-  return completeMatch(matchId, winningTeam, quitterSlots, grieferSlots, mitigation);
+  return completeMatch(matchId, winningTeam, quitterSlots, grieferSlots, dcSlots, mitigation);
 }
 
 /**
