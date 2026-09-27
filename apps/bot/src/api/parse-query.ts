@@ -20,7 +20,7 @@ function parseOptionalInt(
   defaultValue: number,
   min: number,
   max: number,
-): ParseApiHeroStatsQueryResult | { ok: true; value: number } {
+): { ok: true; value: number } | { ok: false; error: string } {
   const raw = params.get(key);
   if (raw === null || raw === '') {
     return { ok: true, value: defaultValue };
