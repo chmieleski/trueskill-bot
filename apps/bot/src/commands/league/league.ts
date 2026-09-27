@@ -156,6 +156,12 @@ export function buildRolloverPreviewMessage(preview: LeagueRolloverPreview): str
     );
   }
 
+  if (preview.dcSeasonTax.totalKiTax > 0) {
+    lines.push(
+      `• Disconnect season tax: **${preview.dcSeasonTax.playerCount}** player(s), **${preview.dcSeasonTax.totalKiTax}** ki (applied to ending season ratings for rewards)`,
+    );
+  }
+
   lines.push(
     `• Players seeded: ${preview.playerCount}`,
     `• Bindings moved: ${preview.bindingCount}`,

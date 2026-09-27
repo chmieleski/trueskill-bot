@@ -11,12 +11,17 @@ export {
 } from './match-service.js';
 export {
   cancelInProgressMatch,
+  clearMatchDcs,
   clearMatchGriefers,
   clearMatchQuitters,
   completeMatch,
+  setDcs,
   setGriefers,
   setQuitters,
+  resolveDcSlots,
   resolveGrieferSlots,
+  resolveQuitterSlots,
+  type ClearedMatchDc,
   type ClearedMatchGriefer,
   type ClearedMatchQuitter,
   type ClearMatchQuittersResult,

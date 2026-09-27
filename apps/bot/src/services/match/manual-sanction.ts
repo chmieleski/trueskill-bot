@@ -15,6 +15,7 @@ import {
 } from '../rating/rank-reset-display.js';
 import { restoreMatchRatingSnapshots, writeMatchRatingSnapshots } from './match-correction.js';
 import {
+  clearMatchDcs,
   clearMatchGriefers,
   clearMatchQuitters,
   type ClearMatchQuittersResult,
@@ -23,7 +24,7 @@ import { getMatchById, MatchServiceError } from './match-service.js';
 
 const log = createLogger('manual_sanction');
 
-export type ManualSanctionType = 'quitter' | 'griefer';
+export type ManualSanctionType = 'quitter' | 'griefer' | 'dc';
 
 export type AddManualSanctionInput = {
   leagueId: string;
@@ -39,6 +40,7 @@ export type AddManualSanctionResult = {
   type: ManualSanctionType;
   quits: number;
   griefs: number;
+  dcs: number;
   grieferKiAccrued: number | null;
 };
 
@@ -64,11 +66,17 @@ export async function findLatestManualSanctionMatchId(
   playerId: string,
   type: ManualSanctionType,
 ): Promise<string | null> {
+  const flagWhere =
+    type === 'quitter'
+      ? { isQuitter: true }
+      : type === 'griefer'
+        ? { isGriefer: true, isQuitter: false }
+        : { isDc: true, isQuitter: false };
+
   const row = await prisma.matchPlayer.findFirst({
     where: {
       playerId,
-      isQuitter: type === 'quitter',
-      ...(type === 'griefer' ? { isGriefer: true, isQuitter: false } : {}),
+      ...flagWhere,
       match: {
         leagueId,
         isManualSanction: true,
@@ -92,14 +100,14 @@ async function assertLeagueWritableForSanction(leagueId: string): Promise<void> 
 }
 
 function manualSanctionNotFoundMessage(type: ManualSanctionType, username: string): string {
-  const label = type === 'quitter' ? 'quitter' : 'griefer';
+  const label = type === 'quitter' ? 'quitter' : type === 'griefer' ? 'griefer' : 'DC';
   return `No manual ${label} sanction found for **${username}**.`;
 }
 
 function buildSanctionEntry(
   playerId: string,
   heroId: number | null,
-  type: ManualSanctionType,
+  type: Exclude<ManualSanctionType, 'dc'>,
 ): RatingRosterEntry {
   return {
     playerId,
@@ -112,8 +120,8 @@ function buildSanctionEntry(
 }
 
 /**
- * Record one mod-added quitter or griefer incident without a real lobby.
- * Applies the same penalties as cancel/complete (synthetics or deferred ki tax).
+ * Record one mod-added quitter, griefer, or DC incident without a real lobby.
+ * Quitter/griefer apply the same penalties as cancel/complete; DC is count-only.
  */
 export async function addManualSanction(
   input: AddManualSanctionInput,
@@ -156,8 +164,14 @@ export async function addManualSanction(
         heroId,
         isQuitter: input.type === 'quitter',
         isGriefer: input.type === 'griefer',
+        isDc: input.type === 'dc',
       },
     });
+
+    // DC is a countable incident only — no snapshots or OpenSkill side effects.
+    if (input.type === 'dc') {
+      return;
+    }
 
     const snapshotPlayers = [{ playerId: input.playerId, heroId }];
     await ensurePlayerRatings(input.leagueId, snapshotPlayers, tx);
@@ -200,6 +214,7 @@ export async function addManualSanction(
     type: input.type,
     quits: stats?.quits ?? 0,
     griefs: stats?.griefs ?? 0,
+    dcs: stats?.dcs ?? 0,
     grieferKiAccrued: matchPlayer?.grieferKiAccrued ?? null,
   };
 }
@@ -238,11 +253,15 @@ function assertPlayerHasSanctionFlag(
     throw new MatchServiceError('The selected slots are not marked as griefers.');
   }
 
+  if (type === 'dc' && (!player.isDc || player.isQuitter)) {
+    throw new MatchServiceError('The selected slots are not marked as DCs.');
+  }
+
   return player.slot;
 }
 
 /**
- * Remove one quitter or griefer marker. Without match_id, clears the latest manual sanction.
+ * Remove one quitter, griefer, or DC marker. Without match_id, clears the latest manual sanction.
  * With match_id, delegates to existing clear helpers on that finished match.
  */
 export async function removeManualSanction(
@@ -284,6 +303,20 @@ export async function removeManualSanction(
       };
     }
 
+    if (input.type === 'dc') {
+      await clearMatchDcs(resolvedMatchId, [slot]);
+      log.info(
+        { matchId: resolvedMatchId, playerId: input.playerId },
+        'Manual sanction remove (delegated undc)',
+      );
+      return {
+        matchId: resolvedMatchId,
+        type: input.type,
+        username: input.username,
+        mode: 'delegated_clear',
+      };
+    }
+
     await clearMatchGriefers(resolvedMatchId, [slot]);
     log.info(
       { matchId: resolvedMatchId, playerId: input.playerId },
@@ -306,6 +339,8 @@ export async function removeManualSanction(
 
   if (input.type === 'griefer') {
     await clearMatchGriefers(resolvedMatchId);
+  } else if (input.type === 'dc') {
+    await clearMatchDcs(resolvedMatchId);
   } else {
     await clearManualQuitterWithRestore(input.leagueId, resolvedMatchId);
   }

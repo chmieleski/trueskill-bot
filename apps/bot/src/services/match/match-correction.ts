@@ -464,15 +464,19 @@ function isWinningTeam(team: number, winningTeam: 1 | 2): boolean {
 }
 
 function toRatingEntries(match: MatchWithPlayers, quitterSet: Set<number>): RatingRosterEntry[] {
-  return match.players.map((player) => ({
-    playerId: player.playerId,
-    slot: player.slot,
-    team: assertTeam(player.team),
-    heroId: player.heroId,
-    isQuitter: quitterSet.has(player.slot),
-    isGriefer: player.isGriefer,
-    wasNewPlayer: player.wasNewPlayer,
-  }));
+  return match.players.map((player) => {
+    const isQuitter = quitterSet.has(player.slot);
+    return {
+      playerId: player.playerId,
+      slot: player.slot,
+      team: assertTeam(player.team),
+      heroId: player.heroId,
+      isQuitter,
+      isGriefer: player.isGriefer,
+      isDc: !isQuitter && player.isDc,
+      wasNewPlayer: player.wasNewPlayer,
+    };
+  });
 }
 
 function assertKnownQuitterSlots(match: MatchWithPlayers, quitterSet: Set<number>): void {
@@ -551,6 +555,7 @@ export async function flipCompletedMatch(
           data: {
             isQuitter,
             isGriefer: player.isGriefer,
+            isDc: isQuitter ? false : player.isDc,
             result: won ? 'WIN' : 'LOSS',
           },
         });
@@ -568,12 +573,16 @@ export async function flipCompletedMatch(
     assertBothTeamsHaveActivePlayers(active);
 
     const previewEntries = matchPlayersToRatingEntries(
-      match.players.map((p) => ({
-        ...p,
-        isQuitter: quitterSet.has(p.slot),
-        isGriefer: p.isGriefer,
-        wasNewPlayer: p.wasNewPlayer,
-      })),
+      match.players.map((p) => {
+        const isQuitter = quitterSet.has(p.slot);
+        return {
+          ...p,
+          isQuitter,
+          isGriefer: p.isGriefer,
+          isDc: !isQuitter && p.isDc,
+          wasNewPlayer: p.wasNewPlayer,
+        };
+      }),
     );
     await ensurePlayerRatings(
       leagueId,
@@ -591,6 +600,7 @@ export async function flipCompletedMatch(
         data: {
           isQuitter,
           isGriefer: player.isGriefer,
+          isDc: isQuitter ? false : player.isDc,
           result: won ? 'WIN' : 'LOSS',
         },
       });
@@ -654,7 +664,13 @@ export async function voidCompletedMatch(matchId: string): Promise<MatchWithPlay
     for (const player of match.players) {
       await tx.matchPlayer.update({
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
-        data: { result: null, isQuitter: false, isGriefer: false, grieferKiAccrued: null },
+        data: {
+          result: null,
+          isQuitter: false,
+          isGriefer: false,
+          isDc: false,
+          grieferKiAccrued: null,
+        },
       });
     }
 

@@ -177,14 +177,41 @@ describe('formatTeamLinesFromPreview', () => {
         isGriefer: true,
         leagueGames: 8,
       },
-      { slot: 3, nick: 'piccolo', globalOrdinal: 2100, heroOrdinal: 1800, leagueGames: 8 },
+      {
+        slot: 3,
+        nick: 'piccolo',
+        globalOrdinal: 2100,
+        heroOrdinal: 1800,
+        isDc: true,
+        isGriefer: true,
+        leagueGames: 8,
+      },
+      { slot: 4, nick: 'gohan', globalOrdinal: 2000, heroOrdinal: 1900, leagueGames: 8 },
     ]);
-    const [first, second, third] = value.split('\n');
+    const [first, second, third, fourth] = value.split('\n');
 
     expect(first).toMatch(/`\s*1\s+goku\s+1100 \/ 2200`\s+⚠️ 🚪$/);
     expect(second).toMatch(/`\s*2\s+vegeta\s+3300 \/ 4400`\s+⚠️ 🐛$/);
-    expect(third).not.toContain('⚠️');
-    expect(third).not.toContain('🚪');
+    expect(third).toMatch(/`\s*3\s+piccolo\s+2100 \/ 1800`\s+🐛 🔌$/);
+    expect(fourth).not.toContain('⚠️');
+    expect(fourth).not.toContain('🚪');
+    expect(fourth).not.toContain('🔌');
+  });
+
+  it('hides DC mark when the player is also a quitter', () => {
+    const value = formatTeamLinesFromPreview([
+      {
+        slot: 1,
+        nick: 'goku',
+        globalOrdinal: 1100,
+        heroOrdinal: 2200,
+        isQuitter: true,
+        isDc: true,
+        leagueGames: 8,
+      },
+    ]);
+    expect(value).toMatch(/`\s*1\s+goku\s+1100 \/ 2200` 🚪$/);
+    expect(value).not.toContain('🔌');
   });
 
   it('keeps ⚠️ next to Calibrating', () => {
@@ -450,6 +477,7 @@ describe('buildMatchReportButtons', () => {
       'match:report',
       'match:quitters',
       'match:griefers',
+      'match:dcs',
       'match:cancel',
     ]);
   });

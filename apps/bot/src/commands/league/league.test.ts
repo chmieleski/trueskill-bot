@@ -104,6 +104,7 @@ function previewFixture(overrides: Partial<LeagueRolloverPreview> = {}): LeagueR
     playerCount: 12,
     bindingCount: 3,
     grieferSeasonTax: { playerCount: 0, totalKiTax: 0 },
+    dcSeasonTax: { playerCount: 0, totalKiTax: 0 },
     ...overrides,
   };
 }
@@ -181,6 +182,19 @@ describe('buildRolloverPreviewMessage', () => {
 
     expect(message).toContain(
       '• Griefer season tax: **2** player(s), **450** ki (applied to ending season ratings for rewards)',
+    );
+  });
+
+  it('includes pending disconnect season tax for ending season rewards', () => {
+    const message = buildRolloverPreviewMessage(
+      previewFixture({
+        resetMode: 'continue',
+        dcSeasonTax: { playerCount: 1, totalKiTax: 300 },
+      }),
+    );
+
+    expect(message).toContain(
+      '• Disconnect season tax: **1** player(s), **300** ki (applied to ending season ratings for rewards)',
     );
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildRankEmbed,
+  formatDcPoolField,
   formatGrieferPoolField,
   formatHeroTable,
   formatSideWinLossRecordLine,
@@ -18,7 +19,9 @@ const baseProfile: PlayerProfile = {
   losses: 5,
   quits: 2,
   griefs: 1,
+  dcs: 0,
   pendingGrieferKiTax: 250,
+  pendingDcSeasonTax: 0,
   winRatePercent: 70.6,
   heroes: [
     {
@@ -157,9 +160,9 @@ describe('buildRankEmbed', () => {
     expect(data.thumbnail?.url).toBe('https://cdn.example/a.png');
   });
 
-  it('includes quit and grief counts in the record line', () => {
+  it('includes quit, grief, and DC counts in the record line', () => {
     const description = buildRankEmbed(baseProfile).toJSON().description ?? '';
-    expect(description).toContain('12W · 5L · 2Q · 1G · 70.6% WR');
+    expect(description).toContain('12W · 5L · 2Q · 1G · 0D · 70.6% WR');
     expect(description).not.toContain('tax ki');
   });
 
@@ -175,7 +178,7 @@ describe('buildRankEmbed', () => {
         },
         { teamNames: { 1: 'Z Fighters', 2: 'Evil' } },
       ).toJSON().description ?? '';
-    expect(description).toContain('12W · 5L · 2Q · 1G · 70.6% WR');
+    expect(description).toContain('12W · 5L · 2Q · 1G · 0D · 70.6% WR');
     expect(description).toContain('Z Fighters 8W · 3L · Evil 4W · 2L');
   });
 
@@ -204,15 +207,46 @@ describe('buildRankEmbed', () => {
     });
   });
 
+  it('shows disconnect pool field with pending season-end ki loss', () => {
+    const fields =
+      buildRankEmbed({
+        ...baseProfile,
+        griefs: 0,
+        pendingGrieferKiTax: 0,
+        dcs: 4,
+        pendingDcSeasonTax: 300,
+      }).toJSON().fields ?? [];
+    expect(fields[0]).toMatchObject({
+      name: 'Disconnect pool',
+      value: 'Loses **300 ki** at season end (4 DCs)',
+    });
+  });
+
   it('omits griefer pool when no pending tax', () => {
     const fields =
-      buildRankEmbed({ ...baseProfile, griefs: 0, pendingGrieferKiTax: 0 }).toJSON().fields ?? [];
+      buildRankEmbed({
+        ...baseProfile,
+        griefs: 0,
+        dcs: 0,
+        pendingGrieferKiTax: 0,
+        pendingDcSeasonTax: 0,
+      }).toJSON().fields ?? [];
     expect(fields.find((field) => field.name === 'Griefer pool')).toBeUndefined();
+    expect(fields.find((field) => field.name === 'Disconnect pool')).toBeUndefined();
   });
 
   it('formatGrieferPoolField pluralizes grief count', () => {
     expect(formatGrieferPoolField({ griefs: 2, pendingGrieferKiTax: 400 }, 'ki')).toBe(
       'Loses **400 ki** at season end (2 griefs)',
+    );
+  });
+
+  it('formatDcPoolField pluralizes DC count', () => {
+    expect(formatDcPoolField({ dcs: 1, pendingDcSeasonTax: 300 }, 'ki')).toBe(
+      'Loses **300 ki** at season end (1 DC)',
+    );
+    expect(formatDcPoolField({ dcs: 6, pendingDcSeasonTax: 600 }, 'ki')).toBe(
+      'Loses **600 ki** at season end (6 DCs)',
     );
   });
 
@@ -229,11 +263,13 @@ describe('buildRankEmbed', () => {
       losses: 0,
       quits: 0,
       griefs: 0,
+      dcs: 0,
       pendingGrieferKiTax: 0,
+      pendingDcSeasonTax: 0,
       winRatePercent: null,
     });
     const description = embed.toJSON().description ?? '';
-    expect(description).toBe('0W · 0L · 0Q · 0G');
+    expect(description).toBe('0W · 0L · 0Q · 0G · 0D');
     expect(description).not.toContain('WR');
   });
 
@@ -278,7 +314,9 @@ describe('buildRankEmbed', () => {
       losses: 1,
       quits: 0,
       griefs: 0,
+      dcs: 0,
       pendingGrieferKiTax: 0,
+      pendingDcSeasonTax: 0,
       winRatePercent: 66.7,
       heroes: [
         {

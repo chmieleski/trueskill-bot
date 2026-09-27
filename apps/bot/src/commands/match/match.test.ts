@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { data, parseQuitterSlots, quitterSlotsFromPlayers } from './match.js';
+import { data, parseDcSlots, parseQuitterSlots, quitterSlotsFromPlayers } from './match.js';
 
 describe('parseQuitterSlots', () => {
   it('parses comma-separated slots and removes duplicates', () => {
@@ -8,6 +8,12 @@ describe('parseQuitterSlots', () => {
 
   it('returns an empty list for blank input', () => {
     expect(parseQuitterSlots('   ')).toEqual([]);
+  });
+});
+
+describe('parseDcSlots', () => {
+  it('parses comma-separated slots and removes duplicates', () => {
+    expect(parseDcSlots('2, 8, 2')).toEqual([2, 8]);
   });
 });
 
@@ -34,12 +40,14 @@ describe('match command data', () => {
       'show',
       'quitters',
       'griefers',
+      'dcs',
       'complete',
       'upload_report',
       'cancel',
       'flip',
       'void',
       'ungrief',
+      'undc',
       'unquit',
       'sanction',
     ]);
@@ -54,6 +62,12 @@ describe('match command data', () => {
     expect(add?.options?.map((option) => option.name)).toEqual(
       expect.arrayContaining(['type', 'user', 'nick', 'league']),
     );
+
+    const typeOption = add?.options?.find((option) => option.name === 'type') as
+      { choices?: Array<{ value: string }> } | undefined;
+    expect(typeOption?.choices?.map((choice) => choice.value)).toEqual(
+      expect.arrayContaining(['quitter', 'griefer', 'dc']),
+    );
   });
 
   it('history subcommand accepts user and nick lookup options', () => {
@@ -64,23 +78,26 @@ describe('match command data', () => {
     expect(optionNames).toContain('user');
     expect(optionNames).toContain('nick');
     expect(optionNames).toContain('griefers_only');
+    expect(optionNames).toContain('dcs_only');
   });
 
-  it('cancel subcommand takes griefers slots', () => {
+  it('cancel subcommand takes griefers and dcs slots', () => {
     const json = data.toJSON();
     const cancel = json.options?.find((option) => option.name === 'cancel');
     const optionNames = cancel?.options?.map((option) => option.name);
 
     expect(optionNames).toContain('griefers');
+    expect(optionNames).toContain('dcs');
     expect(optionNames).not.toContain('abusers');
   });
 
-  it('complete subcommand takes quitters and griefers slots', () => {
+  it('complete subcommand takes quitters, griefers, and dcs slots', () => {
     const json = data.toJSON();
     const complete = json.options?.find((option) => option.name === 'complete');
     const optionNames = complete?.options?.map((option) => option.name);
 
     expect(optionNames).toContain('quitters');
     expect(optionNames).toContain('griefers');
+    expect(optionNames).toContain('dcs');
   });
 });

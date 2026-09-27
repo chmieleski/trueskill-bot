@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  resolveDcSlots,
   resolveGrieferSlots,
   resolveQuitterSlots,
+  clearMatchDcs,
   clearMatchGriefers,
   clearMatchQuitters,
+  setDcs,
+  setGriefers,
+  setQuitters,
 } from './match-report.js';
 import { MatchServiceError } from './match-service.js';
 
@@ -59,6 +64,7 @@ function completedMatch(
         slot: 1,
         playerId: 'p1',
         isGriefer: true,
+        isDc: false,
         grieferKiAccrued: 120,
         team: 1,
         heroId: 1,
@@ -70,6 +76,7 @@ function completedMatch(
         slot: 2,
         playerId: 'p2',
         isGriefer: false,
+        isDc: false,
         grieferKiAccrued: null,
         team: 2,
         heroId: 2,
@@ -102,6 +109,7 @@ function quitterMatch(
   ).map((player) => ({
     heroId: player.slot,
     isGriefer: false,
+    isDc: false,
     grieferKiAccrued: null,
     result: null as 'WIN' | 'LOSS' | null,
     player: { id: player.playerId, username: player.playerId },
@@ -112,6 +120,46 @@ function quitterMatch(
     status: overrides.status ?? 'CANCELLED',
     players,
   });
+}
+
+function reportableMatch(
+  players: Array<{
+    slot: number;
+    playerId: string;
+    team?: number;
+    isQuitter?: boolean;
+    isGriefer?: boolean;
+    isDc?: boolean;
+  }>,
+) {
+  return {
+    id: 'match-1',
+    status: 'IN_PROGRESS' as const,
+    leagueId: 'league-1',
+    players: players.map((player) => ({
+      heroId: player.slot,
+      team: player.team ?? (player.slot <= 6 ? 1 : 2),
+      isQuitter: player.isQuitter ?? false,
+      isGriefer: player.isGriefer ?? false,
+      isDc: player.isDc ?? false,
+      grieferKiAccrued: null,
+      result: null,
+      player: { id: player.playerId, username: player.playerId },
+      ...player,
+    })),
+  };
+}
+
+function mockReportableTransaction() {
+  transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) =>
+    fn({
+      match: {
+        findUnique: vi.fn().mockResolvedValue({ status: 'IN_PROGRESS' }),
+      },
+      matchPlayer: { update: matchPlayerUpdate },
+    }),
+  );
+  matchPlayerUpdate.mockResolvedValue({});
 }
 
 describe('clearMatchGriefers', () => {
@@ -150,6 +198,7 @@ describe('clearMatchGriefers', () => {
           slot: 1,
           playerId: 'p1',
           isGriefer: true,
+          isDc: false,
           grieferKiAccrued: 100,
           team: 1,
           heroId: 1,
@@ -160,6 +209,7 @@ describe('clearMatchGriefers', () => {
           slot: 3,
           playerId: 'p3',
           isGriefer: true,
+          isDc: false,
           grieferKiAccrued: 80,
           team: 1,
           heroId: 3,
@@ -191,6 +241,161 @@ describe('clearMatchGriefers', () => {
     await expect(clearMatchGriefers('match-1', [99])).rejects.toThrow(
       'No griefer player in slot 99.',
     );
+  });
+
+  it('keeps isDc when clearing griefers', async () => {
+    const match = completedMatch({
+      players: [
+        {
+          slot: 1,
+          playerId: 'p1',
+          isGriefer: true,
+          isDc: true,
+          grieferKiAccrued: 50,
+          team: 1,
+          heroId: 1,
+          isQuitter: false,
+          player: { id: 'p1', username: 'p1' },
+        },
+      ],
+    });
+    matchFindUnique.mockResolvedValueOnce(match).mockResolvedValueOnce(match);
+
+    await clearMatchGriefers('match-1');
+
+    expect(matchPlayerUpdate).toHaveBeenCalledWith({
+      where: { matchId_playerId: { matchId: 'match-1', playerId: 'p1' } },
+      data: { isGriefer: false, grieferKiAccrued: null },
+    });
+  });
+});
+
+describe('clearMatchDcs', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) =>
+      fn({
+        matchPlayer: { update: matchPlayerUpdate },
+      }),
+    );
+    matchPlayerUpdate.mockResolvedValue({});
+  });
+
+  it('clears all DCs when slots are omitted', async () => {
+    const match = completedMatch({
+      players: [
+        {
+          slot: 1,
+          playerId: 'p1',
+          isGriefer: false,
+          isDc: true,
+          grieferKiAccrued: null,
+          team: 1,
+          heroId: 1,
+          isQuitter: false,
+          player: { id: 'p1', username: 'p1' },
+        },
+        {
+          slot: 2,
+          playerId: 'p2',
+          isGriefer: true,
+          isDc: true,
+          grieferKiAccrued: 40,
+          team: 2,
+          heroId: 2,
+          isQuitter: false,
+          player: { id: 'p2', username: 'p2' },
+        },
+      ],
+    });
+    matchFindUnique.mockResolvedValueOnce(match).mockResolvedValueOnce(match);
+
+    const result = await clearMatchDcs('match-1');
+
+    expect(matchPlayerUpdate).toHaveBeenCalledTimes(2);
+    expect(matchPlayerUpdate).toHaveBeenCalledWith({
+      where: { matchId_playerId: { matchId: 'match-1', playerId: 'p1' } },
+      data: { isDc: false },
+    });
+    expect(matchPlayerUpdate).toHaveBeenCalledWith({
+      where: { matchId_playerId: { matchId: 'match-1', playerId: 'p2' } },
+      data: { isDc: false },
+    });
+    expect(result.cleared).toEqual([
+      { slot: 1, playerId: 'p1' },
+      { slot: 2, playerId: 'p2' },
+    ]);
+  });
+
+  it('clears only the requested slots', async () => {
+    const match = completedMatch({
+      players: [
+        {
+          slot: 1,
+          playerId: 'p1',
+          isGriefer: false,
+          isDc: true,
+          grieferKiAccrued: null,
+          team: 1,
+          heroId: 1,
+          isQuitter: false,
+          player: { id: 'p1', username: 'p1' },
+        },
+        {
+          slot: 3,
+          playerId: 'p3',
+          isGriefer: false,
+          isDc: true,
+          grieferKiAccrued: null,
+          team: 1,
+          heroId: 3,
+          isQuitter: false,
+          player: { id: 'p3', username: 'p3' },
+        },
+      ],
+    });
+    matchFindUnique.mockResolvedValueOnce(match).mockResolvedValueOnce(match);
+
+    const result = await clearMatchDcs('match-1', [3]);
+
+    expect(matchPlayerUpdate).toHaveBeenCalledTimes(1);
+    expect(result.cleared).toEqual([{ slot: 3, playerId: 'p3' }]);
+  });
+
+  it('rejects in-progress matches', async () => {
+    matchFindUnique.mockResolvedValue({ ...completedMatch(), status: 'IN_PROGRESS' });
+
+    await expect(clearMatchDcs('match-1')).rejects.toThrow(
+      'DC flags can only be cleared on completed or cancelled matches.',
+    );
+  });
+
+  it('rejects when the match has no DCs', async () => {
+    matchFindUnique.mockResolvedValue(completedMatch());
+
+    await expect(clearMatchDcs('match-1')).rejects.toThrow('This match has no DCs to clear.');
+  });
+
+  it('rejects unknown slots', async () => {
+    matchFindUnique.mockResolvedValue(
+      completedMatch({
+        players: [
+          {
+            slot: 1,
+            playerId: 'p1',
+            isGriefer: false,
+            isDc: true,
+            grieferKiAccrued: null,
+            team: 1,
+            heroId: 1,
+            isQuitter: false,
+            player: { id: 'p1', username: 'p1' },
+          },
+        ],
+      }),
+    );
+
+    await expect(clearMatchDcs('match-1', [99])).rejects.toThrow('No DC player in slot 99.');
   });
 });
 
@@ -333,6 +538,70 @@ describe('clearMatchQuitters', () => {
   });
 });
 
+describe('flag interactions (setQuitters / setGriefers / setDcs)', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockReportableTransaction();
+  });
+
+  it('setQuitters clears isGriefer and isDc when marking quitter', async () => {
+    const match = reportableMatch([
+      { slot: 1, playerId: 'p1', isDc: true, isGriefer: true },
+      { slot: 7, playerId: 'p7' },
+    ]);
+    matchFindUnique.mockResolvedValueOnce(match).mockResolvedValueOnce(match);
+
+    await setQuitters('match-1', [1]);
+
+    expect(matchPlayerUpdate).toHaveBeenCalledWith({
+      where: { matchId_playerId: { matchId: 'match-1', playerId: 'p1' } },
+      data: { isQuitter: true, isGriefer: false, isDc: false },
+    });
+    expect(matchPlayerUpdate).toHaveBeenCalledWith({
+      where: { matchId_playerId: { matchId: 'match-1', playerId: 'p7' } },
+      data: { isQuitter: false },
+    });
+  });
+
+  it('setGriefers clears isQuitter and does not touch isDc', async () => {
+    const match = reportableMatch([
+      { slot: 1, playerId: 'p1', isQuitter: true, isDc: true },
+      { slot: 7, playerId: 'p7', isDc: true },
+    ]);
+    matchFindUnique.mockResolvedValueOnce(match).mockResolvedValueOnce(match);
+
+    await setGriefers('match-1', [1]);
+
+    expect(matchPlayerUpdate).toHaveBeenCalledWith({
+      where: { matchId_playerId: { matchId: 'match-1', playerId: 'p1' } },
+      data: { isGriefer: true, grieferKiAccrued: undefined, isQuitter: false },
+    });
+    expect(matchPlayerUpdate).toHaveBeenCalledWith({
+      where: { matchId_playerId: { matchId: 'match-1', playerId: 'p7' } },
+      data: { isGriefer: false, grieferKiAccrued: null },
+    });
+  });
+
+  it('setDcs clears isQuitter and keeps isGriefer', async () => {
+    const match = reportableMatch([
+      { slot: 1, playerId: 'p1', isQuitter: true, isGriefer: true },
+      { slot: 7, playerId: 'p7', isGriefer: true },
+    ]);
+    matchFindUnique.mockResolvedValueOnce(match).mockResolvedValueOnce(match);
+
+    await setDcs('match-1', [1]);
+
+    expect(matchPlayerUpdate).toHaveBeenCalledWith({
+      where: { matchId_playerId: { matchId: 'match-1', playerId: 'p1' } },
+      data: { isDc: true, isQuitter: false },
+    });
+    expect(matchPlayerUpdate).toHaveBeenCalledWith({
+      where: { matchId_playerId: { matchId: 'match-1', playerId: 'p7' } },
+      data: { isDc: false },
+    });
+  });
+});
+
 describe('resolveQuitterSlots', () => {
   const persistedFlags = [
     { slot: 5, isQuitter: true },
@@ -367,5 +636,25 @@ describe('resolveGrieferSlots', () => {
 
   it('clears griefers when an explicit empty list is provided', () => {
     expect(resolveGrieferSlots(persistedFlags, [])).toEqual([]);
+  });
+});
+
+describe('resolveDcSlots', () => {
+  const persistedFlags = [
+    { slot: 2, isDc: true },
+    { slot: 4, isDc: false },
+    { slot: 8, isDc: true },
+  ];
+
+  it('uses persisted DC flags when slots are omitted', () => {
+    expect(resolveDcSlots(persistedFlags)).toEqual([2, 8]);
+  });
+
+  it('clears DCs when an explicit empty list is provided', () => {
+    expect(resolveDcSlots(persistedFlags, [])).toEqual([]);
+  });
+
+  it('normalizes an explicit slot list', () => {
+    expect(resolveDcSlots(persistedFlags, [8, 1, 8])).toEqual([1, 8]);
   });
 });

@@ -36,6 +36,8 @@ export type MatchHistoryRow = {
   heroName: string | null;
   isQuitter: boolean;
   isGriefer: boolean;
+  /** Disconnect incident; season tax from count (independent of griefer). */
+  isDc: boolean;
   /** Deferred season-end ki tax accrued when marked griefer. */
   grieferKiAccrued: number | null;
   /** Global ki delta for the history target when snapshots exist. */
@@ -51,6 +53,7 @@ export type MatchHistoryPage = {
   totalPages: number;
   totalMatches: number;
   griefersOnly: boolean;
+  dcsOnly: boolean;
   rows: MatchHistoryRow[];
 };
 
@@ -99,12 +102,13 @@ export function formatMatchHistoryField(
       : row.isGriefer
         ? ' · Griefer'
         : '';
+  const dc = row.isDc && !row.isQuitter ? ' · DC' : '';
 
   const teamBit = teamLabel ? ` · ${teamLabel}` : '';
 
   return {
     name: `${hero} · ${emoji} ${ratingBit}`,
-    value: `${outcome}${quit}${griefer}${teamBit} · <t:${unix}:D>\n\`${row.matchId}\``,
+    value: `${outcome}${quit}${griefer}${dc}${teamBit} · <t:${unix}:D>\n\`${row.matchId}\``,
     inline: false,
   };
 }
@@ -159,10 +163,17 @@ export function buildMatchHistoryPageCustomId(
   direction: 'prev' | 'next',
   currentPage: number,
   griefersOnly = false,
+  dcsOnly = false,
 ): string {
   const dirToken = direction === 'prev' ? 'p' : 'n';
   const base = `mh:p:${invokerId}:${compactUuidForCustomId(playerId)}:${compactUuidForCustomId(leagueId)}:${dirToken}:${currentPage}`;
-  return griefersOnly ? `${base}:g` : base;
+  if (griefersOnly) {
+    return `${base}:g`;
+  }
+  if (dcsOnly) {
+    return `${base}:d`;
+  }
+  return base;
 }
 
 export function parseMatchHistoryPageCustomId(customId: string): {
@@ -171,16 +182,25 @@ export function parseMatchHistoryPageCustomId(customId: string): {
   leagueId: string;
   page: number;
   griefersOnly: boolean;
+  dcsOnly: boolean;
 } | null {
   const parts = customId.split(':');
   // mh:p:invoker:player:league:dir:page → 7 parts
   // mh:p:invoker:player:league:dir:page:g → 8 parts (griefer filter)
+  // mh:p:invoker:player:league:dir:page:d → 8 parts (DC filter)
   if ((parts.length !== 7 && parts.length !== 8) || parts[0] !== 'mh' || parts[1] !== 'p') {
     return null;
   }
-  const griefersOnly = parts.length === 8;
-  if (griefersOnly && parts[7] !== 'g') {
-    return null;
+  let griefersOnly = false;
+  let dcsOnly = false;
+  if (parts.length === 8) {
+    if (parts[7] === 'g') {
+      griefersOnly = true;
+    } else if (parts[7] === 'd') {
+      dcsOnly = true;
+    } else {
+      return null;
+    }
   }
   const direction = parts[5];
   const currentPage = Number.parseInt(parts[6]!, 10);
@@ -194,10 +214,10 @@ export function parseMatchHistoryPageCustomId(customId: string): {
     return null;
   }
   if (direction === 'prev' || direction === 'p') {
-    return { invokerId, playerId, leagueId, page: currentPage - 1, griefersOnly };
+    return { invokerId, playerId, leagueId, page: currentPage - 1, griefersOnly, dcsOnly };
   }
   if (direction === 'next' || direction === 'n') {
-    return { invokerId, playerId, leagueId, page: currentPage + 1, griefersOnly };
+    return { invokerId, playerId, leagueId, page: currentPage + 1, griefersOnly, dcsOnly };
   }
   return null;
 }
@@ -228,8 +248,11 @@ export async function loadMatchHistoryPage(input: {
   username: string;
   page: number;
   griefersOnly?: boolean;
+  dcsOnly?: boolean;
 }): Promise<MatchHistoryPage> {
   const griefersOnly = input.griefersOnly === true;
+  const dcsOnly = input.dcsOnly === true && !griefersOnly;
+  const filteredHistory = griefersOnly || dcsOnly;
   const where: Prisma.MatchWhereInput = griefersOnly
     ? {
         leagueId: input.leagueId,
@@ -237,12 +260,19 @@ export async function loadMatchHistoryPage(input: {
         status: { in: ['COMPLETED', 'CANCELLED'] satisfies MatchStatus[] },
         players: { some: { playerId: input.playerId, isGriefer: true } },
       }
-    : {
-        leagueId: input.leagueId,
-        isManualSanction: false,
-        status: 'COMPLETED',
-        players: { some: { playerId: input.playerId } },
-      };
+    : dcsOnly
+      ? {
+          leagueId: input.leagueId,
+          isManualSanction: false,
+          status: { in: ['COMPLETED', 'CANCELLED'] satisfies MatchStatus[] },
+          players: { some: { playerId: input.playerId, isDc: true, isQuitter: false } },
+        }
+      : {
+          leagueId: input.leagueId,
+          isManualSanction: false,
+          status: 'COMPLETED',
+          players: { some: { playerId: input.playerId } },
+        };
 
   const totalMatches = await prisma.match.count({ where });
   const totalPages = Math.max(1, Math.ceil(totalMatches / MATCH_HISTORY_PAGE_SIZE));
@@ -252,7 +282,7 @@ export async function loadMatchHistoryPage(input: {
   const [matches, leagueRow] = await Promise.all([
     prisma.match.findMany({
       where,
-      orderBy: griefersOnly
+      orderBy: filteredHistory
         ? [{ updatedAt: 'desc' }, { createdAt: 'desc' }]
         : [{ completedAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
       skip,
@@ -322,7 +352,9 @@ export async function loadMatchHistoryPage(input: {
     const endedAt = matchEndedAt(match);
 
     if (match.status === 'CANCELLED') {
-      if (!mp.isGriefer) {
+      const includeCancelled =
+        (griefersOnly && mp.isGriefer) || (dcsOnly && mp.isDc && !mp.isQuitter);
+      if (!includeCancelled) {
         continue;
       }
 
@@ -340,6 +372,7 @@ export async function loadMatchHistoryPage(input: {
         heroName,
         isQuitter: mp.isQuitter,
         isGriefer: mp.isGriefer,
+        isDc: mp.isDc,
         grieferKiAccrued: mp.grieferKiAccrued,
         leagueGames,
       });
@@ -368,6 +401,7 @@ export async function loadMatchHistoryPage(input: {
       heroName,
       isQuitter: mp.isQuitter,
       isGriefer: mp.isGriefer,
+      isDc: mp.isDc,
       grieferKiAccrued: mp.grieferKiAccrued,
       globalDelta,
       leagueGames,
@@ -381,6 +415,7 @@ export async function loadMatchHistoryPage(input: {
     totalPages,
     totalMatches,
     griefersOnly,
+    dcsOnly,
     rows,
   };
 }
@@ -392,22 +427,37 @@ export function buildMatchHistoryEmbed(
   options?: { showTeam?: boolean },
 ): EmbedBuilder {
   const showTeam = options?.showTeam !== false;
+  const filterTitle = page.griefersOnly
+    ? 'Match history · griefers'
+    : page.dcsOnly
+      ? 'Match history · DCs'
+      : 'Match history';
+  const filterDescription = page.griefersOnly
+    ? `Griefer matches only · Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`
+    : page.dcsOnly
+      ? `DC matches only · Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`
+      : `Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`;
+  const emptyCopy = page.griefersOnly
+    ? '_No griefer matches for this player._'
+    : page.dcsOnly
+      ? '_No DC matches for this player._'
+      : '_No completed matches yet._';
+  const singlePageFooter = page.griefersOnly
+    ? 'Copy an id → /match show (completed) or /match ungrief|/match unquit (cancelled)'
+    : page.dcsOnly
+      ? 'Copy an id → /match show (completed) or /match undc (cancelled)'
+      : 'Copy an id → /match show match_id:…';
+
   const embed = new EmbedBuilder()
     .setColor(0xf0b232)
     .setAuthor({ name: page.targetUsername })
-    .setTitle(page.griefersOnly ? 'Match history · griefers' : 'Match history')
-    .setDescription(
-      page.griefersOnly
-        ? `Griefer matches only · Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`
-        : `Page **${page.page}** of **${page.totalPages}** · ${page.totalMatches} matches`,
-    );
+    .setTitle(filterTitle)
+    .setDescription(filterDescription);
 
   if (page.rows.length === 0) {
     embed.addFields({
       name: 'Matches',
-      value: page.griefersOnly
-        ? '_No griefer matches for this player._'
-        : '_No completed matches yet._',
+      value: emptyCopy,
     });
   } else {
     embed.addFields(
@@ -423,9 +473,7 @@ export function buildMatchHistoryEmbed(
     });
   } else if (page.totalMatches > 0) {
     embed.setFooter({
-      text: page.griefersOnly
-        ? 'Copy an id → /match show (completed) or /match ungrief|/match unquit (cancelled)'
-        : 'Copy an id → /match show match_id:…',
+      text: singlePageFooter,
     });
   }
 
@@ -439,6 +487,7 @@ export function buildMatchHistoryPageButtons(input: {
   page: number;
   totalPages: number;
   griefersOnly?: boolean;
+  dcsOnly?: boolean;
 }): ActionRowBuilder<ButtonBuilder>[] {
   if (input.totalPages <= 1) {
     return [];
@@ -453,6 +502,7 @@ export function buildMatchHistoryPageButtons(input: {
           'prev',
           input.page,
           input.griefersOnly === true,
+          input.dcsOnly === true,
         ),
       )
       .setLabel('Previous')
@@ -467,6 +517,7 @@ export function buildMatchHistoryPageButtons(input: {
           'next',
           input.page,
           input.griefersOnly === true,
+          input.dcsOnly === true,
         ),
       )
       .setLabel('Next')
