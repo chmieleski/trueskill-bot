@@ -25,10 +25,10 @@ Your app does **not** need a separate token. Reuse the league API token from `/l
 
 All endpoints:
 
-|              |                                            |
-| ------------ | ------------------------------------------ |
-| Method       | **`GET` only** (POST → `404 Not Found`)    |
-| Auth         | `Authorization: Bearer <league_api_token>` |
+|        |                                            |
+| ------ | ------------------------------------------ |
+| Method | **`GET` only** (POST → `404 Not Found`)    |
+| Auth   | `Authorization: Bearer <league_api_token>` |
 
 ```http
 Authorization: Bearer YOUR_LEAGUE_API_TOKEN
@@ -76,23 +76,23 @@ Heroes are sorted by name A–Z. `objectId` may be omitted or null for name-only
 
 **Query parameters**
 
-| Param         | Default | Notes                                                                 |
-| ------------- | ------- | --------------------------------------------------------------------- |
-| `scope`       | `both`  | `all` \| `last` \| `range` \| `both`                                  |
-| `games`       | `20`    | Last-N size when `scope` is `last` or `both`; integer **1–100**       |
-| `from`        | —       | **Required** when `scope=range`; ISO-8601; `match.completedAt` ≥     |
-| `to`          | now     | Optional when `scope=range`; ISO-8601; `match.completedAt` **<**    |
-| `recentLimit` | `20`    | Recent games list length; integer **1–50**                            |
-| `topPlayers`  | `5`     | Top players list size; integer **0–25**; **`0` omits** the list     |
+| Param         | Default | Notes                                                            |
+| ------------- | ------- | ---------------------------------------------------------------- |
+| `scope`       | `both`  | `all` \| `last` \| `range` \| `both`                             |
+| `games`       | `20`    | Last-N size when `scope` is `last` or `both`; integer **1–100**  |
+| `from`        | —       | **Required** when `scope=range`; ISO-8601; `match.completedAt` ≥ |
+| `to`          | now     | Optional when `scope=range`; ISO-8601; `match.completedAt` **<** |
+| `recentLimit` | `20`    | Recent games list length; integer **1–50**                       |
+| `topPlayers`  | `5`     | Top players list size; integer **0–25**; **`0` omits** the list  |
 
 **Scope behavior**
 
-| `scope` | `windows` keys in response | Notes                                                          |
-| ------- | -------------------------- | -------------------------------------------------------------- |
-| `all`   | `all`                      | All completed eligible games                                   |
-| `last`  | `last`                     | Last `games` completed games                                   |
+| `scope` | `windows` keys in response | Notes                                                           |
+| ------- | -------------------------- | --------------------------------------------------------------- |
+| `all`   | `all`                      | All completed eligible games                                    |
+| `last`  | `last`                     | Last `games` completed games                                    |
 | `range` | `range`                    | Time window on `completedAt`; do not pass `from`/`to` otherwise |
-| `both`  | `all`, `last`              | Default; `recentGames` uses the **last** pool                  |
+| `both`  | `all`, `last`              | Default; `recentGames` uses the **last** pool                   |
 
 Do **not** pass `from` or `to` unless `scope=range`.
 
@@ -196,13 +196,13 @@ All error bodies:
 { "error": "English message" }
 ```
 
-| HTTP  | When                                                                                                                                 |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `401` | Missing/invalid Bearer token                                                                                                         |
-| `403` | League is not WOS                                                                                                                    |
+| HTTP  | When                                                                                                                                                |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `401` | Missing/invalid Bearer token                                                                                                                        |
+| `403` | League is not WOS                                                                                                                                   |
 | `400` | Invalid query params; `scope=range` without `from`; invalid ISO dates; `from` ≥ `to`; **`from`/`to` with non-`range` scope**; bad hero key encoding |
-| `404` | Unknown path; **non-GET** on these paths; unknown hero; match not in league                                                        |
-| `500` | Unexpected server error                                                                                                              |
+| `404` | Unknown path; **non-GET** on these paths; unknown hero; match not in league                                                                         |
+| `500` | Unexpected server error                                                                                                                             |
 
 Example validation messages: `Invalid scope: must be one of all, last, range, both`, `from is required when scope is range`, `Invalid hero key encoding.`
 
