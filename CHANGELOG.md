@@ -1,3 +1,10 @@
+# [1.62.0](https://github.com/chmieleski/trueskill-bot/compare/v1.61.0...v1.62.0) (2026-09-27)
+
+
+### Features
+
+* **api:** WOS hero and match combat stats GET endpoints ([#188](https://github.com/chmieleski/trueskill-bot/issues/188)) ([1d82b1e](https://github.com/chmieleski/trueskill-bot/commit/1d82b1e1801ba2db57c51dfcd2761c1feb82c84a))
+
 # [1.61.0](https://github.com/chmieleski/trueskill-bot/compare/v1.60.5...v1.61.0) (2026-09-27)
 
 
