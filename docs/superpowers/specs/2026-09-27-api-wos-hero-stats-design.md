@@ -175,7 +175,7 @@ Default sort: win rate desc → games desc → username A–Z. Min **3** games i
 ```
 
 - `404` if match missing or `match.leagueId` ≠ token league.
-- Include players that have a `MatchPlayerStats` row even when status is not yet `COMPLETED` (e.g. approval queue). Players without stats are omitted from `players` (or listed with combat fields absent — **prefer omit** for a stable contract).
+- Include players that have a `MatchPlayerStats` row even when status is not yet `COMPLETED` (e.g. approval queue). Players without a stats row are **omitted** from `players` (stable contract: every entry has full combat fields).
 - `externalId` from `MatchStatsReport` when present, else `null`.
 
 ## Eligibility (shared with Discord)
