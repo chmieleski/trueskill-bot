@@ -16,6 +16,8 @@ Keeps boards honest when players go idle. **Overall ki only** — hero ratings u
 
 Crunch: **2-day** grace, then **−100** / **−200 ki/day**. **No streak cap** — floor ~1000 ki.
 
+**Soft pause after season end:** When `season_end` passes **without** `/league rollover`, the league stays active but **ranked play pauses** (no new lobbies). Decay stops during the pause. Resume with `/league clear season_end` or a new future `/league set season_end`, or open the next season with `/league rollover`.
+
 **Prize lock:** 🥇🥈🥉 need at least **N** finished non-quit games in the **crunch window** (default **N = 1**). Rank `#n` stays. Off: `/decay_config prize_lock enabled:false`.
 
 `/decay_config prize_lock_min_games games:7` · `clear_prize_lock_min_games` · `preset name:strict_crunch`

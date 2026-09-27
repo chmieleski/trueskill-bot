@@ -73,6 +73,7 @@ describe('resolveLeagueConfig decay', () => {
     expect(resolved.showSideWinLoss).toBe(false);
     expect(resolved.seasonEndsAt).toBeUndefined();
     expect(resolved.decayInCrunch).toBe(false);
+    expect(resolved.seasonPaused).toBe(false);
     expect(resolved.decaySettings.midGraceDays).toBe(10);
   });
 
@@ -94,6 +95,7 @@ describe('resolveLeagueConfig decay', () => {
     expect(resolved.showSideWinLoss).toBe(false);
     expect(resolved.seasonEndsAt).toEqual(seasonEndsAt);
     expect(resolved.decayInCrunch).toBe(true);
+    expect(resolved.seasonPaused).toBe(false);
     expect(resolved.decaySettings.midGraceDays).toBe(14);
     expect(isLeagueInCrunch).toHaveBeenCalled();
   });

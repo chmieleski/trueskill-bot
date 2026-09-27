@@ -19,7 +19,12 @@ import {
   assertHeroExists,
   HeroCatalogError,
 } from '../guild/hero-catalog.js';
-import { isLeagueWritable, LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
+import {
+  isLeagueAcceptingPlay,
+  isLeagueWritable,
+  LEAGUE_ARCHIVED_MESSAGE,
+  LEAGUE_SEASON_PAUSED_MESSAGE,
+} from '../league/league.js';
 import { getGameProfileForLeague, LeagueNotFoundError } from '../league/league-profile.js';
 import {
   EVENT_NOT_ACTIVE_MESSAGE,
@@ -419,10 +424,13 @@ export async function createPendingMatch(
   if (leagueId) {
     const league = await prisma.league.findUnique({
       where: { id: leagueId },
-      select: { status: true },
+      select: { status: true, seasonEndsAt: true },
     });
     if (league && !isLeagueWritable(league)) {
       throw new MatchServiceError(LEAGUE_ARCHIVED_MESSAGE);
+    }
+    if (league && !isLeagueAcceptingPlay(league)) {
+      throw new MatchServiceError(LEAGUE_SEASON_PAUSED_MESSAGE);
     }
     profile = await loadMatchProfile(leagueId);
   } else {
@@ -807,6 +815,19 @@ export async function startMatch(matchId: string): Promise<MatchWithPlayers> {
 
   if (match.status !== 'PENDING') {
     throw new MatchServiceError('This match has already been started or cancelled.');
+  }
+
+  if (match.leagueId) {
+    const league = await prisma.league.findUnique({
+      where: { id: match.leagueId },
+      select: { status: true, seasonEndsAt: true },
+    });
+    if (league && !isLeagueWritable(league)) {
+      throw new MatchServiceError(LEAGUE_ARCHIVED_MESSAGE);
+    }
+    if (league && !isLeagueAcceptingPlay(league)) {
+      throw new MatchServiceError(LEAGUE_SEASON_PAUSED_MESSAGE);
+    }
   }
 
   const profile = await loadMatchProfileForTenant(match);

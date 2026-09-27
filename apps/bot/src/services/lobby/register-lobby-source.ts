@@ -1,6 +1,11 @@
 import type { GameProfile } from '../../domain/game-profile.js';
 import { prisma } from '../../lib/prisma.js';
-import { isLeagueWritable, LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
+import {
+  isLeagueAcceptingPlay,
+  isLeagueWritable,
+  LEAGUE_ARCHIVED_MESSAGE,
+  LEAGUE_SEASON_PAUSED_MESSAGE,
+} from '../league/league.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
 import { MatchServiceError } from '../match/match-service.js';
 
@@ -52,10 +57,13 @@ export function assertProfileAllowsWc3statsImport(profile: GameProfile): void {
 export async function assertLeagueAllowsWc3statsImport(leagueId: string): Promise<void> {
   const league = await prisma.league.findUnique({
     where: { id: leagueId },
-    select: { status: true },
+    select: { status: true, seasonEndsAt: true },
   });
   if (league && !isLeagueWritable(league)) {
     throw new MatchServiceError(LEAGUE_ARCHIVED_MESSAGE);
+  }
+  if (league && !isLeagueAcceptingPlay(league)) {
+    throw new MatchServiceError(LEAGUE_SEASON_PAUSED_MESSAGE);
   }
 
   const profile = await getGameProfileForLeague(leagueId);

@@ -1,5 +1,6 @@
 import type { Prisma } from '@dbz/db';
 import { prisma } from '../../lib/prisma.js';
+import { isLeagueSeasonPaused } from '../league/league.js';
 import { gamesByPlayerFromStats, loadMatchDisplayStatsByPlayer } from './rank-reset-display.js';
 import { displayConservatismZ, isCalibrating, KI_SCALE } from './rating-math.js';
 import {
@@ -279,7 +280,11 @@ export function resolveRankDecayFooter(input: {
     !input.decayEnabled ||
     input.isNewPlayer ||
     input.lastQualifyingActivityAt == null ||
-    isCalibrating(input.leagueGames)
+    isCalibrating(input.leagueGames) ||
+    isLeagueSeasonPaused(
+      { status: input.league.status, seasonEndsAt: input.league.seasonEndsAt },
+      now,
+    )
   ) {
     return null;
   }
@@ -418,6 +423,10 @@ export async function applyPendingDecay(
   ]);
 
   if (!league || league.status !== 'ACTIVE' || !league.decayEnabled) {
+    return { applied: false };
+  }
+
+  if (isLeagueSeasonPaused(league, now)) {
     return { applied: false };
   }
 

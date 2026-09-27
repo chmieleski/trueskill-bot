@@ -11,6 +11,7 @@ import {
   resolvePrizeLockWindow,
   toDecayLeagueContext,
 } from '../rating/rating-decay.js';
+import { isLeagueSeasonPaused } from '../league/league.js';
 import { displayOrdinal, isCalibrating } from '../rating/rating-math.js';
 import {
   gamesByPlayerFromStats,
@@ -101,6 +102,8 @@ export type OverallLeaderboardPage = {
   crunchWindowDays?: number;
   /** Minimum finished games for prize-lock medals (for footnote copy). */
   prizeLockMinGames?: number;
+  /** When true, seasonEndsAt has passed and ranked play is soft-paused. */
+  seasonPaused?: boolean;
 };
 
 export type HeroBoardSlice = {
@@ -155,6 +158,7 @@ export function paginateOverall(
   prizeLockActive = false,
   crunchWindowDays = DEFAULT_DECAY_SETTINGS.crunchWindowDays,
   prizeLockMinGames = DEFAULT_DECAY_SETTINGS.prizeLockMinGames,
+  seasonPaused = false,
 ): OverallLeaderboardPage {
   const totalPlayers = rows.length;
   const totalPages = Math.max(1, Math.ceil(totalPlayers / LEADERBOARD_PAGE_SIZE));
@@ -168,6 +172,7 @@ export function paginateOverall(
     prizeLockActive,
     crunchWindowDays,
     prizeLockMinGames,
+    seasonPaused,
   };
 }
 
@@ -194,6 +199,7 @@ async function loadEligibleOverallRows(leagueId: string): Promise<{
   prizeLockActive: boolean;
   crunchWindowDays: number;
   prizeLockMinGames: number;
+  seasonPaused: boolean;
 }> {
   const ratingIds = await prisma.playerRating.findMany({
     where: { leagueId },
@@ -290,17 +296,27 @@ async function loadEligibleOverallRows(leagueId: string): Promise<{
   const prizeLockMinGames = leagueCtx
     ? leagueDecaySettings(leagueCtx).prizeLockMinGames
     : DEFAULT_DECAY_SETTINGS.prizeLockMinGames;
+  const seasonPaused = league
+    ? isLeagueSeasonPaused({ status: league.status, seasonEndsAt: league.seasonEndsAt }, now)
+    : false;
 
-  return { entries, prizeLockActive, crunchWindowDays, prizeLockMinGames };
+  return { entries, prizeLockActive, crunchWindowDays, prizeLockMinGames, seasonPaused };
 }
 
 export async function loadOverallLeaderboardPage(
   leagueId: string,
   page: number,
 ): Promise<OverallLeaderboardPage> {
-  const { entries, prizeLockActive, crunchWindowDays, prizeLockMinGames } =
+  const { entries, prizeLockActive, crunchWindowDays, prizeLockMinGames, seasonPaused } =
     await loadEligibleOverallRows(leagueId);
-  return paginateOverall(entries, page, prizeLockActive, crunchWindowDays, prizeLockMinGames);
+  return paginateOverall(
+    entries,
+    page,
+    prizeLockActive,
+    crunchWindowDays,
+    prizeLockMinGames,
+    seasonPaused,
+  );
 }
 
 export async function loadOverallLeaderboardTop(
@@ -311,10 +327,17 @@ export async function loadOverallLeaderboardTop(
   prizeLockActive: boolean;
   crunchWindowDays: number;
   prizeLockMinGames: number;
+  seasonPaused: boolean;
 }> {
-  const { entries, prizeLockActive, crunchWindowDays, prizeLockMinGames } =
+  const { entries, prizeLockActive, crunchWindowDays, prizeLockMinGames, seasonPaused } =
     await loadEligibleOverallRows(leagueId);
-  return { entries: entries.slice(0, limit), prizeLockActive, crunchWindowDays, prizeLockMinGames };
+  return {
+    entries: entries.slice(0, limit),
+    prizeLockActive,
+    crunchWindowDays,
+    prizeLockMinGames,
+    seasonPaused,
+  };
 }
 
 function mapHeroRatings(

@@ -3,7 +3,7 @@
 **Leagues (Manage Server)**
 • `/league create` / `list` / `bind` / `unbind`
 • `/league rollover` — `reset:continue|soft|hard` (+ `compression` for soft)
-• `/league set|clear season_end` · `/league crunch start|clear`
+• `/league set|clear season_end` · `/league crunch start|clear` (past season end = soft pause until clear/extend/rollover)
 
 **Config (Manage Server)** — guild-wide
 • `/config view` (includes league settings when `league:` is set)

@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { createLogger } from '../../lib/logger.js';
 import { env } from '../../config/env.js';
 import { findActiveMatchByWc3statsGameId } from '../match/match-service.js';
+import { isLeagueSeasonPaused } from '../league/league.js';
 import { isLeagueWc3statsHostPromptReady } from '../league/league-wc3stats.js';
 import { isLeagueLobbyChannelReady } from '../league/league-lobby-channel.js';
 import { getGameProfile, UnknownGameIdError } from '../../domain/game-profile.js';
@@ -96,11 +97,17 @@ export async function listHostPromptReadyLeagues(): Promise<PromptReadyLeague[]>
       wc3statsHostPromptPingsEnabled: true,
       lobbyChannelEnabled: true,
       lobbyChannelId: true,
+      seasonEndsAt: true,
     },
   });
 
   const ready: PromptReadyLeague[] = [];
+  const now = new Date();
   for (const row of rows) {
+    // Query already filters status=ACTIVE; pause is driven only by seasonEndsAt.
+    if (isLeagueSeasonPaused({ status: 'ACTIVE', seasonEndsAt: row.seasonEndsAt }, now)) {
+      continue;
+    }
     try {
       if (getGameProfile(row.gameId).import !== 'wc3stats') {
         continue;

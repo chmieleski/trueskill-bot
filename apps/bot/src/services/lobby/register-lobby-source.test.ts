@@ -17,7 +17,7 @@ vi.mock('../league/league-profile.js', () => ({
 
 import { getGameProfile } from '../../domain/game-profile.js';
 import { WARCRAFT3_WOS_GAME_ID, WARCRAFT3_UDBR_GAME_ID } from '../../domain/games.js';
-import { LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
+import { LEAGUE_ARCHIVED_MESSAGE, LEAGUE_SEASON_PAUSED_MESSAGE } from '../league/league.js';
 import { MatchServiceError } from '../match/match-service.js';
 import {
   allowsEmptyMatchOnWc3statsFailure,
@@ -176,7 +176,7 @@ describe('assertRegisterLobbyAllowedForProfile', () => {
 
 describe('assertLeagueAllowsWc3statsImport', () => {
   it('rejects when the league is archived', async () => {
-    leagueFindUnique.mockResolvedValue({ status: 'ARCHIVED' });
+    leagueFindUnique.mockResolvedValue({ status: 'ARCHIVED', seasonEndsAt: null });
 
     await expect(assertLeagueAllowsWc3statsImport('league-archived')).rejects.toThrow(
       MatchServiceError,
@@ -187,8 +187,20 @@ describe('assertLeagueAllowsWc3statsImport', () => {
     expect(getGameProfileForLeagueMock).not.toHaveBeenCalled();
   });
 
+  it('rejects when the season is soft-paused', async () => {
+    leagueFindUnique.mockResolvedValue({
+      status: 'ACTIVE',
+      seasonEndsAt: new Date('2020-01-01T00:00:00.000Z'),
+    });
+
+    await expect(assertLeagueAllowsWc3statsImport('league-paused')).rejects.toThrow(
+      LEAGUE_SEASON_PAUSED_MESSAGE,
+    );
+    expect(getGameProfileForLeagueMock).not.toHaveBeenCalled();
+  });
+
   it('delegates to the game profile import check for active leagues', async () => {
-    leagueFindUnique.mockResolvedValue({ status: 'ACTIVE' });
+    leagueFindUnique.mockResolvedValue({ status: 'ACTIVE', seasonEndsAt: null });
     getGameProfileForLeagueMock.mockResolvedValue(udbr);
 
     await expect(assertLeagueAllowsWc3statsImport('league-1')).resolves.toBeUndefined();

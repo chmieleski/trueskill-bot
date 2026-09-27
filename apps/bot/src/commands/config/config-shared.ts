@@ -123,6 +123,7 @@ export function formatDecayLine(
   seasonEndsAt: Date | undefined,
   decayInCrunch: boolean,
   settings: ResolvedDecaySettings,
+  seasonPaused = false,
 ): string {
   if (!decayEnabled) {
     return '**Rating decay:** `off`';
@@ -143,7 +144,9 @@ export function formatDecayLine(
     const unix = Math.floor(seasonEndsAt.getTime() / 1000);
     parts.push(`season ends <t:${unix}:F>`);
   }
-  if (decayInCrunch) {
+  if (seasonPaused) {
+    parts.push('season paused');
+  } else if (decayInCrunch) {
     parts.push('crunch active');
   }
   return parts.join(' · ');
@@ -342,6 +345,7 @@ export async function buildConfigViewContent(
       leagueConfig.seasonEndsAt,
       leagueConfig.decayInCrunch,
       leagueConfig.decaySettings,
+      leagueConfig.seasonPaused,
     ),
     formatWc3statsEnabledLine(leagueConfig.wc3statsEnabled),
     ...formatWc3statsFilterLines(

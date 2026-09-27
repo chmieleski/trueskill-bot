@@ -1,5 +1,6 @@
 import { WARCRAFT3_UDBR_GAME_ID, WARCRAFT3_WOS_GAME_ID } from '../../domain/games.js';
 import { getGameProfileForLeague } from './league-profile.js';
+import { isLeagueSeasonPaused } from './league.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   clearAllLeagueWc3statsSlotMaps,
@@ -80,6 +81,7 @@ export interface ResolvedLeagueConfig {
   heroChampionRolesEnabled: boolean;
   seasonEndsAt: Date | undefined;
   decayInCrunch: boolean;
+  seasonPaused: boolean;
   decaySettings: ResolvedDecaySettings;
 }
 
@@ -94,6 +96,9 @@ export async function resolveLeagueConfig(leagueId: string): Promise<ResolvedLea
   const decaySettings = resolveDecaySettings(row ?? undefined);
   const decayInCrunch = row
     ? isLeagueInCrunch(toDecayLeagueContext({ ...row, decayEnabled }), new Date())
+    : false;
+  const seasonPaused = row
+    ? isLeagueSeasonPaused({ status: row.status, seasonEndsAt: row.seasonEndsAt ?? null })
     : false;
 
   return {
@@ -121,6 +126,7 @@ export async function resolveLeagueConfig(leagueId: string): Promise<ResolvedLea
     heroChampionRolesEnabled: row?.heroChampionRolesEnabled === true,
     seasonEndsAt,
     decayInCrunch,
+    seasonPaused,
     decaySettings,
   };
 }

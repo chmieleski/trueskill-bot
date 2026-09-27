@@ -184,4 +184,41 @@ describe('listHostPromptReadyLeagues', () => {
       }),
     );
   });
+
+  it('skips leagues whose season end has passed', async () => {
+    const leagueFindMany = vi.mocked(prisma.league.findMany);
+    leagueFindMany.mockResolvedValue([
+      {
+        id: 'paused',
+        guildId: 'g1',
+        gameId: WARCRAFT3_UDBR_GAME_ID,
+        wc3statsHostPromptChannelId: 'ch-1',
+        wc3statsMapPattern: 'udbr',
+        wc3statsMapSha1: null,
+        wc3statsEnabled: true,
+        wc3statsHostPromptEnabled: true,
+        wc3statsHostPromptPingsEnabled: true,
+        lobbyChannelEnabled: false,
+        lobbyChannelId: null,
+        seasonEndsAt: new Date('2020-01-01T00:00:00.000Z'),
+      },
+      {
+        id: 'open',
+        guildId: 'g1',
+        gameId: WARCRAFT3_UDBR_GAME_ID,
+        wc3statsHostPromptChannelId: 'ch-2',
+        wc3statsMapPattern: 'udbr',
+        wc3statsMapSha1: null,
+        wc3statsEnabled: true,
+        wc3statsHostPromptEnabled: true,
+        wc3statsHostPromptPingsEnabled: true,
+        lobbyChannelEnabled: false,
+        lobbyChannelId: null,
+        seasonEndsAt: null,
+      },
+    ] as never);
+
+    const ready = await listHostPromptReadyLeagues();
+    expect(ready.map((league) => league.id)).toEqual(['open']);
+  });
 });

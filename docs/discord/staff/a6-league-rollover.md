@@ -29,6 +29,8 @@ Archive a season and open a **successor**. Old league becomes read-only history.
 • Successor may **inherit** season end / crunch timestamps — clear if unwanted
 • `continue` successors have **decay off** by default (see decay guide)
 
+**Pause without successor:** If `/league set season_end` passes and you do **not** rollover, the same league **soft-pauses** (no new ranked lobbies; decay off). Clear/extend season end to resume, or rollover when ready for the next season.
+
 **Moves:** wc3stats maps, leaderboard/lobby channel, claim, rank-reset, host prompts, bindings, live board (reposted).
 **Stays archived:** match history, per-player rank-reset cooldown history.
 
