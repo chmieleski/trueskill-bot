@@ -1,3 +1,10 @@
+# [1.61.0](https://github.com/chmieleski/trueskill-bot/compare/v1.60.5...v1.61.0) (2026-09-27)
+
+
+### Features
+
+* **match:** add DC flag and season disconnect tax ([#187](https://github.com/chmieleski/trueskill-bot/issues/187)) ([c652900](https://github.com/chmieleski/trueskill-bot/commit/c652900c9ce48696bdccde1b9c9ccbd2bb8442ee))
+
 ## [1.60.5](https://github.com/chmieleski/trueskill-bot/compare/v1.60.4...v1.60.5) (2026-09-25)
 
 
