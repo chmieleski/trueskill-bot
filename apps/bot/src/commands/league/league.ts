@@ -416,6 +416,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         content: [
           `Season end for **${resolved.league.name}** set to ${discordTimestamp(seasonEndsAt)}.`,
           `Auto crunch starts ${crunchWindowDays} days before that time.`,
+          'After that time, ranked play pauses on this league until you clear/extend the season end or run `/league rollover`.',
         ].join('\n'),
         flags: MessageFlags.Ephemeral,
       });
@@ -444,7 +445,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       );
 
       await interaction.reply({
-        content: `Cleared season end for **${resolved.league.name}**. Auto crunch from that date is removed; manual crunch is unchanged.`,
+        content: `Cleared season end for **${resolved.league.name}**. Auto crunch from that date is removed; manual crunch is unchanged. If the season was paused, ranked play resumes.`,
         flags: MessageFlags.Ephemeral,
       });
       return;

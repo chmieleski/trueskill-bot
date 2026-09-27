@@ -358,19 +358,19 @@ Keep Discord I/O thin; all rules in rating-decay service (shared-domain-logic).
 
 ## Edge cases
 
-| Case                                 | Rule                                                                                                                           |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Calibrating**                      | No decay while `leagueGames < 5`                                                                                               |
-| **New player**                       | No decay while `isNewPlayer`                                                                                                   |
-| **Quitter finish**                   | Does not reset streak; decay still applies if otherwise eligible                                                               |
-| **Continue league (1.5)**            | `decayEnabled = false` until staff enable                                                                                      |
-| **Rollover during crunch**           | Archive stops decay and prize lock; successor seeding copies decay fields on continue                                          |
-| **Match correction / re-rate**       | Activity from `completedAt`; no automatic decay reversal                                                                       |
-| **Hero-only player (no global row)** | Skip decay (unchanged edge case)                                                                                               |
-| **No qualifying activity yet**       | Exempt from decay until `lastQualifyingActivityAt` is set by first non-quit COMPLETED match                                    |
-| **Partial UTC day**                  | At most one tier application per UTC day                                                                                       |
-| **Crunch ends without rollover**     | When `now >= seasonEndsAt`, decay continues under mid-season rules unless league archived                                      |
-| **Manual crunch without season end** | Prize eligibility = `lastQualifyingActivityAt >= crunchStart`; decay uses crunch tiers until archive or `/league crunch clear` |
+| Case                                 | Rule                                                                                                                                                  |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Calibrating**                      | No decay while `leagueGames < 5`                                                                                                                      |
+| **New player**                       | No decay while `isNewPlayer`                                                                                                                          |
+| **Quitter finish**                   | Does not reset streak; decay still applies if otherwise eligible                                                                                      |
+| **Continue league (1.5)**            | `decayEnabled = false` until staff enable                                                                                                             |
+| **Rollover during crunch**           | Archive stops decay and prize lock; successor seeding copies decay fields on continue                                                                 |
+| **Match correction / re-rate**       | Activity from `completedAt`; no automatic decay reversal                                                                                              |
+| **Hero-only player (no global row)** | Skip decay (unchanged edge case)                                                                                                                      |
+| **No qualifying activity yet**       | Exempt from decay until `lastQualifyingActivityAt` is set by first non-quit COMPLETED match                                                           |
+| **Partial UTC day**                  | At most one tier application per UTC day                                                                                                              |
+| **Crunch ends without rollover**     | When `now >= seasonEndsAt`, ranked play soft-pauses on the same league; idle decay does not apply until staff clears/extends season end or rolls over |
+| **Manual crunch without season end** | Prize eligibility = `lastQualifyingActivityAt >= crunchStart`; decay uses crunch tiers until archive or `/league crunch clear`                        |
 
 ## Error messages (English)
 

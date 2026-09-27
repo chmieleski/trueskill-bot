@@ -65,7 +65,7 @@ import {
   RANK_RESET_COOLDOWN_MIN_DAYS,
   RankResetServiceError,
 } from './rank-reset.js';
-import { LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
+import { LEAGUE_ARCHIVED_MESSAGE, LEAGUE_SEASON_PAUSED_MESSAGE } from '../league/league.js';
 
 const NOW = new Date('2026-08-15T12:00:00.000Z');
 const PLAYER = { id: 'player-1', username: 'Goku', discordId: 'discord-target' };
@@ -173,9 +173,23 @@ describe('previewRankReset', () => {
       status: 'ARCHIVED',
       rankResetEnabled: true,
       rankResetCooldownDays: 30,
+      seasonEndsAt: null,
     });
 
     await expect(previewRankReset(selfInput())).rejects.toThrow(LEAGUE_ARCHIVED_MESSAGE);
+    expect(playerFindUnique).not.toHaveBeenCalled();
+  });
+
+  it('rejects when the season is soft-paused', async () => {
+    leagueFindUnique.mockResolvedValue({
+      gameId: 'warcraft3_udbr',
+      status: 'ACTIVE',
+      rankResetEnabled: true,
+      rankResetCooldownDays: 30,
+      seasonEndsAt: new Date('2020-01-01T00:00:00.000Z'),
+    });
+
+    await expect(previewRankReset(selfInput())).rejects.toThrow(LEAGUE_SEASON_PAUSED_MESSAGE);
     expect(playerFindUnique).not.toHaveBeenCalled();
   });
 

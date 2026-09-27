@@ -9,6 +9,10 @@ export type { League };
 export const LEAGUE_ARCHIVED_MESSAGE =
   'That league is archived. Start a new season or pick an active league.';
 
+/** User-facing message when seasonEndsAt has passed and ranked play is soft-paused. */
+export const LEAGUE_SEASON_PAUSED_MESSAGE =
+  'This season has ended. Play is paused until staff clears or extends the season end, or starts the next season with /league rollover.';
+
 /**
  * Temporary helper for call sites that do not yet have resolveLeagueContext (Task 4/7).
  * Returns the id of the first (chronologically) UDBR league for the guild, or null if none.
@@ -66,6 +70,28 @@ export async function listArchivedLeaguesForGuild(guildId: string): Promise<Leag
 /** Whether match/rating writes are allowed for this league. */
 export function isLeagueWritable(league: Pick<League, 'status'>): boolean {
   return league.status === 'ACTIVE';
+}
+
+/**
+ * True when an active league's season end has passed (soft pause — no successor yet).
+ * Archived leagues are not "paused"; they use the archived write gate instead.
+ */
+export function isLeagueSeasonPaused(
+  league: Pick<League, 'status' | 'seasonEndsAt'>,
+  now: Date = new Date(),
+): boolean {
+  if (league.status !== 'ACTIVE' || league.seasonEndsAt == null) {
+    return false;
+  }
+  return now >= league.seasonEndsAt;
+}
+
+/** Whether new ranked play (lobbies, starts, rank reset) is allowed. */
+export function isLeagueAcceptingPlay(
+  league: Pick<League, 'status' | 'seasonEndsAt'>,
+  now: Date = new Date(),
+): boolean {
+  return isLeagueWritable(league) && !isLeagueSeasonPaused(league, now);
 }
 
 /** Fetch a single league by its id. Returns null when not found. */

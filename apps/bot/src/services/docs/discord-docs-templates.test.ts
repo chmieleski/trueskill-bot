@@ -28,6 +28,7 @@ function leagueConfig(overrides: Partial<ResolvedLeagueConfig> = {}): ResolvedLe
     heroChampionRolesEnabled: false,
     seasonEndsAt: undefined,
     decayInCrunch: false,
+    seasonPaused: false,
     decaySettings: DEFAULT_DECAY_SETTINGS,
     ...overrides,
   };

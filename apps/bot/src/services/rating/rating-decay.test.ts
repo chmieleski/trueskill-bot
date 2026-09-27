@@ -322,6 +322,22 @@ describe('resolveRankDecayFooter', () => {
     ).toBe(RANK_IDLE_DECAY_FOOTER);
   });
 
+  it('returns null when the season is soft-paused after seasonEndsAt', () => {
+    expect(
+      resolveRankDecayFooter({
+        decayEnabled: true,
+        leagueGames: 10,
+        isNewPlayer: false,
+        lastQualifyingActivityAt: new Date('2026-08-01T00:00:00.000Z'),
+        league: {
+          ...activeLeague,
+          seasonEndsAt: new Date('2026-08-15T00:00:00.000Z'),
+        },
+        now: new Date('2026-08-20T00:00:00.000Z'),
+      }),
+    ).toBeNull();
+  });
+
   it('returns null when idle within grace and not in crunch', () => {
     expect(
       resolveRankDecayFooter({

@@ -166,6 +166,18 @@ describe('prize lock embed copy', () => {
       'Medals require at least 1 finished game during the season crunch week.',
     );
   });
+
+  it('adds season paused banner on live embeds when the season has ended', () => {
+    const updatedAt = new Date('2026-08-15T12:00:00Z');
+    const embeds = buildOverallLiveLeaderboardEmbeds([{ ...fakeEntry(1) }], updatedAt, 'ki', {
+      seasonPaused: true,
+      prizeLockActive: true,
+    });
+    expect(embeds[0]!.data.description).toContain('Season ended — ranked play is paused');
+    expect(embeds[0]!.data.description).not.toContain(
+      'Season crunch — play this week to keep your medal spot.',
+    );
+  });
 });
 
 describe('buildOverallLeaderboardEmbed', () => {

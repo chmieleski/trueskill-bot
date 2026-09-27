@@ -14,6 +14,8 @@ const RANK_GOLD = 0xf0b232;
 export const PRIZE_LOCK_FOOTNOTE =
   'Medals require at least 1 finished game during the season crunch week.';
 export const CRUNCH_BANNER = 'Season crunch — play this week to keep your medal spot.';
+export const SEASON_PAUSED_BANNER =
+  'Season ended — ranked play is paused until staff clears or extends the season end, or starts the next season.';
 
 /** Prize-lock footnote using the league crunch window length. */
 export function formatPrizeLockFootnote(options: {
@@ -130,6 +132,7 @@ export function buildOverallLeaderboardEmbed(
 ): EmbedBuilder {
   const ratingLabel = options?.ratingLabel ?? 'ki';
   const prizeLockActive = page.prizeLockActive ?? false;
+  const seasonPaused = page.seasonPaused ?? false;
   const crunchWindowDays = page.crunchWindowDays ?? DEFAULT_DECAY_SETTINGS.crunchWindowDays;
   const prizeLockMinGames = page.prizeLockMinGames ?? DEFAULT_DECAY_SETTINGS.prizeLockMinGames;
   const table = formatOverallTable(page.entries, ratingLabel, { prizeLockActive });
@@ -138,7 +141,9 @@ export function buildOverallLeaderboardEmbed(
   if (options?.live) {
     // Discord parses <t:…> only in description/fields — footers are plain text.
     let description = table;
-    if (prizeLockActive) {
+    if (seasonPaused) {
+      description = `${SEASON_PAUSED_BANNER}\n\n${description}`;
+    } else if (prizeLockActive) {
       description = `${formatCrunchBanner(true)}\n\n${description}\n\n${formatPrizeLockFootnote({ minGames: prizeLockMinGames, crunchWindowDays })}`;
     }
     if (options.updatedAt) {
@@ -148,7 +153,9 @@ export function buildOverallLeaderboardEmbed(
     embed.setDescription(description);
   } else {
     let description = `Page ${page.page} of ${page.totalPages} · ${page.totalPlayers} players\n\n${table}`;
-    if (prizeLockActive) {
+    if (seasonPaused) {
+      description = `${SEASON_PAUSED_BANNER}\n\n${description}`;
+    } else if (prizeLockActive) {
       description += `\n\n${formatPrizeLockFootnote({ minGames: prizeLockMinGames, crunchWindowDays })}`;
     }
     embed.setDescription(description);
@@ -168,11 +175,17 @@ export function buildOverallLiveLeaderboardEmbeds(
   entries: OverallLeaderboardEntry[],
   updatedAt: Date,
   ratingLabel = 'ki',
-  options?: { prizeLockActive?: boolean; crunchWindowDays?: number; prizeLockMinGames?: number },
+  options?: {
+    prizeLockActive?: boolean;
+    crunchWindowDays?: number;
+    prizeLockMinGames?: number;
+    seasonPaused?: boolean;
+  },
 ): EmbedBuilder[] {
   const unix = Math.floor(updatedAt.getTime() / 1000);
   const stamp = `\n\nUpdated <t:${unix}:R>`;
   const prizeLockActive = options?.prizeLockActive ?? false;
+  const seasonPaused = options?.seasonPaused ?? false;
   const crunchWindowDays = options?.crunchWindowDays ?? DEFAULT_DECAY_SETTINGS.crunchWindowDays;
   const prizeLockMinGames = options?.prizeLockMinGames ?? DEFAULT_DECAY_SETTINGS.prizeLockMinGames;
   const chunks = entries.length === 0 ? [[]] : chunkLeaderboardEntries(entries);
@@ -182,10 +195,12 @@ export function buildOverallLiveLeaderboardEmbeds(
     const isLast = index === chunks.length - 1;
     const title = isFirst ? 'Global Leaderboard' : 'Global Leaderboard (continued)';
     let description = formatOverallTable(chunk, ratingLabel, { prizeLockActive });
-    if (prizeLockActive && isFirst) {
+    if (seasonPaused && isFirst) {
+      description = `${SEASON_PAUSED_BANNER}\n\n${description}`;
+    } else if (prizeLockActive && isFirst) {
       description = `${formatCrunchBanner(true)}\n\n${description}`;
     }
-    if (prizeLockActive && isLast) {
+    if (prizeLockActive && !seasonPaused && isLast) {
       description += `\n\n${formatPrizeLockFootnote({ minGames: prizeLockMinGames, crunchWindowDays })}`;
     }
     if (isLast) {

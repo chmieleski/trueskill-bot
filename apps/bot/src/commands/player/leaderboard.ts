@@ -32,8 +32,10 @@ import {
   getGameProfileForLeague,
   getLeagueById,
   getLeagueOption,
+  isLeagueAcceptingPlay,
   isLeagueWritable,
   LEAGUE_ARCHIVED_MESSAGE,
+  LEAGUE_SEASON_PAUSED_MESSAGE,
   resolveLeagueIdFromInteraction,
   respondAllLeagueAutocomplete,
   respondLeagueAutocomplete,
@@ -257,6 +259,13 @@ async function handleSetup(interaction: ChatInputCommandInteraction): Promise<vo
   if (!league || !isLeagueWritable(league)) {
     await interaction.reply({
       content: LEAGUE_ARCHIVED_MESSAGE,
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+  if (!isLeagueAcceptingPlay(league)) {
+    await interaction.reply({
+      content: LEAGUE_SEASON_PAUSED_MESSAGE,
       flags: MessageFlags.Ephemeral,
     });
     return;
