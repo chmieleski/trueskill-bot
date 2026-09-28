@@ -1,3 +1,10 @@
+## [1.63.2](https://github.com/chmieleski/trueskill-bot/compare/v1.63.1...v1.63.2) (2026-09-28)
+
+
+### Bug Fixes
+
+* **docs:** keep staff Discord guides under 2000 characters ([#191](https://github.com/chmieleski/trueskill-bot/issues/191)) ([e8256ab](https://github.com/chmieleski/trueskill-bot/commit/e8256ab11f31c7c4f752cba61c1268dc5ab90b2e))
+
 ## [1.63.1](https://github.com/chmieleski/trueskill-bot/compare/v1.63.0...v1.63.1) (2026-09-28)
 
 
