@@ -1,3 +1,10 @@
+## [1.63.3](https://github.com/chmieleski/trueskill-bot/compare/v1.63.2...v1.63.3) (2026-09-28)
+
+
+### Bug Fixes
+
+* **lobby:** fall back OCR model when Gemini is overloaded ([#194](https://github.com/chmieleski/trueskill-bot/issues/194)) ([30c241b](https://github.com/chmieleski/trueskill-bot/commit/30c241b640a9a9b28c285137831463ecd60da51f))
+
 ## [1.63.2](https://github.com/chmieleski/trueskill-bot/compare/v1.63.1...v1.63.2) (2026-09-28)
 
 
