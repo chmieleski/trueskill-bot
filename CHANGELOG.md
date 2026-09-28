@@ -1,3 +1,10 @@
+## [1.63.1](https://github.com/chmieleski/trueskill-bot/compare/v1.63.0...v1.63.1) (2026-09-28)
+
+
+### Bug Fixes
+
+* **leaderboard:** defer overall page buttons before load ([#190](https://github.com/chmieleski/trueskill-bot/issues/190)) ([aef35ad](https://github.com/chmieleski/trueskill-bot/commit/aef35ada01d4662201d4439d8833a75665801d21))
+
 # [1.63.0](https://github.com/chmieleski/trueskill-bot/compare/v1.62.0...v1.63.0) (2026-09-27)
 
 
