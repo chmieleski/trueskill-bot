@@ -81,6 +81,8 @@ export async function handleLeaderboardInteraction(interaction: Interaction): Pr
     return true;
   }
 
+  // Defer before the overall board load so Discord does not time out the button.
+  await interaction.deferUpdate();
   const pageData = await loadOverallLeaderboardPage(parsed.leagueId, parsed.page);
   const gameProfile = await getGameProfileForLeague(parsed.leagueId);
   const embed = buildOverallLeaderboardEmbed(pageData, {
@@ -93,6 +95,6 @@ export async function handleLeaderboardInteraction(interaction: Interaction): Pr
     totalPages: pageData.totalPages,
   });
 
-  await interaction.update({ embeds: [embed], components });
+  await interaction.editReply({ embeds: [embed], components });
   return true;
 }
