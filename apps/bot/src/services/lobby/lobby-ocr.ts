@@ -34,7 +34,33 @@ const LOBBY_OCR_SYSTEM_INSTRUCTION =
 const MIN_SLOT = 1;
 const MAX_SLOT = 12;
 const TEAM_A_MAX_SLOT = 6;
-const GEMINI_MODEL = 'gemini-3.1-flash-lite';
+
+/** Primary Gemini vision model for lobby OCR. */
+export const GEMINI_OCR_PRIMARY_MODEL = 'gemini-3.1-flash-lite';
+/** Used only when the primary model returns capacity / UNAVAILABLE errors. */
+export const GEMINI_OCR_FALLBACK_MODEL = 'gemini-3.5-flash-lite';
+
+/**
+ * True when Gemini rejected the request due to temporary capacity (503 / UNAVAILABLE).
+ * Those errors are safe to retry on a backup model.
+ */
+export function isGeminiCapacityError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const status = 'status' in error ? Number((error as { status?: unknown }).status) : Number.NaN;
+  if (status === 503) {
+    return true;
+  }
+
+  const message = 'message' in error ? String((error as { message?: unknown }).message) : '';
+  return (
+    message.includes('"status":"UNAVAILABLE"') ||
+    message.includes('high demand') ||
+    message.includes('"code":503')
+  );
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -119,38 +145,59 @@ export async function extractLobbyPlayers(
 
   const ai = new GoogleGenAI({ apiKey: env.geminiApiKey });
   const ocrStartedAt = Date.now();
-
+  const models = [GEMINI_OCR_PRIMARY_MODEL, GEMINI_OCR_FALLBACK_MODEL];
   let response;
+  let usedModel = GEMINI_OCR_PRIMARY_MODEL;
 
-  try {
-    log.info({ model: GEMINI_MODEL, mimeType }, 'Calling Gemini lobby OCR');
-    response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: [
-        {
-          inlineData: {
-            data: base64Image,
-            mimeType,
+  for (let index = 0; index < models.length; index += 1) {
+    const model = models[index]!;
+    usedModel = model;
+    try {
+      log.info({ model, mimeType }, 'Calling Gemini lobby OCR');
+      response = await ai.models.generateContent({
+        model,
+        contents: [
+          {
+            inlineData: {
+              data: base64Image,
+              mimeType,
+            },
           },
+          'Extract the lobby players as JSON.',
+        ],
+        config: {
+          systemInstruction: LOBBY_OCR_SYSTEM_INSTRUCTION,
+          responseMimeType: 'application/json',
         },
-        'Extract the lobby players as JSON.',
-      ],
-      config: {
-        systemInstruction: LOBBY_OCR_SYSTEM_INSTRUCTION,
-        responseMimeType: 'application/json',
-      },
-    });
-  } catch (error) {
-    log.error(
-      { err: error, model: GEMINI_MODEL, ocrMs: Date.now() - ocrStartedAt },
-      'Gemini lobby OCR request failed',
-    );
+      });
+      break;
+    } catch (error) {
+      const canFallback = index < models.length - 1 && isGeminiCapacityError(error);
+      log.error(
+        { err: error, model, ocrMs: Date.now() - ocrStartedAt, canFallback },
+        'Gemini lobby OCR request failed',
+      );
+      if (!canFallback) {
+        throw new LobbyOcrError('Lobby OCR failed. Please try again in a moment.');
+      }
+      log.warn(
+        { model, fallback: models[index + 1] },
+        'Gemini OCR capacity error; trying fallback model',
+      );
+    }
+  }
+
+  if (!response) {
     throw new LobbyOcrError('Lobby OCR failed. Please try again in a moment.');
   }
 
   const text = response.text;
   log.debug(
-    { ocrMs: Date.now() - ocrStartedAt, responseChars: text?.length ?? 0 },
+    {
+      model: usedModel,
+      ocrMs: Date.now() - ocrStartedAt,
+      responseChars: text?.length ?? 0,
+    },
     'Gemini OCR response received',
   );
 
