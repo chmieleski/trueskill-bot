@@ -13,18 +13,17 @@
 • `changelog_channel` · `changelog_draft_channel` (one draft channel bot-wide)
 
 **League config (Manage Server)**
-• `player_claim` · `lobby_channel` — when on, channel allows `/register_lobby`, `/lobby`, `/match complete|cancel|quitters|griefers|upload_report`
+• `player_claim` · `lobby_channel` — when on: `/register_lobby`, `/lobby`, `/match complete|cancel|quitters|griefers|upload_report`
 • Overall board: `leaderboard_channel` / `size` · `/leaderboard setup`
 • `rank_reset` / `rank_reset_cooldown`
 • `wc3stats_map_preset` (UDBR) · `wc3stats_slot` / `map` · `wc3stats_host_prompt` · `wc3stats_host_prompt_pings`
-• `decay` (`enabled:true|false`)
-• `/hero_champion_config` — UDBR #1 hero roles (see **a10**)
+• `decay` · `/hero_champion_config` (UDBR #1 roles — see **a10**)
 
 **Decay config (Manage Server)**
-• `/decay_config …` — grace/rates/cap/crunch/prize lock/min games · `preset name:strict_crunch` (`clear_*` resets defaults)
+• `/decay_config …` — grace/rates/cap/crunch/prize lock/min games · `preset name:strict_crunch`
 
 **Releases (draft server)**
-Draft card → edit summary → **Publish** (all changelog channels) or **Dismiss**
+Draft card → edit summary → **Publish** or **Dismiss**
 
 **Mod role**
 • `/match complete|quitters|griefers|cancel` (+ `match_id`)
