@@ -32,15 +32,14 @@ One league → bind optional. Multiple → bind or pass `league:`.
 ```
 
 **4) Dedicated lobby channel** (optional, per league)
-Default **off**. When on, `/register_lobby` and wc3stats **Open lobby** only in that channel. `/lobby` works anywhere.
+Default **off**. When on, `/register_lobby` and wc3stats **Open lobby** only there. `/lobby` works anywhere.
 
 ```
 /league_config set lobby_channel enabled:True channel:#lobbies
 /league_config clear lobby_channel
 ```
 
-In that channel, only `/register_lobby`, `/lobby`, and `/match complete|cancel|quitters|griefers|upload_report` are allowed.
-Host prompts (if on) **must** use this channel. `/league bind` separately for auto league pick.
+Only `/register_lobby`, `/lobby`, and `/match complete|cancel|quitters|griefers|upload_report` are allowed there. Host prompts (if on) **must** use it. `/league bind` separately for auto league pick.
 
 **5) Live overall board** — `/league_config set leaderboard_channel` or `/leaderboard setup`. Size: `/league_config set|clear leaderboard_size` (default 10, max 100).
 
@@ -49,11 +48,10 @@ Host prompts (if on) **must** use this channel. `/league bind` separately for au
 **7) Quitter / griefer boards** (guild-wide)
 • `/config set quitter_leaderboard_channel` or `/leaderboard setup_quitters`
 • `/config set griefer_leaderboard_channel` or `/leaderboard setup_griefers`
-• Size / display (`count`/`rate`/`both`) / sort — see `/config view`
-• Browse: `/leaderboard quitters` · `/leaderboard griefers`
+• Size / display / sort — `/config view` · browse: `/leaderboard quitters` · `griefers`
 
 **8) Decay** — `/league_config set decay enabled:true|false` (see rating-decay guide).
 
-**9) Hero champion roles (UDBR)** — create Discord roles → `/hero_champion_config map` → `/hero_champion_config enable`. See **a10-hero-champion-roles**.
+**9) Hero champion roles (UDBR)** — create roles → `/hero_champion_config map` → `enable`. See **a10**.
 
 **See everything:** `/config view`

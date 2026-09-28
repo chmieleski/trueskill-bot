@@ -37,6 +37,7 @@ Rendered posts must stay under Discord's 2000-character limit.
 7. `staff/a7-rating-decay.md`
 8. `staff/a8-wos-hero-display-names.md`
 9. `staff/a9-captain-draft.md`
+10. `staff/a10-hero-champion-roles.md`
 
 ## Tips
 
