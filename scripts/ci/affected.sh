@@ -51,6 +51,8 @@ FORCE_PATHS=(
   turbo.json
   .github/workflows
   deploy/aws
+  # Shipped in the bot release tarball (pack-release.sh); must deploy to reach hosts.
+  docs/discord
 )
 
 force_all=false
