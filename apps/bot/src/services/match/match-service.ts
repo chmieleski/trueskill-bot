@@ -707,7 +707,15 @@ export async function replaceMatchRoster(
 
     const previousRows = await tx.matchPlayer.findMany({
       where: { matchId },
-      select: { playerId: true, slot: true, locked: true },
+      select: {
+        playerId: true,
+        slot: true,
+        team: true,
+        heroId: true,
+        locked: true,
+        isQuitter: true,
+        isGriefer: true,
+      },
     });
     const previousLockedPairs = new Set(
       previousRows
@@ -718,29 +726,53 @@ export async function replaceMatchRoster(
       roster.map((player) => [player.slot, player.locked === true] as const),
     );
 
-    await tx.matchPlayer.deleteMany({ where: { matchId } });
-
     const resolved = await resolvePlayersInTx(tx, roster, existing.leagueId, profile);
+    const nextByPlayerId = new Map(resolved.map((e) => [e.playerId, e]));
+    const prevByPlayerId = new Map(previousRows.map((r) => [r.playerId, r]));
 
-    if (resolved.length > 0) {
-      await tx.matchPlayer.createMany({
-        data: resolved.map((entry) => ({
+    const toDelete = previousRows.filter((r) => !nextByPlayerId.has(r.playerId));
+    if (toDelete.length > 0) {
+      await tx.matchPlayer.deleteMany({
+        where: {
           matchId,
-          playerId: entry.playerId,
-          team: entry.team,
-          slot: entry.slot,
-          heroId: entry.heroId,
-          result: null,
-          isQuitter: entry.isQuitter === true,
-          isGriefer: false,
-          locked: reconcileMatchPlayerLocked(
-            previousLockedPairs,
-            entry.playerId,
-            entry.slot,
-            incomingLockedBySlot.get(entry.slot) === true,
-          ),
-        })),
+          playerId: { in: toDelete.map((r) => r.playerId) },
+        },
       });
+    }
+
+    for (const entry of resolved) {
+      const locked = reconcileMatchPlayerLocked(
+        previousLockedPairs,
+        entry.playerId,
+        entry.slot,
+        incomingLockedBySlot.get(entry.slot) === true,
+      );
+      const prev = prevByPlayerId.get(entry.playerId);
+      const data = {
+        team: entry.team,
+        slot: entry.slot,
+        heroId: entry.heroId,
+        result: null as null,
+        isQuitter: entry.isQuitter === true,
+        isGriefer: false,
+        locked,
+      };
+      if (!prev) {
+        await tx.matchPlayer.create({
+          data: { matchId, playerId: entry.playerId, ...data },
+        });
+      } else if (
+        prev.team !== data.team ||
+        prev.slot !== data.slot ||
+        prev.heroId !== data.heroId ||
+        prev.isQuitter !== data.isQuitter ||
+        prev.locked !== data.locked
+      ) {
+        await tx.matchPlayer.update({
+          where: { matchId_playerId: { matchId, playerId: entry.playerId } },
+          data,
+        });
+      }
     }
 
     if (options.markLobbyRosterAuthority) {
