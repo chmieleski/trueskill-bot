@@ -249,6 +249,12 @@ model PlayerRating {
   lastQualifyingActivityAt DateTime?
   idleDecayKiApplied       Int       @default(0)
   lastDecayAppliedAt       DateTime?
+  /// Denormalized display W/L/Q/G/DC (rank-reset window). Shadowed vs MatchPlayer until flip.
+  displayWins   Int @default(0)
+  displayLosses Int @default(0)
+  displayQuits  Int @default(0)
+  displayGriefs Int @default(0)
+  displayDcs    Int @default(0)
   updatedAt                DateTime  @updatedAt
 
   league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
