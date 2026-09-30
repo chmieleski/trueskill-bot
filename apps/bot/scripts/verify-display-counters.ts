@@ -9,31 +9,13 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config as loadEnv } from 'dotenv';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { LeagueStatus, PrismaClient } from '@dbz/db';
-import {
-  countersEqualStats,
-  displayStatsFromCounters,
-} from '../src/services/rating/display-counters.js';
-import {
-  loadMatchDisplayStatsFromHistory,
-  type PlayerMatchDisplayStats,
-} from '../src/services/rating/rank-reset-display.js';
 
+// Must run before importing app modules that pull in config/env.ts.
 loadEnv({ path: resolve(dirname(fileURLToPath(import.meta.url)), '../../../.env') });
 
 const ALL_LEAGUES = process.argv.includes('--all-leagues');
 const ALLOW_REMOTE = process.argv.includes('--allow-remote');
 const BATCH_SIZE = 50;
-
-const ZERO_STATS: PlayerMatchDisplayStats = {
-  games: 0,
-  wins: 0,
-  losses: 0,
-  quits: 0,
-  griefs: 0,
-  dcs: 0,
-};
 
 function assertSafeDatabaseTarget(url: string): void {
   if (ALLOW_REMOTE) return;
@@ -43,11 +25,29 @@ function assertSafeDatabaseTarget(url: string): void {
   );
 }
 
-function formatStats(s: PlayerMatchDisplayStats): string {
-  return `W=${s.wins} L=${s.losses} Q=${s.quits} G=${s.griefs} DC=${s.dcs}`;
-}
-
 async function main(): Promise<void> {
+  const { PrismaPg } = await import('@prisma/adapter-pg');
+  const { LeagueStatus, PrismaClient } = await import('@dbz/db');
+  const { countersEqualStats, displayStatsFromCounters } =
+    await import('../src/services/rating/display-counters.js');
+  const { loadMatchDisplayStatsFromHistory } =
+    await import('../src/services/rating/rank-reset-display.js');
+  type PlayerMatchDisplayStats =
+    import('../src/services/rating/rank-reset-display.js').PlayerMatchDisplayStats;
+
+  const ZERO_STATS: PlayerMatchDisplayStats = {
+    games: 0,
+    wins: 0,
+    losses: 0,
+    quits: 0,
+    griefs: 0,
+    dcs: 0,
+  };
+
+  function formatStats(s: PlayerMatchDisplayStats): string {
+    return `W=${s.wins} L=${s.losses} Q=${s.quits} G=${s.griefs} DC=${s.dcs}`;
+  }
+
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
     throw new Error('Missing DATABASE_URL');

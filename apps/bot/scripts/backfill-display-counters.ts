@@ -9,10 +9,8 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config as loadEnv } from 'dotenv';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '@dbz/db';
-import { recomputeDisplayCountersForPlayer } from '../src/services/rating/display-counters.js';
 
+// Must run before importing app modules that pull in config/env.ts.
 loadEnv({ path: resolve(dirname(fileURLToPath(import.meta.url)), '../../../.env') });
 
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -28,6 +26,11 @@ function assertSafeDatabaseTarget(url: string): void {
 }
 
 async function main(): Promise<void> {
+  const { PrismaPg } = await import('@prisma/adapter-pg');
+  const { PrismaClient } = await import('@dbz/db');
+  const { recomputeDisplayCountersForPlayer } =
+    await import('../src/services/rating/display-counters.js');
+
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
     throw new Error('Missing DATABASE_URL');
