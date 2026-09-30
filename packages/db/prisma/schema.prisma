@@ -430,6 +430,8 @@ model MatchPlayerStats {
   reportWin    Boolean?
   kills        Int
   deaths       Int
+  /// Deaths while on a train (WOS report `train_deaths`); 0 when absent on older exports.
+  trainDeaths  Int      @default(0)
   damagePhys   Int
   damageMagic  Int
   damageTotal  Int

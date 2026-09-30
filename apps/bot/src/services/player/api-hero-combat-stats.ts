@@ -19,6 +19,7 @@ export type ApiCombatRow = {
   completedAt: Date | null;
   kills: number;
   deaths: number;
+  trainDeaths: number;
   damagePhys: number;
   damageMagic: number;
   damageTotal: number;
@@ -45,6 +46,7 @@ export type ApiHeroWindowAggregate = {
   avgHeal: number;
   avgKills: number;
   avgDeaths: number;
+  avgTrainDeaths: number;
   sumDamageTotal: number;
   sumDamagePhys: number;
   sumDamageMagic: number;
@@ -54,6 +56,7 @@ export type ApiHeroWindowAggregate = {
   sumHeal: number;
   sumKills: number;
   sumDeaths: number;
+  sumTrainDeaths: number;
   kda: string;
   topPlayers: ApiTopPlayer[];
 };
@@ -80,6 +83,7 @@ export type ApiHeroRecentGame = {
   completedAt: string | null;
   kills: number;
   deaths: number;
+  trainDeaths: number;
   damagePhys: number;
   damageMagic: number;
   damageTotal: number;
@@ -107,6 +111,7 @@ export type ApiMatchStatsPlayer = {
   result: 'WIN' | 'LOSS' | 'DRAW' | null;
   kills: number;
   deaths: number;
+  trainDeaths: number;
   damagePhys: number;
   damageMagic: number;
   damageTotal: number;
@@ -140,6 +145,7 @@ export type PrismaCombatRowSource = {
     heroObjectId: number | null;
     kills: number;
     deaths: number;
+    trainDeaths: number;
     damagePhys: number;
     damageMagic: number;
     damageTotal: number;
@@ -163,6 +169,7 @@ const COMBAT_STATS_SELECT = {
   heroObjectId: true,
   kills: true,
   deaths: true,
+  trainDeaths: true,
   damagePhys: true,
   damageMagic: true,
   damageTotal: true,
@@ -310,6 +317,7 @@ export function aggregateApiHeroWindow(
 
   const sumKills = rows.reduce((sum, row) => sum + row.kills, 0);
   const sumDeaths = rows.reduce((sum, row) => sum + row.deaths, 0);
+  const sumTrainDeaths = rows.reduce((sum, row) => sum + row.trainDeaths, 0);
   const sumDamageTotal = rows.reduce((sum, row) => sum + row.damageTotal, 0);
   const sumDamagePhys = rows.reduce((sum, row) => sum + row.damagePhys, 0);
   const sumDamageMagic = rows.reduce((sum, row) => sum + row.damageMagic, 0);
@@ -334,6 +342,7 @@ export function aggregateApiHeroWindow(
     avgHeal: Math.round(mean(rows.map((row) => row.heal))),
     avgKills: Math.round(mean(rows.map((row) => row.kills))),
     avgDeaths: Math.round(mean(rows.map((row) => row.deaths))),
+    avgTrainDeaths: Math.round(mean(rows.map((row) => row.trainDeaths))),
     sumDamageTotal,
     sumDamagePhys,
     sumDamageMagic,
@@ -343,6 +352,7 @@ export function aggregateApiHeroWindow(
     sumHeal,
     sumKills,
     sumDeaths,
+    sumTrainDeaths,
     kda: formatKda(sumKills, sumDeaths),
     topPlayers,
   };
@@ -386,6 +396,7 @@ export function mapPrismaCombatRows(
       completedAt: row.match.completedAt,
       kills: stats.kills,
       deaths: stats.deaths,
+      trainDeaths: stats.trainDeaths,
       damagePhys: stats.damagePhys,
       damageMagic: stats.damageMagic,
       damageTotal: stats.damageTotal,
@@ -411,6 +422,7 @@ function toApiRecentGame(row: ApiCombatRow, names: Map<number, string>): ApiHero
     completedAt: row.completedAt?.toISOString() ?? null,
     kills: row.kills,
     deaths: row.deaths,
+    trainDeaths: row.trainDeaths,
     damagePhys: row.damagePhys,
     damageMagic: row.damageMagic,
     damageTotal: row.damageTotal,
@@ -591,6 +603,7 @@ export async function loadApiMatchCombatStats(input: {
         result: player.result,
         kills: stats.kills,
         deaths: stats.deaths,
+        trainDeaths: stats.trainDeaths,
         damagePhys: stats.damagePhys,
         damageMagic: stats.damageMagic,
         damageTotal: stats.damageTotal,

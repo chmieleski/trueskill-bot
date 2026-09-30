@@ -140,12 +140,14 @@ Expected format: **WOS2E v1** encrypted container (map export). The server decry
 Typical container lines (inside `Preload("…")` or as plain payload):
 
 ```text
-WOS2E|v=1|id=<uuid-like-id>|alg=R87M2
+WOS2E|v=1|id=<uuid-like-id>|alg=R87M2|map_version=<optional>
 D|s=0|c=<ciphertext>|t=<8-char-tag>
 D|s=1|c=<ciphertext>|t=<8-char-tag>
 …
 Z|n=<line-count>|t=<8-char-final-tag>
 ```
+
+Header fields are order-tolerant; `map_version` is cleartext and may be omitted on older exports.
 
 After decrypt, records look like:
 
@@ -153,7 +155,7 @@ After decrypt, records look like:
 ID|value=<same-id>|format=WOS2_BOT_V2|scope=MATCH
 MATCH|team1_rounds=…|team2_rounds=…|players=…|schema=2|teams_reorganized=0|1
 PLAYER|n=…|pid=…|name=Nick#1234|team=1|win=0|left=0|lobby_slot=…|team_slot=…|visual_slot=…|…
-STATS|n=…|pid=…|rounds_played=…|round_wins=…|round_losses=…|kills=…|deaths=…|…
+STATS|n=…|pid=…|rounds_played=…|round_wins=…|round_losses=…|kills=…|deaths=…|train_deaths=…|…
 ITEMS|n=…|pid=…|slot1=…|…
 ITEM_RATE|item_id=…|item_name=…|games=…|wins=…|winrate_pct=…
 END|id=<same-as-ID-value>

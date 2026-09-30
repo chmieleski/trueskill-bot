@@ -62,6 +62,7 @@ function combatRow(overrides: Partial<ApiCombatRow> & { matchId: string }): ApiC
     completedAt: new Date('2026-01-10T12:00:00Z'),
     kills: 2,
     deaths: 1,
+    trainDeaths: 0,
     damagePhys: 300,
     damageMagic: 700,
     damageTotal: 1000,
@@ -110,6 +111,7 @@ function prismaCombatSource(
       heroObjectId: 101,
       kills: 2,
       deaths: 1,
+      trainDeaths: 0,
       damagePhys: 300,
       damageMagic: 700,
       damageTotal: 1000,
@@ -149,6 +151,7 @@ describe('aggregateApiHeroWindow', () => {
           result: 'WIN',
           kills: 4,
           deaths: 2,
+          trainDeaths: 1,
           damagePhys: 100,
           damageMagic: 200,
           damageTotal: 300,
@@ -162,6 +165,7 @@ describe('aggregateApiHeroWindow', () => {
           result: 'LOSS',
           kills: 2,
           deaths: 4,
+          trainDeaths: 3,
           damagePhys: 300,
           damageMagic: 500,
           damageTotal: 800,
@@ -184,9 +188,11 @@ describe('aggregateApiHeroWindow', () => {
     expect(stats.avgHeal).toBe(100);
     expect(stats.avgKills).toBe(3);
     expect(stats.avgDeaths).toBe(3);
+    expect(stats.avgTrainDeaths).toBe(2);
     expect(stats.sumDamageTotal).toBe(1100);
     expect(stats.sumKills).toBe(6);
     expect(stats.sumDeaths).toBe(6);
+    expect(stats.sumTrainDeaths).toBe(4);
     expect(stats.kda).toBe('1');
     expect(stats.topPlayers).toEqual([]);
   });
@@ -308,6 +314,7 @@ describe('mapPrismaCombatRows', () => {
         completedAt: new Date('2026-01-10T12:00:00Z'),
         kills: 2,
         deaths: 1,
+        trainDeaths: 0,
         damagePhys: 300,
         damageMagic: 700,
         damageTotal: 1000,
@@ -337,6 +344,7 @@ describe('mapPrismaCombatRows', () => {
             heroObjectId: null,
             kills: 1,
             deaths: 0,
+            trainDeaths: 0,
             damagePhys: 1,
             damageMagic: 1,
             damageTotal: 2,
@@ -591,6 +599,7 @@ describe('loadApiMatchCombatStats', () => {
             heroObjectId: 101,
             kills: 2,
             deaths: 1,
+            trainDeaths: 0,
             damagePhys: 100,
             damageMagic: 200,
             damageTotal: 300,
@@ -639,6 +648,7 @@ describe('loadApiMatchCombatStats', () => {
           result: MatchResult.WIN,
           kills: 2,
           deaths: 1,
+          trainDeaths: 0,
           damagePhys: 100,
           damageMagic: 200,
           damageTotal: 300,

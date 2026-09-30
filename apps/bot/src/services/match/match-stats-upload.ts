@@ -65,6 +65,7 @@ function buildPlayerStatsCreateInput(reportPlayer: Wos2BotReportPlayer, playerId
     reportWin: reportPlayer.win,
     kills: reportPlayer.kills,
     deaths: reportPlayer.deaths,
+    trainDeaths: reportPlayer.trainDeaths,
     damagePhys: reportPlayer.damagePhys,
     damageMagic: reportPlayer.damageMagic,
     damageTotal: reportPlayer.damageTotal,
