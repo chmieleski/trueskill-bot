@@ -639,7 +639,7 @@ export async function applyLeagueRollover(
   const [grieferTaxByPlayer, dcTaxByPlayer, displayStats] = await Promise.all([
     loadPendingGrieferTaxForLeague(source.id),
     loadPendingDcTaxForLeague(source.id),
-    loadMatchDisplayStatsByPlayer(source.id),
+    loadMatchDisplayStatsByPlayer(source.id, [...playerIds]),
   ]);
   const gamesByPlayer = gamesByPlayerFromStats(displayStats);
 
