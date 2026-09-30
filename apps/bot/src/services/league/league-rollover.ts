@@ -16,6 +16,7 @@ import {
   gamesByPlayerFromStats,
   loadMatchDisplayStatsByPlayer,
 } from '../rating/rank-reset-display.js';
+import { invalidateDecayLeagueCache } from '../rating/rating-decay-league-cache.js';
 
 export class LeagueRolloverError extends Error {
   constructor(message: string) {
@@ -823,6 +824,7 @@ export async function applyLeagueRollover(
     };
   });
 
+  invalidateDecayLeagueCache(result.archivedLeagueId);
   return result;
 }
 

@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { assertDecaySettingBounds, type DecaySettingField } from '../rating/decay-settings.js';
+import { invalidateDecayLeagueCache } from '../rating/rating-decay-league-cache.js';
 
 /** Archived-league rejection for season end / crunch staff commands. */
 export const LEAGUE_DECAY_ARCHIVED_MESSAGE = 'That league is archived. Pick an active league.';
@@ -35,6 +36,7 @@ export async function setLeagueSeasonEndsAt(
     where: { id: leagueId },
     data: { seasonEndsAt },
   });
+  invalidateDecayLeagueCache(leagueId);
 }
 
 export type StartLeagueCrunchResult = {
@@ -63,6 +65,7 @@ export async function startLeagueCrunch(
     data: { crunchStartedAt: now },
     select: { crunchStartedAt: true },
   });
+  invalidateDecayLeagueCache(leagueId);
 
   return {
     alreadyStarted: false,
@@ -76,6 +79,7 @@ export async function clearLeagueCrunch(leagueId: string): Promise<void> {
     where: { id: leagueId },
     data: { crunchStartedAt: null },
   });
+  invalidateDecayLeagueCache(leagueId);
 }
 
 /** Enable or disable idle rating decay for a league. */
@@ -84,6 +88,7 @@ export async function setDecayEnabled(leagueId: string, enabled: boolean): Promi
     where: { id: leagueId },
     data: { decayEnabled: enabled },
   });
+  invalidateDecayLeagueCache(leagueId);
 }
 
 export type DecayMode = 'mid' | 'crunch';
@@ -128,6 +133,7 @@ export async function setDecayModeSetting(
     where: { id: leagueId },
     data: { [column]: safe },
   });
+  invalidateDecayLeagueCache(leagueId);
 }
 
 /** Clear a mid/crunch mode-scoped numeric decay override (back to code default). */
@@ -141,6 +147,7 @@ export async function clearDecayModeSetting(
     where: { id: leagueId },
     data: { [column]: null },
   });
+  invalidateDecayLeagueCache(leagueId);
 }
 
 /** Set mid-season streak cap (0 = no cap). */
@@ -150,6 +157,7 @@ export async function setDecayStreakCap(leagueId: string, ki: number): Promise<v
     where: { id: leagueId },
     data: { decayMidStreakCapKi: safe },
   });
+  invalidateDecayLeagueCache(leagueId);
 }
 
 /** Clear mid-season streak cap override. */
@@ -158,6 +166,7 @@ export async function clearDecayStreakCap(leagueId: string): Promise<void> {
     where: { id: leagueId },
     data: { decayMidStreakCapKi: null },
   });
+  invalidateDecayLeagueCache(leagueId);
 }
 
 /** Set auto-crunch window days before season end. */
@@ -167,6 +176,7 @@ export async function setDecayCrunchWindow(leagueId: string, days: number): Prom
     where: { id: leagueId },
     data: { decayCrunchWindowDays: safe },
   });
+  invalidateDecayLeagueCache(leagueId);
 }
 
 /** Clear auto-crunch window override. */
@@ -175,6 +185,7 @@ export async function clearDecayCrunchWindow(leagueId: string): Promise<void> {
     where: { id: leagueId },
     data: { decayCrunchWindowDays: null },
   });
+  invalidateDecayLeagueCache(leagueId);
 }
 
 /** Enable or disable prize-lock medals during crunch. */
@@ -183,6 +194,7 @@ export async function setDecayPrizeLock(leagueId: string, enabled: boolean): Pro
     where: { id: leagueId },
     data: { decayPrizeLockEnabled: enabled },
   });
+  invalidateDecayLeagueCache(leagueId);
 }
 
 /** Clear prize-lock override (back to default on). */
@@ -191,6 +203,7 @@ export async function clearDecayPrizeLock(leagueId: string): Promise<void> {
     where: { id: leagueId },
     data: { decayPrizeLockEnabled: null },
   });
+  invalidateDecayLeagueCache(leagueId);
 }
 
 /** Set minimum qualifying games required for prize lock during crunch. */
@@ -200,6 +213,7 @@ export async function setDecayPrizeLockMinGames(leagueId: string, games: number)
     where: { id: leagueId },
     data: { decayPrizeLockMinGames: safe },
   });
+  invalidateDecayLeagueCache(leagueId);
 }
 
 /** Clear prize-lock min-games override (back to code default). */
@@ -208,6 +222,7 @@ export async function clearDecayPrizeLockMinGames(leagueId: string): Promise<voi
     where: { id: leagueId },
     data: { decayPrizeLockMinGames: null },
   });
+  invalidateDecayLeagueCache(leagueId);
 }
 
 export const DECAY_PRESET_STRICT_CRUNCH = 'strict_crunch';
@@ -229,4 +244,5 @@ export async function applyDecayPreset(leagueId: string, name: string): Promise<
     where: { id: leagueId },
     data: { ...STRICT_CRUNCH_PRESET_DATA },
   });
+  invalidateDecayLeagueCache(leagueId);
 }

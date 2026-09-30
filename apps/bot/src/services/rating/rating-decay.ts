@@ -11,6 +11,7 @@ import {
   type DecaySettingsSource,
   type ResolvedDecaySettings,
 } from './decay-settings.js';
+import { getDecayLeagueCached } from './rating-decay-league-cache.js';
 
 export {
   CRUNCH_GRACE_DAYS,
@@ -398,17 +399,19 @@ export async function applyPendingDecay(
   now: Date = new Date(),
 ): Promise<ApplyPendingDecayResult> {
   const [league, rating] = await Promise.all([
-    db.league.findUnique({
-      where: { id: leagueId },
-      select: {
-        status: true,
-        decayEnabled: true,
-        seasonEndsAt: true,
-        crunchStartedAt: true,
-        archivedAt: true,
-        ...DECAY_SETTINGS_SELECT,
-      },
-    }),
+    getDecayLeagueCached(leagueId, () =>
+      db.league.findUnique({
+        where: { id: leagueId },
+        select: {
+          status: true,
+          decayEnabled: true,
+          seasonEndsAt: true,
+          crunchStartedAt: true,
+          archivedAt: true,
+          ...DECAY_SETTINGS_SELECT,
+        },
+      }),
+    ),
     db.playerRating.findUnique({
       where: { leagueId_playerId: { leagueId, playerId } },
       select: {
