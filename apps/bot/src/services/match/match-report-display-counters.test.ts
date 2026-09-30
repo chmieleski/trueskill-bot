@@ -120,7 +120,11 @@ vi.mock('./match-service.js', async (importOriginal) => {
   };
 });
 
-import { completeMatch } from './match-report.js';
+import {
+  cancelInProgressMatch,
+  completeMatch,
+  playersAffectingCancelledDisplay,
+} from './match-report.js';
 import { loadMatchDisplayStatsFromHistory } from '../rating/rank-reset-display.js';
 
 const leagueId = 'league-1';
@@ -269,6 +273,113 @@ describe('completeMatch display counters', () => {
         displayWins: 0,
         displayLosses: 1,
         displayQuits: 0,
+        displayGriefs: 0,
+        displayDcs: 0,
+      },
+    });
+  });
+});
+
+describe('playersAffectingCancelledDisplay', () => {
+  it('keeps only quit/grief/DC players', () => {
+    expect(
+      playersAffectingCancelledDisplay([
+        { playerId: 'a', isQuitter: false, isGriefer: false, isDc: false },
+        { playerId: 'b', isQuitter: true, isGriefer: false, isDc: false },
+        { playerId: 'c', isQuitter: false, isGriefer: true, isDc: false },
+        { playerId: 'd', isQuitter: false, isGriefer: false, isDc: true },
+      ]).map((p) => p.playerId),
+    ).toEqual(['b', 'c', 'd']);
+  });
+});
+
+describe('cancelInProgressMatch display counters', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    playerRankResetFindMany.mockResolvedValue([]);
+    playerRatingUpdate.mockResolvedValue({});
+    matchPlayerFindMany.mockResolvedValue([]);
+
+    transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) => {
+      const tx = {
+        $queryRaw: queryRaw.mockResolvedValue([{ id: 'match-1' }]),
+        match: {
+          findUnique: matchFindUnique,
+          update: matchUpdate,
+        },
+        matchPlayer: {
+          update: matchPlayerUpdate,
+          findMany: matchPlayerFindMany,
+        },
+        playerRating: {
+          update: playerRatingUpdate,
+          updateMany: playerRatingUpdateMany,
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+        playerRankReset: {
+          findMany: playerRankResetFindMany,
+        },
+        matchStatsReport: {
+          findUnique: vi.fn().mockResolvedValue(null),
+        },
+      };
+      await fn(tx);
+    });
+  });
+
+  it('skips ensure/recompute on clean cancel with no quit/grief/DC', async () => {
+    const match = ihlInProgressMatch();
+    matchFindUnique
+      .mockResolvedValueOnce(match)
+      .mockResolvedValueOnce({ ...match, status: 'CANCELLED' });
+
+    await cancelInProgressMatch('match-1');
+
+    expect(ensurePlayerRatings).not.toHaveBeenCalled();
+    expect(playerRatingUpdate).not.toHaveBeenCalled();
+  });
+
+  it('ensures and recomputes only the quitter on cancel', async () => {
+    const match = {
+      ...ihlInProgressMatch(),
+      players: [
+        {
+          ...ihlInProgressMatch().players[0],
+          isQuitter: true,
+        },
+        ihlInProgressMatch().players[1],
+      ],
+    };
+    matchFindUnique
+      .mockResolvedValueOnce(match)
+      .mockResolvedValueOnce({ ...match, status: 'CANCELLED' });
+    matchPlayerFindMany.mockResolvedValue([
+      {
+        playerId: 'p1',
+        heroId: 1,
+        team: 1,
+        result: null,
+        isQuitter: true,
+        isGriefer: false,
+        isDc: false,
+        match: { completedAt: null },
+      },
+    ]);
+
+    await cancelInProgressMatch('match-1');
+
+    expect(ensurePlayerRatings).toHaveBeenCalledWith(
+      leagueId,
+      [{ playerId: 'p1', heroId: 1 }],
+      expect.anything(),
+    );
+    expect(playerRatingUpdate).toHaveBeenCalledTimes(1);
+    expect(playerRatingUpdate).toHaveBeenCalledWith({
+      where: { leagueId_playerId: { leagueId, playerId: 'p1' } },
+      data: {
+        displayWins: 0,
+        displayLosses: 0,
+        displayQuits: 1,
         displayGriefs: 0,
         displayDcs: 0,
       },

@@ -3,6 +3,7 @@ import { createLogger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   completeMatch,
+  playersAffectingCancelledDisplay,
   resolveGrieferSlots,
   resolveQuitterSlots,
   type CompleteMatchResult,
@@ -91,14 +92,21 @@ export async function rejectWaitingMatch(matchId: string): Promise<MatchWithPlay
       data: { status: 'CANCELLED' },
     });
 
+    // CANCELLED only affects display via quit/grief/DC flags — skip clean rejects.
     if (locked.leagueId) {
-      const playerIds = locked.players.map((player) => player.playerId);
-      await ensurePlayerRatings(
-        locked.leagueId,
-        locked.players.map((player) => ({ playerId: player.playerId, heroId: player.heroId })),
-        tx,
-      );
-      await recomputeDisplayCountersForPlayers(locked.leagueId, playerIds, tx);
+      const affected = playersAffectingCancelledDisplay(locked.players);
+      if (affected.length > 0) {
+        await ensurePlayerRatings(
+          locked.leagueId,
+          affected.map((player) => ({ playerId: player.playerId, heroId: player.heroId })),
+          tx,
+        );
+        await recomputeDisplayCountersForPlayers(
+          locked.leagueId,
+          affected.map((player) => player.playerId),
+          tx,
+        );
+      }
     }
   });
 

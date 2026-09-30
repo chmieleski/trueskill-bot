@@ -45,6 +45,16 @@ import { WOS_MATCH_REPORT_REQUIRED_MESSAGE } from './match-stats-upload.js';
 
 const log = createLogger('match-report');
 
+/**
+ * Players whose CANCELLED MatchPlayer flags can change display Q/G/DC counters.
+ * Clean cancel/reject with no flags must not ensure or recompute ratings.
+ */
+export function playersAffectingCancelledDisplay<
+  T extends { isQuitter: boolean; isGriefer: boolean; isDc: boolean },
+>(players: readonly T[]): T[] {
+  return players.filter((player) => player.isQuitter || player.isGriefer || player.isDc);
+}
+
 const matchWithPlayersInclude = {
   players: {
     include: { player: true },
@@ -591,12 +601,38 @@ export async function cancelInProgressMatch(
       data: { status: 'CANCELLED' },
     });
 
-    await ensurePlayerRatings(
-      leagueId,
-      match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
-      tx,
-    );
-    await recomputeDisplayCountersForPlayers(leagueId, playerIds, tx);
+    // Post-mutation flags: explicit grief/DC overrides clear quitter on that slot.
+    const displayRoster = match.players.map((player) => {
+      const isGriefer = grieferSet.has(player.slot);
+      const isDc = dcSet.has(player.slot);
+      let isQuitter = quitterSet.has(player.slot);
+      if (grieferSlots !== undefined && isGriefer) {
+        isQuitter = false;
+      }
+      if (dcSlots !== undefined && isDc) {
+        isQuitter = false;
+      }
+      return {
+        playerId: player.playerId,
+        heroId: player.heroId,
+        isQuitter,
+        isGriefer,
+        isDc,
+      };
+    });
+    const displayAffected = playersAffectingCancelledDisplay(displayRoster);
+    if (displayAffected.length > 0) {
+      await ensurePlayerRatings(
+        leagueId,
+        displayAffected.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
+        tx,
+      );
+      await recomputeDisplayCountersForPlayers(
+        leagueId,
+        displayAffected.map((p) => p.playerId),
+        tx,
+      );
+    }
   });
 
   const updated = await getMatchById(matchId);
