@@ -1,3 +1,10 @@
+## [1.65.1](https://github.com/chmieleski/trueskill-bot/compare/v1.65.0...v1.65.1) (2026-09-30)
+
+
+### Bug Fixes
+
+* **league:** hand off hero champion roles on rollover ([#198](https://github.com/chmieleski/trueskill-bot/issues/198)) ([3fb03a9](https://github.com/chmieleski/trueskill-bot/commit/3fb03a9b3d58be24e77e8d6b9c54a4666126424c))
+
 # [1.65.0](https://github.com/chmieleski/trueskill-bot/compare/v1.64.0...v1.65.0) (2026-09-30)
 
 
