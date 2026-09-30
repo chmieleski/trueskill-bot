@@ -39,6 +39,7 @@ import {
   gamesByPlayerFromStats,
   loadMatchDisplayStatsByPlayer,
 } from '../rating/rank-reset-display.js';
+import { recomputeDisplayCountersForPlayers } from '../rating/display-counters.js';
 import { loadIsNewPlayerByPlayerId, playerIdsToClearNewFlag } from '../rating/new-player.js';
 import { WOS_MATCH_REPORT_REQUIRED_MESSAGE } from './match-stats-upload.js';
 
@@ -468,6 +469,8 @@ export async function completeMatch(
       },
     });
 
+    await recomputeDisplayCountersForPlayers(leagueId, playerIds, tx);
+
     const displayStats = await loadMatchDisplayStatsByPlayer(leagueId, playerIds, tx);
     const gamesByPlayer = gamesByPlayerFromStats(displayStats);
     const clearIds = playerIdsToClearNewFlag(playerIds, gamesByPlayer);
@@ -587,6 +590,13 @@ export async function cancelInProgressMatch(
       where: { id: matchId },
       data: { status: 'CANCELLED' },
     });
+
+    await ensurePlayerRatings(
+      leagueId,
+      match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
+      tx,
+    );
+    await recomputeDisplayCountersForPlayers(leagueId, playerIds, tx);
   });
 
   const updated = await getMatchById(matchId);
@@ -659,6 +669,14 @@ export async function clearMatchGriefers(
         data: { isGriefer: false, grieferKiAccrued: null },
       });
     }
+
+    if (cleared.length > 0 && match.leagueId) {
+      await recomputeDisplayCountersForPlayers(
+        match.leagueId,
+        cleared.map((row) => row.playerId),
+        tx,
+      );
+    }
   });
 
   if (cleared.length === 0) {
@@ -728,6 +746,14 @@ export async function clearMatchDcs(
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
         data: { isDc: false },
       });
+    }
+
+    if (cleared.length > 0 && match.leagueId) {
+      await recomputeDisplayCountersForPlayers(
+        match.leagueId,
+        cleared.map((row) => row.playerId),
+        tx,
+      );
     }
   });
 
@@ -858,6 +884,14 @@ export async function clearMatchQuitters(
           },
         });
       }
+
+      if (match.leagueId) {
+        await recomputeDisplayCountersForPlayers(
+          match.leagueId,
+          clearedPlayers.map((player) => player.playerId),
+          tx,
+        );
+      }
     });
 
     const updated = await getMatchById(matchId);
@@ -880,6 +914,14 @@ export async function clearMatchQuitters(
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
         data: { isQuitter: false },
       });
+    }
+
+    if (match.leagueId) {
+      await recomputeDisplayCountersForPlayers(
+        match.leagueId,
+        clearedPlayers.map((player) => player.playerId),
+        tx,
+      );
     }
   });
 

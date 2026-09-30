@@ -13,6 +13,10 @@ import {
   gamesByPlayerFromStats,
   loadMatchDisplayStatsByPlayer,
 } from '../rating/rank-reset-display.js';
+import {
+  recomputeDisplayCountersForPlayer,
+  recomputeDisplayCountersForPlayers,
+} from '../rating/display-counters.js';
 import { restoreMatchRatingSnapshots, writeMatchRatingSnapshots } from './match-correction.js';
 import {
   clearMatchDcs,
@@ -168,29 +172,29 @@ export async function addManualSanction(
       },
     });
 
-    // DC is a countable incident only — no snapshots or OpenSkill side effects.
-    if (input.type === 'dc') {
-      return;
-    }
-
     const snapshotPlayers = [{ playerId: input.playerId, heroId }];
     await ensurePlayerRatings(input.leagueId, snapshotPlayers, tx);
 
-    const entry = buildSanctionEntry(input.playerId, heroId, input.type);
+    // DC is a countable incident only — no snapshots or OpenSkill side effects.
+    if (input.type !== 'dc') {
+      const entry = buildSanctionEntry(input.playerId, heroId, input.type);
 
-    if (input.type === 'quitter') {
-      await writeMatchRatingSnapshots(input.leagueId, matchId, snapshotPlayers, tx);
-      await applyQuitterPenalties(input.leagueId, [entry], tx);
-    } else {
-      const liveGlobal = await loadLiveGlobalByPlayer(input.leagueId, [input.playerId], tx);
-      const displayStats = await loadMatchDisplayStatsByPlayer(
-        input.leagueId,
-        [input.playerId],
-        tx,
-      );
-      const gamesByPlayer = gamesByPlayerFromStats(displayStats);
-      await accrueGrieferPenalties(matchId, [entry], liveGlobal, gamesByPlayer, tx);
+      if (input.type === 'quitter') {
+        await writeMatchRatingSnapshots(input.leagueId, matchId, snapshotPlayers, tx);
+        await applyQuitterPenalties(input.leagueId, [entry], tx);
+      } else {
+        const liveGlobal = await loadLiveGlobalByPlayer(input.leagueId, [input.playerId], tx);
+        const displayStats = await loadMatchDisplayStatsByPlayer(
+          input.leagueId,
+          [input.playerId],
+          tx,
+        );
+        const gamesByPlayer = gamesByPlayerFromStats(displayStats);
+        await accrueGrieferPenalties(matchId, [entry], liveGlobal, gamesByPlayer, tx);
+      }
     }
+
+    await recomputeDisplayCountersForPlayer(input.leagueId, input.playerId, tx);
   });
 
   const [displayStats, matchPlayer] = await Promise.all([
@@ -232,6 +236,11 @@ async function clearManualQuitterWithRestore(leagueId: string, matchId: string):
         data: { isQuitter: false },
       });
     }
+    await recomputeDisplayCountersForPlayers(
+      leagueId,
+      players.map((player) => player.playerId),
+      tx,
+    );
   });
 }
 

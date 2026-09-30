@@ -69,3 +69,15 @@ export async function recomputeDisplayCountersForPlayer(
   });
   return stats;
 }
+
+/** Recompute display counters for each distinct player in the same transaction. */
+export async function recomputeDisplayCountersForPlayers(
+  leagueId: string,
+  playerIds: readonly string[],
+  db: Db,
+): Promise<void> {
+  const unique = [...new Set(playerIds)];
+  for (const playerId of unique) {
+    await recomputeDisplayCountersForPlayer(leagueId, playerId, db);
+  }
+}

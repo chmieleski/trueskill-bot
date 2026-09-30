@@ -41,6 +41,15 @@ vi.mock('./match-report.js', async (importOriginal) => {
   };
 });
 
+vi.mock('../rating/display-counters.js', () => ({
+  recomputeDisplayCountersForPlayer: vi.fn(),
+  recomputeDisplayCountersForPlayers: vi.fn(),
+}));
+
+vi.mock('../rating/rating-preview.js', () => ({
+  ensurePlayerRatings: vi.fn(),
+}));
+
 import { approveWaitingMatch, rejectWaitingMatch, setApprovalWinner } from './match-approval.js';
 import { setQuitters } from './match-report.js';
 

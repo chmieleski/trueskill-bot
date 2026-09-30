@@ -35,6 +35,7 @@ import {
   gamesByPlayerFromStats,
   loadMatchDisplayStatsByPlayer,
 } from '../rating/rank-reset-display.js';
+import { recomputeDisplayCountersForPlayers } from '../rating/display-counters.js';
 import { playerIdsToClearNewFlag } from '../rating/new-player.js';
 
 const log = createLogger('match-correction');
@@ -616,6 +617,8 @@ export async function flipCompletedMatch(
     const mitigation = normalizeMitigationPercent(match.ratingMitigationPercent);
     await applyMatchRatings(leagueId, entries, winningTeam, completedAt, tx, mitigation);
 
+    await recomputeDisplayCountersForPlayers(leagueId, playerIds, tx);
+
     const displayStats = await loadMatchDisplayStatsByPlayer(leagueId, playerIds, tx);
     const gamesByPlayer = gamesByPlayerFromStats(displayStats);
     const clearIds = playerIdsToClearNewFlag(playerIds, gamesByPlayer);
@@ -680,6 +683,15 @@ export async function voidCompletedMatch(matchId: string): Promise<MatchWithPlay
       where: { id: matchId },
       data: { status: 'CANCELLED' },
     });
+
+    if (!isEventMatch(match)) {
+      const leagueId = requireLeagueId(match);
+      await recomputeDisplayCountersForPlayers(
+        leagueId,
+        match.players.map((player) => player.playerId),
+        tx,
+      );
+    }
   });
 
   const updated = await getMatchById(matchId);

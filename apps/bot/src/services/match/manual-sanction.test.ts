@@ -106,6 +106,11 @@ vi.mock('./match-report.js', () => ({
   clearMatchDcs,
 }));
 
+vi.mock('../rating/display-counters.js', () => ({
+  recomputeDisplayCountersForPlayer: vi.fn(),
+  recomputeDisplayCountersForPlayers: vi.fn(),
+}));
+
 vi.mock('./match-service.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./match-service.js')>();
   return {
@@ -202,7 +207,11 @@ describe('addManualSanction', () => {
         isDc: true,
       }),
     });
-    expect(ensurePlayerRatings).not.toHaveBeenCalled();
+    expect(ensurePlayerRatings).toHaveBeenCalledWith(
+      'league-1',
+      [{ playerId: 'p1', heroId: null }],
+      expect.anything(),
+    );
     expect(writeMatchRatingSnapshots).not.toHaveBeenCalled();
     expect(applyQuitterPenalties).not.toHaveBeenCalled();
     expect(accrueGrieferPenalties).not.toHaveBeenCalled();

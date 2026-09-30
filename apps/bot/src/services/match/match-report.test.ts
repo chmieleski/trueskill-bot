@@ -49,6 +49,11 @@ vi.mock('./match-correction.js', () => ({
   flipCompletedMatch,
 }));
 
+vi.mock('../rating/display-counters.js', () => ({
+  recomputeDisplayCountersForPlayer: vi.fn(),
+  recomputeDisplayCountersForPlayers: vi.fn(),
+}));
+
 function completedMatch(
   overrides: {
     status?: 'COMPLETED' | 'CANCELLED' | 'IN_PROGRESS';

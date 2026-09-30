@@ -8,6 +8,8 @@ import {
   type CompleteMatchResult,
 } from './match-report.js';
 import { getMatchById, MatchServiceError, type MatchWithPlayers } from './match-service.js';
+import { ensurePlayerRatings } from '../rating/rating-preview.js';
+import { recomputeDisplayCountersForPlayers } from '../rating/display-counters.js';
 
 const log = createLogger('match-approval');
 
@@ -88,6 +90,16 @@ export async function rejectWaitingMatch(matchId: string): Promise<MatchWithPlay
       where: { id: locked.id },
       data: { status: 'CANCELLED' },
     });
+
+    if (locked.leagueId) {
+      const playerIds = locked.players.map((player) => player.playerId);
+      await ensurePlayerRatings(
+        locked.leagueId,
+        locked.players.map((player) => ({ playerId: player.playerId, heroId: player.heroId })),
+        tx,
+      );
+      await recomputeDisplayCountersForPlayers(locked.leagueId, playerIds, tx);
+    }
   });
 
   const updated = await getMatchById(matchId);
