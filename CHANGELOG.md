@@ -1,3 +1,10 @@
+## [1.63.4](https://github.com/chmieleski/trueskill-bot/compare/v1.63.3...v1.63.4) (2026-09-30)
+
+
+### Performance Improvements
+
+* **db:** cut league cache misses and lobby roster wipe churn ([#195](https://github.com/chmieleski/trueskill-bot/issues/195)) ([8456969](https://github.com/chmieleski/trueskill-bot/commit/8456969ca3f970e884536ba094cc4c8942c2c022))
+
 ## [1.63.3](https://github.com/chmieleski/trueskill-bot/compare/v1.63.2...v1.63.3) (2026-09-28)
 
 
