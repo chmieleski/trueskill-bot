@@ -60,12 +60,13 @@ export async function syncHeroChampionRoles(client: Client, leagueId: string): P
     select: {
       guildId: true,
       gameId: true,
+      status: true,
       heroChampionRolesEnabled: true,
       heroChampionRoles: true,
     },
   });
 
-  if (!league?.heroChampionRolesEnabled) {
+  if (!league?.heroChampionRolesEnabled || league.status === 'ARCHIVED') {
     return;
   }
 
@@ -166,4 +167,24 @@ export async function clearHeroChampionHolder(
   await prisma.leagueHeroChampionRole.delete({
     where: { leagueId_heroId: { leagueId, heroId } },
   });
+}
+
+/**
+ * Best-effort Discord role strip for archived-season holders after rollover.
+ * Does not touch the database.
+ */
+export async function stripHeroChampionDiscordRoles(
+  client: Client,
+  guildId: string,
+  holders: Array<{ discordRoleId: string; holderDiscordId: string }>,
+): Promise<void> {
+  for (const { discordRoleId, holderDiscordId } of holders) {
+    const member = await fetchMemberBestEffort(client, guildId, holderDiscordId);
+    await tryRemoveRole(member, discordRoleId, {
+      guildId,
+      discordId: holderDiscordId,
+      roleId: discordRoleId,
+      reason: 'league_rollover',
+    });
+  }
 }

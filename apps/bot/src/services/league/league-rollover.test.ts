@@ -16,6 +16,9 @@ const {
   leagueChannelBindingUpdateMany,
   leagueWc3statsSlotMapFindMany,
   leagueWc3statsSlotMapCreateMany,
+  leagueHeroChampionRoleFindMany,
+  leagueHeroChampionRoleCreateMany,
+  leagueHeroChampionRoleUpdateMany,
   leagueRolloverDraftDeleteMany,
   leagueRolloverDraftCreate,
   leagueRolloverDraftFindUnique,
@@ -39,6 +42,9 @@ const {
   leagueChannelBindingUpdateMany: vi.fn(),
   leagueWc3statsSlotMapFindMany: vi.fn(),
   leagueWc3statsSlotMapCreateMany: vi.fn(),
+  leagueHeroChampionRoleFindMany: vi.fn(),
+  leagueHeroChampionRoleCreateMany: vi.fn(),
+  leagueHeroChampionRoleUpdateMany: vi.fn(),
   leagueRolloverDraftDeleteMany: vi.fn(),
   leagueRolloverDraftCreate: vi.fn(),
   leagueRolloverDraftFindUnique: vi.fn(),
@@ -83,6 +89,11 @@ vi.mock('../../lib/prisma.js', () => ({
     leagueWc3statsSlotMap: {
       findMany: leagueWc3statsSlotMapFindMany,
       createMany: leagueWc3statsSlotMapCreateMany,
+    },
+    leagueHeroChampionRole: {
+      findMany: leagueHeroChampionRoleFindMany,
+      createMany: leagueHeroChampionRoleCreateMany,
+      updateMany: leagueHeroChampionRoleUpdateMany,
     },
     leagueRolloverDraft: {
       deleteMany: leagueRolloverDraftDeleteMany,
@@ -153,6 +164,7 @@ const ACTIVE_SOURCE = {
   decayCrunchWindowDays: 5,
   decayPrizeLockEnabled: false,
   decayPrizeLockMinGames: 7,
+  heroChampionRolesEnabled: false,
 };
 
 function previewInput(overrides: Partial<Parameters<typeof previewLeagueRollover>[0]> = {}) {
@@ -455,6 +467,9 @@ describe('applyLeagueRollover', () => {
       { playerId: 'p2', heroId: 1, mu: 28, sigma: 2.5, matchesPlayed: 5 },
     ]);
     leagueWc3statsSlotMapFindMany.mockResolvedValue([{ wc3statsSlot: 0, heroId: 1 }]);
+    leagueHeroChampionRoleFindMany.mockResolvedValue([]);
+    leagueHeroChampionRoleCreateMany.mockResolvedValue({ count: 0 });
+    leagueHeroChampionRoleUpdateMany.mockResolvedValue({ count: 0 });
     leagueCreate.mockResolvedValue({
       id: 'league-2',
       name: 'Season 2',
@@ -481,6 +496,10 @@ describe('applyLeagueRollover', () => {
         },
         playerHeroRating: { createMany: playerHeroRatingCreateMany },
         leagueWc3statsSlotMap: { createMany: leagueWc3statsSlotMapCreateMany },
+        leagueHeroChampionRole: {
+          createMany: leagueHeroChampionRoleCreateMany,
+          updateMany: leagueHeroChampionRoleUpdateMany,
+        },
         leagueChannelBinding: { updateMany: leagueChannelBindingUpdateMany },
         leagueRolloverDraft: { delete: leagueRolloverDraftDelete },
       }),
@@ -556,8 +575,63 @@ describe('applyLeagueRollover', () => {
         leaderboardMessageId: null,
         wc3statsHostPromptEnabled: false,
         wc3statsHostPromptChannelId: null,
+        heroChampionRolesEnabled: false,
       },
     });
+  });
+
+  it('copies hero champion role mappings to successor and disables them on archive', async () => {
+    leagueRolloverDraftFindUnique.mockResolvedValue({
+      id: 'draft-1',
+      sourceLeagueId: 'league-1',
+      successorName: 'Season 2',
+      resetMode: 'hard',
+      compression: null,
+      actorDiscordId: ACTOR,
+      sourceLeague: { ...ACTIVE_SOURCE, heroChampionRolesEnabled: true },
+    });
+    leagueHeroChampionRoleFindMany.mockResolvedValue([
+      { heroId: 1, discordRoleId: 'role-goku', holderDiscordId: 'holder-1' },
+      { heroId: 2, discordRoleId: 'role-vegeta', holderDiscordId: null },
+    ]);
+
+    const result = await applyLeagueRollover({ draftId: 'draft-1', actorDiscordId: ACTOR });
+
+    expect(leagueCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        heroChampionRolesEnabled: true,
+      }),
+    });
+    expect(leagueHeroChampionRoleCreateMany).toHaveBeenCalledWith({
+      data: [
+        {
+          leagueId: 'league-2',
+          heroId: 1,
+          discordRoleId: 'role-goku',
+          holderDiscordId: null,
+        },
+        {
+          leagueId: 'league-2',
+          heroId: 2,
+          discordRoleId: 'role-vegeta',
+          holderDiscordId: null,
+        },
+      ],
+    });
+    expect(leagueHeroChampionRoleUpdateMany).toHaveBeenCalledWith({
+      where: { leagueId: 'league-1' },
+      data: { holderDiscordId: null },
+    });
+    expect(leagueUpdate).toHaveBeenCalledWith({
+      where: { id: 'league-1' },
+      data: expect.objectContaining({
+        status: 'ARCHIVED',
+        heroChampionRolesEnabled: false,
+      }),
+    });
+    expect(result.archivedChampionRoleHolders).toEqual([
+      { discordRoleId: 'role-goku', holderDiscordId: 'holder-1' },
+    ]);
   });
 
   it('hard reset applies griefer tax to ending season and seeds successor at defaults', async () => {
