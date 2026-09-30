@@ -1,4 +1,40 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const {
+  playerRatingFindMany,
+  leagueFindUnique,
+  loadMatchDisplayStatsByPlayer,
+  applyPendingDecayForPlayers,
+} = vi.hoisted(() => ({
+  playerRatingFindMany: vi.fn(),
+  leagueFindUnique: vi.fn(),
+  loadMatchDisplayStatsByPlayer: vi.fn(),
+  applyPendingDecayForPlayers: vi.fn(),
+}));
+
+vi.mock('../../lib/prisma.js', () => ({
+  prisma: {
+    playerRating: { findMany: playerRatingFindMany },
+    league: { findUnique: leagueFindUnique },
+  },
+}));
+
+vi.mock('../rating/rank-reset-display.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../rating/rank-reset-display.js')>();
+  return {
+    ...actual,
+    loadMatchDisplayStatsByPlayer,
+  };
+});
+
+vi.mock('../rating/rating-decay.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../rating/rating-decay.js')>();
+  return {
+    ...actual,
+    applyPendingDecayForPlayers,
+  };
+});
+
 import {
   LeaderboardServiceError,
   LIVE_LEADERBOARD_CHUNK_SIZE,
@@ -7,6 +43,7 @@ import {
   assignSortedRanks,
   chunkLeaderboardEntries,
   clampPage,
+  loadOverallLeaderboardTop,
   paginateOverall,
   rankLeaderboardRows,
   type OverallLeaderboardEntry,
@@ -149,5 +186,52 @@ describe('assignPrizeMedalRanks', () => {
       { prizeEligible: true },
     ]);
     expect(ranked.map((row) => row.medalRank)).toEqual([null, 1, 2, null, 3, null]);
+  });
+});
+
+describe('loadEligibleOverallRows display-stats scope', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    applyPendingDecayForPlayers.mockResolvedValue(undefined);
+    leagueFindUnique.mockResolvedValue({
+      status: 'ACTIVE',
+      decayEnabled: false,
+      seasonEndsAt: null,
+      crunchStartedAt: null,
+      archivedAt: null,
+    });
+    playerRatingFindMany
+      .mockResolvedValueOnce([{ playerId: 'p1' }, { playerId: 'p2' }])
+      .mockResolvedValueOnce([
+        {
+          playerId: 'p1',
+          mu: 25,
+          sigma: 8.333,
+          lastQualifyingActivityAt: null,
+          player: { id: 'p1', username: 'alpha', discordId: 'd1' },
+        },
+        {
+          playerId: 'p2',
+          mu: 25,
+          sigma: 8.333,
+          lastQualifyingActivityAt: null,
+          player: { id: 'p2', username: 'bravo', discordId: 'd2' },
+        },
+      ]);
+    loadMatchDisplayStatsByPlayer.mockResolvedValue(
+      new Map([
+        ['p1', { games: 10, wins: 6, losses: 4, quits: 0, griefs: 0, dcs: 0 }],
+        ['p2', { games: 8, wins: 3, losses: 5, quits: 0, griefs: 0, dcs: 0 }],
+      ]),
+    );
+  });
+
+  it('passes rating player ids into loadMatchDisplayStatsByPlayer', async () => {
+    await loadOverallLeaderboardTop('league-1', 10);
+
+    expect(loadMatchDisplayStatsByPlayer).toHaveBeenCalledWith(
+      'league-1',
+      expect.arrayContaining(['p1', 'p2']),
+    );
   });
 });

@@ -205,10 +205,8 @@ async function loadEligibleOverallRows(leagueId: string): Promise<{
     where: { leagueId },
     select: { playerId: true },
   });
-  await applyPendingDecayForPlayers(
-    leagueId,
-    ratingIds.map((row) => row.playerId),
-  );
+  const playerIds = ratingIds.map((row) => row.playerId);
+  await applyPendingDecayForPlayers(leagueId, playerIds);
 
   const [ratings, displayStatsByPlayer, league] = await Promise.all([
     prisma.playerRating.findMany({
@@ -217,7 +215,7 @@ async function loadEligibleOverallRows(leagueId: string): Promise<{
         player: { select: { id: true, username: true, discordId: true } },
       },
     }),
-    loadMatchDisplayStatsByPlayer(leagueId),
+    loadMatchDisplayStatsByPlayer(leagueId, playerIds),
     prisma.league.findUnique({
       where: { id: leagueId },
       select: {

@@ -77,6 +77,12 @@ export {
 } from './rating-decay.js';
 export { assertDecaySettingBounds, type DecaySettingField } from './decay-settings.js';
 export {
+  DECAY_LEAGUE_CACHE_TTL_MS,
+  getDecayLeagueCached,
+  invalidateDecayLeagueCache,
+  type DecayLeagueCacheRow,
+} from './rating-decay-league-cache.js';
+export {
   runRatingDecayTick,
   startRatingDecayScheduler,
   stopRatingDecayScheduler,
