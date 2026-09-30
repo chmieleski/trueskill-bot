@@ -7,16 +7,24 @@
  * Needs the **production** bot token (must be in the target guild) + DB URL, and the
  * Discord application must allow the **Server Members Intent**.
  *
- * Run (prod DB + prod token in env):
- *   cd apps/bot
- *   DATABASE_URL="$PROD_DIRECT_URL" DIRECT_URL="$PROD_DIRECT_URL" \
- *     DISCORD_TOKEN=… \
+ * Run from `apps/bot` (fish-friendly — no bash `VAR=value cmd` syntax):
+ *
+ *   # Prod DB via PROD_DIRECT_URL already in repo-root .env
+ *   npx tsx scripts/reconcile-hero-champion-roles.ts --prod
+ *
+ *   # Or set env for one command (works in fish and bash)
+ *   env DATABASE_URL=$PROD_DIRECT_URL DIRECT_URL=$PROD_DIRECT_URL \
  *     npx tsx scripts/reconcile-hero-champion-roles.ts --allow-remote
  *
+ *   # One-shot Discord token in fish
+ *   set -lx DISCORD_TOKEN '…'
+ *   npx tsx scripts/reconcile-hero-champion-roles.ts --prod
+ *
  * Options:
- *   GUILD_ID=1181331071867031582   (default)
+ *   --prod                         use PROD_DIRECT_URL for DATABASE_URL + DIRECT_URL (implies --allow-remote)
+ *   --allow-remote                 required when DATABASE_URL is not local (unless --prod)
  *   --dry-run                      print planned leagues only (no Discord writes)
- *   --allow-remote                 required when DATABASE_URL is not local
+ *   GUILD_ID                       fish: `set -lx GUILD_ID 1181331071867031582` (default is that guild)
  */
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,14 +33,24 @@ import { config as loadEnv } from 'dotenv';
 loadEnv({ path: resolve(dirname(fileURLToPath(import.meta.url)), '../../../.env') });
 
 const DRY_RUN = process.argv.includes('--dry-run');
-const ALLOW_REMOTE = process.argv.includes('--allow-remote');
+const USE_PROD = process.argv.includes('--prod');
+const ALLOW_REMOTE = USE_PROD || process.argv.includes('--allow-remote');
 const GUILD_ID = process.env.GUILD_ID?.trim() || '1181331071867031582';
+
+if (USE_PROD) {
+  const prodUrl = process.env.PROD_DIRECT_URL?.trim();
+  if (!prodUrl) {
+    throw new Error('Missing PROD_DIRECT_URL in .env (required with --prod)');
+  }
+  process.env.DATABASE_URL = prodUrl;
+  process.env.DIRECT_URL = prodUrl;
+}
 
 function assertSafeDatabaseTarget(url: string): void {
   if (ALLOW_REMOTE) return;
   if (/127\.0\.0\.1|localhost|:5433\b/.test(url)) return;
   throw new Error(
-    'Refusing non-local DATABASE_URL. Use local Docker Postgres (127.0.0.1:5433) or pass --allow-remote.',
+    'Refusing non-local DATABASE_URL. Use local Docker Postgres (127.0.0.1:5433), pass --allow-remote, or --prod.',
   );
 }
 
