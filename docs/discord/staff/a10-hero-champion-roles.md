@@ -29,7 +29,7 @@ Hero `1–12` = UDBR lobby slots. Remapping the same hero replaces the role and 
 Removes the mapping and tries to strip the role from the current holder.
 
 **Rules**
-• Eligibility: Discord-linked, not calibrating (under 5 overall games), **≥5 matches on that hero**
+• Eligibility: Discord-linked, not calibrating (under 5 overall games), **≥5 games played on that hero**
 • Ranked by **hero ki**
 • Exact ki ties keep the **current holder** until someone strictly passes them
 • Only **mapped** heroes sync; unmapped heroes are ignored

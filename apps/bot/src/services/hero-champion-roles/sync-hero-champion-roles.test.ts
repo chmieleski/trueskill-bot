@@ -27,7 +27,10 @@ vi.mock('./load-eligible-candidates.js', () => ({
   loadEligibleHeroCandidates,
 }));
 
-import { syncHeroChampionRoles } from './sync-hero-champion-roles.js';
+import {
+  sweepHeroChampionDiscordRoles,
+  syncHeroChampionRoles,
+} from './sync-hero-champion-roles.js';
 
 describe('syncHeroChampionRoles', () => {
   const add = vi.fn();
@@ -131,5 +134,67 @@ describe('syncHeroChampionRoles', () => {
       where: { leagueId_heroId: { leagueId: 'league-1', heroId: 1 } },
       data: { holderDiscordId: 'new' },
     });
+  });
+});
+
+describe('sweepHeroChampionDiscordRoles', () => {
+  const add = vi.fn(async function add(this: { cache: Map<string, true> }, roleId: string) {
+    this.cache.set(roleId, true);
+  });
+  const remove = vi.fn(async function remove(this: { cache: Map<string, true> }, roleId: string) {
+    this.cache.delete(roleId);
+  });
+
+  function member(id: string, roleIds: string[]) {
+    const cache = new Map(roleIds.map((r) => [r, true] as const));
+    return {
+      id,
+      roles: {
+        cache: {
+          has: (roleId: string) => cache.has(roleId),
+        },
+        add: add.bind({ cache }),
+        remove: remove.bind({ cache }),
+      },
+    };
+  }
+
+  const members = new Map([
+    ['holder', member('holder', [])],
+    ['stale', member('stale', ['role-1'])],
+  ]);
+
+  const guildsFetch = vi.fn();
+  const client = { guilds: { fetch: guildsFetch } } as never;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    members.set('holder', member('holder', []));
+    members.set('stale', member('stale', ['role-1']));
+    guildsFetch.mockResolvedValue({
+      members: {
+        fetch: vi.fn().mockResolvedValue(undefined),
+        cache: {
+          values: () => members.values(),
+          get: (id: string) => members.get(id),
+        },
+      },
+    });
+  });
+
+  it('removes stale role holders and ensures the DB holder', async () => {
+    leagueFindUnique.mockResolvedValue({
+      guildId: 'g1',
+      status: 'ACTIVE',
+      heroChampionRolesEnabled: true,
+      heroChampionRoles: [{ heroId: 1, discordRoleId: 'role-1', holderDiscordId: 'holder' }],
+    });
+
+    const result = await sweepHeroChampionDiscordRoles(client, 'league-1');
+
+    expect(remove).toHaveBeenCalled();
+    expect(add).toHaveBeenCalled();
+    expect(result.removed).toBe(1);
+    expect(result.ensured).toBe(1);
   });
 });
