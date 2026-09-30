@@ -70,7 +70,8 @@ export async function approveWaitingMatch(matchId: string): Promise<CompleteMatc
 }
 
 /**
- * Reject a waiting match: CANCELLED with no rating writes and no quitter penalties.
+ * Reject a waiting match: CANCELLED with no OpenSkill rating apply and no quitter penalties.
+ * Display counters recompute only for players flagged quit/grief/DC.
  */
 export async function rejectWaitingMatch(matchId: string): Promise<MatchWithPlayers> {
   await prisma.$transaction(async (tx) => {
