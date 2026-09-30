@@ -59,6 +59,7 @@ describe('syncHeroChampionRoles', () => {
     leagueFindUnique.mockResolvedValue({
       guildId: 'g1',
       gameId: 'warcraft3_udbr',
+      status: 'ACTIVE',
       heroChampionRolesEnabled: false,
       heroChampionRoles: [],
     });
@@ -67,10 +68,26 @@ describe('syncHeroChampionRoles', () => {
     expect(loadEligibleHeroCandidates).not.toHaveBeenCalled();
   });
 
+  it('no-ops when league is archived', async () => {
+    leagueFindUnique.mockResolvedValue({
+      guildId: 'g1',
+      gameId: 'warcraft3_udbr',
+      status: 'ARCHIVED',
+      heroChampionRolesEnabled: true,
+      heroChampionRoles: [{ heroId: 1, discordRoleId: 'role-1', holderDiscordId: 'old' }],
+    });
+
+    await syncHeroChampionRoles(client, 'league-1');
+    expect(loadEligibleHeroCandidates).not.toHaveBeenCalled();
+    expect(add).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
+  });
+
   it('assigns role to the top candidate and persists holder', async () => {
     leagueFindUnique.mockResolvedValue({
       guildId: 'g1',
       gameId: 'warcraft3_udbr',
+      status: 'ACTIVE',
       heroChampionRolesEnabled: true,
       heroChampionRoles: [{ heroId: 1, discordRoleId: 'role-1', holderDiscordId: null }],
     });
@@ -91,6 +108,7 @@ describe('syncHeroChampionRoles', () => {
     leagueFindUnique.mockResolvedValue({
       guildId: 'g1',
       gameId: 'warcraft3_udbr',
+      status: 'ACTIVE',
       heroChampionRolesEnabled: true,
       heroChampionRoles: [{ heroId: 1, discordRoleId: 'role-1', holderDiscordId: 'old' }],
     });

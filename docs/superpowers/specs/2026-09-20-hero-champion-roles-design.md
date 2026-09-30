@@ -12,8 +12,6 @@ Automatically assign Discord roles to the **#1 hero-ki** player for each mapped 
 
 - Bot-created or auto-renamed Discord roles
 - Periodic cron-only sync (event-driven only)
-- Stricter min hero-games beyond public leaderboard rules
-- Auto-copy mappings on league rollover
 - Player-facing `/champion` command
 - Multiple holders per role on ties
 
@@ -22,7 +20,7 @@ Automatically assign Discord roles to the **#1 hero-ki** player for each mapped 
 | Topic             | Choice                                                                             |
 | ----------------- | ---------------------------------------------------------------------------------- |
 | Ranking           | Public **hero ki** (`displayOrdinal` on `PlayerHeroRating`)                        |
-| Eligibility       | Discord-linked, not calibrating (overall games &lt; 5), `matchesPlayed &gt; 0`     |
+| Eligibility       | Discord-linked, not calibrating (overall games &lt; 5), hero `matchesPlayed ≥ 5`   |
 | Ties              | **Sticky incumbent** — keep current holder until someone strictly exceeds their ki |
 | Role provisioning | Staff create roles; map via `/league_config`                                       |
 | Sync trigger      | After rating side-effects (same moments as live overall board refresh)             |
@@ -93,13 +91,13 @@ Split from `/league_config` so Discord’s 8KB slash-command size limit is not e
 
 ## Edge cases
 
-| Case                                  | Behavior                                                                            |
-| ------------------------------------- | ----------------------------------------------------------------------------------- |
-| Player leaves guild / unlinks Discord | Clear holder; try remove role; next sync awards next eligible                       |
-| Role deleted in Discord               | Warn; keep mapping until staff remaps/clears                                        |
-| Rank reset / correction               | Same `notifyLeagueRatingChanged` path                                               |
-| League rollover                       | Mappings stay on archived league; successor starts disabled/unmapped (no auto-copy) |
-| Missing Manage Roles / hierarchy      | Warn log; no match failure                                                          |
+| Case                                  | Behavior                                                                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Player leaves guild / unlinks Discord | Clear holder; try remove role; next sync awards next eligible                                                                         |
+| Role deleted in Discord               | Warn; keep mapping until staff remaps/clears                                                                                          |
+| Rank reset / correction               | Same `notifyLeagueRatingChanged` path                                                                                                 |
+| League rollover                       | Copy mappings + enable flag to successor (holders null); disable + clear holders on archived; strip Discord roles then sync successor |
+| Missing Manage Roles / hierarchy      | Warn log; no match failure                                                                                                            |
 
 ## Future games
 

@@ -1,5 +1,10 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import type { ButtonInteraction, Interaction } from 'discord.js';
+import { createLogger } from '../../lib/logger.js';
+import {
+  stripHeroChampionDiscordRoles,
+  syncHeroChampionRoles,
+} from '../../services/hero-champion-roles/index.js';
 import { deleteMessageBestEffort, setupLiveLeaderboard } from '../../services/leaderboard/index.js';
 import {
   applyLeagueRollover,
@@ -11,6 +16,8 @@ import {
   parseRolloverButtonCustomId,
   type LeagueRolloverResult,
 } from '../../services/league/index.js';
+
+const log = createLogger('league_rollover_interactions');
 
 const NOT_YOUR_ROLLOVER = 'Only the person who ran /league rollover can use these buttons.';
 
@@ -52,6 +59,44 @@ export function buildRolloverConfirmComponents(input: {
   ];
 }
 
+/**
+ * After DB rollover: strip archived champions' Discord roles, then sync successor mappings.
+ * Best-effort — never fails the rollover reply.
+ */
+async function syncChampionRolesAfterRollover(
+  interaction: ButtonInteraction,
+  result: LeagueRolloverResult,
+): Promise<void> {
+  const guildId = interaction.guildId;
+  if (!guildId) {
+    return;
+  }
+
+  if (result.archivedChampionRoleHolders.length > 0) {
+    try {
+      await stripHeroChampionDiscordRoles(
+        interaction.client,
+        guildId,
+        result.archivedChampionRoleHolders,
+      );
+    } catch (error) {
+      log.warn(
+        { err: error, archivedLeagueId: result.archivedLeagueId },
+        'Failed to strip archived hero champion Discord roles',
+      );
+    }
+  }
+
+  try {
+    await syncHeroChampionRoles(interaction.client, result.successorLeagueId);
+  } catch (error) {
+    log.warn(
+      { err: error, successorLeagueId: result.successorLeagueId },
+      'Failed to sync successor hero champion roles after rollover',
+    );
+  }
+}
+
 async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
   const parsed = parseRolloverButtonCustomId(interaction.customId);
   if (!parsed || parsed.action !== 'confirm') {
@@ -82,6 +127,8 @@ async function handleConfirm(interaction: ButtonInteraction): Promise<void> {
         successor.leaderboardChannelId,
       );
     }
+
+    await syncChampionRolesAfterRollover(interaction, result);
 
     await interaction.editReply({
       content: buildRolloverSuccessMessage(result),

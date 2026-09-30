@@ -102,6 +102,8 @@ export type LeagueRolloverResult = {
   bindingsMoved: number;
   sourceLeaderboardChannelId: string | null;
   sourceLeaderboardMessageId: string | null;
+  /** Previous Discord holders on the archived league (for best-effort role strip). */
+  archivedChampionRoleHolders: Array<{ discordRoleId: string; holderDiscordId: string }>;
 };
 
 export type RolloverButtonAction = 'confirm' | 'cancel';
@@ -497,6 +499,7 @@ function successorLeagueCreateData(
     decayCrunchWindowDays: source.decayCrunchWindowDays,
     decayPrizeLockEnabled: source.decayPrizeLockEnabled,
     decayPrizeLockMinGames: source.decayPrizeLockMinGames,
+    heroChampionRolesEnabled: source.heroChampionRolesEnabled,
   };
 }
 
@@ -622,11 +625,25 @@ export async function applyLeagueRollover(
   const resetMode = parseResetMode(draft.resetMode);
   const compression = draft.compression;
 
-  const [globalRatings, heroRatings, slotMaps] = await Promise.all([
+  const [globalRatings, heroRatings, slotMaps, championRoles] = await Promise.all([
     prisma.playerRating.findMany({ where: { leagueId: source.id } }),
     prisma.playerHeroRating.findMany({ where: { leagueId: source.id } }),
     prisma.leagueWc3statsSlotMap.findMany({ where: { leagueId: source.id } }),
+    prisma.leagueHeroChampionRole.findMany({
+      where: { leagueId: source.id },
+      select: { heroId: true, discordRoleId: true, holderDiscordId: true },
+    }),
   ]);
+
+  const archivedChampionRoleHolders = championRoles
+    .filter(
+      (row): row is { heroId: number; discordRoleId: string; holderDiscordId: string } =>
+        typeof row.holderDiscordId === 'string' && row.holderDiscordId.length > 0,
+    )
+    .map((row) => ({
+      discordRoleId: row.discordRoleId,
+      holderDiscordId: row.holderDiscordId,
+    }));
 
   const playerIds = new Set<string>();
   for (const row of globalRatings) {
@@ -792,10 +809,28 @@ export async function applyLeagueRollover(
       });
     }
 
+    if (championRoles.length > 0) {
+      await tx.leagueHeroChampionRole.createMany({
+        data: championRoles.map((row) => ({
+          leagueId: successor.id,
+          heroId: row.heroId,
+          discordRoleId: row.discordRoleId,
+          holderDiscordId: null,
+        })),
+      });
+    }
+
     const bindingsMoved = await tx.leagueChannelBinding.updateMany({
       where: { leagueId: source.id },
       data: { leagueId: successor.id },
     });
+
+    if (championRoles.length > 0) {
+      await tx.leagueHeroChampionRole.updateMany({
+        where: { leagueId: source.id },
+        data: { holderDiscordId: null },
+      });
+    }
 
     await tx.league.update({
       where: { id: source.id },
@@ -805,6 +840,7 @@ export async function applyLeagueRollover(
         leaderboardMessageId: null,
         wc3statsHostPromptEnabled: false,
         wc3statsHostPromptChannelId: null,
+        heroChampionRolesEnabled: false,
       },
     });
 
@@ -821,6 +857,7 @@ export async function applyLeagueRollover(
       bindingsMoved: bindingsMoved.count,
       sourceLeaderboardChannelId,
       sourceLeaderboardMessageId,
+      archivedChampionRoleHolders,
     };
   });
 

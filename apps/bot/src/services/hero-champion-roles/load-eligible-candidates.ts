@@ -1,10 +1,14 @@
 import { prisma } from '../../lib/prisma.js';
-import { displayOrdinal, isCalibrating } from '../rating/rating-math.js';
+import { displayOrdinal, isCalibrating, KI_Z_BLEND_GAMES } from '../rating/rating-math.js';
 import { gamesByPlayerFromStats, loadMatchDisplayStats } from '../rating/rank-reset-display.js';
 import type { HeroChampionCandidate } from './pick-hero-champion.js';
 
+/** Minimum hero `matchesPlayed` required to hold a champion Discord role. */
+export const HERO_CHAMPION_MIN_HERO_MATCHES = KI_Z_BLEND_GAMES;
+
 /**
- * Load Discord-linked, non-calibrating players with hero games, ranked by hero ki.
+ * Load Discord-linked, non-calibrating players with enough hero games, ranked by hero ki.
+ * Requires {@link HERO_CHAMPION_MIN_HERO_MATCHES} matches on that hero (same threshold as overall calibration).
  */
 export async function loadEligibleHeroCandidates(
   leagueId: string,
@@ -12,7 +16,7 @@ export async function loadEligibleHeroCandidates(
 ): Promise<HeroChampionCandidate[]> {
   const [rows, displayStats] = await Promise.all([
     prisma.playerHeroRating.findMany({
-      where: { leagueId, heroId, matchesPlayed: { gt: 0 } },
+      where: { leagueId, heroId, matchesPlayed: { gte: HERO_CHAMPION_MIN_HERO_MATCHES } },
       include: {
         player: { select: { username: true, discordId: true } },
       },
@@ -24,6 +28,9 @@ export async function loadEligibleHeroCandidates(
 
   return rows
     .filter((row) => {
+      if (row.matchesPlayed < HERO_CHAMPION_MIN_HERO_MATCHES) {
+        return false;
+      }
       const discordId = row.player.discordId?.trim();
       if (!discordId) {
         return false;

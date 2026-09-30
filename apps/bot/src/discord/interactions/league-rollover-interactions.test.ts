@@ -8,17 +8,26 @@ const {
   getLeagueById,
   deleteMessageBestEffort,
   setupLiveLeaderboard,
+  stripHeroChampionDiscordRoles,
+  syncHeroChampionRoles,
 } = vi.hoisted(() => ({
   applyLeagueRollover: vi.fn(),
   cancelLeagueRolloverDraft: vi.fn(),
   getLeagueById: vi.fn(),
   deleteMessageBestEffort: vi.fn(),
   setupLiveLeaderboard: vi.fn(),
+  stripHeroChampionDiscordRoles: vi.fn(),
+  syncHeroChampionRoles: vi.fn(),
 }));
 
 vi.mock('../../services/leaderboard/index.js', () => ({
   deleteMessageBestEffort,
   setupLiveLeaderboard,
+}));
+
+vi.mock('../../services/hero-champion-roles/index.js', () => ({
+  stripHeroChampionDiscordRoles,
+  syncHeroChampionRoles,
 }));
 
 vi.mock('../../services/league/index.js', () => {
@@ -87,6 +96,7 @@ const rolloverResult = {
   bindingsMoved: 2,
   sourceLeaderboardChannelId: 'channel-1',
   sourceLeaderboardMessageId: 'msg-old',
+  archivedChampionRoleHolders: [{ discordRoleId: 'role-1', holderDiscordId: 'holder-old' }],
 };
 
 describe('buildRolloverConfirmComponents', () => {
@@ -189,6 +199,10 @@ describe('handleLeagueRolloverInteraction', () => {
       'league-new',
       'channel-1',
     );
+    expect(stripHeroChampionDiscordRoles).toHaveBeenCalledWith(interaction.client, 'guild-1', [
+      { discordRoleId: 'role-1', holderDiscordId: 'holder-old' },
+    ]);
+    expect(syncHeroChampionRoles).toHaveBeenCalledWith(interaction.client, 'league-new');
     expect(interaction.editReply).toHaveBeenCalledWith({
       content: [
         'Rollover complete.',
@@ -225,6 +239,7 @@ describe('handleLeagueRolloverInteraction', () => {
       bindingsMoved: 2,
       sourceLeaderboardChannelId: 'channel-1',
       sourceLeaderboardMessageId: 'msg-old',
+      archivedChampionRoleHolders: [],
     });
     getLeagueById.mockResolvedValue({
       id: 'dst',

@@ -1,6 +1,10 @@
 export { pickHeroChampion, type HeroChampionCandidate } from './pick-hero-champion.js';
 export { loadEligibleHeroCandidates } from './load-eligible-candidates.js';
-export { clearHeroChampionHolder, syncHeroChampionRoles } from './sync-hero-champion-roles.js';
+export {
+  clearHeroChampionHolder,
+  stripHeroChampionDiscordRoles,
+  syncHeroChampionRoles,
+} from './sync-hero-champion-roles.js';
 export { notifyLeagueRatingChanged } from './notify-league-rating-changed.js';
 export {
   assertHeroChampionRolesSupported,
