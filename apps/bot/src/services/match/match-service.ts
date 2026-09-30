@@ -766,6 +766,7 @@ export async function replaceMatchRoster(
         prev.slot !== data.slot ||
         prev.heroId !== data.heroId ||
         prev.isQuitter !== data.isQuitter ||
+        prev.isGriefer !== data.isGriefer ||
         prev.locked !== data.locked
       ) {
         await tx.matchPlayer.update({

@@ -367,4 +367,122 @@ describe('replaceMatchRoster diff', () => {
       data: expect.objectContaining({ slot: 2, team: 1, locked: false }),
     });
   });
+
+  it('updates both rows when two players swap slots (no delete)', async () => {
+    stubTransaction([
+      {
+        playerId: 'p-a',
+        slot: 1,
+        team: 1,
+        heroId: null,
+        locked: false,
+        isQuitter: false,
+        isGriefer: false,
+      },
+      {
+        playerId: 'p-b',
+        slot: 6,
+        team: 2,
+        heroId: null,
+        locked: false,
+        isQuitter: false,
+        isGriefer: false,
+      },
+    ]);
+    stubPlayersByNick([
+      { id: 'p-a', username: 'alice' },
+      { id: 'p-b', username: 'bob' },
+    ]);
+
+    await replaceMatchRoster(MATCH_ID, [
+      { slot: 6, nick: 'alice' },
+      { slot: 1, nick: 'bob' },
+    ]);
+
+    expect(matchPlayerDeleteMany).not.toHaveBeenCalled();
+    expect(matchPlayerCreate).not.toHaveBeenCalled();
+    expect(matchPlayerUpdate).toHaveBeenCalledTimes(2);
+    expect(matchPlayerUpdate).toHaveBeenCalledWith({
+      where: { matchId_playerId: { matchId: MATCH_ID, playerId: 'p-a' } },
+      data: expect.objectContaining({ slot: 6, team: 2, locked: false }),
+    });
+    expect(matchPlayerUpdate).toHaveBeenCalledWith({
+      where: { matchId_playerId: { matchId: MATCH_ID, playerId: 'p-b' } },
+      data: expect.objectContaining({ slot: 1, team: 1, locked: false }),
+    });
+  });
+
+  it('unlocks when incoming roster omits locked for a previously locked pair', async () => {
+    stubTransaction([
+      {
+        playerId: 'p-a',
+        slot: 1,
+        team: 1,
+        heroId: null,
+        locked: true,
+        isQuitter: false,
+        isGriefer: false,
+      },
+      {
+        playerId: 'p-b',
+        slot: 6,
+        team: 2,
+        heroId: null,
+        locked: false,
+        isQuitter: false,
+        isGriefer: false,
+      },
+    ]);
+    stubPlayersByNick([
+      { id: 'p-a', username: 'alice' },
+      { id: 'p-b', username: 'bob' },
+    ]);
+
+    // OCR/wc3stats omit locked → reconcile returns false; must write unlock.
+    await replaceMatchRoster(MATCH_ID, [
+      { slot: 1, nick: 'alice' },
+      { slot: 6, nick: 'bob' },
+    ]);
+
+    expect(matchPlayerDeleteMany).not.toHaveBeenCalled();
+    expect(matchPlayerCreate).not.toHaveBeenCalled();
+    expect(matchPlayerUpdate).toHaveBeenCalledTimes(1);
+    expect(matchPlayerUpdate).toHaveBeenCalledWith({
+      where: { matchId_playerId: { matchId: MATCH_ID, playerId: 'p-a' } },
+      data: expect.objectContaining({ slot: 1, locked: false }),
+    });
+  });
+
+  it('deletes all previous rows when roster becomes empty', async () => {
+    stubTransaction([
+      {
+        playerId: 'p-a',
+        slot: 1,
+        team: 1,
+        heroId: null,
+        locked: false,
+        isQuitter: false,
+        isGriefer: false,
+      },
+      {
+        playerId: 'p-b',
+        slot: 6,
+        team: 2,
+        heroId: null,
+        locked: false,
+        isQuitter: false,
+        isGriefer: false,
+      },
+    ]);
+    stubPlayersByNick([]);
+
+    await replaceMatchRoster(MATCH_ID, []);
+
+    expect(matchPlayerDeleteMany).toHaveBeenCalledTimes(1);
+    expect(matchPlayerDeleteMany).toHaveBeenCalledWith({
+      where: { matchId: MATCH_ID, playerId: { in: expect.arrayContaining(['p-a', 'p-b']) } },
+    });
+    expect(matchPlayerCreate).not.toHaveBeenCalled();
+    expect(matchPlayerUpdate).not.toHaveBeenCalled();
+  });
 });
