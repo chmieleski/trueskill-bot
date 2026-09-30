@@ -1,18 +1,17 @@
 import type { LeagueStatus } from '@dbz/db';
-import { DECAY_SETTINGS_SELECT } from './decay-settings.js';
+import type { DecaySettingsSource } from './decay-settings.js';
 
 /** Backstop TTL when a writer forgets to invalidate (ms). */
 export const DECAY_LEAGUE_CACHE_TTL_MS = 60_000;
 
+/** League row shape used by applyPendingDecay (status + decay columns). */
 export type DecayLeagueCacheRow = {
   status: LeagueStatus;
   decayEnabled: boolean;
   seasonEndsAt: Date | null;
   crunchStartedAt: Date | null;
   archivedAt: Date | null;
-} & {
-  [K in keyof typeof DECAY_SETTINGS_SELECT]: number | boolean | null;
-};
+} & DecaySettingsSource;
 
 type CacheEntry = {
   value: DecayLeagueCacheRow | null;
