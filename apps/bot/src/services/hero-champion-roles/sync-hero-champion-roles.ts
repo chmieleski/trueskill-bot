@@ -188,3 +188,93 @@ export async function stripHeroChampionDiscordRoles(
     });
   }
 }
+
+export type HeroChampionSweepResult = {
+  removed: number;
+  ensured: number;
+};
+
+/**
+ * After holders are synced: strip the champion Discord role from anyone who is
+ * not the current DB holder, then ensure the holder has the role.
+ * Requires GuildMembers intent so the guild member cache can be filled.
+ */
+export async function sweepHeroChampionDiscordRoles(
+  client: Client,
+  leagueId: string,
+): Promise<HeroChampionSweepResult> {
+  const league = await prisma.league.findUnique({
+    where: { id: leagueId },
+    select: {
+      guildId: true,
+      status: true,
+      heroChampionRolesEnabled: true,
+      heroChampionRoles: {
+        select: { heroId: true, discordRoleId: true, holderDiscordId: true },
+      },
+    },
+  });
+
+  if (!league?.heroChampionRolesEnabled || league.status === 'ARCHIVED') {
+    return { removed: 0, ensured: 0 };
+  }
+
+  if (league.heroChampionRoles.length === 0) {
+    return { removed: 0, ensured: 0 };
+  }
+
+  let guild;
+  try {
+    guild = await client.guilds.fetch(league.guildId);
+    await guild.members.fetch();
+  } catch (error) {
+    log.warn(
+      { err: error, leagueId, guildId: league.guildId },
+      'Failed to fetch guild members for champion role sweep',
+    );
+    return { removed: 0, ensured: 0 };
+  }
+
+  let removed = 0;
+  let ensured = 0;
+
+  for (const mapping of league.heroChampionRoles) {
+    const withRole = [...guild.members.cache.values()].filter((member) =>
+      member.roles.cache.has(mapping.discordRoleId),
+    );
+
+    for (const member of withRole) {
+      if (member.id === mapping.holderDiscordId) {
+        continue;
+      }
+      const hadRole = member.roles.cache.has(mapping.discordRoleId);
+      await tryRemoveRole(member, mapping.discordRoleId, {
+        leagueId,
+        heroId: mapping.heroId,
+        discordId: member.id,
+        reason: 'champion_role_sweep',
+      });
+      if (hadRole && !member.roles.cache.has(mapping.discordRoleId)) {
+        removed += 1;
+      }
+    }
+
+    if (!mapping.holderDiscordId) {
+      continue;
+    }
+
+    const holder =
+      guild.members.cache.get(mapping.holderDiscordId) ??
+      (await fetchMemberBestEffort(client, league.guildId, mapping.holderDiscordId));
+    await tryAddRole(holder, mapping.discordRoleId, {
+      leagueId,
+      heroId: mapping.heroId,
+      discordId: mapping.holderDiscordId,
+    });
+    if (holder?.roles.cache.has(mapping.discordRoleId)) {
+      ensured += 1;
+    }
+  }
+
+  return { removed, ensured };
+}
