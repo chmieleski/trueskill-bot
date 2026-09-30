@@ -39,6 +39,7 @@ describe('parseWos2BotReport', () => {
       roundLosses: 0,
       kills: 0,
       deaths: 0,
+      trainDeaths: 0,
       itemSlots: [1227895627, 0, 0, 0, 0, 0],
     });
   });
@@ -89,7 +90,27 @@ describe('parseWos2BotReport', () => {
       teamSlot: 2,
       lobbySlot: 1,
       visualSlot: 1,
+      trainDeaths: 0,
     });
+  });
+
+  it('parses train_deaths from STATS when present', () => {
+    const matchId = 'train-deaths';
+    const encoded = encodeWos2eExport(
+      [
+        `ID|value=${matchId}|format=WOS2_BOT_V2|scope=MATCH`,
+        'MATCH|team1_rounds=1|team2_rounds=0|players=1|schema=2|teams_reorganized=0',
+        'PLAYER|n=1|pid=0|name=A|team=1|win=1|hero_id=1|hero_name=H|left=0|lobby_slot=0|team_slot=1|visual_slot=0',
+        'STATS|n=1|pid=0|rounds_played=1|round_wins=1|round_losses=0|kills=0|deaths=2|train_deaths=3|damage_phys=0|damage_magic=0|damage_total=0|heal=0|taken_phys=0|taken_magic=0|taken_total=0',
+        'ITEMS|n=1|pid=0|slot1=0|slot2=0|slot3=0|slot4=0|slot5=0|slot6=0',
+        `END|id=${matchId}`,
+      ],
+      matchId,
+    );
+
+    const report = parseWos2BotReport(encoded);
+    expect(report.players[0]?.deaths).toBe(2);
+    expect(report.players[0]?.trainDeaths).toBe(3);
   });
 
   it('rejects mismatched END id', () => {

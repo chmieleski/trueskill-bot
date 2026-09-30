@@ -18,6 +18,26 @@ describe('wos2e-codec', () => {
     const decoded = decodeWos2eExport(encoded);
     expect(decoded.matchId).toBe(matchId);
     expect(decoded.lines).toEqual(plainLines);
+    expect(decoded.version).toBe('1');
+  });
+
+  it('round-trips with map_version in the cleartext header', () => {
+    const encoded = encodeWos2eExport(plainLines, matchId, { mapVersion: '2.4.1' });
+    expect(encoded.split('\n')[0]).toBe(`WOS2E|v=1|id=${matchId}|alg=R87M2|map_version=2.4.1`);
+    const decoded = decodeWos2eExport(encoded);
+    expect(decoded.mapVersion).toBe('2.4.1');
+    expect(decoded.lines).toEqual(plainLines);
+  });
+
+  it('accepts map_version between id and alg', () => {
+    const encoded = encodeWos2eExport(plainLines, matchId);
+    const withMid = encoded.replace(
+      `WOS2E|v=1|id=${matchId}|alg=R87M2`,
+      `WOS2E|v=1|id=${matchId}|map_version=9.9.9|alg=R87M2`,
+    );
+    const decoded = decodeWos2eExport(withMid);
+    expect(decoded.mapVersion).toBe('9.9.9');
+    expect(decoded.lines).toEqual(plainLines);
   });
 
   it('decodes Preload-wrapped containers', () => {

@@ -130,6 +130,7 @@ function sampleStat(overrides: Partial<MatchPlayerStatsLine> = {}): MatchPlayerS
     reportWin: false,
     kills: 1,
     deaths: 10,
+    trainDeaths: 0,
     damagePhys: 1660,
     damageMagic: 8174,
     damageTotal: 9834,

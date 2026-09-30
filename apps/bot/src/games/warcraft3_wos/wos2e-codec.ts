@@ -1,5 +1,5 @@
 /**
- * Server-side WOS2E v1 (alg=R87M2) codec.
+ * Server-side WOS2E (alg=R87M2) codec for WOS2_BOT_V2 map exports.
  * Key fragments must match the map's WOS2BotCodec.j — do not distribute to players.
  */
 
@@ -48,13 +48,11 @@ function deriveKeys(): CodecKeys {
 
 function base36Fixed4(value: number): string {
   let rest = posMod(value, 1679616);
-  let divisor = 46656;
   let result = '';
-  while (divisor > 0) {
+  for (const divisor of [46656, 1296, 36, 1]) {
     const digit = Math.floor(rest / divisor);
     result += BASE36[digit]!;
     rest %= divisor;
-    divisor = Math.floor(divisor / 36);
   }
   return result;
 }
@@ -141,60 +139,173 @@ type ContainerData = { seq: number; cipher: string; tag: string };
 
 type ExtractedContainer = {
   matchId: string;
+  version: string;
+  mapVersion: string | undefined;
   data: ContainerData[];
   endCount: number;
   endTag: string;
 };
 
-function extractContainer(text: string): ExtractedContainer {
-  const headerRegex = /WOS2E\|v=1\|id=([0-9A-Za-z_-]{1,80})\|alg=R87M2/g;
-  const dataRegex = /D\|s=(\d+)\|c=([^|\r\n]+)\|t=([0-9A-Z]{8})/g;
-  const endRegex = /Z\|n=(\d+)\|t=([0-9A-Z]{8})/g;
-  const headers = [...text.matchAll(headerRegex)];
-  const data = [...text.matchAll(dataRegex)];
-  const ends = [...text.matchAll(endRegex)];
+type SplitFields = { type: string; fields: Record<string, string> };
 
-  if (headers.length !== 1) {
+/** Split a pipe-record line into type + key=value fields. */
+function splitFields(line: string): SplitFields {
+  const parts = line.split('|');
+  const type = parts.shift() || '';
+  const fields: Record<string, string> = {};
+  for (const part of parts) {
+    const separator = part.indexOf('=');
+    if (separator < 0) {
+      continue;
+    }
+    fields[part.slice(0, separator)] = part.slice(separator + 1);
+  }
+  return { type, fields };
+}
+
+/** Unescape JASS string literals inside Preload("…") arguments. */
+function unescapeJassString(value: string): string {
+  return value.replace(/\\(\\|"|n|r|t)/g, (_match, escaped: string) => {
+    if (escaped === 'n') return '\n';
+    if (escaped === 'r') return '\r';
+    if (escaped === 't') return '\t';
+    return escaped;
+  });
+}
+
+/**
+ * Extract WOS2 wire lines from a Preload export, raw wire text, or mixed input.
+ * Prefers Preload("…") payloads when present.
+ */
+function extractWireLines(text: string): string[] {
+  const lines: string[] = [];
+  const preloadPattern = /Preload\s*\(\s*"((?:\\.|[^"\\])*)"\s*\)/g;
+  let match: RegExpExecArray | null;
+  while ((match = preloadPattern.exec(text)) !== null) {
+    lines.push(unescapeJassString(match[1]!));
+  }
+  if (lines.length > 0) {
+    return lines;
+  }
+
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(
+      (line) =>
+        line && !line.startsWith('//') && !line.startsWith('function ') && line !== 'endfunction',
+    )
+    .filter((line) => /^(?:WOS2E|D|Z|ID|MATCH|PLAYER|STATS|ITEMS|ITEM_RATE|END)\|/.test(line));
+}
+
+function extractContainer(text: string): ExtractedContainer {
+  const wireLines = extractWireLines(text);
+  if (wireLines.length === 0) {
+    throw new Wos2eCodecError('No WOS2 data lines found');
+  }
+
+  const headerLine = wireLines.find((line) => line.startsWith('WOS2E|'));
+  const encryptedLines = wireLines.filter((line) => line.startsWith('D|'));
+  const endLine = wireLines.find((line) => line.startsWith('Z|'));
+
+  if (!headerLine) {
     throw new Wos2eCodecError('Expected exactly one WOS2E header');
   }
-  if (ends.length !== 1) {
+  if (!endLine) {
     throw new Wos2eCodecError('Expected exactly one WOS2E final tag');
   }
-  if (data.length === 0) {
+  if (encryptedLines.length === 0) {
     throw new Wos2eCodecError('The container has no data records');
   }
-  const header = headers[0]!;
-  const end = ends[0]!;
-  if (header.index! > data[0]!.index! || data[data.length - 1]!.index! > end.index!) {
+
+  const header = splitFields(headerLine);
+  if (header.type !== 'WOS2E' || !header.fields.id || header.fields.alg !== 'R87M2') {
+    throw new Wos2eCodecError('Unsupported or incomplete WOS2E header');
+  }
+  if (!/^[0-9A-Za-z_-]{1,80}$/.test(header.fields.id)) {
+    throw new Wos2eCodecError('Unsupported or incomplete WOS2E header');
+  }
+
+  const headerIndex = wireLines.indexOf(headerLine);
+  const endIndex = wireLines.indexOf(endLine);
+  const firstDataIndex = wireLines.indexOf(encryptedLines[0]!);
+  const lastDataIndex = wireLines.indexOf(encryptedLines[encryptedLines.length - 1]!);
+  if (headerIndex > firstDataIndex || lastDataIndex > endIndex) {
     throw new Wos2eCodecError('Header, data records, and final tag are out of order');
   }
 
+  const end = splitFields(endLine);
+  if (end.fields.n === undefined || end.fields.t === undefined) {
+    throw new Wos2eCodecError('Expected exactly one WOS2E final tag');
+  }
+  if (!/^[0-9A-Z]{8}$/.test(end.fields.t)) {
+    throw new Wos2eCodecError('Expected exactly one WOS2E final tag');
+  }
+
+  const data: ContainerData[] = encryptedLines.map((line) => {
+    const parsed = splitFields(line);
+    if (
+      parsed.type !== 'D' ||
+      parsed.fields.s === undefined ||
+      parsed.fields.c === undefined ||
+      parsed.fields.t === undefined
+    ) {
+      throw new Wos2eCodecError(`Malformed data line: ${line.slice(0, 80)}`);
+    }
+    if (!/^[0-9A-Z]{8}$/.test(parsed.fields.t)) {
+      throw new Wos2eCodecError(`Malformed data line: ${line.slice(0, 80)}`);
+    }
+    return {
+      seq: Number(parsed.fields.s),
+      cipher: parsed.fields.c,
+      tag: parsed.fields.t,
+    };
+  });
+
   return {
-    matchId: header[1]!,
-    data: data.map((match) => ({
-      seq: Number(match[1]),
-      cipher: match[2]!,
-      tag: match[3]!,
-    })),
-    endCount: Number(end[1]),
-    endTag: end[2]!,
+    matchId: header.fields.id,
+    version: header.fields.v || '',
+    mapVersion: header.fields.map_version,
+    data,
+    endCount: Number(end.fields.n),
+    endTag: end.fields.t,
   };
 }
 
 export type Wos2eDecodeResult = {
   matchId: string;
   lines: string[];
+  /** Cleartext protocol version from the WOS2E header (`v=`), when present. */
+  version?: string;
+  /** Cleartext map version from the WOS2E header (`map_version=`), when present. */
+  mapVersion?: string;
+};
+
+export type EncodeWos2eOptions = {
+  /** Optional cleartext map version written into the WOS2E header. */
+  mapVersion?: string;
+  /** Optional cleartext protocol version (default `1`). */
+  version?: string;
 };
 
 /** Encrypt plaintext pipe-record lines into a WOS2E container (for tests / fixtures). */
-export function encodeWos2eExport(lines: string[], matchId: string): string {
+export function encodeWos2eExport(
+  lines: string[],
+  matchId: string,
+  options: EncodeWos2eOptions = {},
+): string {
   const keys = deriveKeys();
   const context = makeContext(matchId);
   let chain: ChainState = {
     a: posMod(keys.c + context + 3301, MOD1),
     b: posMod(keys.d + context + 4409, MOD2),
   };
-  const output = [`WOS2E|v=1|id=${matchId}|alg=R87M2`];
+  const version = options.version ?? '1';
+  const headerFields = [`v=${version}`, `id=${matchId}`, 'alg=R87M2'];
+  if (options.mapVersion !== undefined && options.mapVersion !== '') {
+    headerFields.push(`map_version=${options.mapVersion}`);
+  }
+  const output = [`WOS2E|${headerFields.join('|')}`];
 
   lines.forEach((plain, seq) => {
     let stream = posMod(context + keys.b + seq * 389 + 71, MOD1);
@@ -220,7 +331,7 @@ export function encodeWos2eExport(lines: string[], matchId: string): string {
   return output.join('\n');
 }
 
-/** Decrypt and authenticate a WOS2E v1 export; returns plaintext pipe-record lines. */
+/** Decrypt and authenticate a WOS2E export; returns plaintext pipe-record lines. */
 export function decodeWos2eExport(text: string): Wos2eDecodeResult {
   if (typeof text !== 'string' || text.length > MAX_INPUT_BYTES) {
     throw new Wos2eCodecError('Invalid or oversized input file');
@@ -256,5 +367,19 @@ export function decodeWos2eExport(text: string): Wos2eDecodeResult {
     throw new Wos2eCodecError('Invalid final file authentication tag');
   }
 
-  return { matchId: container.matchId, lines };
+  const decodedId = lines.find((line) => line.startsWith('ID|'));
+  if (!decodedId || splitFields(decodedId).fields.value !== container.matchId) {
+    throw new Wos2eCodecError('Decoded ID does not match the WOS2E header');
+  }
+  const decodedEnd = lines.find((line) => line.startsWith('END|'));
+  if (!decodedEnd || splitFields(decodedEnd).fields.id !== container.matchId) {
+    throw new Wos2eCodecError('Missing or mismatched decoded END record');
+  }
+
+  return {
+    matchId: container.matchId,
+    lines,
+    version: container.version || undefined,
+    mapVersion: container.mapVersion,
+  };
 }

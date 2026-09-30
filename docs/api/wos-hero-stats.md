@@ -158,6 +158,7 @@ Unknown hero / zero eligible games → **`404 Not Found`**.
       "completedAt": "2026-01-10T12:00:00.000Z",
       "kills": 2,
       "deaths": 1,
+      "trainDeaths": 0,
       "damagePhys": 1000,
       "damageMagic": 2000,
       "damageTotal": 3000,
@@ -178,18 +179,18 @@ Unknown hero / zero eligible games → **`404 Not Found`**.
 
 #### `HeroWindowAggregate` fields
 
-| Field                                               | Type           | Notes                                                                                 |
-| --------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------- |
-| `games`, `wins`, `losses`                           | number         |                                                                                       |
-| `winRatePercent`                                    | number \| null | `null` when `games === 0`; otherwise one decimal place style (same helper as Discord) |
-| `avgDamageTotal`, `avgDamagePhys`, `avgDamageMagic` | number         | Rounded means                                                                         |
-| `avgTakenTotal`, `avgTakenPhys`, `avgTakenMagic`    | number         |                                                                                       |
-| `avgHeal`, `avgKills`, `avgDeaths`                  | number         |                                                                                       |
-| `sumDamageTotal`, `sumDamagePhys`, `sumDamageMagic` | number         |                                                                                       |
-| `sumTakenTotal`, `sumTakenPhys`, `sumTakenMagic`    | number         |                                                                                       |
-| `sumHeal`, `sumKills`, `sumDeaths`                  | number         |                                                                                       |
-| `kda`                                               | string         | Ratio string, or `—` when deaths = 0                                                  |
-| `topPlayers`                                        | array          | See below                                                                             |
+| Field                                                | Type           | Notes                                                                                 |
+| ---------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------- |
+| `games`, `wins`, `losses`                            | number         |                                                                                       |
+| `winRatePercent`                                     | number \| null | `null` when `games === 0`; otherwise one decimal place style (same helper as Discord) |
+| `avgDamageTotal`, `avgDamagePhys`, `avgDamageMagic`  | number         | Rounded means                                                                         |
+| `avgTakenTotal`, `avgTakenPhys`, `avgTakenMagic`     | number         |                                                                                       |
+| `avgHeal`, `avgKills`, `avgDeaths`, `avgTrainDeaths` | number         |                                                                                       |
+| `sumDamageTotal`, `sumDamagePhys`, `sumDamageMagic`  | number         |                                                                                       |
+| `sumTakenTotal`, `sumTakenPhys`, `sumTakenMagic`     | number         |                                                                                       |
+| `sumHeal`, `sumKills`, `sumDeaths`, `sumTrainDeaths` | number         |                                                                                       |
+| `kda`                                                | string         | Ratio string, or `—` when deaths = 0                                                  |
+| `topPlayers`                                         | array          | See below                                                                             |
 
 #### `topPlayers[]` entry
 
@@ -206,7 +207,7 @@ Rules: minimum **3** games in that window; sort win rate desc → games desc →
 
 #### `recentGames[]` / combat row fields
 
-Same combat field set as match detail (kills/deaths, phys/magic/total damage & taken, heal, hero identity, `items`). Dates are ISO-8601 strings or `null`.
+Same combat field set as match detail (kills/deaths/trainDeaths, phys/magic/total damage & taken, heal, hero identity, `items`). Dates are ISO-8601 strings or `null`.
 
 ---
 
@@ -232,6 +233,7 @@ No query parameters. Use `matchId` from upload `201` responses (or your stored i
       "result": "WIN",
       "kills": 0,
       "deaths": 0,
+      "trainDeaths": 0,
       "damagePhys": 0,
       "damageMagic": 0,
       "damageTotal": 0,

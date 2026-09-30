@@ -29,6 +29,8 @@ export type Wos2BotReportPlayer = {
   roundLosses: number;
   kills: number;
   deaths: number;
+  /** Deaths while on a train (`train_deaths`); 0 when the field is absent. */
+  trainDeaths: number;
   damagePhys: number;
   damageMagic: number;
   damageTotal: number;
@@ -126,6 +128,20 @@ function readInt(record: ParsedRecord, key: string, min: number, max: number): n
   return number;
 }
 
+/** Like `readInt`, but returns `fallback` when the field is omitted (legacy exports). */
+function readOptionalInt(
+  record: ParsedRecord,
+  key: string,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
+  if (record.fields[key] === undefined) {
+    return fallback;
+  }
+  return readInt(record, key, min, max);
+}
+
 function nullableSlot(value: number): number | null {
   return value < 0 ? null : value;
 }
@@ -210,6 +226,7 @@ function buildReportFromLines(lines: string[], matchId: string): Wos2BotReport {
     const roundLosses = readInt(stats, 'round_losses', 0, 2147483647);
     const kills = readInt(stats, 'kills', 0, 2147483647);
     const deaths = readInt(stats, 'deaths', 0, 2147483647);
+    const trainDeaths = readOptionalInt(stats, 'train_deaths', 0, 2147483647, 0);
     const damagePhys = readInt(stats, 'damage_phys', 0, 2147483647);
     const damageMagic = readInt(stats, 'damage_magic', 0, 2147483647);
     const damageTotal = readInt(stats, 'damage_total', 0, 2147483647);
@@ -252,6 +269,7 @@ function buildReportFromLines(lines: string[], matchId: string): Wos2BotReport {
       roundLosses,
       kills,
       deaths,
+      trainDeaths,
       damagePhys,
       damageMagic,
       damageTotal,
