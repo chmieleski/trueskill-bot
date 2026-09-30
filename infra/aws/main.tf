@@ -128,6 +128,7 @@ resource "aws_instance" "bot" {
     aws_ssm_parameter.match_create_role_id,
     aws_ssm_parameter.match_mod_role_id,
     aws_ssm_parameter.wc3stats_timeout_ms,
+    aws_ssm_parameter.display_stats_source,
     aws_ssm_parameter.api_enabled,
     aws_ssm_parameter.api_port,
     aws_ssm_parameter.api_bind,

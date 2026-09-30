@@ -1,15 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MatchServiceError } from './match-service.js';
 
-const { matchFindUnique, matchUpdate, matchPlayerUpdate, transaction, queryRaw, completeMatch } =
-  vi.hoisted(() => ({
-    matchFindUnique: vi.fn(),
-    matchUpdate: vi.fn(),
-    matchPlayerUpdate: vi.fn(),
-    transaction: vi.fn(),
-    queryRaw: vi.fn(),
-    completeMatch: vi.fn(),
-  }));
+const {
+  matchFindUnique,
+  matchUpdate,
+  matchPlayerUpdate,
+  transaction,
+  queryRaw,
+  completeMatch,
+  ensurePlayerRatings,
+  recomputeDisplayCountersForPlayers,
+} = vi.hoisted(() => ({
+  matchFindUnique: vi.fn(),
+  matchUpdate: vi.fn(),
+  matchPlayerUpdate: vi.fn(),
+  transaction: vi.fn(),
+  queryRaw: vi.fn(),
+  completeMatch: vi.fn(),
+  ensurePlayerRatings: vi.fn(),
+  recomputeDisplayCountersForPlayers: vi.fn(),
+}));
 
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
@@ -41,6 +51,15 @@ vi.mock('./match-report.js', async (importOriginal) => {
   };
 });
 
+vi.mock('../rating/display-counters.js', () => ({
+  recomputeDisplayCountersForPlayer: vi.fn(),
+  recomputeDisplayCountersForPlayers,
+}));
+
+vi.mock('../rating/rating-preview.js', () => ({
+  ensurePlayerRatings,
+}));
+
 import { approveWaitingMatch, rejectWaitingMatch, setApprovalWinner } from './match-approval.js';
 import { setQuitters } from './match-report.js';
 
@@ -53,6 +72,7 @@ function waitingMatch(
       team: number;
       isQuitter?: boolean;
       isGriefer?: boolean;
+      isDc?: boolean;
     }>;
   } = {},
 ) {
@@ -67,6 +87,7 @@ function waitingMatch(
     heroId: player.slot,
     isQuitter: player.isQuitter ?? false,
     isGriefer: player.isGriefer ?? false,
+    isDc: player.isDc ?? false,
     grieferKiAccrued: null,
     result: null,
     player: { id: player.playerId, username: player.playerId },
@@ -158,7 +179,7 @@ describe('rejectWaitingMatch', () => {
     );
   });
 
-  it('cancels a waiting match without rating writes', async () => {
+  it('cancels a waiting match without OpenSkill writes', async () => {
     const match = waitingMatch();
     const cancelled = { ...match, status: 'CANCELLED' as const };
     matchFindUnique.mockResolvedValueOnce(match).mockResolvedValueOnce(cancelled);
@@ -172,6 +193,54 @@ describe('rejectWaitingMatch', () => {
     });
     expect(result.status).toBe('CANCELLED');
     expect(completeMatch).not.toHaveBeenCalled();
+  });
+
+  it('skips ensure/recompute on clean reject with no quit/grief/DC flags', async () => {
+    const match = waitingMatch({
+      players: [
+        { slot: 1, playerId: 'p1', team: 1 },
+        { slot: 7, playerId: 'p7', team: 2 },
+      ],
+    });
+    const cancelled = { ...match, status: 'CANCELLED' as const };
+    matchFindUnique.mockResolvedValueOnce(match).mockResolvedValueOnce(cancelled);
+    matchUpdate.mockResolvedValue(cancelled);
+
+    await rejectWaitingMatch('match-1');
+
+    expect(ensurePlayerRatings).not.toHaveBeenCalled();
+    expect(recomputeDisplayCountersForPlayers).not.toHaveBeenCalled();
+  });
+
+  it('ensures and recomputes only players with quit/grief/DC flags', async () => {
+    const match = waitingMatch({
+      players: [
+        { slot: 1, playerId: 'p1', team: 1, isQuitter: false, isGriefer: false },
+        { slot: 2, playerId: 'p2', team: 1, isQuitter: true, isGriefer: false },
+        { slot: 7, playerId: 'p7', team: 2, isQuitter: false, isGriefer: true },
+        { slot: 8, playerId: 'p8', team: 2, isQuitter: false, isDc: true },
+      ],
+    });
+    const cancelled = { ...match, status: 'CANCELLED' as const };
+    matchFindUnique.mockResolvedValueOnce(match).mockResolvedValueOnce(cancelled);
+    matchUpdate.mockResolvedValue(cancelled);
+
+    await rejectWaitingMatch('match-1');
+
+    expect(ensurePlayerRatings).toHaveBeenCalledWith(
+      'league-1',
+      [
+        { playerId: 'p2', heroId: 2 },
+        { playerId: 'p7', heroId: 7 },
+        { playerId: 'p8', heroId: 8 },
+      ],
+      expect.anything(),
+    );
+    expect(recomputeDisplayCountersForPlayers).toHaveBeenCalledWith(
+      'league-1',
+      ['p2', 'p7', 'p8'],
+      expect.anything(),
+    );
   });
 });
 

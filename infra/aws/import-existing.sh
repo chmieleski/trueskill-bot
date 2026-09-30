@@ -108,6 +108,7 @@ for pair in \
   "aws_ssm_parameter.match_create_role_id:MATCH_CREATE_ROLE_ID" \
   "aws_ssm_parameter.match_mod_role_id:MATCH_MOD_ROLE_ID" \
   "aws_ssm_parameter.wc3stats_timeout_ms:WC3STATS_TIMEOUT_MS" \
+  "aws_ssm_parameter.display_stats_source:DISPLAY_STATS_SOURCE" \
   "aws_ssm_parameter.api_enabled:API_ENABLED" \
   "aws_ssm_parameter.api_port:API_PORT" \
   "aws_ssm_parameter.api_bind:API_BIND" \

@@ -3,11 +3,14 @@ import { createLogger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   completeMatch,
+  playersAffectingCancelledDisplay,
   resolveGrieferSlots,
   resolveQuitterSlots,
   type CompleteMatchResult,
 } from './match-report.js';
 import { getMatchById, MatchServiceError, type MatchWithPlayers } from './match-service.js';
+import { ensurePlayerRatings } from '../rating/rating-preview.js';
+import { recomputeDisplayCountersForPlayers } from '../rating/display-counters.js';
 
 const log = createLogger('match-approval');
 
@@ -67,7 +70,8 @@ export async function approveWaitingMatch(matchId: string): Promise<CompleteMatc
 }
 
 /**
- * Reject a waiting match: CANCELLED with no rating writes and no quitter penalties.
+ * Reject a waiting match: CANCELLED with no OpenSkill rating apply and no quitter penalties.
+ * Display counters recompute only for players flagged quit/grief/DC.
  */
 export async function rejectWaitingMatch(matchId: string): Promise<MatchWithPlayers> {
   await prisma.$transaction(async (tx) => {
@@ -88,6 +92,23 @@ export async function rejectWaitingMatch(matchId: string): Promise<MatchWithPlay
       where: { id: locked.id },
       data: { status: 'CANCELLED' },
     });
+
+    // CANCELLED only affects display via quit/grief/DC flags — skip clean rejects.
+    if (locked.leagueId) {
+      const affected = playersAffectingCancelledDisplay(locked.players);
+      if (affected.length > 0) {
+        await ensurePlayerRatings(
+          locked.leagueId,
+          affected.map((player) => ({ playerId: player.playerId, heroId: player.heroId })),
+          tx,
+        );
+        await recomputeDisplayCountersForPlayers(
+          locked.leagueId,
+          affected.map((player) => player.playerId),
+          tx,
+        );
+      }
+    }
   });
 
   const updated = await getMatchById(matchId);

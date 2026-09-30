@@ -102,6 +102,11 @@ vi.mock('../rating/new-player.js', () => ({
   playerIdsToClearNewFlag: vi.fn(() => []),
 }));
 
+vi.mock('../rating/display-counters.js', () => ({
+  recomputeDisplayCountersForPlayer: vi.fn(),
+  recomputeDisplayCountersForPlayers: vi.fn(),
+}));
+
 import { completeMatch, cancelInProgressMatch } from './match-report.js';
 
 function eventInProgressMatch() {

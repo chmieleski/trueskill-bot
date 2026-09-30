@@ -39,10 +39,21 @@ import {
   gamesByPlayerFromStats,
   loadMatchDisplayStatsByPlayer,
 } from '../rating/rank-reset-display.js';
+import { recomputeDisplayCountersForPlayers } from '../rating/display-counters.js';
 import { loadIsNewPlayerByPlayerId, playerIdsToClearNewFlag } from '../rating/new-player.js';
 import { WOS_MATCH_REPORT_REQUIRED_MESSAGE } from './match-stats-upload.js';
 
 const log = createLogger('match-report');
+
+/**
+ * Players whose CANCELLED MatchPlayer flags can change display Q/G/DC counters.
+ * Clean cancel/reject with no flags must not ensure or recompute ratings.
+ */
+export function playersAffectingCancelledDisplay<
+  T extends { isQuitter: boolean; isGriefer: boolean; isDc: boolean },
+>(players: readonly T[]): T[] {
+  return players.filter((player) => player.isQuitter || player.isGriefer || player.isDc);
+}
 
 const matchWithPlayersInclude = {
   players: {
@@ -468,6 +479,8 @@ export async function completeMatch(
       },
     });
 
+    await recomputeDisplayCountersForPlayers(leagueId, playerIds, tx);
+
     const displayStats = await loadMatchDisplayStatsByPlayer(leagueId, playerIds, tx);
     const gamesByPlayer = gamesByPlayerFromStats(displayStats);
     const clearIds = playerIdsToClearNewFlag(playerIds, gamesByPlayer);
@@ -587,6 +600,39 @@ export async function cancelInProgressMatch(
       where: { id: matchId },
       data: { status: 'CANCELLED' },
     });
+
+    // Post-mutation flags: explicit grief/DC overrides clear quitter on that slot.
+    const displayRoster = match.players.map((player) => {
+      const isGriefer = grieferSet.has(player.slot);
+      const isDc = dcSet.has(player.slot);
+      let isQuitter = quitterSet.has(player.slot);
+      if (grieferSlots !== undefined && isGriefer) {
+        isQuitter = false;
+      }
+      if (dcSlots !== undefined && isDc) {
+        isQuitter = false;
+      }
+      return {
+        playerId: player.playerId,
+        heroId: player.heroId,
+        isQuitter,
+        isGriefer,
+        isDc,
+      };
+    });
+    const displayAffected = playersAffectingCancelledDisplay(displayRoster);
+    if (displayAffected.length > 0) {
+      await ensurePlayerRatings(
+        leagueId,
+        displayAffected.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
+        tx,
+      );
+      await recomputeDisplayCountersForPlayers(
+        leagueId,
+        displayAffected.map((p) => p.playerId),
+        tx,
+      );
+    }
   });
 
   const updated = await getMatchById(matchId);
@@ -659,6 +705,14 @@ export async function clearMatchGriefers(
         data: { isGriefer: false, grieferKiAccrued: null },
       });
     }
+
+    if (cleared.length > 0 && match.leagueId) {
+      await recomputeDisplayCountersForPlayers(
+        match.leagueId,
+        cleared.map((row) => row.playerId),
+        tx,
+      );
+    }
   });
 
   if (cleared.length === 0) {
@@ -728,6 +782,14 @@ export async function clearMatchDcs(
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
         data: { isDc: false },
       });
+    }
+
+    if (cleared.length > 0 && match.leagueId) {
+      await recomputeDisplayCountersForPlayers(
+        match.leagueId,
+        cleared.map((row) => row.playerId),
+        tx,
+      );
     }
   });
 
@@ -858,6 +920,14 @@ export async function clearMatchQuitters(
           },
         });
       }
+
+      if (match.leagueId) {
+        await recomputeDisplayCountersForPlayers(
+          match.leagueId,
+          clearedPlayers.map((player) => player.playerId),
+          tx,
+        );
+      }
     });
 
     const updated = await getMatchById(matchId);
@@ -880,6 +950,14 @@ export async function clearMatchQuitters(
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
         data: { isQuitter: false },
       });
+    }
+
+    if (match.leagueId) {
+      await recomputeDisplayCountersForPlayers(
+        match.leagueId,
+        clearedPlayers.map((player) => player.playerId),
+        tx,
+      );
     }
   });
 

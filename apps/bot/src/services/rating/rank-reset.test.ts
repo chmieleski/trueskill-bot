@@ -51,6 +51,11 @@ vi.mock('../../config/env.js', () => ({
   },
 }));
 
+vi.mock('./display-counters.js', () => ({
+  recomputeDisplayCountersForPlayer: vi.fn(),
+  recomputeDisplayCountersForPlayers: vi.fn(),
+}));
+
 import {
   applyRankReset,
   assertRankResetCooldownDays,

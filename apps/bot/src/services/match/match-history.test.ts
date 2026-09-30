@@ -19,6 +19,7 @@ const {
   buildMatchCompletedEmbed,
   resolveHeroDisplayNames,
   getGameProfileForMatch,
+  playerRatingFindMany,
 } = vi.hoisted(() => ({
   playerFindUnique: vi.fn(),
   playerFindMany: vi.fn(),
@@ -36,6 +37,7 @@ const {
   buildMatchCompletedEmbed: vi.fn(),
   resolveHeroDisplayNames: vi.fn(),
   getGameProfileForMatch: vi.fn(),
+  playerRatingFindMany: vi.fn(),
 }));
 
 vi.mock('../../lib/prisma.js', () => ({
@@ -55,6 +57,7 @@ vi.mock('../../lib/prisma.js', () => ({
     matchPlayerStats: { findMany: matchPlayerStatsFindMany },
     matchStatsReport: { findUnique: matchStatsReportFindUnique },
     playerRankReset: { findMany: playerRankResetFindMany },
+    playerRating: { findMany: playerRatingFindMany },
   },
 }));
 
@@ -503,6 +506,8 @@ describe('loadMatchHistoryPage', () => {
     matchPlayerGroupBy.mockResolvedValue([]);
     matchPlayerFindMany.mockResolvedValue([]);
     playerRankResetFindMany.mockResolvedValue([]);
+    playerRatingFindMany.mockReset();
+    playerRatingFindMany.mockResolvedValue([]);
     leagueFindUnique.mockResolvedValue(null);
     resolveHeroDisplayNames.mockResolvedValue(new Map());
   });
@@ -984,6 +989,8 @@ describe('loadCompletedMatchShow', () => {
       },
     ]);
     playerRankResetFindMany.mockResolvedValue([]);
+    playerRatingFindMany.mockReset();
+    playerRatingFindMany.mockResolvedValue([]);
     matchPlayerStatsFindMany.mockResolvedValue([]);
     matchStatsReportFindUnique.mockResolvedValue(null);
     buildMatchCompletedEmbed.mockImplementation(() => {

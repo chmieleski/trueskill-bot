@@ -88,6 +88,14 @@ resource "aws_ssm_parameter" "wc3stats_timeout_ms" {
   tags        = local.common_tags
 }
 
+resource "aws_ssm_parameter" "display_stats_source" {
+  name        = "${local.ssm_prefix}/DISPLAY_STATS_SOURCE"
+  description = "W/L display source: history (MatchPlayer) or counters (PlayerRating denorm)"
+  type        = "String"
+  value       = var.display_stats_source
+  tags        = local.common_tags
+}
+
 resource "aws_ssm_parameter" "api_enabled" {
   name        = "${local.ssm_prefix}/API_ENABLED"
   description = "Start HTTP listener in the bot process"
