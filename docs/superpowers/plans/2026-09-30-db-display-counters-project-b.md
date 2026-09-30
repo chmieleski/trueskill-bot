@@ -23,29 +23,31 @@
 
 ## File map
 
-| File | Role |
-| --- | --- |
-| `packages/db/prisma/schema.prisma` | `PlayerRating` display counter columns |
-| `packages/db/prisma/migrations/<ts>_player_rating_display_counters/` | Migration SQL |
-| `apps/bot/src/services/rating/display-counters.ts` | Apply deltas / recompute / compare |
-| `apps/bot/src/services/rating/display-counters.test.ts` | Unit tests |
-| `apps/bot/src/services/rating/rank-reset-display.ts` | Shadow/flip read path |
-| `apps/bot/src/config/env.ts` | `DISPLAY_STATS_SOURCE` |
-| `.env.example`, `.cursor/rules/scripts-and-env.mdc` | Docs |
-| `infra/aws/variables.tf`, `ssm.tf`, `terraform.tfvars.example` | SSM |
-| `deploy/aws/refresh-env.sh` | Host env writer |
-| `apps/bot/scripts/backfill-display-counters.ts` | One-off backfill |
-| `apps/bot/scripts/verify-display-counters.ts` | Ops verify (exit 1 on mismatch) |
+| File                                                                 | Role                                   |
+| -------------------------------------------------------------------- | -------------------------------------- |
+| `packages/db/prisma/schema.prisma`                                   | `PlayerRating` display counter columns |
+| `packages/db/prisma/migrations/<ts>_player_rating_display_counters/` | Migration SQL                          |
+| `apps/bot/src/services/rating/display-counters.ts`                   | Apply deltas / recompute / compare     |
+| `apps/bot/src/services/rating/display-counters.test.ts`              | Unit tests                             |
+| `apps/bot/src/services/rating/rank-reset-display.ts`                 | Shadow/flip read path                  |
+| `apps/bot/src/config/env.ts`                                         | `DISPLAY_STATS_SOURCE`                 |
+| `.env.example`, `.cursor/rules/scripts-and-env.mdc`                  | Docs                                   |
+| `infra/aws/variables.tf`, `ssm.tf`, `terraform.tfvars.example`       | SSM                                    |
+| `deploy/aws/refresh-env.sh`                                          | Host env writer                        |
+| `apps/bot/scripts/backfill-display-counters.ts`                      | One-off backfill                       |
+| `apps/bot/scripts/verify-display-counters.ts`                        | Ops verify (exit 1 on mismatch)        |
 
 ---
 
 ### Task 1: Prisma schema + migration
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema.prisma` (`PlayerRating`)
 - Create: migration via Prisma
 
 **Interfaces:**
+
 - Produces: columns `displayWins`, `displayLosses`, `displayQuits`, `displayGriefs`, `displayDcs` (`Int @default(0)`)
 
 - [ ] **Step 1: Add columns to schema**
@@ -94,11 +96,13 @@ EOF
 ### Task 2: Pure counter helpers + unit tests
 
 **Files:**
+
 - Create: `apps/bot/src/services/rating/display-counters.ts`
 - Create: `apps/bot/src/services/rating/display-counters.test.ts`
 - Modify: `apps/bot/src/services/rating/index.ts` (exports)
 
 **Interfaces:**
+
 - Consumes: `PlayerMatchDisplayStats` from `rank-reset-display.ts`
 - Produces:
   - `displayStatsFromCounters(row) → PlayerMatchDisplayStats`
@@ -109,10 +113,7 @@ EOF
 
 ```typescript
 import { describe, expect, it } from 'vitest';
-import {
-  countersEqualStats,
-  displayStatsFromCounters,
-} from './display-counters.js';
+import { countersEqualStats, displayStatsFromCounters } from './display-counters.js';
 
 describe('displayStatsFromCounters', () => {
   it('maps columns to PlayerMatchDisplayStats', () => {
@@ -238,6 +239,7 @@ EOF
 ### Task 3: Env flag + AWS sync
 
 **Files:**
+
 - Modify: `apps/bot/src/config/env.ts`
 - Modify: `.env.example`
 - Modify: `.cursor/rules/scripts-and-env.mdc`
@@ -246,6 +248,7 @@ EOF
 - Test: env parse unit test if the project has one; otherwise add a small test next to env
 
 **Interfaces:**
+
 - Produces: `env.displayStatsSource: 'history' | 'counters'` default `'history'`
 
 - [ ] **Step 1: Parse env**
@@ -289,11 +292,13 @@ Remind in PR: run `tofu apply` + refresh-env before relying on prod flag.
 ### Task 4: Shadow / flip in `loadMatchDisplayStatsByPlayer`
 
 **Files:**
+
 - Modify: `apps/bot/src/services/rating/rank-reset-display.ts`
 - Modify: tests that mock this loader
 - Create/extend: `rank-reset-display` or `display-counters` integration-style unit tests with mocked db
 
 **Interfaces:**
+
 - Consumes: `env.displayStatsSource`, counter columns on `playerRating`
 - Produces: same `Map<string, PlayerMatchDisplayStats>` API
 
@@ -356,6 +361,7 @@ EOF
 ### Task 5: Writers — recompute on history-changing events
 
 **Files (call `recomputeDisplayCountersForPlayer` inside existing txs):**
+
 - Match complete / cancel paths (`match-report.ts`, cancel flows)
 - Match correction (`match-correction.ts`)
 - Manual sanction (`manual-sanction.ts`)
@@ -401,6 +407,7 @@ EOF
 ### Task 6: Backfill + verify scripts
 
 **Files:**
+
 - Create: `apps/bot/scripts/backfill-display-counters.ts`
 - Create: `apps/bot/scripts/verify-display-counters.ts`
 - Optional package.json script entries under `@dbz/bot`
@@ -442,16 +449,16 @@ EOF
 
 ## Spec coverage (Project B)
 
-| Spec item | Task |
-| --- | --- |
-| Schema counters on PlayerRating | 1 |
-| Semantics = aggregator | 2, 5 |
-| Writers same transaction | 5 |
-| Shadow default | 4 |
-| DISPLAY_STATS_SOURCE + AWS sync | 3 |
-| Backfill + verify | 6 |
-| Flip / rollback | 7 |
-| No OpenSkill change | All |
+| Spec item                       | Task |
+| ------------------------------- | ---- |
+| Schema counters on PlayerRating | 1    |
+| Semantics = aggregator          | 2, 5 |
+| Writers same transaction        | 5    |
+| Shadow default                  | 4    |
+| DISPLAY_STATS_SOURCE + AWS sync | 3    |
+| Backfill + verify               | 6    |
+| Flip / rollback                 | 7    |
+| No OpenSkill change             | All  |
 
 ## Risk notes
 

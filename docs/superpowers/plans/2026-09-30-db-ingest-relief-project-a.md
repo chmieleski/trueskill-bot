@@ -22,27 +22,29 @@
 
 ## File map
 
-| File | Role |
-| --- | --- |
-| `apps/bot/src/services/rating/rating-decay-league-cache.ts` | In-process League decay cache |
-| `apps/bot/src/services/rating/rating-decay-league-cache.test.ts` | Cache unit tests |
-| `apps/bot/src/services/rating/rating-decay.ts` | Use cache in `applyPendingDecay` |
-| `apps/bot/src/services/rating/index.ts` | Re-export invalidate helper if needed |
-| `apps/bot/src/services/league/league-decay.ts` | Invalidate on every decay/season/crunch write |
-| `apps/bot/src/services/leaderboard/leaderboard.ts` | Pass `playerIds` into `loadMatchDisplayStatsByPlayer` |
-| `apps/bot/src/services/match/match-service.ts` | Diff-based `replaceMatchRoster` |
-| `apps/bot/src/services/match/replace-match-roster.test.ts` | Roster diff tests (new) |
+| File                                                             | Role                                                  |
+| ---------------------------------------------------------------- | ----------------------------------------------------- |
+| `apps/bot/src/services/rating/rating-decay-league-cache.ts`      | In-process League decay cache                         |
+| `apps/bot/src/services/rating/rating-decay-league-cache.test.ts` | Cache unit tests                                      |
+| `apps/bot/src/services/rating/rating-decay.ts`                   | Use cache in `applyPendingDecay`                      |
+| `apps/bot/src/services/rating/index.ts`                          | Re-export invalidate helper if needed                 |
+| `apps/bot/src/services/league/league-decay.ts`                   | Invalidate on every decay/season/crunch write         |
+| `apps/bot/src/services/leaderboard/leaderboard.ts`               | Pass `playerIds` into `loadMatchDisplayStatsByPlayer` |
+| `apps/bot/src/services/match/match-service.ts`                   | Diff-based `replaceMatchRoster`                       |
+| `apps/bot/src/services/match/replace-match-roster.test.ts`       | Roster diff tests (new)                               |
 
 ---
 
 ### Task 1: League decay settings cache module
 
 **Files:**
+
 - Create: `apps/bot/src/services/rating/rating-decay-league-cache.ts`
 - Create: `apps/bot/src/services/rating/rating-decay-league-cache.test.ts`
 - Modify: `apps/bot/src/services/rating/index.ts` (export `invalidateDecayLeagueCache`, `DECAY_LEAGUE_CACHE_TTL_MS` if useful)
 
 **Interfaces:**
+
 - Consumes: `DECAY_SETTINGS_SELECT` from `decay-settings.ts`; Prisma `league.findUnique` via injected fetch
 - Produces: `getDecayLeagueCached(leagueId, fetch)`, `invalidateDecayLeagueCache(leagueId | 'all')`, type `DecayLeagueCacheRow`
 
@@ -205,12 +207,14 @@ EOF
 ### Task 2: Wire cache into `applyPendingDecay` + invalidate writers
 
 **Files:**
+
 - Modify: `apps/bot/src/services/rating/rating-decay.ts`
 - Modify: `apps/bot/src/services/league/league-decay.ts`
 - Modify: `apps/bot/src/services/rating/rating-decay-apply.test.ts` (mocks still work via fetch path)
 - Test: existing `rating-decay-apply.test.ts` must stay green
 
 **Interfaces:**
+
 - Consumes: `getDecayLeagueCached` from Task 1
 - Produces: unchanged `applyPendingDecay` / `applyPendingDecayForPlayers` signatures
 
@@ -300,11 +304,13 @@ EOF
 ### Task 3: Scope leaderboard display-stats to known player ids
 
 **Files:**
+
 - Modify: `apps/bot/src/services/leaderboard/leaderboard.ts` (`loadEligibleOverallRows`)
 - Grep and fix any other hot caller of `loadMatchDisplayStatsByPlayer(leagueId)` without ids that already has a player id list
 - Test: existing leaderboard tests
 
 **Interfaces:**
+
 - Consumes: `loadMatchDisplayStatsByPlayer(leagueId, playerIds)`
 - Produces: same leaderboard entry shape
 
@@ -328,33 +334,33 @@ expect(loadMatchDisplayStatsByPlayer).toHaveBeenCalledWith(
 - [ ] **Step 3: Fix `loadEligibleOverallRows`**
 
 ```typescript
-  const ratingIds = await prisma.playerRating.findMany({
-    where: { leagueId },
-    select: { playerId: true },
-  });
-  const playerIds = ratingIds.map((row) => row.playerId);
-  await applyPendingDecayForPlayers(leagueId, playerIds);
+const ratingIds = await prisma.playerRating.findMany({
+  where: { leagueId },
+  select: { playerId: true },
+});
+const playerIds = ratingIds.map((row) => row.playerId);
+await applyPendingDecayForPlayers(leagueId, playerIds);
 
-  const [ratings, displayStatsByPlayer, league] = await Promise.all([
-    prisma.playerRating.findMany({
-      where: { leagueId },
-      include: {
-        player: { select: { id: true, username: true, discordId: true } },
-      },
-    }),
-    loadMatchDisplayStatsByPlayer(leagueId, playerIds),
-    prisma.league.findUnique({
-      where: { id: leagueId },
-      select: {
-        status: true,
-        decayEnabled: true,
-        seasonEndsAt: true,
-        crunchStartedAt: true,
-        archivedAt: true,
-        ...DECAY_SETTINGS_SELECT,
-      },
-    }),
-  ]);
+const [ratings, displayStatsByPlayer, league] = await Promise.all([
+  prisma.playerRating.findMany({
+    where: { leagueId },
+    include: {
+      player: { select: { id: true, username: true, discordId: true } },
+    },
+  }),
+  loadMatchDisplayStatsByPlayer(leagueId, playerIds),
+  prisma.league.findUnique({
+    where: { id: leagueId },
+    select: {
+      status: true,
+      decayEnabled: true,
+      seasonEndsAt: true,
+      crunchStartedAt: true,
+      archivedAt: true,
+      ...DECAY_SETTINGS_SELECT,
+    },
+  }),
+]);
 ```
 
 - [ ] **Step 4: Audit remaining call sites**
@@ -386,10 +392,12 @@ EOF
 ### Task 4: Diff-based `replaceMatchRoster`
 
 **Files:**
+
 - Modify: `apps/bot/src/services/match/match-service.ts` (`replaceMatchRoster`)
 - Create: `apps/bot/src/services/match/replace-match-roster.test.ts`
 
 **Interfaces:**
+
 - Consumes: existing `replaceMatchRoster(matchId, players, options?)` signature
 - Produces: same `MatchWithPlayers` return; same errors for missing/non-PENDING matches
 
@@ -426,75 +434,75 @@ describe('replaceMatchRoster diff', () => {
 Replace the block that does `deleteMany` + `createMany` with logic equivalent to:
 
 ```typescript
-    const previousRows = await tx.matchPlayer.findMany({
-      where: { matchId },
-      select: {
-        playerId: true,
-        slot: true,
-        team: true,
-        heroId: true,
-        locked: true,
-        isQuitter: true,
-        isGriefer: true,
-      },
+const previousRows = await tx.matchPlayer.findMany({
+  where: { matchId },
+  select: {
+    playerId: true,
+    slot: true,
+    team: true,
+    heroId: true,
+    locked: true,
+    isQuitter: true,
+    isGriefer: true,
+  },
+});
+const previousLockedPairs = new Set(
+  previousRows
+    .filter((row) => row.locked)
+    .map((row) => matchPlayerLockPairKey(row.playerId, row.slot)),
+);
+const incomingLockedBySlot = new Map(
+  roster.map((player) => [player.slot, player.locked === true] as const),
+);
+
+const resolved = await resolvePlayersInTx(tx, roster, existing.leagueId, profile);
+const nextByPlayerId = new Map(resolved.map((e) => [e.playerId, e]));
+const prevByPlayerId = new Map(previousRows.map((r) => [r.playerId, r]));
+
+const toDelete = previousRows.filter((r) => !nextByPlayerId.has(r.playerId));
+if (toDelete.length > 0) {
+  await tx.matchPlayer.deleteMany({
+    where: {
+      matchId,
+      playerId: { in: toDelete.map((r) => r.playerId) },
+    },
+  });
+}
+
+for (const entry of resolved) {
+  const locked = reconcileMatchPlayerLocked(
+    previousLockedPairs,
+    entry.playerId,
+    entry.slot,
+    incomingLockedBySlot.get(entry.slot) === true,
+  );
+  const prev = prevByPlayerId.get(entry.playerId);
+  const data = {
+    team: entry.team,
+    slot: entry.slot,
+    heroId: entry.heroId,
+    result: null as null,
+    isQuitter: entry.isQuitter === true,
+    isGriefer: false,
+    locked,
+  };
+  if (!prev) {
+    await tx.matchPlayer.create({
+      data: { matchId, playerId: entry.playerId, ...data },
     });
-    const previousLockedPairs = new Set(
-      previousRows
-        .filter((row) => row.locked)
-        .map((row) => matchPlayerLockPairKey(row.playerId, row.slot)),
-    );
-    const incomingLockedBySlot = new Map(
-      roster.map((player) => [player.slot, player.locked === true] as const),
-    );
-
-    const resolved = await resolvePlayersInTx(tx, roster, existing.leagueId, profile);
-    const nextByPlayerId = new Map(resolved.map((e) => [e.playerId, e]));
-    const prevByPlayerId = new Map(previousRows.map((r) => [r.playerId, r]));
-
-    const toDelete = previousRows.filter((r) => !nextByPlayerId.has(r.playerId));
-    if (toDelete.length > 0) {
-      await tx.matchPlayer.deleteMany({
-        where: {
-          matchId,
-          playerId: { in: toDelete.map((r) => r.playerId) },
-        },
-      });
-    }
-
-    for (const entry of resolved) {
-      const locked = reconcileMatchPlayerLocked(
-        previousLockedPairs,
-        entry.playerId,
-        entry.slot,
-        incomingLockedBySlot.get(entry.slot) === true,
-      );
-      const prev = prevByPlayerId.get(entry.playerId);
-      const data = {
-        team: entry.team,
-        slot: entry.slot,
-        heroId: entry.heroId,
-        result: null as null,
-        isQuitter: entry.isQuitter === true,
-        isGriefer: false,
-        locked,
-      };
-      if (!prev) {
-        await tx.matchPlayer.create({
-          data: { matchId, playerId: entry.playerId, ...data },
-        });
-      } else if (
-        prev.team !== data.team ||
-        prev.slot !== data.slot ||
-        prev.heroId !== data.heroId ||
-        prev.isQuitter !== data.isQuitter ||
-        prev.locked !== data.locked
-      ) {
-        await tx.matchPlayer.update({
-          where: { matchId_playerId: { matchId, playerId: entry.playerId } },
-          data,
-        });
-      }
-    }
+  } else if (
+    prev.team !== data.team ||
+    prev.slot !== data.slot ||
+    prev.heroId !== data.heroId ||
+    prev.isQuitter !== data.isQuitter ||
+    prev.locked !== data.locked
+  ) {
+    await tx.matchPlayer.update({
+      where: { matchId_playerId: { matchId, playerId: entry.playerId } },
+      data,
+    });
+  }
+}
 ```
 
 Keep hero-catalog checks, `assertValidSlots`, `markLobbyRosterAuthority`, and final `findUniqueOrThrow` include identical.
@@ -555,10 +563,10 @@ Body: link spec; note Project B counters still follow.
 
 ## Spec coverage (Project A)
 
-| Spec item | Task |
-| --- | --- |
-| A1 League decay cache + TTL + invalidate | 1–2 |
-| A2 Scope history reads / pass playerIds | 3 |
-| A3 replaceMatchRoster diff | 4 |
-| No migration / no behavior change | All |
-| Tests + smoke | 1–5 |
+| Spec item                                | Task |
+| ---------------------------------------- | ---- |
+| A1 League decay cache + TTL + invalidate | 1–2  |
+| A2 Scope history reads / pass playerIds  | 3    |
+| A3 replaceMatchRoster diff               | 4    |
+| No migration / no behavior change        | All  |
+| Tests + smoke                            | 1–5  |

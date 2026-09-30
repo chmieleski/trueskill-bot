@@ -13,13 +13,13 @@
 
 Supabase Free plan **Logs Ingest** quota is **5 GB / month**. Org usage hit ~**10 GB**. Investigation (project DBZU, 2026-09-30) showed:
 
-| Observation | Implication |
-| --- | --- |
-| Public schema ~**21 MB** | Not a database-size problem |
-| ~**99%** of recent log events = `supavisor_logs` (auth / terminate) | Pooler connection + query chatter drives ingest |
-| ~2.66 M `League` decay-config PK reads + ~2.66 M `PlayerRating` PK reads | On-read decay catch-up reloads League every time |
-| ~664 k per-player `MatchPlayer` history dumps; league-wide hero-stats ~1.2 k rows/call | Display W/L/Q/G/DC and hero boards over-fetch |
-| `replaceMatchRoster` = `deleteMany` + `createMany` | Lobby rewrite amplifies WAL / session work |
+| Observation                                                                            | Implication                                      |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| Public schema ~**21 MB**                                                               | Not a database-size problem                      |
+| ~**99%** of recent log events = `supavisor_logs` (auth / terminate)                    | Pooler connection + query chatter drives ingest  |
+| ~2.66 M `League` decay-config PK reads + ~2.66 M `PlayerRating` PK reads               | On-read decay catch-up reloads League every time |
+| ~664 k per-player `MatchPlayer` history dumps; league-wide hero-stats ~1.2 k rows/call | Display W/L/Q/G/DC and hero boards over-fetch    |
+| `replaceMatchRoster` = `deleteMany` + `createMany`                                     | Lobby rewrite amplifies WAL / session work       |
 
 Shared Pooler **Egress** (also 5 GB Free) is a sibling risk from the same row-return volume; this design targets both by cutting query/connection chatter.
 
@@ -29,16 +29,16 @@ Reduce Logs Ingest and Shared Pooler Egress **without changing** player-facing �
 
 ## Locked decisions
 
-| Topic | Choice |
-| --- | --- |
-| Delivery | **Two projects:** A = fast relief (no schema); B = denormalized display counters |
-| Counter cutover | **Shadow mode** first (history remains source of truth); flip only after clean shadow |
-| Rollback | Env `DISPLAY_STATS_SOURCE=history\|counters` (default `history`) |
-| Cache | Process-local League decay cache + invalidate on decay/league writes; TTL fallback |
-| Roster | Diff/upsert in `replaceMatchRoster`; preserve locks and PENDING-only edits |
-| Counters grain | League-global on `PlayerRating` matching `PlayerMatchDisplayStats` |
-| Out of v1 counters | Hero W/L maps, side (team1/team2) W/L denorm |
-| OpenSkill | Unchanged; counters are display / calibrating / decay-exempt inputs only |
+| Topic              | Choice                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| Delivery           | **Two projects:** A = fast relief (no schema); B = denormalized display counters      |
+| Counter cutover    | **Shadow mode** first (history remains source of truth); flip only after clean shadow |
+| Rollback           | Env `DISPLAY_STATS_SOURCE=history\|counters` (default `history`)                      |
+| Cache              | Process-local League decay cache + invalidate on decay/league writes; TTL fallback    |
+| Roster             | Diff/upsert in `replaceMatchRoster`; preserve locks and PENDING-only edits            |
+| Counters grain     | League-global on `PlayerRating` matching `PlayerMatchDisplayStats`                    |
+| Out of v1 counters | Hero W/L maps, side (team1/team2) W/L denorm                                          |
+| OpenSkill          | Unchanged; counters are display / calibrating / decay-exempt inputs only              |
 
 ## Non-goals
 
@@ -142,13 +142,13 @@ No schema change.
 
 On `PlayerRating` (PK `(leagueId, playerId)`), add integers defaulting to `0`:
 
-| Column | Maps to `PlayerMatchDisplayStats` |
-| --- | --- |
-| `displayWins` | `wins` |
-| `displayLosses` | `losses` |
-| `displayQuits` | `quits` |
-| `displayGriefs` | `griefs` |
-| `displayDcs` | `dcs` |
+| Column          | Maps to `PlayerMatchDisplayStats` |
+| --------------- | --------------------------------- |
+| `displayWins`   | `wins`                            |
+| `displayLosses` | `losses`                          |
+| `displayQuits`  | `quits`                           |
+| `displayGriefs` | `griefs`                          |
+| `displayDcs`    | `dcs`                             |
 
 Derived `games` for readers = `displayWins + displayLosses` (same as aggregator today).
 
@@ -203,40 +203,40 @@ One-off script (or migrate + script): for each `PlayerRating` row, compute via e
 
 ## Testing strategy
 
-| Layer | Project A | Project B |
-| --- | --- | --- |
-| Unit | Cache, roster diff, scoped call contracts | Counter increment rules vs aggregator fixtures |
-| Integration / existing suites | Decay, lobby, hero, leaderboard, rank | Complete/cancel/correction/sanction/rank-reset |
-| Ops | — | Verify script before flip |
-| Manual smoke | `/rank`, lobby OCR, `/hero`, leaderboard | Shadow logs quiet; flip on staging/prod with rollback ready |
+| Layer                         | Project A                                 | Project B                                                   |
+| ----------------------------- | ----------------------------------------- | ----------------------------------------------------------- |
+| Unit                          | Cache, roster diff, scoped call contracts | Counter increment rules vs aggregator fixtures              |
+| Integration / existing suites | Decay, lobby, hero, leaderboard, rank     | Complete/cancel/correction/sanction/rank-reset              |
+| Ops                           | —                                         | Verify script before flip                                   |
+| Manual smoke                  | `/rank`, lobby OCR, `/hero`, leaderboard  | Shadow logs quiet; flip on staging/prod with rollback ready |
 
 ## Rollout order
 
-1. A1 League cache PR  
-2. A2 Query scoping PR  
-3. A3 Roster diff PR  
-4. B1 Migration + backfill + writers + shadow (flag stays `history`)  
-5. B2 Flip `DISPLAY_STATS_SOURCE=counters` after clean shadow  
+1. A1 League cache PR
+2. A2 Query scoping PR
+3. A3 Roster diff PR
+4. B1 Migration + backfill + writers + shadow (flag stays `history`)
+5. B2 Flip `DISPLAY_STATS_SOURCE=counters` after clean shadow
 
 ## Success metrics
 
-- Supabase **Logs Ingest** daily GB and `supavisor_logs` event rate trend down after A  
-- `pg_stat_statements`: sharp drop in League-by-id calls (A1) and unscoped MatchPlayer dumps (A2); fewer MatchPlayer write churn ops (A3)  
-- After B flip: `loadMatchDisplayStatsByPlayer` no longer full-history scans on hot paths  
-- **Correctness:** no player-visible W/L/Q/ki/board regressions; shadow mismatches = 0 before flip  
+- Supabase **Logs Ingest** daily GB and `supavisor_logs` event rate trend down after A
+- `pg_stat_statements`: sharp drop in League-by-id calls (A1) and unscoped MatchPlayer dumps (A2); fewer MatchPlayer write churn ops (A3)
+- After B flip: `loadMatchDisplayStatsByPlayer` no longer full-history scans on hot paths
+- **Correctness:** no player-visible W/L/Q/ki/board regressions; shadow mismatches = 0 before flip
 
 ## Implementation plans
 
 Separate plans (writing-plans skill after this spec is user-approved):
 
-1. `docs/superpowers/plans/2026-09-30-db-ingest-relief-project-a.md`  
-2. `docs/superpowers/plans/2026-09-30-db-display-counters-project-b.md`  
+1. `docs/superpowers/plans/2026-09-30-db-ingest-relief-project-a.md`
+2. `docs/superpowers/plans/2026-09-30-db-display-counters-project-b.md`
 
 ## Agent constraints
 
-- Declare scope `general` on every PR  
-- Do not change translation keys  
-- Do not weaken league isolation (`leagueId` on all rating/counter reads/writes)  
-- English-only user-facing strings / logs  
-- Conventional Commits; format check before PR  
-- New production env keys must complete env-aws-sync checklist  
+- Declare scope `general` on every PR
+- Do not change translation keys
+- Do not weaken league isolation (`leagueId` on all rating/counter reads/writes)
+- English-only user-facing strings / logs
+- Conventional Commits; format check before PR
+- New production env keys must complete env-aws-sync checklist
