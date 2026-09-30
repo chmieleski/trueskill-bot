@@ -1,7 +1,25 @@
 import { MatchResult, MatchStatus, type PrismaClient } from '@dbz/db';
+import { env } from '../../config/env.js';
+import { createLogger } from '../../lib/logger.js';
 import { prisma as defaultPrisma } from '../../lib/prisma.js';
+import {
+  countersEqualStats,
+  displayStatsFromCounters,
+  type DisplayCounterColumns,
+} from './display-counters.js';
 import { sumDcSeasonTaxByPlayer } from './dc-tax.js';
 import { sumGrieferKiTaxByPlayer } from './griefer-tax.js';
+
+const log = createLogger('rank-reset-display');
+
+const DISPLAY_COUNTER_SELECT = {
+  playerId: true,
+  displayWins: true,
+  displayLosses: true,
+  displayQuits: true,
+  displayGriefs: true,
+  displayDcs: true,
+} as const;
 
 export type MatchDisplayStatRow = {
   playerId: string;
@@ -31,6 +49,15 @@ export type PlayerMatchDisplayStats = {
   dcs: number;
 };
 
+const ZERO_DISPLAY_STATS: PlayerMatchDisplayStats = {
+  games: 0,
+  wins: 0,
+  losses: 0,
+  quits: 0,
+  griefs: 0,
+  dcs: 0,
+};
+
 export type PlayerHeroMatchDisplayStats = {
   wins: number;
   losses: number;
@@ -52,7 +79,7 @@ export type MatchDisplayStatsBundle = {
   bySide: Map<string, PlayerSidesMatchDisplayStats>;
 };
 
-type Db = Pick<PrismaClient, 'playerRankReset' | 'matchPlayer'>;
+type Db = Pick<PrismaClient, 'playerRankReset' | 'matchPlayer' | 'playerRating'>;
 
 /**
  * Whether a completed match counts toward post-reset display stats (ki soft-z, W/L).
@@ -395,13 +422,74 @@ export async function loadMatchDisplayStats(
   };
 }
 
-export async function loadMatchDisplayStatsByPlayer(
+/** MatchPlayer history aggregation only (recompute / backfill; ignores DISPLAY_STATS_SOURCE). */
+export async function loadMatchDisplayStatsFromHistory(
   leagueId: string,
   playerIds?: string[],
   db: Db = defaultPrisma,
 ): Promise<Map<string, PlayerMatchDisplayStats>> {
   const { resetAtByPlayer, rows } = await loadMatchDisplayRows(leagueId, playerIds, db);
   return aggregateMatchDisplayStats(rows, resetAtByPlayer);
+}
+
+function mapDisplayStatsFromCounterRows(
+  rows: Array<{ playerId: string } & DisplayCounterColumns>,
+  playerIds?: string[],
+): Map<string, PlayerMatchDisplayStats> {
+  const byPlayerId = new Map(
+    rows.map((row) => [row.playerId, displayStatsFromCounters(row)] as const),
+  );
+  if (!playerIds) {
+    return byPlayerId;
+  }
+  return new Map(playerIds.map((id) => [id, byPlayerId.get(id) ?? ZERO_DISPLAY_STATS]));
+}
+
+async function loadDisplayStatsFromCounterColumns(
+  leagueId: string,
+  playerIds: string[] | undefined,
+  db: Db,
+): Promise<Map<string, PlayerMatchDisplayStats>> {
+  const rows = await db.playerRating.findMany({
+    where: {
+      leagueId,
+      ...(playerIds ? { playerId: { in: playerIds } } : {}),
+    },
+    select: DISPLAY_COUNTER_SELECT,
+  });
+  return mapDisplayStatsFromCounterRows(rows, playerIds);
+}
+
+export async function loadMatchDisplayStatsByPlayer(
+  leagueId: string,
+  playerIds?: string[],
+  db: Db = defaultPrisma,
+): Promise<Map<string, PlayerMatchDisplayStats>> {
+  if (env.displayStatsSource === 'counters') {
+    return loadDisplayStatsFromCounterColumns(leagueId, playerIds, db);
+  }
+
+  const history = await loadMatchDisplayStatsFromHistory(leagueId, playerIds, db);
+  const counterRows = await db.playerRating.findMany({
+    where: {
+      leagueId,
+      ...(playerIds ? { playerId: { in: playerIds } } : {}),
+    },
+    select: DISPLAY_COUNTER_SELECT,
+  });
+
+  for (const row of counterRows) {
+    const h = history.get(row.playerId) ?? ZERO_DISPLAY_STATS;
+    const c = displayStatsFromCounters(row);
+    if (!countersEqualStats(h, c)) {
+      log.warn(
+        { leagueId, playerId: row.playerId, history: h, counters: c },
+        'display counter shadow mismatch',
+      );
+    }
+  }
+
+  return history;
 }
 
 /** Sum deferred griefer ki tax per player in one league (active season accruals). */

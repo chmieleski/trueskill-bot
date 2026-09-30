@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@dbz/db';
 import {
-  loadMatchDisplayStatsByPlayer,
+  loadMatchDisplayStatsFromHistory,
   type PlayerMatchDisplayStats,
 } from './rank-reset-display.js';
 
@@ -54,7 +54,7 @@ export async function recomputeDisplayCountersForPlayer(
   playerId: string,
   db: Db,
 ): Promise<PlayerMatchDisplayStats> {
-  const map = await loadMatchDisplayStatsByPlayer(leagueId, [playerId], db);
+  const map = await loadMatchDisplayStatsFromHistory(leagueId, [playerId], db);
   const stats = map.get(playerId) ?? {
     games: 0,
     wins: 0,
