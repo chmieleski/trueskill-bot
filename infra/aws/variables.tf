@@ -144,6 +144,12 @@ variable "wc3stats_timeout_ms" {
   default     = "4000"
 }
 
+variable "display_stats_source" {
+  description = "DISPLAY_STATS_SOURCE — W/L display: history (MatchPlayer) or counters (PlayerRating denorm)"
+  type        = string
+  default     = "history"
+}
+
 variable "api_enabled" {
   description = "API_ENABLED — start HTTP listener in the bot process"
   type        = string

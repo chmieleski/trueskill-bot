@@ -64,6 +64,8 @@ interface EnvConfig {
   obsEventLoopMsWarn: number;
   /** Health sampler interval in milliseconds. */
   obsSampleIntervalMs: number;
+  /** W/L display source: MatchPlayer history (default) or PlayerRating denorm counters. */
+  displayStatsSource: 'history' | 'counters';
 }
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
@@ -94,6 +96,13 @@ function parseLogLevel(value: string | undefined): string | undefined {
   }
 
   return normalized;
+}
+
+/** Parse DISPLAY_STATS_SOURCE; invalid or empty values fall back to history. */
+export function parseDisplayStatsSource(raw: string | undefined): 'history' | 'counters' {
+  const v = raw?.trim().toLowerCase();
+  if (v === 'counters') return 'counters';
+  return 'history';
 }
 
 function parseBoolean(value: string | undefined, defaultValue: boolean): boolean {
@@ -146,4 +155,5 @@ export const env: EnvConfig = {
   obsRssMbWarn: parsePositiveInt(process.env.OBS_RSS_MB_WARN, 512),
   obsEventLoopMsWarn: parsePositiveInt(process.env.OBS_EVENT_LOOP_MS_WARN, 200),
   obsSampleIntervalMs: parsePositiveInt(process.env.OBS_SAMPLE_INTERVAL_MS, 15_000),
+  displayStatsSource: parseDisplayStatsSource(process.env.DISPLAY_STATS_SOURCE),
 };
