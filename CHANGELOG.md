@@ -1,3 +1,10 @@
+# [1.64.0](https://github.com/chmieleski/trueskill-bot/compare/v1.63.4...v1.64.0) (2026-09-30)
+
+
+### Features
+
+* **db:** PlayerRating display counters with shadow mode ([#196](https://github.com/chmieleski/trueskill-bot/issues/196)) ([82d56b6](https://github.com/chmieleski/trueskill-bot/commit/82d56b6a23040b451bc97f0bc5b7dab1fb1f080e))
+
 ## [1.63.4](https://github.com/chmieleski/trueskill-bot/compare/v1.63.3...v1.63.4) (2026-09-30)
 
 
