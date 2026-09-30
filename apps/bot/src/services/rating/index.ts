@@ -34,6 +34,13 @@ export {
   type PlayerMatchDisplayStats,
 } from './rank-reset-display.js';
 export {
+  counterColumnsFromStats,
+  countersEqualStats,
+  displayStatsFromCounters,
+  recomputeDisplayCountersForPlayer,
+  type DisplayCounterColumns,
+} from './display-counters.js';
+export {
   applyPendingDecay,
   applyPendingDecayForPlayers,
   computeDecayDelta,
