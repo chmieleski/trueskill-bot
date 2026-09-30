@@ -1,3 +1,15 @@
+# [1.65.0](https://github.com/chmieleski/trueskill-bot/compare/v1.64.0...v1.65.0) (2026-09-30)
+
+
+### Bug Fixes
+
+* **rating:** load dotenv before display counter script imports ([d24b67b](https://github.com/chmieleski/trueskill-bot/commit/d24b67bf1c6bf1ba3bab1fca7d2f84f11fdd1958))
+
+
+### Features
+
+* **wos:** accept map_version headers and persist train_deaths ([#197](https://github.com/chmieleski/trueskill-bot/issues/197)) ([813f8e8](https://github.com/chmieleski/trueskill-bot/commit/813f8e83b5f582f5cfc7cd713d2cef06fbf41528))
+
 # [1.64.0](https://github.com/chmieleski/trueskill-bot/compare/v1.63.4...v1.64.0) (2026-09-30)
 
 
