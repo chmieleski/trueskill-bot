@@ -1,3 +1,10 @@
+# [1.66.0](https://github.com/chmieleski/trueskill-bot/compare/v1.65.1...v1.66.0) (2026-10-02)
+
+
+### Features
+
+* **infra:** add aws rds postgresql and database migration script ([#201](https://github.com/chmieleski/trueskill-bot/issues/201)) ([a2a89d1](https://github.com/chmieleski/trueskill-bot/commit/a2a89d1c07301b16d15d6be8ebd04cbe9166648f))
+
 ## [1.65.1](https://github.com/chmieleski/trueskill-bot/compare/v1.65.0...v1.65.1) (2026-09-30)
 
 
