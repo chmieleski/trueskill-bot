@@ -8,7 +8,7 @@ locals {
   ssm_empty = "__EMPTY__"
 
   rds_endpoint     = length(aws_db_instance.db) > 0 ? aws_db_instance.db[0].endpoint : ""
-  rds_database_url = length(aws_db_instance.db) > 0 ? "postgresql://${aws_db_instance.db[0].username}:${urlencode(local.db_master_password)}@${aws_db_instance.db[0].endpoint}/${aws_db_instance.db[0].db_name}?schema=public" : ""
+  rds_database_url = length(aws_db_instance.db) > 0 ? "postgresql://${aws_db_instance.db[0].username}:${urlencode(local.db_master_password)}@${aws_db_instance.db[0].endpoint}/${aws_db_instance.db[0].db_name}?sslmode=no-verify" : ""
 
   # If RDS is enabled and use_rds_for_bot is true, point bot SSM parameters to RDS.
   # Otherwise fallback to var.database_url / var.direct_url.

@@ -1,0 +1,18 @@
+# Adding a Slash Command
+
+1. Create `src/commands/<domain>/<name>.ts` exporting `data` + `execute`.
+2. Build `data` with `SlashCommandBuilder`.
+3. If work may exceed ~3s: `await interaction.deferReply()` then `editReply()`.
+4. Dev auto-registers on restart (`AUTO_DEPLOY_COMMANDS` defaults to true).
+5. If the action already exists via buttons/modals, call shared service/use-case logic — see `shared-domain-logic.md`.
+
+```typescript
+export const data = new SlashCommandBuilder()
+  .setName('register_lobby')
+  .setDescription('Register a DBZ match lobby (up to 6v6). Screenshot is optional.');
+
+export async function execute(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply();
+  // OCR / network work after defer…
+}
+```

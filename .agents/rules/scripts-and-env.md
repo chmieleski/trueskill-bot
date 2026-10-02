@@ -1,0 +1,59 @@
+# Scripts & Environment
+
+Monorepo (pnpm + Turborepo). Prefer root scripts; filters target `@dbz/bot`, `@dbz/web`, `@dbz/db`.
+
+| Script                              | Purpose                                                             |
+| ----------------------------------- | ------------------------------------------------------------------- |
+| `pnpm dev` / `pnpm dev:bot`         | Bot tsx watch (`@dbz/bot`)                                          |
+| `pnpm dev:web`                      | Next.js web shell (`@dbz/web`)                                      |
+| `pnpm build`                        | Turbo build (db generate + bot + web)                               |
+| `pnpm build:bot` / `pnpm build:web` | Filtered builds                                                     |
+| `pnpm typecheck`                    | Turbo typecheck                                                     |
+| `pnpm start`                        | Production bot from `apps/bot/dist/`                                |
+| `pnpm deploy-commands`              | Manual slash command deploy                                         |
+| `pnpm db:migrate`                   | Prisma migrate dev (`@dbz/db`)                                      |
+| `pnpm db:push`                      | Push schema without migration                                       |
+| `pnpm db:studio`                    | Prisma Studio                                                       |
+| `pnpm db:generate`                  | Regenerate Prisma client                                            |
+| `pnpm db:up`                        | Start local Postgres (Docker Compose, port 5433)                    |
+| `pnpm db:down`                      | Stop local Postgres (volume kept)                                   |
+| `pnpm db:clone`                     | Dump hosted public data → local Postgres                            |
+| `pnpm db:clone:heroes`              | Same clone, `"Hero"` table only                                     |
+| `pnpm db:backup`                    | Gzipped schema+data dump of hosted prod → `.local/backups/`         |
+| `pnpm db:restore`                   | Restore a backup into local Docker only (`-- path.sql.gz` optional) |
+| `pnpm db:migrate-multi-league`      | Probe schema, migrate deploy if needed, ensure Game/UDBR leagues    |
+
+Keep a **root** `.env` for local `DATABASE_URL` / `DIRECT_URL` (shared by bot + Prisma CLI).
+
+## Env vars
+
+- `DISCORD_TOKEN`, `CLIENT_ID`
+- `GUILD_ID` — optional; guild-scoped command deploy when set (typical for dev). Empty/unset = global deploy (production)
+- `DATABASE_URL` — Supabase pooled (6543), or local `127.0.0.1:5433` when using Docker Compose
+- `DIRECT_URL` — Supabase session/direct (5432), or the same local URL as `DATABASE_URL`
+- `PROD_DIRECT_URL` — hosted session/direct URL (5432) for `pnpm db:clone` after `.env` points at local Postgres. Never the 6543 pooler.
+- `MULTI_LEAGUE_LEGACY_GUILD_ID` — Discord guild snowflake that owns pre-multi-league Match/rating history for `pnpm db:migrate-multi-league` (falls back to `GUILD_ID` if unset)
+- `NODE_ENV` — `development` | `production`
+- `AUTO_DEPLOY_COMMANDS` — auto-register commands on startup
+- `GEMINI_API_KEY` — Google Gemini API key for lobby screenshot OCR
+- `LOG_LEVEL` — `fatal` | `error` | `warn` | `info` | `verbose` | `debug` | `trace` (default: `debug` in dev, `info` in production)
+- `MATCH_MOD_ROLE_ID` — fallback Discord role that may report/cancel in-progress matches (host always can); overridden per guild after `/config set mod_role`
+- `MATCH_CREATE_ROLE_ID` — fallback Discord role required to run `/register_lobby` (empty/unset = creation disabled); overridden per guild after `/config set create_role`
+- wc3stats lobby import is enabled per server with `/league_config set wc3stats_map_preset`
+- `WC3STATS_TIMEOUT_MS` — wc3stats HTTP timeout (default `4000`)
+- `DISPLAY_STATS_SOURCE` — W/L display source: `history` (default, MatchPlayer) | `counters` (PlayerRating denorm after shadow)
+- `API_ENABLED` — start HTTP listener in the bot process (default `false`)
+- `API_PORT` — HTTP API listen port (default `8787`)
+- `API_BIND` — HTTP API bind address (default `0.0.0.0`)
+- `OBS_ENABLED` — process observability: sampler, Discord ops alerter, obs HTTP (default `true`)
+- `OBS_BIND` — obs HTTP bind (default `127.0.0.1`)
+- `OBS_PORT` — obs HTTP port (default `8790`)
+- `OBS_TOKEN` — Bearer token required when `OBS_BIND` is not loopback
+- `OPS_ALERT_CHANNEL_ID` — process-wide Discord ops alert channel; also `/config set ops_channel` per guild
+- `OBS_RSS_MB_WARN` — RSS MiB alert threshold (default `512`)
+- `OBS_EVENT_LOOP_MS_WARN` — event-loop p99 ms alert threshold (default `200`)
+- `OBS_SAMPLE_INTERVAL_MS` — health sampler interval (default `15000`)
+- `CLICKUP_API_TOKEN` — **local-only** ClickUp personal API token for agents when the ClickUp MCP is rate-limited. Not read by the bot; skip AWS SSM. See `.agents/rules/clickup-api-fallback.md`
+
+Production: every **bot** env key must also live in AWS SSM and `deploy/aws/refresh-env.sh` — see `.agents/rules/env-aws-sync.md`.
+Web (Vercel) needs no DB env for the base shell.

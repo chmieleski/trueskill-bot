@@ -17,6 +17,7 @@ import {
   recomputeDisplayCountersForPlayer,
   recomputeDisplayCountersForPlayers,
 } from '../rating/display-counters.js';
+import { markLeagueHeroChampionRolesDirty } from '../hero-champion-roles/mark-dirty.js';
 import { restoreMatchRatingSnapshots, writeMatchRatingSnapshots } from './match-correction.js';
 import {
   clearMatchDcs,
@@ -195,6 +196,7 @@ export async function addManualSanction(
     }
 
     await recomputeDisplayCountersForPlayer(input.leagueId, input.playerId, tx);
+    await markLeagueHeroChampionRolesDirty(input.leagueId, tx);
   });
 
   const [displayStats, matchPlayer] = await Promise.all([
@@ -241,6 +243,7 @@ async function clearManualQuitterWithRestore(leagueId: string, matchId: string):
       players.map((player) => player.playerId),
       tx,
     );
+    await markLeagueHeroChampionRolesDirty(leagueId, tx);
   });
 }
 

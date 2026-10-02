@@ -1,0 +1,14 @@
+# DBZ WC3 Bot
+
+Discord bot for **up to 6v6** ranked matches on a custom Dragon Ball Z Warcraft III map. Twelve heroes map to lobby slots/colors. Full lobby is 6v6; **unbalanced** human fills are allowed (e.g. 4v6) as long as both teams have at least one player. Ranking uses **OpenSkill** (global + hero-specific ratings).
+
+## Stack
+
+- Node.js + TypeScript (ESM, `"type": "module"`)
+- discord.js v14 — Slash Commands, REST API
+- Prisma + Supabase PostgreSQL
+- dotenv, tsx (dev hot-reload; no build in dev)
+
+## Language
+
+All user-facing strings, logs, command names/descriptions, and errors must be in **English**.

@@ -1,0 +1,26 @@
+# Project Structure
+
+Monorepo layout (pnpm + Turborepo):
+
+```
+apps/bot/src/                 # Discord bot (@dbz/bot)
+apps/web/                     # Next.js web shell (@dbz/web) — Vercel
+packages/db/                  # Prisma schema + client (@dbz/db)
+```
+
+Bot source layout:
+
+```
+apps/bot/src/
+├── index.ts
+├── deploy-commands.ts
+├── config/env.ts
+├── lib/prisma.ts
+├── client/create-client.ts
+├── types/command.ts
+├── handlers/                 # load-commands, load-events, register-commands
+├── discord/interactions/     # lobby, match, leaderboard button/modal adapters
+├── commands/                 # slash commands by domain
+├── events/
+└── services/                 # domain folders: lobby, match, rating, player, leaderboard, wc3stats, guild
+```

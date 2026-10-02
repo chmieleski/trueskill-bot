@@ -7,6 +7,7 @@ import {
 } from '../league/league.js';
 import { assertHasMatchModRole } from '../match/match-auth.js';
 import { recomputeDisplayCountersForPlayer } from './display-counters.js';
+import { markLeagueHeroChampionRolesDirty } from '../hero-champion-roles/mark-dirty.js';
 
 export const RANK_RESET_COOLDOWN_MIN_DAYS = 1;
 export const RANK_RESET_COOLDOWN_MAX_DAYS = 365;
@@ -280,6 +281,7 @@ export async function applyRankReset(input: ApplyRankResetInput): Promise<RankRe
       },
     });
     await recomputeDisplayCountersForPlayer(preview.leagueId, preview.playerId, tx);
+    await markLeagueHeroChampionRolesDirty(preview.leagueId, tx);
   });
 
   return {

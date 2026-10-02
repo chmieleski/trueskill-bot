@@ -1,0 +1,7 @@
+# Conventions
+
+- Named exports only where the project already does (`data`, `execute`, `name`, `once`) — no default exports required.
+- ESM imports in TypeScript source use the `.js` extension.
+- Graceful shutdown: `client.destroy()` on SIGINT/SIGTERM.
+- Use the Prisma singleton from `apps/bot/src/lib/prisma.ts` — never `new PrismaClient()` elsewhere.
+- Import Prisma types/client from `@dbz/db` (not `@prisma/client` directly).

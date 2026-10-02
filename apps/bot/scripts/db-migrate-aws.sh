@@ -24,7 +24,7 @@
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$ROOT"
 
 INFRA_DIR="${ROOT}/infra/aws"
@@ -132,9 +132,10 @@ env_get() {
   local line val
 
   [[ -f "$file" ]] || return 1
-  line="$(grep -E "^[[:space:]]*(export[[:space:]]+)?${key}=" "$file" | tail -n 1)" || return 1
+  line="$(grep -E "^[[:space:]]*(export[[:space:]]+)?${key}[[:space:]]*=" "$file" | tail -n 1)" || return 1
   [[ -n "${line}" ]] || return 1
   val="${line#*=}"
+  val="${val#"${val%%[![:space:]]*}"}"
   val="${val%$'\r'}"
   val="${val#\"}"
   val="${val%\"}"
@@ -335,17 +336,26 @@ setup_target_connection() {
     fi
 
     echo "==> SSM tunnel established successfully."
-    # Rewrite TARGET_URL to use the tunnel
-    TARGET_URL="postgresql://${user}:${pass}@127.0.0.1:${TUNNEL_PORT}/${db}?schema=public"
+    # Rewrite TARGET_URL to use the tunnel (without Prisma-specific ?schema= parameter)
+    TARGET_URL="postgresql://${user}:${pass}@127.0.0.1:${TUNNEL_PORT}/${db}"
   else
     echo "Warning: Target host ${host}:${port} could not be reached directly."
   fi
+}
+
+strip_prisma_params() {
+  local url="$1"
+  url="$(printf '%s' "$url" | sed -E 's/([?&])schema=[^&]*(&)?/\1\2/' | sed -E 's/\?&/\?/' | sed -E 's/[?&]$//')"
+  printf '%s' "$url"
 }
 
 check_tooling
 resolve_source_url
 resolve_target_url
 setup_target_connection
+
+SOURCE_URL="$(strip_prisma_params "$SOURCE_URL")"
+TARGET_URL="$(strip_prisma_params "$TARGET_URL")"
 
 echo "=========================================================="
 echo " AWS RDS Database Migration"
@@ -356,15 +366,23 @@ echo " Tool:   $(if [[ "$USE_DOCKER" -eq 1 ]]; then echo "Docker (${IMAGE})"; el
 echo "=========================================================="
 
 echo "Testing connection to source…"
-if ! run_psql_cmd "$SOURCE_URL" "SELECT 1;" >/dev/null 2>&1; then
-  echo "Error: Failed to connect to source database." >&2
+if ! source_test_output="$(run_psql_cmd "$SOURCE_URL" "SELECT 1;" 2>&1)"; then
+  echo "Error: Failed to connect to source database:" >&2
+  echo "$source_test_output" >&2
   exit 1
 fi
 echo "Source connection OK."
 
 echo "Testing connection to target…"
-if ! run_psql_cmd "$TARGET_URL" "SELECT 1;" >/dev/null 2>&1; then
-  echo "Error: Failed to connect to target database." >&2
+if ! target_test_output="$(run_psql_cmd "$TARGET_URL" "SELECT 1;" 2>&1)"; then
+  echo "Error: Failed to connect to target database:" >&2
+  echo "$target_test_output" >&2
+  if [[ "$USE_DOCKER" -eq 1 && "$TARGET_URL" == *"127.0.0.1"* ]]; then
+    echo "" >&2
+    echo "Tip: Running Docker Desktop on WSL2 prevents containers from accessing 127.0.0.1 on the host." >&2
+    echo "Install native PostgreSQL client tools in WSL2 for direct connection:" >&2
+    echo "  sudo apt-get update && sudo apt-get install -y postgresql-client" >&2
+  fi
   exit 1
 fi
 echo "Target connection OK."
@@ -431,11 +449,17 @@ if [[ "$KEEP_BACKUP" -eq 1 ]]; then
   echo "Saved backup archive to: ${BACKUP_FILE}"
 fi
 
+filter_dump() {
+  sed -E \
+    -e 's/^CREATE SCHEMA public;/CREATE SCHEMA IF NOT EXISTS public;/g' \
+    -e '/^ALTER SCHEMA public OWNER TO /d'
+}
+
 echo ""
 echo "==> Restoring dump into AWS RDS target…"
 {
   echo "SET session_replication_role = replica;"
-  cat "$DUMP_CMD_FILE"
+  filter_dump < "$DUMP_CMD_FILE"
   echo "SET session_replication_role = DEFAULT;"
 } | run_psql_stream "$TARGET_URL"
 

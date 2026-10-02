@@ -10,7 +10,7 @@ datasource db {
 }
 
 model Game {
-  id          String   @id // e.g. "warcraft3_udbr"
+  id          String     @id // e.g. "warcraft3_udbr"
   displayName String
   leagues     League[]
   events      Event[]
@@ -44,56 +44,60 @@ model GameItem {
 }
 
 model League {
-  id                      String   @id @default(cuid())
-  guildId                 String
-  gameId                  String
-  name                    String
-  wc3statsEnabled         Boolean  @default(false)
-  wc3statsMapPattern      String?
-  wc3statsMapSha1         String?
-  leaderboardChannelId    String?
-  leaderboardMessageId    String?
-  leaderboardSize               Int      @default(10)
-  lobbyPlayerClaimEnabled       Boolean  @default(true)
-  wc3statsHostPromptEnabled       Boolean  @default(false)
-  wc3statsHostPromptChannelId     String?
+  id                             String       @id @default(cuid())
+  guildId                        String
+  gameId                         String
+  name                           String
+  wc3statsEnabled                Boolean      @default(false)
+  wc3statsMapPattern             String?
+  wc3statsMapSha1                String?
+  leaderboardChannelId           String?
+  leaderboardMessageId           String?
+  leaderboardSize                Int          @default(10)
+  lobbyPlayerClaimEnabled        Boolean      @default(true)
+  wc3statsHostPromptEnabled      Boolean      @default(false)
+  wc3statsHostPromptChannelId    String?
   /// When false, staff paused host @-mentions league-wide; channel config is kept.
-  wc3statsHostPromptPingsEnabled  Boolean  @default(true)
-  rankResetEnabled              Boolean  @default(false)
-  rankResetCooldownDays         Int      @default(30)
+  wc3statsHostPromptPingsEnabled Boolean      @default(true)
+  rankResetEnabled               Boolean      @default(false)
+  rankResetCooldownDays          Int          @default(30)
   /// When true, /rank shows per-side (team 1 / team 2) W–L under the overall record.
-  showSideWinLoss               Boolean  @default(false)
-  lobbyChannelEnabled           Boolean  @default(false)
-  lobbyChannelId                String?
-  matchApprovalChannelId        String?
-  apiTokenHash                  String?  @unique
-  apiTokenCreatedAt             DateTime?
-  status                        LeagueStatus @default(ACTIVE)
-  predecessorLeagueId           String?
-  archivedAt                    DateTime?
-  decayEnabled                  Boolean  @default(true)
-  balanceStaticSigmaEnabled     Boolean  @default(false)
-  seasonEndsAt                  DateTime?
-  crunchStartedAt               DateTime?
+  showSideWinLoss                Boolean      @default(false)
+  lobbyChannelEnabled            Boolean      @default(false)
+  lobbyChannelId                 String?
+  matchApprovalChannelId         String?
+  apiTokenHash                   String?      @unique
+  apiTokenCreatedAt              DateTime?
+  status                         LeagueStatus @default(ACTIVE)
+  predecessorLeagueId            String?
+  archivedAt                     DateTime?
+  decayEnabled                   Boolean      @default(true)
+  balanceStaticSigmaEnabled      Boolean      @default(false)
+  seasonEndsAt                   DateTime?
+  crunchStartedAt                DateTime?
   // Nullable overrides — null means use code defaults in decay-settings.ts
-  decayMidGraceDays             Int?
-  decayMidTier1Ki               Int?
-  decayMidTier2Ki               Int?
-  decayMidTier1SpanDays         Int?
-  decayMidStreakCapKi           Int?
-  decayCrunchGraceDays          Int?
-  decayCrunchTier1Ki            Int?
-  decayCrunchTier2Ki            Int?
-  decayCrunchTier1SpanDays      Int?
-  decayCrunchWindowDays         Int?
-  decayPrizeLockEnabled         Boolean?
-  decayPrizeLockMinGames        Int?
+  decayMidGraceDays              Int?
+  decayMidTier1Ki                Int?
+  decayMidTier2Ki                Int?
+  decayMidTier1SpanDays          Int?
+  decayMidStreakCapKi            Int?
+  decayCrunchGraceDays           Int?
+  decayCrunchTier1Ki             Int?
+  decayCrunchTier2Ki             Int?
+  decayCrunchTier1SpanDays       Int?
+  decayCrunchWindowDays          Int?
+  decayPrizeLockEnabled          Boolean?
+  decayPrizeLockMinGames         Int?
   /// When true, sync Discord roles for #1 hero-ki players (staff-mapped).
-  heroChampionRolesEnabled      Boolean  @default(false)
-  createdAt                     DateTime @default(now())
-  updatedAt                     DateTime @updatedAt
+  heroChampionRolesEnabled       Boolean      @default(false)
+  /// Set to true when an action changed ratings in this league, cleared after role sync.
+  heroChampionRolesDirty         Boolean      @default(false)
+  /// Last time hero champion roles were synced for this league.
+  lastHeroChampionSyncAt         DateTime?
+  createdAt                      DateTime     @default(now())
+  updatedAt                      DateTime     @updatedAt
 
-  game              Game                    @relation(fields: [gameId], references: [id])
+  game              Game                     @relation(fields: [gameId], references: [id])
   channelBindings   LeagueChannelBinding[]
   matches           Match[]
   ratings           PlayerRating[]
@@ -102,13 +106,14 @@ model League {
   wc3statsSlotMaps  LeagueWc3statsSlotMap[]
   heroChampionRoles LeagueHeroChampionRole[]
   ocrNickAliases    LeagueOcrNickAlias[]
-  predecessor       League?                 @relation("LeagueSuccession", fields: [predecessorLeagueId], references: [id])
-  successors        League[]                @relation("LeagueSuccession")
+  predecessor       League?                  @relation("LeagueSuccession", fields: [predecessorLeagueId], references: [id])
+  successors        League[]                 @relation("LeagueSuccession")
   rolloverDrafts    LeagueRolloverDraft[]
 
   @@unique([guildId, gameId, name])
   @@index([guildId])
   @@index([gameId])
+  @@index([heroChampionRolesEnabled, heroChampionRolesDirty])
 }
 
 // LeagueWc3statsSlotMap - map wc3stats slots[] index → bot hero/slot (1-12) per league
@@ -181,7 +186,7 @@ model Event {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
-  game            Game                   @relation(fields: [gameId], references: [id])
+  game            Game                  @relation(fields: [gameId], references: [id])
   channelBindings EventChannelBinding[]
   matches         Match[]
 
@@ -202,13 +207,13 @@ model EventChannelBinding {
 }
 
 model LeagueRolloverDraft {
-  id               String   @id @default(cuid())
-  sourceLeagueId   String
-  successorName    String
-  resetMode        String   // "hard" | "soft"
-  compression      Float?
-  actorDiscordId   String
-  createdAt        DateTime @default(now())
+  id             String   @id @default(cuid())
+  sourceLeagueId String
+  successorName  String
+  resetMode      String // "hard" | "soft"
+  compression    Float?
+  actorDiscordId String
+  createdAt      DateTime @default(now())
 
   sourceLeague League @relation(fields: [sourceLeagueId], references: [id], onDelete: Cascade)
 
@@ -216,14 +221,14 @@ model LeagueRolloverDraft {
 }
 
 model Player {
-  id                             String             @id @default(uuid())
+  id                             String                @id @default(uuid())
   gameId                         String
   username                       String
   discordId                      String?
-  wc3statsHostPromptPingsEnabled Boolean            @default(true)
-  createdAt                      DateTime           @default(now())
-  updatedAt                      DateTime           @updatedAt
-  game                           Game               @relation(fields: [gameId], references: [id])
+  wc3statsHostPromptPingsEnabled Boolean               @default(true)
+  createdAt                      DateTime              @default(now())
+  updatedAt                      DateTime              @updatedAt
+  game                           Game                  @relation(fields: [gameId], references: [id])
   matches                        MatchPlayer[]
   ratings                        PlayerRating[]
   heroRatings                    PlayerHeroRating[]
@@ -241,20 +246,20 @@ model Player {
 // PlayerRating - League-scoped skill rating (OpenSkill μ/σ)
 // PK is (leagueId, playerId) — ratings are isolated per league
 model PlayerRating {
-  leagueId  String
-  playerId  String
-  mu          Float    @default(25.0)
-  sigma       Float    @default(8.333)
+  leagueId                 String
+  playerId                 String
+  mu                       Float     @default(25.0)
+  sigma                    Float     @default(8.333)
   isNewPlayer              Boolean   @default(false)
   lastQualifyingActivityAt DateTime?
   idleDecayKiApplied       Int       @default(0)
   lastDecayAppliedAt       DateTime?
   /// Denormalized display W/L/Q/G/DC (rank-reset window). Shadowed vs MatchPlayer until flip.
-  displayWins   Int @default(0)
-  displayLosses Int @default(0)
-  displayQuits  Int @default(0)
-  displayGriefs Int @default(0)
-  displayDcs    Int @default(0)
+  displayWins              Int       @default(0)
+  displayLosses            Int       @default(0)
+  displayQuits             Int       @default(0)
+  displayGriefs            Int       @default(0)
+  displayDcs               Int       @default(0)
   updatedAt                DateTime  @updatedAt
 
   league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
@@ -266,10 +271,10 @@ model PlayerRating {
 
 // Hero - 12 unique heroes tied to lobby slots (1-12). Managed in the database (no app seed).
 model Hero {
-  id          Int                @id // 1-12, matches slot number
-  name        String             @unique
-  color       String? // Lobby color name (e.g., "Red", "Blue")
-  heroRatings PlayerHeroRating[]
+  id            Int                      @id // 1-12, matches slot number
+  name          String                   @unique
+  color         String? // Lobby color name (e.g., "Red", "Blue")
+  heroRatings   PlayerHeroRating[]
   championRoles LeagueHeroChampionRole[]
 
   @@index([name])
@@ -332,32 +337,32 @@ model PlayerRankReset {
 // Match - up to 6v6 game session (unbalanced human fills allowed).
 // Exactly one of leagueId (IHL rated) or eventId (unrated Event) must be set (DB check).
 model Match {
-  id               String        @id @default(cuid())
-  status           MatchStatus   @default(PENDING)
-  hostDiscordId    String
-  discordChannelId String
-  discordMessageId String?       @unique
-  wc3statsGameId   String?
+  id                          String                @id @default(cuid())
+  status                      MatchStatus           @default(PENDING)
+  hostDiscordId               String
+  discordChannelId            String
+  discordMessageId            String?               @unique
+  wc3statsGameId              String?
   /// Last screenshot upload or manual roster edit; wc3stats Refresh must beat this.
-  lobbyRosterAuthorityAt DateTime?
-  leagueId         String?
-  eventId          String?
-  completedAt      DateTime?
+  lobbyRosterAuthorityAt      DateTime?
+  leagueId                    String?
+  eventId                     String?
+  completedAt                 DateTime?
   /// Mod-recorded quitter/griefer incident without a real lobby (RMK etc.).
-  isManualSanction Boolean       @default(false)
+  isManualSanction            Boolean               @default(false)
   /// Proposed/selected winning team while WAITING_FOR_APPROVAL or WAITING_FOR_MITIGATION_APPROVAL (1 or 2).
-  approvalWinnerTeam Int?
+  approvalWinnerTeam          Int?
   /// Soft-result mitigation percent applied (or pending): 25 | 35 | 50. Null = none.
-  ratingMitigationPercent Int?
+  ratingMitigationPercent     Int?
   /// Discord message id for host-requested mitigation approval (lobby channel).
   mitigationApprovalMessageId String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  league           League?       @relation(fields: [leagueId], references: [id], onDelete: Restrict)
-  event            Event?        @relation(fields: [eventId], references: [id], onDelete: Restrict)
-  players          MatchPlayer[]
-  ratingSnapshots  MatchRatingSnapshot[]
-  statsReport      MatchStatsReport?
+  createdAt                   DateTime              @default(now())
+  updatedAt                   DateTime              @updatedAt
+  league                      League?               @relation(fields: [leagueId], references: [id], onDelete: Restrict)
+  event                       Event?                @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  players                     MatchPlayer[]
+  ratingSnapshots             MatchRatingSnapshot[]
+  statsReport                 MatchStatsReport?
 
   @@index([status])
   @@index([createdAt])
@@ -374,31 +379,31 @@ model Match {
 
 // MatchPlayer - Player participation in a match
 model MatchPlayer {
-  matchId   String
-  playerId  String
-  team      Int // 1 or 2 (from game profile teamForSlot; not a fixed slot cutoff)
-  slot      Int // 1..profile.slotCount (absolute lobby position; team from profile)
-  heroId    Int? // slot_bound: equals slot; optional_in_game: null until pick (phase 2)
-  result    MatchResult? // Null until match ends
-  isQuitter Boolean      @default(false) // Quitter penalty flag; excluded from team rating
-  isGriefer Boolean      @default(false) // Bug-abuse penalty flag; stays in team rating
-  isDc      Boolean      @default(false) // Disconnect incident; season tax from count
+  matchId          String
+  playerId         String
+  team             Int // 1 or 2 (from game profile teamForSlot; not a fixed slot cutoff)
+  slot             Int // 1..profile.slotCount (absolute lobby position; team from profile)
+  heroId           Int? // slot_bound: equals slot; optional_in_game: null until pick (phase 2)
+  result           MatchResult? // Null until match ends
+  isQuitter        Boolean      @default(false) // Quitter penalty flag; excluded from team rating
+  isGriefer        Boolean      @default(false) // Bug-abuse penalty flag; stays in team rating
+  isDc             Boolean      @default(false) // Disconnect incident; season tax from count
   /// Soft lock: balance hints + shuffle leave this player↔slot pair alone.
-  locked Boolean @default(false)
+  locked           Boolean      @default(false)
   /// Deferred global ki tax for this griefer incident (null when not griefer).
   grieferKiAccrued Int?
-  wasNewPlayer Boolean      @default(false) // Snapshot of PlayerRating.isNewPlayer at rating apply
+  wasNewPlayer     Boolean      @default(false) // Snapshot of PlayerRating.isNewPlayer at rating apply
   /// Display ki after this match (null until completed with preview written).
-  globalKi      Int?
+  globalKi         Int?
   /// after − before global display ki for this match.
-  globalKiDelta Int?
+  globalKiDelta    Int?
   /// Hero display ki after this match (null when no hero / not written).
-  heroKi        Int?
+  heroKi           Int?
   /// after − before hero display ki for this match.
-  heroKiDelta   Int?
+  heroKiDelta      Int?
 
-  match  Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  match  Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player Player            @relation(fields: [playerId], references: [id], onDelete: Cascade)
   stats  MatchPlayerStats?
 
   @@id([matchId, playerId])
@@ -519,25 +524,25 @@ enum GrieferLeaderboardSort {
 
 // GuildConfig - per-server bot settings (roles, quitter leaderboard, changelog channels). IHL fields stay on League.
 model GuildConfig {
-  guildId                      String                     @id
-  matchCreateRoleId            String?
-  matchModRoleId               String?
-  quitterLeaderboardChannelId  String?
-  quitterLeaderboardMessageId  String?
-  quitterLeaderboardSize       Int                        @default(10)
-  quitterLeaderboardDisplay    QuitterLeaderboardDisplay  @default(both)
-  quitterLeaderboardSort       QuitterLeaderboardSort     @default(count)
-  grieferLeaderboardChannelId  String?
-  grieferLeaderboardMessageId  String?
-  grieferLeaderboardSize       Int                        @default(10)
-  grieferLeaderboardDisplay    GrieferLeaderboardDisplay  @default(both)
-  grieferLeaderboardSort       GrieferLeaderboardSort     @default(count)
-  changelogChannelId           String?
-  changelogDraftChannelId      String?
-  completedMatchLogChannelId   String?
-  opsAlertChannelId            String?
-  createdAt                    DateTime                   @default(now())
-  updatedAt                    DateTime                   @updatedAt
+  guildId                     String                    @id
+  matchCreateRoleId           String?
+  matchModRoleId              String?
+  quitterLeaderboardChannelId String?
+  quitterLeaderboardMessageId String?
+  quitterLeaderboardSize      Int                       @default(10)
+  quitterLeaderboardDisplay   QuitterLeaderboardDisplay @default(both)
+  quitterLeaderboardSort      QuitterLeaderboardSort    @default(count)
+  grieferLeaderboardChannelId String?
+  grieferLeaderboardMessageId String?
+  grieferLeaderboardSize      Int                       @default(10)
+  grieferLeaderboardDisplay   GrieferLeaderboardDisplay @default(both)
+  grieferLeaderboardSort      GrieferLeaderboardSort    @default(count)
+  changelogChannelId          String?
+  changelogDraftChannelId     String?
+  completedMatchLogChannelId  String?
+  opsAlertChannelId           String?
+  createdAt                   DateTime                  @default(now())
+  updatedAt                   DateTime                  @updatedAt
 }
 
 enum BotReleaseStatus {
@@ -548,17 +553,17 @@ enum BotReleaseStatus {
 
 // Process-wide product version (not league-scoped). Staff draft → player fan-out.
 model BotRelease {
-  version           String           @id
-  engineeringNotes  String
-  playerNotes       String
-  status            BotReleaseStatus @default(draft)
-  draftGuildId      String?
-  draftChannelId    String?
-  draftMessageId    String?
-  publishedAt       DateTime?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  posts             BotReleasePost[]
+  version          String           @id
+  engineeringNotes String
+  playerNotes      String
+  status           BotReleaseStatus @default(draft)
+  draftGuildId     String?
+  draftChannelId   String?
+  draftMessageId   String?
+  publishedAt      DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  posts            BotReleasePost[]
 }
 
 model BotReleasePost {
@@ -573,16 +578,16 @@ model BotReleasePost {
 }
 
 model CaptainDraft {
-  id              String   @id @default(cuid())
-  guildId         String
-  channelId       String
-  hostDiscordId   String
-  leagueId        String?
-  status          String
-  state           Json
-  draftMessageId  String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  guildId        String
+  channelId      String
+  hostDiscordId  String
+  leagueId       String?
+  status         String
+  state          Json
+  draftMessageId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   display CaptainDraftDisplay?
 

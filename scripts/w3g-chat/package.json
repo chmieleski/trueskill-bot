@@ -1,0 +1,16 @@
+{
+  "name": "w3g-chat",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Print chat messages from a Warcraft III Reforged .w3g replay",
+  "type": "module",
+  "bin": {
+    "print-w3g-chat": "./print-chat.mjs"
+  },
+  "scripts": {
+    "print": "node print-chat.mjs"
+  },
+  "dependencies": {
+    "w3gjs": "^4.3.0"
+  }
+}
