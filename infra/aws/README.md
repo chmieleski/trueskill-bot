@@ -2,7 +2,7 @@
 
 Provisions an Ubuntu 24.04 `t3.micro` EC2 host, Elastic IP, SSM secrets, IAM instance profile, and cloud-init that installs Node 22, clones this repo, builds the bot, and enables `dbz-bot.service`.
 
-Database stays on **Supabase**. Compatible with **OpenTofu** (`tofu`) and **Terraform** (`terraform`).
+Optionally provisions an **AWS RDS PostgreSQL** instance (`db.t4g.micro`, 20 GB gp3, Single-AZ — Free Tier eligible and cheapest on-demand configuration) or supports external **Supabase**. Compatible with **OpenTofu** (`tofu`) and **Terraform** (`terraform`).
 
 ## Access without a fixed IP (recommended)
 
@@ -38,6 +38,62 @@ tofu init    # or: terraform init
 tofu plan
 tofu apply
 ```
+
+## Database Migration (Supabase → AWS RDS)
+
+RDS is configured in the cheapest possible setup:
+
+- **Instance**: `db.t4g.micro` (AWS Graviton2, Free Tier eligible for 12 months, ~$0.016/hr thereafter).
+- **Storage**: 20 GB `gp3` (minimum size and Free Tier limit; autoscaling storage disabled by default to avoid surprise billing).
+- **Network**: Private in the VPC (no public IPv4 address, saving $0.005/hr IPv4 fees). Accessible securely by the bot EC2 instance or via SSM port-forwarding tunnel.
+- **Backups**: 1 day automated backup retention (covered by Free Tier 20 GB backup storage).
+
+### Step-by-Step Migration:
+
+1. **Provision RDS alongside live bot**
+   In `terraform.tfvars`:
+
+   ```hcl
+   enable_rds      = true
+   use_rds_for_bot = false  # Keep false initially so the live bot stays connected to Supabase
+   ```
+
+   Apply with OpenTofu/Terraform:
+
+   ```bash
+   tofu apply
+   ```
+
+2. **Run the migration script**
+   From the repository root:
+
+   ```bash
+   npm run db:migrate-aws
+   ```
+
+   The script dumps public schema and data from Supabase (`PROD_DIRECT_URL` / `direct_url`) and streams it into the AWS RDS instance via an automated SSM port-forwarding tunnel through the EC2 host.
+
+3. **Cut over the bot to RDS**
+   Update `terraform.tfvars`:
+
+   ```hcl
+   use_rds_for_bot = true
+   ```
+
+   Apply and refresh the bot instance environment:
+
+   ```bash
+   tofu apply
+   # On the EC2 host (via Session Manager or update script):
+   sudo dbz-bot-refresh-env
+   sudo systemctl restart dbz-bot
+   ```
+
+4. **Verify**
+   Check bot logs:
+   ```bash
+   sudo journalctl -u dbz-bot -f
+   ```
 
 ## First boot / logs
 

@@ -6,6 +6,14 @@
 locals {
   # Sentinel for optional empty env values (SSM Parameter Store rejects "").
   ssm_empty = "__EMPTY__"
+
+  rds_endpoint     = length(aws_db_instance.db) > 0 ? aws_db_instance.db[0].endpoint : ""
+  rds_database_url = length(aws_db_instance.db) > 0 ? "postgresql://${aws_db_instance.db[0].username}:${urlencode(local.db_master_password)}@${aws_db_instance.db[0].endpoint}/${aws_db_instance.db[0].db_name}?schema=public" : ""
+
+  # If RDS is enabled and use_rds_for_bot is true, point bot SSM parameters to RDS.
+  # Otherwise fallback to var.database_url / var.direct_url.
+  effective_database_url = (var.enable_rds && var.use_rds_for_bot) ? local.rds_database_url : var.database_url
+  effective_direct_url   = (var.enable_rds && var.use_rds_for_bot) ? local.rds_database_url : var.direct_url
 }
 
 resource "aws_ssm_parameter" "discord_token" {
@@ -34,17 +42,17 @@ resource "aws_ssm_parameter" "guild_id" {
 
 resource "aws_ssm_parameter" "database_url" {
   name        = "${local.ssm_prefix}/DATABASE_URL"
-  description = "Supabase pooled DATABASE_URL"
+  description = "Database connection URL (RDS or Supabase pooled)"
   type        = "SecureString"
-  value       = var.database_url
+  value       = local.effective_database_url
   tags        = local.common_tags
 }
 
 resource "aws_ssm_parameter" "direct_url" {
   name        = "${local.ssm_prefix}/DIRECT_URL"
-  description = "Supabase DIRECT_URL"
+  description = "Direct database connection URL (RDS or Supabase direct)"
   type        = "SecureString"
-  value       = var.direct_url
+  value       = local.effective_direct_url
   tags        = local.common_tags
 }
 

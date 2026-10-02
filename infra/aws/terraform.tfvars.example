@@ -28,11 +28,25 @@ app_dir     = "/home/ubuntu/bot"
 deploy_commands_on_boot = true
 allocate_eip            = true
 
+# Database: AWS RDS PostgreSQL (cheapest way: Single-AZ db.t4g.micro / 20 GB gp3)
+# To migrate from Supabase to AWS RDS:
+# 1. Keep use_rds_for_bot = false while running `tofu apply` (creates RDS alongside current bot).
+# 2. Run the migration script: `npm run db:migrate-aws` to copy all data from Supabase to RDS.
+# 3. Set use_rds_for_bot = true and run `tofu apply` + refresh host env to cut over.
+enable_rds      = true
+use_rds_for_bot = false # Set true once migrated to switch bot DATABASE_URL to RDS
+# db_instance_class     = "db.t4g.micro" # Free Tier eligible, ~$0.016/hr
+# db_allocated_storage  = 20             # 20 GB (minimum for Postgres, Free Tier limit)
+# db_name               = "dbzbot"
+# db_username           = "postgres"
+# db_password           = "leave-blank-to-auto-generate-secure-password"
+
 # Secrets → SSM Parameter Store (also stored in Terraform state — keep state private)
 discord_token  = "your_discord_bot_token"
 client_id      = "your_discord_application_id"
 # Empty = global slash command deploy (recommended for production multi-guild)
 guild_id       = ""
+# External / Supabase URLs (used when use_rds_for_bot = false)
 database_url   = "postgresql://..."
 direct_url     = "postgresql://..."
 gemini_api_key = "your_gemini_api_key"
