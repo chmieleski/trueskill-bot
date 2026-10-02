@@ -28,16 +28,17 @@ Rendered posts must stay under Discord's 2000-character limit.
 
 ## Staff channel (mods / admins only)
 
-1. `staff/a1-roles-and-setup.md`
-2. `staff/a2-mod-powers.md`
-3. `staff/a3-quitters-and-ratings.md`
-4. `staff/a4-wc3stats-mapping.md`
-5. `staff/a5-admin-cheat-sheet.md`
-6. `staff/a6-league-rollover.md`
-7. `staff/a7-rating-decay.md`
-8. `staff/a8-wos-hero-display-names.md`
-9. `staff/a9-captain-draft.md`
-10. `staff/a10-hero-champion-roles.md`
+1. `staff/a0-mod-basics.md`
+2. `staff/a1-roles-and-setup.md`
+3. `staff/a2-mod-powers.md`
+4. `staff/a3-quitters-and-ratings.md`
+5. `staff/a4-wc3stats-mapping.md`
+6. `staff/a5-admin-cheat-sheet.md`
+7. `staff/a6-league-rollover.md`
+8. `staff/a7-rating-decay.md`
+9. `staff/a8-wos-hero-display-names.md`
+10. `staff/a9-captain-draft.md`
+11. `staff/a10-hero-champion-roles.md`
 
 ## Tips
 
