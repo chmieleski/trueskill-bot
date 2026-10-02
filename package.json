@@ -25,6 +25,7 @@
     "db:clone:heroes": "bash apps/bot/scripts/db-clone-local.sh --heroes-only",
     "db:backup": "bash apps/bot/scripts/db-backup.sh",
     "db:restore": "bash apps/bot/scripts/db-restore-local.sh",
+    "db:migrate-aws": "bash apps/bot/scripts/db-migrate-aws.sh",
     "db:migrate-multi-league": "pnpm --filter @dbz/bot db:migrate-multi-league",
     "seed:veterans": "pnpm --filter @dbz/bot seed:veterans",
     "test": "turbo run test --filter=@dbz/bot",

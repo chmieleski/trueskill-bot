@@ -26,6 +26,7 @@ Monorepo (pnpm + Turborepo). Prefer root scripts; filters target `@dbz/bot`, `@d
 | `pnpm db:clone:heroes` | Same clone, `"Hero"` table only |
 | `pnpm db:backup` | Gzipped schema+data dump of hosted prod → `.local/backups/` |
 | `pnpm db:restore` | Restore a backup into local Docker only (`-- path.sql.gz` optional) |
+| `pnpm db:migrate-aws` | Migrate public schema + data from Supabase to AWS RDS PostgreSQL |
 | `pnpm db:migrate-multi-league` | Probe schema, migrate deploy if needed, ensure Game/UDBR leagues |
 
 Keep a **root** `.env` for local `DATABASE_URL` / `DIRECT_URL` (shared by bot + Prisma CLI).

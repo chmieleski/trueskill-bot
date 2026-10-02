@@ -104,13 +104,17 @@ variable "guild_id" {
 }
 
 variable "database_url" {
-  type      = string
-  sensitive = true
+  description = "Database connection URL (used when enable_rds=false or use_rds_for_bot=false)"
+  type        = string
+  sensitive   = true
+  default     = ""
 }
 
 variable "direct_url" {
-  type      = string
-  sensitive = true
+  description = "Direct database connection URL (used when enable_rds=false or use_rds_for_bot=false)"
+  type        = string
+  sensitive   = true
+  default     = ""
 }
 
 variable "gemini_api_key" {
@@ -233,4 +237,100 @@ variable "github_repository" {
   description = "GitHub org/repo allowed to assume the Actions deploy role (OIDC sub on main only)"
   type        = string
   default     = "chmieleski/trueskill-bot"
+}
+
+# --- RDS PostgreSQL (cheapest way: Single-AZ db.t4g.micro / 20 GB gp3) ---
+
+variable "enable_rds" {
+  description = "Provision AWS RDS PostgreSQL database instance"
+  type        = bool
+  default     = true
+}
+
+variable "use_rds_for_bot" {
+  description = "Point SSM DATABASE_URL and DIRECT_URL to the RDS instance. Set false during migration, then true to cut over."
+  type        = bool
+  default     = false
+}
+
+variable "db_instance_class" {
+  description = "RDS instance class (Free Tier eligible: db.t4g.micro or db.t3.micro)"
+  type        = string
+  default     = "db.t4g.micro"
+}
+
+variable "db_allocated_storage" {
+  description = "Allocated storage in GB (20 GB is the minimum for Postgres and Free Tier limit)"
+  type        = number
+  default     = 20
+}
+
+variable "db_max_allocated_storage" {
+  description = "Maximum storage limit in GB for autoscaling (equal to allocated_storage disables autoscaling to prevent extra charges)"
+  type        = number
+  default     = 20
+}
+
+variable "db_engine_version" {
+  description = "PostgreSQL engine version"
+  type        = string
+  default     = "17.4"
+}
+
+variable "db_name" {
+  description = "Database name"
+  type        = string
+  default     = "dbzbot"
+}
+
+variable "db_username" {
+  description = "Master username for PostgreSQL RDS"
+  type        = string
+  default     = "postgres"
+}
+
+variable "db_password" {
+  description = "Master password for PostgreSQL RDS. If null or empty, a 24-character random password is generated."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "db_publicly_accessible" {
+  description = "Assign public IP to RDS instance. Keep false to avoid AWS public IPv4 hourly charges and remain secure in VPC."
+  type        = bool
+  default     = false
+}
+
+variable "db_allowed_cidr" {
+  description = "Optional CIDR allowed to connect to RDS directly on port 5432. Ignored when null."
+  type        = string
+  default     = null
+}
+
+variable "db_backup_retention_period" {
+  description = "Automated backup retention in days (1 day included in free tier)"
+  type        = number
+  default     = 1
+}
+
+variable "db_skip_final_snapshot" {
+  description = "Skip final snapshot upon terraform destroy (true avoids snapshot storage billing)"
+  type        = bool
+  default     = true
+}
+
+variable "db_deletion_protection" {
+  description = "Enable deletion protection on the RDS instance"
+  type        = bool
+  default     = false
+}
+
+check "database_url_configured" {
+  assert {
+    condition = (var.enable_rds && var.use_rds_for_bot) || (
+      try(length(var.database_url) > 0, false) && try(length(var.direct_url) > 0, false)
+    )
+    error_message = "Either set enable_rds=true with use_rds_for_bot=true, or provide database_url and direct_url."
+  }
 }
