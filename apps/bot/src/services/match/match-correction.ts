@@ -37,6 +37,7 @@ import {
 } from '../rating/rank-reset-display.js';
 import { recomputeDisplayCountersForPlayers } from '../rating/display-counters.js';
 import { playerIdsToClearNewFlag } from '../rating/new-player.js';
+import { markLeagueHeroChampionRolesDirty } from '../hero-champion-roles/mark-dirty.js';
 
 const log = createLogger('match-correction');
 
@@ -616,6 +617,8 @@ export async function flipCompletedMatch(
     const completedAt = match.completedAt ?? new Date();
     const mitigation = normalizeMitigationPercent(match.ratingMitigationPercent);
     await applyMatchRatings(leagueId, entries, winningTeam, completedAt, tx, mitigation);
+
+    await markLeagueHeroChampionRolesDirty(leagueId, tx);
 
     await recomputeDisplayCountersForPlayers(leagueId, playerIds, tx);
 

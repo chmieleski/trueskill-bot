@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { isLeagueSeasonPaused } from '../league/league.js';
 import { gamesByPlayerFromStats, loadMatchDisplayStatsByPlayer } from './rank-reset-display.js';
 import { displayConservatismZ, isCalibrating, KI_SCALE } from './rating-math.js';
+import { markLeagueHeroChampionRolesDirty } from '../hero-champion-roles/mark-dirty.js';
 import {
   DECAY_SETTINGS_SELECT,
   DEFAULT_DECAY_SETTINGS,
@@ -514,11 +515,16 @@ export async function runDecayBatchForAllLeagues(
       select: { playerId: true },
     });
 
+    let leagueUpdated = false;
     for (const row of ratings) {
       const result = await applyPendingDecay(league.id, row.playerId, prisma, now);
       if (result.applied) {
         playersUpdated += 1;
+        leagueUpdated = true;
       }
+    }
+    if (leagueUpdated) {
+      await markLeagueHeroChampionRolesDirty(league.id);
     }
   }
 

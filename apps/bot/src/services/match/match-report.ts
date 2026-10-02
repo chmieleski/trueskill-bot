@@ -41,6 +41,7 @@ import {
 } from '../rating/rank-reset-display.js';
 import { recomputeDisplayCountersForPlayers } from '../rating/display-counters.js';
 import { loadIsNewPlayerByPlayerId, playerIdsToClearNewFlag } from '../rating/new-player.js';
+import { markLeagueHeroChampionRolesDirty } from '../hero-champion-roles/mark-dirty.js';
 import { WOS_MATCH_REPORT_REQUIRED_MESSAGE } from './match-stats-upload.js';
 
 const log = createLogger('match-report');
@@ -479,6 +480,8 @@ export async function completeMatch(
       },
     });
 
+    await markLeagueHeroChampionRolesDirty(leagueId, tx);
+
     await recomputeDisplayCountersForPlayers(leagueId, playerIds, tx);
 
     const displayStats = await loadMatchDisplayStatsByPlayer(leagueId, playerIds, tx);
@@ -601,6 +604,10 @@ export async function cancelInProgressMatch(
       data: { status: 'CANCELLED' },
     });
 
+    if (quitterSlots.length > 0 || resolvedGrieferSlots.length > 0) {
+      await markLeagueHeroChampionRolesDirty(leagueId, tx);
+    }
+
     // Post-mutation flags: explicit grief/DC overrides clear quitter on that slot.
     const displayRoster = match.players.map((player) => {
       const isGriefer = grieferSet.has(player.slot);
@@ -712,6 +719,7 @@ export async function clearMatchGriefers(
         cleared.map((row) => row.playerId),
         tx,
       );
+      await markLeagueHeroChampionRolesDirty(match.leagueId, tx);
     }
   });
 
@@ -927,6 +935,7 @@ export async function clearMatchQuitters(
           clearedPlayers.map((player) => player.playerId),
           tx,
         );
+        await markLeagueHeroChampionRolesDirty(match.leagueId, tx);
       }
     });
 
@@ -958,6 +967,7 @@ export async function clearMatchQuitters(
         clearedPlayers.map((player) => player.playerId),
         tx,
       );
+      await markLeagueHeroChampionRolesDirty(match.leagueId, tx);
     }
   });
 

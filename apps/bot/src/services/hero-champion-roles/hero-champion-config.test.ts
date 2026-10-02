@@ -9,18 +9,27 @@ import {
   setLeagueHeroChampionRolesEnabled,
 } from './hero-champion-config.js';
 
-const { leagueFindUnique, leagueUpdate, heroFindUnique, championUpsert } = vi.hoisted(() => ({
-  leagueFindUnique: vi.fn(),
-  leagueUpdate: vi.fn(),
-  heroFindUnique: vi.fn(),
-  championUpsert: vi.fn(),
-}));
+const { leagueFindUnique, leagueUpdate, heroFindUnique, championUpsert, transaction } = vi.hoisted(
+  () => ({
+    leagueFindUnique: vi.fn(),
+    leagueUpdate: vi.fn(),
+    heroFindUnique: vi.fn(),
+    championUpsert: vi.fn(),
+    transaction: vi.fn((callback: (tx: unknown) => Promise<unknown>) =>
+      callback({
+        leagueHeroChampionRole: { upsert: championUpsert },
+        league: { update: leagueUpdate },
+      }),
+    ),
+  }),
+);
 
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
     league: { findUnique: leagueFindUnique, update: leagueUpdate },
     hero: { findUnique: heroFindUnique },
     leagueHeroChampionRole: { upsert: championUpsert },
+    $transaction: transaction,
   },
 }));
 
@@ -37,13 +46,23 @@ describe('hero champion config', () => {
     expect(leagueUpdate).not.toHaveBeenCalled();
   });
 
-  it('enables for UDBR', async () => {
+  it('enables for UDBR and marks dirty', async () => {
     leagueFindUnique.mockResolvedValue({ gameId: WARCRAFT3_UDBR_GAME_ID });
     leagueUpdate.mockResolvedValue({});
     await setLeagueHeroChampionRolesEnabled('L1', true);
     expect(leagueUpdate).toHaveBeenCalledWith({
       where: { id: 'L1' },
-      data: { heroChampionRolesEnabled: true },
+      data: { heroChampionRolesEnabled: true, heroChampionRolesDirty: true },
+    });
+  });
+
+  it('disables for UDBR without setting dirty', async () => {
+    leagueFindUnique.mockResolvedValue({ gameId: WARCRAFT3_UDBR_GAME_ID });
+    leagueUpdate.mockResolvedValue({});
+    await setLeagueHeroChampionRolesEnabled('L1', false);
+    expect(leagueUpdate).toHaveBeenCalledWith({
+      where: { id: 'L1' },
+      data: { heroChampionRolesEnabled: false },
     });
   });
 
@@ -63,5 +82,32 @@ describe('hero champion config', () => {
     await expect(setLeagueHeroChampionRole('L1', 1, 'role-1')).rejects.toBeInstanceOf(
       MatchServiceError,
     );
+  });
+
+  it('sets hero champion role and marks league dirty', async () => {
+    leagueFindUnique.mockResolvedValue({ gameId: WARCRAFT3_UDBR_GAME_ID });
+    heroFindUnique.mockResolvedValue({ id: 1, name: 'Goku' });
+    championUpsert.mockResolvedValue({});
+    leagueUpdate.mockResolvedValue({});
+
+    await setLeagueHeroChampionRole('L1', 1, 'role-1');
+
+    expect(championUpsert).toHaveBeenCalledWith({
+      where: { leagueId_heroId: { leagueId: 'L1', heroId: 1 } },
+      create: {
+        leagueId: 'L1',
+        heroId: 1,
+        discordRoleId: 'role-1',
+        holderDiscordId: null,
+      },
+      update: {
+        discordRoleId: 'role-1',
+        holderDiscordId: null,
+      },
+    });
+    expect(leagueUpdate).toHaveBeenCalledWith({
+      where: { id: 'L1' },
+      data: { heroChampionRolesDirty: true },
+    });
   });
 });

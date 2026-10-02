@@ -10,6 +10,7 @@ import {
   startMatchCleanupScheduler,
 } from '../services/match/index.js';
 import { startRatingDecayScheduler } from '../services/rating/index.js';
+import { startHeroChampionRoleScheduler } from '../services/hero-champion-roles/index.js';
 import {
   refreshAllLeaderboardChannels,
   scheduleLeaderboardRefresh,
@@ -27,6 +28,7 @@ export async function execute(client: Client<true>): Promise<void> {
   log.info({ tag: client.user.tag, userId: client.user.id }, 'Bot online');
   startMatchCleanupScheduler(client);
   startRatingDecayScheduler();
+  startHeroChampionRoleScheduler(client);
 
   void refreshAllLeaderboardChannels(client).catch((error) => {
     log.warn({ err: error }, 'Initial leaderboard refresh failed');

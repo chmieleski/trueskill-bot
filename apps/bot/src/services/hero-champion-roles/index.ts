@@ -9,6 +9,13 @@ export {
 } from './sync-hero-champion-roles.js';
 export { HERO_CHAMPION_MIN_HERO_MATCHES } from './load-eligible-candidates.js';
 export { notifyLeagueRatingChanged } from './notify-league-rating-changed.js';
+export { markLeagueHeroChampionRolesDirty } from './mark-dirty.js';
+export {
+  runHeroChampionRoleSyncTick,
+  startHeroChampionRoleScheduler,
+  stopHeroChampionRoleScheduler,
+  type HeroChampionSyncTickResult,
+} from './hero-champion-role-scheduler.js';
 export {
   assertHeroChampionRolesSupported,
   HERO_CHAMPION_ROLE_DUPLICATE,

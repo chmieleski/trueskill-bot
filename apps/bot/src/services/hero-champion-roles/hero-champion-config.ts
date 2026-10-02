@@ -34,7 +34,10 @@ export async function setLeagueHeroChampionRolesEnabled(
   await assertHeroChampionRolesSupported(leagueId);
   await prisma.league.update({
     where: { id: leagueId },
-    data: { heroChampionRolesEnabled: enabled },
+    data: {
+      heroChampionRolesEnabled: enabled,
+      ...(enabled ? { heroChampionRolesDirty: true } : {}),
+    },
   });
 }
 
@@ -52,19 +55,25 @@ export async function setLeagueHeroChampionRole(
   }
 
   try {
-    await prisma.leagueHeroChampionRole.upsert({
-      where: { leagueId_heroId: { leagueId, heroId } },
-      create: {
-        leagueId,
-        heroId,
-        discordRoleId,
-        holderDiscordId: null,
-      },
-      update: {
-        discordRoleId,
-        // Remap clears sticky holder so the next sync assigns cleanly.
-        holderDiscordId: null,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.leagueHeroChampionRole.upsert({
+        where: { leagueId_heroId: { leagueId, heroId } },
+        create: {
+          leagueId,
+          heroId,
+          discordRoleId,
+          holderDiscordId: null,
+        },
+        update: {
+          discordRoleId,
+          // Remap clears sticky holder so the next sync assigns cleanly.
+          holderDiscordId: null,
+        },
+      });
+      await tx.league.update({
+        where: { id: leagueId },
+        data: { heroChampionRolesDirty: true },
+      });
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
