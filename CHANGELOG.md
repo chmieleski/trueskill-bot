@@ -1,3 +1,10 @@
+# [1.67.0](https://github.com/chmieleski/trueskill-bot/compare/v1.66.0...v1.67.0) (2026-10-02)
+
+
+### Features
+
+* **roles:** schedule hero champion role updates with guild limits and dirty tracking ([#202](https://github.com/chmieleski/trueskill-bot/issues/202)) ([9a078d6](https://github.com/chmieleski/trueskill-bot/commit/9a078d6873686b07d398f242fcbce3a2d851ca9f))
+
 # [1.66.0](https://github.com/chmieleski/trueskill-bot/compare/v1.65.1...v1.66.0) (2026-10-02)
 
 
