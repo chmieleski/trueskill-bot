@@ -1,0 +1,4 @@
+# Replays and chat extraction dumps
+*.w3g
+scripts/w3g-chat/chat.json
+scripts/w3g-chat/node_modules/
