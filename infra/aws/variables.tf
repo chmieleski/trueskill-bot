@@ -274,7 +274,7 @@ variable "db_max_allocated_storage" {
 variable "db_engine_version" {
   description = "PostgreSQL engine version"
   type        = string
-  default     = "17.4"
+  default     = "17.8"
 }
 
 variable "db_name" {
