@@ -1,0 +1,20 @@
+# Format Before PR
+
+CI runs `npm run format:check` (Prettier). Treat it as a hard gate.
+
+## Before `gh pr create` or pushing a PR branch
+
+1. From the branch root, run `npm run format:check`.
+2. If it fails, run `npm run format` (or `npx prettier --write` on the failing paths) and include the formatting fixes in the commit you push.
+3. Re-run `npm run format:check` until it passes.
+4. Only then push and create/update the PR.
+
+## Also do this
+
+- Before claiming a feature branch is ready for review
+- After large multi-file edits even if you are not opening a PR yet
+
+## Do not
+
+- Open or update a PR with known Prettier failures
+- Assume typecheck/tests imply formatting is clean — they do not
