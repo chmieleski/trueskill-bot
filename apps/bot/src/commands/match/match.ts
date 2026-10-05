@@ -373,13 +373,11 @@ function formatManualSanctionRemoveMessage(result: {
   matchId: string;
   username: string;
   type: ManualSanctionType;
-  mode: 'manual_restored' | 'delegated_clear';
+  mode: 'manual_cleared' | 'delegated_clear';
 }): string {
   const label =
     result.type === 'quitter' ? 'quitter' : result.type === 'griefer' ? 'griefer' : 'DC';
-  const restored =
-    result.type === 'quitter' && result.mode === 'manual_restored' ? ' Ratings were restored.' : '';
-  return `Removed manual ${label} sanction for **${result.username}** (match \`${result.matchId}\`).${restored}`;
+  return `Removed manual ${label} sanction for **${result.username}** (match \`${result.matchId}\`).`;
 }
 
 async function assertMatchModInGuild(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -728,9 +726,7 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName('unquit')
-      .setDescription(
-        'Clear quitter flags on a finished match; restore ratings when possible (mods only)',
-      )
+      .setDescription('Clear quitter flags on a finished match (mods only)')
       .addStringOption((option) =>
         option
           .setName('match_id')
@@ -1325,7 +1321,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const dcSlots = dcsRaw === null ? undefined : parseDcSlots(dcsRaw);
       await interaction.editReply({
         content:
-          'Cancelling the match… Applying quitter penalties and recording griefer/DC season tax if any are marked.',
+          'Cancelling the match… Recording griefer/DC season tax; quitter flags count toward rollover tax.',
       });
       const cancelled = await cancelInProgressMatch(match.id, grieferSlots, dcSlots);
       await applyMatchMutation(

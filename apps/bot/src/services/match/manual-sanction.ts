@@ -5,7 +5,6 @@ import { isLeagueWritable, LEAGUE_ARCHIVED_MESSAGE } from '../league/league.js';
 import { ensurePlayerRatings } from '../rating/rating-preview.js';
 import {
   accrueGrieferPenalties,
-  applyQuitterPenalties,
   loadLiveGlobalByPlayer,
   type RatingRosterEntry,
 } from '../rating/rating-update.js';
@@ -18,7 +17,6 @@ import {
   recomputeDisplayCountersForPlayers,
 } from '../rating/display-counters.js';
 import { markLeagueHeroChampionRolesDirty } from '../hero-champion-roles/mark-dirty.js';
-import { restoreMatchRatingSnapshots, writeMatchRatingSnapshots } from './match-correction.js';
 import {
   clearMatchDcs,
   clearMatchGriefers,
@@ -61,7 +59,7 @@ export type RemoveManualSanctionResult = {
   matchId: string;
   type: ManualSanctionType;
   username: string;
-  mode: 'manual_restored' | 'delegated_clear';
+  mode: 'manual_cleared' | 'delegated_clear';
   clearResult?: ClearMatchQuittersResult;
 };
 
@@ -173,26 +171,18 @@ export async function addManualSanction(
       },
     });
 
-    const snapshotPlayers = [{ playerId: input.playerId, heroId }];
-    await ensurePlayerRatings(input.leagueId, snapshotPlayers, tx);
+    await ensurePlayerRatings(input.leagueId, [{ playerId: input.playerId, heroId }], tx);
 
-    // DC is a countable incident only — no snapshots or OpenSkill side effects.
-    if (input.type !== 'dc') {
-      const entry = buildSanctionEntry(input.playerId, heroId, input.type);
-
-      if (input.type === 'quitter') {
-        await writeMatchRatingSnapshots(input.leagueId, matchId, snapshotPlayers, tx);
-        await applyQuitterPenalties(input.leagueId, [entry], tx);
-      } else {
-        const liveGlobal = await loadLiveGlobalByPlayer(input.leagueId, [input.playerId], tx);
-        const displayStats = await loadMatchDisplayStatsByPlayer(
-          input.leagueId,
-          [input.playerId],
-          tx,
-        );
-        const gamesByPlayer = gamesByPlayerFromStats(displayStats);
-        await accrueGrieferPenalties(matchId, [entry], liveGlobal, gamesByPlayer, tx);
-      }
+    if (input.type === 'griefer') {
+      const entry = buildSanctionEntry(input.playerId, heroId, 'griefer');
+      const liveGlobal = await loadLiveGlobalByPlayer(input.leagueId, [input.playerId], tx);
+      const displayStats = await loadMatchDisplayStatsByPlayer(
+        input.leagueId,
+        [input.playerId],
+        tx,
+      );
+      const gamesByPlayer = gamesByPlayerFromStats(displayStats);
+      await accrueGrieferPenalties(matchId, [entry], liveGlobal, gamesByPlayer, tx);
     }
 
     await recomputeDisplayCountersForPlayer(input.leagueId, input.playerId, tx);
@@ -225,9 +215,8 @@ export async function addManualSanction(
   };
 }
 
-async function clearManualQuitterWithRestore(leagueId: string, matchId: string): Promise<void> {
+async function clearManualQuitter(leagueId: string, matchId: string): Promise<void> {
   await prisma.$transaction(async (tx) => {
-    await restoreMatchRatingSnapshots(leagueId, matchId, tx);
     const players = await tx.matchPlayer.findMany({
       where: { matchId, isQuitter: true },
       select: { playerId: true },
@@ -354,7 +343,7 @@ export async function removeManualSanction(
   } else if (input.type === 'dc') {
     await clearMatchDcs(resolvedMatchId);
   } else {
-    await clearManualQuitterWithRestore(input.leagueId, resolvedMatchId);
+    await clearManualQuitter(input.leagueId, resolvedMatchId);
   }
 
   log.info(
@@ -366,6 +355,6 @@ export async function removeManualSanction(
     matchId: resolvedMatchId,
     type: input.type,
     username: input.username,
-    mode: input.type === 'quitter' ? 'manual_restored' : 'delegated_clear',
+    mode: input.type === 'quitter' ? 'manual_cleared' : 'delegated_clear',
   };
 }

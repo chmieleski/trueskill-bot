@@ -13,6 +13,12 @@ import {
   type GrieferSeasonTaxSummary,
 } from '../rating/griefer-tax.js';
 import {
+  applyQuitterSeasonTaxToSeededGlobals,
+  countQuitterIncidents,
+  quitterSeasonTaxByPlayer,
+  summarizeQuitterSeasonTax,
+} from '../rating/quitter-tax.js';
+import {
   gamesByPlayerFromStats,
   loadMatchDisplayStatsByPlayer,
 } from '../rating/rank-reset-display.js';
@@ -83,6 +89,7 @@ export type LeagueRolloverPreview = {
   bindingCount: number;
   grieferSeasonTax: GrieferSeasonTaxSummary;
   dcSeasonTax: DcSeasonTaxSummary;
+  quitterSeasonTax: DcSeasonTaxSummary;
 };
 
 export type ApplyLeagueRolloverInput = {
@@ -346,6 +353,31 @@ async function loadPendingDcTaxForLeague(leagueId: string) {
   return sumDcSeasonTaxByPlayer(rows);
 }
 
+async function loadQuitterIncidentCountsForLeague(leagueId: string) {
+  const rows = await prisma.matchPlayer.findMany({
+    where: { isQuitter: true, match: { leagueId } },
+    select: { playerId: true },
+  });
+  return countQuitterIncidents(rows);
+}
+
+async function loadPendingQuitterTaxForLeague(leagueId: string) {
+  const incidentCounts = await loadQuitterIncidentCountsForLeague(leagueId);
+  const playerIds = [...incidentCounts.keys()];
+  if (playerIds.length === 0) {
+    return new Map<string, number>();
+  }
+
+  const [ratings, displayStats] = await Promise.all([
+    prisma.playerRating.findMany({
+      where: { leagueId, playerId: { in: playerIds } },
+      select: { playerId: true, mu: true, sigma: true },
+    }),
+    loadMatchDisplayStatsByPlayer(leagueId, playerIds),
+  ]);
+  return quitterSeasonTaxByPlayer(ratings, incidentCounts, gamesByPlayerFromStats(displayStats));
+}
+
 async function clearConsumedGrieferKiAccruals(
   leagueId: string,
   db: Pick<typeof prisma, 'matchPlayer'> = prisma,
@@ -361,11 +393,12 @@ async function clearConsumedGrieferKiAccruals(
 
 type GlobalRatingRow = { playerId: string; mu: number; sigma: number };
 
-/** Apply deferred griefer + DC tax to ending-season global μ (archived board / rewards). */
+/** Apply deferred griefer, DC, and quitter tax to ending-season global μ. */
 function applySeasonTaxesToEndingGlobals(
   rows: GlobalRatingRow[],
   grieferTaxByPlayer: ReturnType<typeof sumGrieferKiTaxByPlayer>,
   dcTaxByPlayer: ReturnType<typeof sumDcSeasonTaxByPlayer>,
+  quitterIncidentCounts: ReturnType<typeof countQuitterIncidents>,
   gamesByPlayer: Map<string, number>,
 ): GlobalRatingRow[] {
   let taxed = rows;
@@ -375,6 +408,9 @@ function applySeasonTaxesToEndingGlobals(
   if (dcTaxByPlayer.size > 0) {
     taxed = applyDcSeasonTaxToSeededGlobals(taxed, dcTaxByPlayer, gamesByPlayer);
   }
+  if (quitterIncidentCounts.size > 0) {
+    taxed = applyQuitterSeasonTaxToSeededGlobals(taxed, quitterIncidentCounts, gamesByPlayer);
+  }
   return taxed;
 }
 
@@ -383,6 +419,7 @@ async function persistEndingSeasonTaxes(
   rows: GlobalRatingRow[],
   grieferTaxByPlayer: ReturnType<typeof sumGrieferKiTaxByPlayer>,
   dcTaxByPlayer: ReturnType<typeof sumDcSeasonTaxByPlayer>,
+  quitterIncidentCounts: ReturnType<typeof countQuitterIncidents>,
   gamesByPlayer: Map<string, number>,
   db: Pick<typeof prisma, 'playerRating' | 'matchPlayer'>,
 ): Promise<GlobalRatingRow[]> {
@@ -390,9 +427,14 @@ async function persistEndingSeasonTaxes(
     rows,
     grieferTaxByPlayer,
     dcTaxByPlayer,
+    quitterIncidentCounts,
     gamesByPlayer,
   );
-  if (grieferTaxByPlayer.size === 0 && dcTaxByPlayer.size === 0) {
+  if (
+    grieferTaxByPlayer.size === 0 &&
+    dcTaxByPlayer.size === 0 &&
+    quitterIncidentCounts.size === 0
+  ) {
     return taxed;
   }
 
@@ -546,14 +588,17 @@ export async function previewLeagueRollover(
 
   await assertNoActiveMatches(source.id);
 
-  const [playerCount, bindingCount, grieferTaxByPlayer, dcTaxByPlayer] = await Promise.all([
-    countRolloverPlayers(source.id),
-    prisma.leagueChannelBinding.count({ where: { leagueId: source.id } }),
-    loadPendingGrieferTaxForLeague(source.id),
-    loadPendingDcTaxForLeague(source.id),
-  ]);
+  const [playerCount, bindingCount, grieferTaxByPlayer, dcTaxByPlayer, quitterTaxByPlayer] =
+    await Promise.all([
+      countRolloverPlayers(source.id),
+      prisma.leagueChannelBinding.count({ where: { leagueId: source.id } }),
+      loadPendingGrieferTaxForLeague(source.id),
+      loadPendingDcTaxForLeague(source.id),
+      loadPendingQuitterTaxForLeague(source.id),
+    ]);
   const grieferSeasonTax = summarizeGrieferSeasonTax(grieferTaxByPlayer);
   const dcSeasonTax = summarizeDcSeasonTax(dcTaxByPlayer);
+  const quitterSeasonTax = summarizeQuitterSeasonTax(quitterTaxByPlayer);
 
   const expiredBefore = new Date(Date.now() - ROLLOVER_DRAFT_TTL_MS);
   await prisma.leagueRolloverDraft.deleteMany({
@@ -585,6 +630,7 @@ export async function previewLeagueRollover(
     bindingCount,
     grieferSeasonTax,
     dcSeasonTax,
+    quitterSeasonTax,
   };
 }
 
@@ -653,11 +699,13 @@ export async function applyLeagueRollover(
     playerIds.add(row.playerId);
   }
 
-  const [grieferTaxByPlayer, dcTaxByPlayer, displayStats] = await Promise.all([
-    loadPendingGrieferTaxForLeague(source.id),
-    loadPendingDcTaxForLeague(source.id),
-    loadMatchDisplayStatsByPlayer(source.id, [...playerIds]),
-  ]);
+  const [grieferTaxByPlayer, dcTaxByPlayer, quitterIncidentCounts, displayStats] =
+    await Promise.all([
+      loadPendingGrieferTaxForLeague(source.id),
+      loadPendingDcTaxForLeague(source.id),
+      loadQuitterIncidentCountsForLeague(source.id),
+      loadMatchDisplayStatsByPlayer(source.id, [...playerIds]),
+    ]);
   const gamesByPlayer = gamesByPlayerFromStats(displayStats);
 
   const sourceGlobalRows: GlobalRatingRow[] = globalRatings.map((row) => ({
@@ -674,6 +722,7 @@ export async function applyLeagueRollover(
       sourceGlobalRows,
       grieferTaxByPlayer,
       dcTaxByPlayer,
+      quitterIncidentCounts,
       gamesByPlayer,
       tx,
     );

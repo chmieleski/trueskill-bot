@@ -20,7 +20,6 @@ import { assertTeam } from '../../domain/game-profile.js';
 import {
   accrueGrieferPenalties,
   applyMatchRatings,
-  applyQuitterPenalties,
   assertBothTeamsHaveActivePlayers,
   loadPreMatchGlobalByPlayer,
   type RatingRosterEntry,
@@ -608,7 +607,6 @@ export async function flipCompletedMatch(
       });
     }
 
-    await applyQuitterPenalties(leagueId, entries, tx);
     const preMatchGlobal = await loadPreMatchGlobalByPlayer(matchId, tx);
     const playerIds = previewEntries.map((entry) => entry.playerId);
     const preMatchDisplayStats = await loadMatchDisplayStatsByPlayer(leagueId, playerIds, tx);

@@ -7,7 +7,6 @@ const {
   transaction,
   queryRaw,
   applyMatchRatings,
-  applyQuitterPenalties,
   accrueGrieferPenalties,
   writeMatchRatingSnapshots,
   ensurePlayerRatings,
@@ -24,7 +23,6 @@ const {
   transaction: vi.fn(),
   queryRaw: vi.fn(),
   applyMatchRatings: vi.fn(),
-  applyQuitterPenalties: vi.fn(),
   accrueGrieferPenalties: vi.fn(),
   writeMatchRatingSnapshots: vi.fn(),
   ensurePlayerRatings: vi.fn(),
@@ -67,7 +65,6 @@ vi.mock('../../lib/logger.js', () => ({
 
 vi.mock('../rating/rating-update.js', () => ({
   applyMatchRatings,
-  applyQuitterPenalties,
   accrueGrieferPenalties,
   assertBothTeamsHaveActivePlayers: vi.fn(),
   loadLiveGlobalByPlayer: vi.fn(),
@@ -181,7 +178,6 @@ describe('completeMatch event path', () => {
       }),
     );
     expect(applyMatchRatings).not.toHaveBeenCalled();
-    expect(applyQuitterPenalties).not.toHaveBeenCalled();
     expect(accrueGrieferPenalties).not.toHaveBeenCalled();
     expect(writeMatchRatingSnapshots).not.toHaveBeenCalled();
     expect(ensurePlayerRatings).not.toHaveBeenCalled();
@@ -219,7 +215,6 @@ describe('cancelInProgressMatch event path', () => {
         data: expect.objectContaining({ status: 'CANCELLED' }),
       }),
     );
-    expect(applyQuitterPenalties).not.toHaveBeenCalled();
     expect(accrueGrieferPenalties).not.toHaveBeenCalled();
   });
 });

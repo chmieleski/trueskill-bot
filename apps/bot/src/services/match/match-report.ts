@@ -21,7 +21,6 @@ import { assertTeam } from '../../domain/game-profile.js';
 import {
   accrueGrieferPenalties,
   applyMatchRatings,
-  applyQuitterPenalties,
   assertBothTeamsHaveActivePlayers,
   loadLiveGlobalByPlayer,
   loadPreMatchGlobalByPlayer,
@@ -461,7 +460,6 @@ export async function completeMatch(
       });
     }
 
-    await applyQuitterPenalties(leagueId, entries, tx);
     const preMatchGlobal = await loadPreMatchGlobalByPlayer(matchId, tx);
     const preMatchDisplayStats = await loadMatchDisplayStatsByPlayer(leagueId, playerIds, tx);
     const preMatchGamesByPlayer = gamesByPlayerFromStats(preMatchDisplayStats);
@@ -580,10 +578,6 @@ export async function cancelInProgressMatch(
     const effectiveDcSet = new Set([...dcSet].filter((slot) => !quitterSet.has(slot)));
     const entries = toRatingEntries(match, quitterSet, grieferSet, effectiveDcSet);
     const playerIds = match.players.map((p) => p.playerId);
-
-    if (quitterSlots.length > 0) {
-      await applyQuitterPenalties(leagueId, entries, tx);
-    }
 
     if (resolvedGrieferSlots.length > 0) {
       await ensurePlayerRatings(

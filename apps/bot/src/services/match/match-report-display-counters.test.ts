@@ -12,7 +12,6 @@ const {
   transaction,
   queryRaw,
   applyMatchRatings,
-  applyQuitterPenalties,
   accrueGrieferPenalties,
   writeMatchRatingSnapshots,
   ensurePlayerRatings,
@@ -32,7 +31,6 @@ const {
   transaction: vi.fn(),
   queryRaw: vi.fn(),
   applyMatchRatings: vi.fn(),
-  applyQuitterPenalties: vi.fn(),
   accrueGrieferPenalties: vi.fn(),
   writeMatchRatingSnapshots: vi.fn(),
   ensurePlayerRatings: vi.fn(),
@@ -79,7 +77,6 @@ vi.mock('../../config/env.js', () => ({
 
 vi.mock('../rating/rating-update.js', () => ({
   applyMatchRatings,
-  applyQuitterPenalties,
   accrueGrieferPenalties,
   assertBothTeamsHaveActivePlayers: vi.fn(),
   loadLiveGlobalByPlayer: vi.fn(),

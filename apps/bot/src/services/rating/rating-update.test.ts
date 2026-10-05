@@ -1,61 +1,15 @@
-import { rating } from 'openskill';
 import { describe, expect, it, vi } from 'vitest';
 import { MatchServiceError } from '../match/match-service.js';
 import { ensurePlayerRatings } from './rating-preview.js';
 import {
   accrueGrieferPenalties,
   applyMatchRatings,
-  applyQuitterPenalties,
-  applySyntheticLosses,
   assertBothTeamsHaveActivePlayers,
-  buildDummyOpponentTeam,
   canRunHeroRate,
   canRunTeamRate,
   partitionRosterForRating,
-  QUITTER_SYNTHETIC_LOSSES,
   type RatingRosterEntry,
 } from './rating-update.js';
-
-describe('QUITTER_SYNTHETIC_LOSSES', () => {
-  it('uses three peer synthetic losses (~3 fair solo losses in display ki)', () => {
-    expect(QUITTER_SYNTHETIC_LOSSES).toBe(3);
-  });
-});
-
-describe('buildDummyOpponentTeam', () => {
-  it('mirrors the player team μ/σ (peer dummy, not a fixed strong opponent)', () => {
-    const playerTeam = [rating({ mu: 28, sigma: 6 }), rating({ mu: 22, sigma: 7.5 })];
-    const dummy = buildDummyOpponentTeam(playerTeam);
-
-    expect(dummy).toHaveLength(2);
-    expect(dummy[0]!.mu).toBe(28);
-    expect(dummy[0]!.sigma).toBe(6);
-    expect(dummy[1]!.mu).toBe(22);
-    expect(dummy[1]!.sigma).toBe(7.5);
-  });
-});
-
-describe('applySyntheticLosses', () => {
-  it('lowers the player team after peer losses', () => {
-    const before = [rating({ mu: 25, sigma: 8.333 }), rating({ mu: 25, sigma: 8.333 })];
-
-    const after = applySyntheticLosses(before);
-
-    expect(after).toHaveLength(2);
-    expect(after[0]!.mu).toBeLessThan(before[0]!.mu);
-    expect(after[1]!.mu).toBeLessThan(before[1]!.mu);
-  });
-
-  it('drops cold-start mu roughly three peer losses (~μ 19.2)', () => {
-    const before = [rating({ mu: 25, sigma: 8.333 }), rating({ mu: 25, sigma: 8.333 })];
-
-    const after = applySyntheticLosses(before);
-
-    // Peer N=3 ≈ μ 19.23; old strong-dummy N=3 left ~23.55 (too light).
-    expect(after[0]!.mu).toBeLessThan(20);
-    expect(after[0]!.mu).toBeGreaterThan(18.5);
-  });
-});
 
 describe('partitionRosterForRating', () => {
   it('splits quitters from rateable veterans', () => {

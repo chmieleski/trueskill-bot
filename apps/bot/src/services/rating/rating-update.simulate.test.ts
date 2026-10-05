@@ -250,12 +250,12 @@ describe('simulatePostMatchRatings with New', () => {
 
     expect(globalByPlayer.get('newA')!.mu).toBe(25);
     expect(globalByPlayer.get('newB')!.mu).toBe(25);
-    expect(globalByPlayer.get('quitA')!.mu).toBeLessThan(25);
+    expect(globalByPlayer.get('quitA')!.mu).toBe(25);
   });
 });
 
-describe('simulatePostMatchRatings quit synthetics', () => {
-  it('moves overall Δμ the same regardless of hero μ/σ', () => {
+describe('simulatePostMatchRatings quitter handling', () => {
+  it('leaves quitter global and hero ratings unchanged before rollover', () => {
     const entries = [
       {
         playerId: 'quitA',
@@ -273,7 +273,7 @@ describe('simulatePostMatchRatings quit synthetics', () => {
       },
     ];
     const overall = { mu: 28, sigma: 6 };
-    const afterCold = simulatePostMatchRatings(
+    const after = simulatePostMatchRatings(
       entries,
       2,
       new Map([
@@ -282,22 +282,9 @@ describe('simulatePostMatchRatings quit synthetics', () => {
       ]),
       new Map([['quitA:1', { mu: 25, sigma: 8.333 }]]),
     );
-    const afterMain = simulatePostMatchRatings(
-      entries,
-      2,
-      new Map([
-        ['quitA', overall],
-        ['vetB', { mu: 25, sigma: 8.333 }],
-      ]),
-      new Map([['quitA:1', { mu: 35, sigma: 3 }]]),
-    );
 
-    expect(afterCold.globalByPlayer.get('quitA')!.mu).toBeCloseTo(
-      afterMain.globalByPlayer.get('quitA')!.mu,
-    );
-    expect(afterCold.heroByKey.get('quitA:1')!.mu).not.toBeCloseTo(
-      afterMain.heroByKey.get('quitA:1')!.mu,
-    );
+    expect(after.globalByPlayer.get('quitA')).toEqual(overall);
+    expect(after.heroByKey.get('quitA:1')).toEqual({ mu: 25, sigma: 8.333 });
   });
 });
 
@@ -382,7 +369,7 @@ describe('simulatePostMatchRatings with mitigation', () => {
     expect(softLossDelta).toBeCloseTo(fullLossDelta * 0.5, 5);
   });
 
-  it('does not scale quitter synthetic losses', () => {
+  it('leaves quitter ratings unchanged with or without mitigation', () => {
     const entries = [
       { playerId: 'quit', slot: 1, team: 1 as const, heroId: null, isQuitter: true },
       { playerId: 'a', slot: 2, team: 1 as const, heroId: null, isQuitter: false },
@@ -396,6 +383,7 @@ describe('simulatePostMatchRatings with mitigation', () => {
     const full = simulatePostMatchRatings(entries, 1, start, new Map());
     const soft = simulatePostMatchRatings(entries, 1, start, new Map(), new Map(), 50);
 
-    expect(soft.globalByPlayer.get('quit')!.mu).toBeCloseTo(full.globalByPlayer.get('quit')!.mu, 8);
+    expect(full.globalByPlayer.get('quit')!.mu).toBe(25);
+    expect(soft.globalByPlayer.get('quit')!.mu).toBe(25);
   });
 });
