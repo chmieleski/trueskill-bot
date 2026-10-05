@@ -162,6 +162,12 @@ export function buildRolloverPreviewMessage(preview: LeagueRolloverPreview): str
     );
   }
 
+  if (preview.quitterSeasonTax.totalKiTax > 0) {
+    lines.push(
+      `• Quitter season tax: **${preview.quitterSeasonTax.playerCount}** player(s), **${preview.quitterSeasonTax.totalKiTax}** ki (10% per quitter-marked game; applied to ending season ratings for rewards)`,
+    );
+  }
+
   lines.push(
     `• Players seeded: ${preview.playerCount}`,
     `• Bindings moved: ${preview.bindingCount}`,

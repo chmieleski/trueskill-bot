@@ -22,13 +22,6 @@ import {
 const DEFAULT_MU = 25;
 const DEFAULT_SIGMA = 8.333;
 
-/**
- * Peer synthetic losses for quitters.
- * Each iteration is a fair solo loss vs a mirrored opponent; N=3 ≈ three such losses.
- * Strong-dummy N=3 barely moved ki (expected loss); peer N=1 felt like ~1 loss to players.
- */
-export const QUITTER_SYNTHETIC_LOSSES = 3;
-
 export type RatingRosterEntry = {
   playerId: string;
   slot: number;
@@ -50,50 +43,6 @@ function defaultRatingEntity(): { mu: number; sigma: number } {
 
 function heroKey(playerId: string, heroId: number): string {
   return `${playerId}:${heroId}`;
-}
-
-/**
- * Peer opponent for quitter penalties (not persisted).
- * Copies the quitter team's μ/σ so each synthetic loss is an even match —
- * a fixed strong dummy makes the loss "expected" and barely moves public ki.
- */
-export function buildDummyOpponentTeam(playerTeam: Rating[]): Rating[] {
-  return playerTeam.map((entity) => rating({ mu: entity.mu, sigma: entity.sigma }));
-}
-
-/**
- * Run OpenSkill rate() N times: playerTeam loses to a peer dummy each iteration.
- * Returns the updated playerTeam ratings (same length/order).
- */
-export function applySyntheticLosses(
-  playerTeam: Rating[],
-  losses: number = QUITTER_SYNTHETIC_LOSSES,
-): Rating[] {
-  let current = playerTeam;
-
-  for (let i = 0; i < losses; i += 1) {
-    const dummy = buildDummyOpponentTeam(current);
-    const [nextPlayerTeam] = rate([current, dummy], { rank: [2, 1] });
-    current = nextPlayerTeam ?? current;
-  }
-
-  return current;
-}
-
-function applyIndependentSyntheticLosses(
-  global: { mu: number; sigma: number },
-  hero: { mu: number; sigma: number },
-  heroId: number | null,
-): { global: Rating; hero?: Rating } {
-  const [nextGlobal] = applySyntheticLosses(toOpenSkillRatings(ratingEntitiesForOverall(global)));
-  if (!nextGlobal) {
-    return { global: rating({ mu: global.mu, sigma: global.sigma }) };
-  }
-  if (heroId == null) {
-    return { global: nextGlobal };
-  }
-  const [nextHero] = applySyntheticLosses(toOpenSkillRatings(ratingEntitiesForHero(hero)));
-  return { global: nextGlobal, hero: nextHero };
 }
 
 /**
@@ -196,87 +145,6 @@ export async function accrueGrieferPenalties(
   }
 }
 
-async function applySyntheticPenalties(
-  leagueId: string,
-  penaltyEntries: RatingRosterEntry[],
-  db: Db,
-): Promise<void> {
-  const sorted = [...penaltyEntries].sort((left, right) => left.slot - right.slot);
-
-  if (sorted.length === 0) {
-    return;
-  }
-
-  await ensurePlayerRatings(
-    leagueId,
-    sorted.map((entry) => ({
-      playerId: entry.playerId,
-      heroId: entry.heroId,
-    })),
-    db,
-  );
-
-  const playerIds = sorted.map((entry) => entry.playerId);
-  const withHero = sorted.filter(
-    (entry): entry is RatingRosterEntry & { heroId: number } => entry.heroId != null,
-  );
-  const [globalRatings, heroRatings] = await Promise.all([
-    db.playerRating.findMany({
-      where: { leagueId, playerId: { in: playerIds } },
-    }),
-    withHero.length > 0
-      ? db.playerHeroRating.findMany({
-          where: {
-            leagueId,
-            OR: withHero.map((entry) => ({
-              playerId: entry.playerId,
-              heroId: entry.heroId,
-            })),
-          },
-        })
-      : Promise.resolve([]),
-  ]);
-
-  const globalByPlayer = new Map(globalRatings.map((row) => [row.playerId, row]));
-  const heroByKey = new Map(heroRatings.map((row) => [heroKey(row.playerId, row.heroId), row]));
-
-  for (const entry of sorted) {
-    const global = globalByPlayer.get(entry.playerId) ?? defaultRatingEntity();
-    const hero =
-      entry.heroId == null
-        ? defaultRatingEntity()
-        : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity());
-    const updated = applyIndependentSyntheticLosses(global, hero, entry.heroId);
-    const nextGlobal = updated.global;
-
-    await db.playerRating.update({
-      where: { leagueId_playerId: { leagueId, playerId: entry.playerId } },
-      data: {
-        mu: nextGlobal.mu,
-        sigma: nextGlobal.sigma,
-      },
-    });
-
-    if (entry.heroId == null || !updated.hero) {
-      continue;
-    }
-
-    await db.playerHeroRating.update({
-      where: {
-        leagueId_playerId_heroId: {
-          leagueId,
-          playerId: entry.playerId,
-          heroId: entry.heroId,
-        },
-      },
-      data: {
-        mu: updated.hero.mu,
-        sigma: updated.hero.sigma,
-      },
-    });
-  }
-}
-
 export function assertBothTeamsHaveActivePlayers(active: { slot: number; team: 1 | 2 }[]): void {
   const { teamA, teamB } = splitRosterByTeam(active);
 
@@ -285,16 +153,6 @@ export function assertBothTeamsHaveActivePlayers(active: { slot: number; team: 1
       'Cannot complete: after quitters, a team has no remaining players. Cancel the match instead.',
     );
   }
-}
-
-export async function applyQuitterPenalties(
-  leagueId: string,
-  entries: RatingRosterEntry[],
-  db: Db = prisma,
-): Promise<void> {
-  const sorted = [...entries].sort((left, right) => left.slot - right.slot);
-  const { quitters } = partitionRosterForRating(sorted);
-  await applySyntheticPenalties(leagueId, quitters, db);
 }
 
 type UpdatedPlayerRating = {
@@ -677,7 +535,7 @@ export async function applyMatchRatings(
 export type MuSigma = { mu: number; sigma: number };
 
 /**
- * Pure in-memory OpenSkill apply (quitters then match) from starting μ/σ maps.
+ * Pure in-memory OpenSkill apply for a completed match from starting μ/σ maps.
  * Used to rebuild completed-match ki deltas from pre-match snapshots without DB writes.
  */
 export function simulatePostMatchRatings(
@@ -691,24 +549,8 @@ export function simulatePostMatchRatings(
   const globalByPlayer = new Map(startingGlobal);
   const heroByKey = new Map(startingHero);
   const sorted = [...entries].sort((left, right) => left.slot - right.slot);
-  const { quitters, activeRateable } = partitionRosterForRating(sorted);
+  const { activeRateable } = partitionRosterForRating(sorted);
   const mitigation = normalizeMitigationPercent(mitigationPercent);
-
-  for (const entry of quitters) {
-    const global = globalByPlayer.get(entry.playerId) ?? defaultRatingEntity();
-    const hero =
-      entry.heroId == null
-        ? defaultRatingEntity()
-        : (heroByKey.get(heroKey(entry.playerId, entry.heroId)) ?? defaultRatingEntity());
-    const updated = applyIndependentSyntheticLosses(global, hero, entry.heroId);
-    globalByPlayer.set(entry.playerId, { mu: updated.global.mu, sigma: updated.global.sigma });
-    if (entry.heroId != null && updated.hero) {
-      heroByKey.set(heroKey(entry.playerId, entry.heroId), {
-        mu: updated.hero.mu,
-        sigma: updated.hero.sigma,
-      });
-    }
-  }
 
   if (!canRunTeamRate(activeRateable)) {
     return { globalByPlayer, heroByKey };

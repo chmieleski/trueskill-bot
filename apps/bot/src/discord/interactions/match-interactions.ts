@@ -1580,7 +1580,7 @@ async function handleCancelConfirm(
   await resolveById(interaction, matchId);
   await showWorking(
     interaction,
-    'Cancelling the match… Applying quitter penalties and recording griefer/DC season tax if any are marked.',
+    'Cancelling the match… Recording griefer/DC season tax; quitter flags count toward rollover tax.',
   );
 
   // DC slots were persisted on the match during the cancel wizard DC step.

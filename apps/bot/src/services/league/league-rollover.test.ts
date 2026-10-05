@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyKiTaxToMu } from '../rating/griefer-tax.js';
+import {
+  applyQuitterSeasonTaxToSeededGlobals,
+  countQuitterIncidents,
+} from '../rating/quitter-tax.js';
 
 const {
   leagueFindUnique,
@@ -365,6 +369,7 @@ describe('previewLeagueRollover', () => {
       bindingCount: 2,
       grieferSeasonTax: { playerCount: 0, totalKiTax: 0 },
       dcSeasonTax: { playerCount: 0, totalKiTax: 0 },
+      quitterSeasonTax: { playerCount: 0, totalKiTax: 0 },
     });
 
     expect(leagueRolloverDraftCreate).toHaveBeenCalledWith({
@@ -772,6 +777,32 @@ describe('applyLeagueRollover', () => {
         match: { leagueId: 'league-1' },
       },
       data: { grieferKiAccrued: null },
+    });
+  });
+
+  it('applies compounding quitter tax to ending season ratings', async () => {
+    matchPlayerFindMany.mockImplementation((args: { where?: { isQuitter?: boolean } }) => {
+      const rows = args?.where?.isQuitter
+        ? [{ playerId: 'p1' }, { playerId: 'p1' }, { playerId: 'p1' }]
+        : [];
+      return Promise.resolve(rows);
+    });
+    const counts = countQuitterIncidents([
+      { playerId: 'p1' },
+      { playerId: 'p1' },
+      { playerId: 'p1' },
+    ]);
+    const [expected] = applyQuitterSeasonTaxToSeededGlobals(
+      [{ playerId: 'p1', mu: 30, sigma: 3 }],
+      counts,
+      new Map(),
+    );
+
+    await applyLeagueRollover({ draftId: 'draft-1', actorDiscordId: ACTOR });
+
+    expect(playerRatingUpdate).toHaveBeenCalledWith({
+      where: { leagueId_playerId: { leagueId: 'league-1', playerId: 'p1' } },
+      data: { mu: expected!.mu },
     });
   });
 

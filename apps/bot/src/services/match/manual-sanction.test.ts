@@ -18,7 +18,6 @@ const {
   matchPlayerUpdate,
   transaction,
   writeMatchRatingSnapshots,
-  applyQuitterPenalties,
   accrueGrieferPenalties,
   loadLiveGlobalByPlayer,
   loadMatchDisplayStatsByPlayer,
@@ -39,7 +38,6 @@ const {
   matchPlayerUpdate: vi.fn(),
   transaction: vi.fn(),
   writeMatchRatingSnapshots: vi.fn(),
-  applyQuitterPenalties: vi.fn(),
   accrueGrieferPenalties: vi.fn(),
   loadLiveGlobalByPlayer: vi.fn(),
   loadMatchDisplayStatsByPlayer: vi.fn(),
@@ -86,7 +84,6 @@ vi.mock('./match-correction.js', () => ({
 }));
 
 vi.mock('../rating/rating-update.js', () => ({
-  applyQuitterPenalties,
   accrueGrieferPenalties,
   loadLiveGlobalByPlayer,
 }));
@@ -139,7 +136,7 @@ describe('addManualSanction', () => {
     });
   });
 
-  it('creates a cancelled manual match and applies quitter penalties', async () => {
+  it('creates a cancelled manual quitter incident without immediate rating changes', async () => {
     const result = await addManualSanction({
       leagueId: 'league-1',
       playerId: 'p1',
@@ -162,8 +159,7 @@ describe('addManualSanction', () => {
         isGriefer: false,
       }),
     });
-    expect(writeMatchRatingSnapshots).toHaveBeenCalled();
-    expect(applyQuitterPenalties).toHaveBeenCalled();
+    expect(writeMatchRatingSnapshots).not.toHaveBeenCalled();
     expect(accrueGrieferPenalties).not.toHaveBeenCalled();
     expect(result.matchId).toBe('sanction-1');
     expect(result.quits).toBe(2);
@@ -182,7 +178,6 @@ describe('addManualSanction', () => {
 
     expect(accrueGrieferPenalties).toHaveBeenCalled();
     expect(writeMatchRatingSnapshots).not.toHaveBeenCalled();
-    expect(applyQuitterPenalties).not.toHaveBeenCalled();
     expect(result.grieferKiAccrued).toBe(125);
   });
 
@@ -213,7 +208,6 @@ describe('addManualSanction', () => {
       expect.anything(),
     );
     expect(writeMatchRatingSnapshots).not.toHaveBeenCalled();
-    expect(applyQuitterPenalties).not.toHaveBeenCalled();
     expect(accrueGrieferPenalties).not.toHaveBeenCalled();
     expect(result.dcs).toBe(3);
     expect(result.grieferKiAccrued).toBeNull();
@@ -289,7 +283,7 @@ describe('removeManualSanction', () => {
     matchPlayerFindMany.mockResolvedValue([{ playerId: 'p1' }]);
   });
 
-  it('restores snapshots when removing latest manual quitter', async () => {
+  it('clears the latest manual quitter without restoring ratings', async () => {
     playerFindFirst.mockResolvedValue({ matchId: 'sanction-1' });
     getMatchById.mockResolvedValue({
       id: 'sanction-1',
@@ -305,12 +299,8 @@ describe('removeManualSanction', () => {
       type: 'quitter',
     });
 
-    expect(restoreMatchRatingSnapshots).toHaveBeenCalledWith(
-      'league-1',
-      'sanction-1',
-      expect.anything(),
-    );
-    expect(result.mode).toBe('manual_restored');
+    expect(restoreMatchRatingSnapshots).not.toHaveBeenCalled();
+    expect(result.mode).toBe('manual_cleared');
   });
 
   it('delegates to clearMatchGriefers for latest manual griefer', async () => {
