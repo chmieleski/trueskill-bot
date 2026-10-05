@@ -24,6 +24,18 @@ describe('partitionRosterForRating', () => {
     expect(activeRateable.map((entry) => entry.slot)).toEqual([2, 7]);
   });
 
+  it('keeps new quitters with isQuitterSeasonTax in activeRateable', () => {
+    const { quitters, newNonQuit, activeRateable } = partitionRosterForRating([
+      { slot: 1, team: 1, isQuitter: true, isQuitterSeasonTax: true },
+      { slot: 2, team: 1, isQuitter: false },
+      { slot: 7, team: 2, isQuitter: false },
+    ]);
+
+    expect(quitters).toEqual([]);
+    expect(newNonQuit).toEqual([]);
+    expect(activeRateable.map((entry) => entry.slot)).toEqual([1, 2, 7]);
+  });
+
   it('keeps griefers in the rateable roster when not New', () => {
     const { quitters, newNonQuit, activeRateable } = partitionRosterForRating([
       { slot: 1, team: 1, isQuitter: false },

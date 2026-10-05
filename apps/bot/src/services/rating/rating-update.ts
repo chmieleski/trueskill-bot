@@ -28,6 +28,8 @@ export type RatingRosterEntry = {
   team: 1 | 2;
   heroId: number | null;
   isQuitter: boolean;
+  /** When true, season tax method applies instead of synthetic losses (quitter stays in team rate). */
+  isQuitterSeasonTax?: boolean;
   isGriefer?: boolean;
   /** Disconnect incident; not used by OpenSkill apply (season tax only). */
   isDc?: boolean;
@@ -52,10 +54,16 @@ function heroKey(playerId: string, heroId: number): string {
  * other team's New quit. Excess / one-sided non-quit New rate normally.
  */
 export function partitionRosterForRating<
-  T extends { isQuitter: boolean; wasNewPlayer?: boolean; team: 1 | 2; slot: number },
+  T extends {
+    isQuitter: boolean;
+    isQuitterSeasonTax?: boolean;
+    wasNewPlayer?: boolean;
+    team: 1 | 2;
+    slot: number;
+  },
 >(entries: T[]): { quitters: T[]; newNonQuit: T[]; activeRateable: T[] } {
-  const quitters = entries.filter((entry) => entry.isQuitter);
-  const nonQuit = entries.filter((entry) => !entry.isQuitter);
+  const quitters = entries.filter((entry) => entry.isQuitter && !entry.isQuitterSeasonTax);
+  const nonQuit = entries.filter((entry) => !entry.isQuitter || entry.isQuitterSeasonTax === true);
   const pairedNewKeys = computePairedNewKeys(entries, (entry) => entry.wasNewPlayer === true);
 
   const isPairedNew = (entry: T): boolean =>

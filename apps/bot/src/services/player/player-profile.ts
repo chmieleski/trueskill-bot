@@ -65,6 +65,8 @@ export type PlayerProfile = {
   pendingGrieferKiTax: number;
   /** Pending disconnect season tax (full-league DC count; not rank-reset gated). */
   pendingDcSeasonTax: number;
+  /** Pending quitter season tax (season-tax quit count; not rank-reset gated). */
+  pendingQuitterSeasonTax: number;
   winRatePercent: number | null;
   heroes: PlayerProfileHero[];
   /**
@@ -236,6 +238,7 @@ export async function loadPlayerProfile(
     loadMatchDisplayStats(leagueId),
     loadPendingGrieferKiTaxByPlayer(leagueId, [player.id]),
     loadPendingDcTaxByPlayer(leagueId, [player.id]),
+    loadPendingQuitterTaxByPlayer(leagueId, [player.id]),
   ]);
 
   const displayStatsByPlayer = displayStats.byPlayer;
@@ -251,6 +254,7 @@ export async function loadPlayerProfile(
   const { games, wins, losses, quits, griefs, dcs } = mine;
   const pendingGrieferKiTax = pendingTaxByPlayer.get(player.id) ?? 0;
   const pendingDcSeasonTax = pendingDcTaxByPlayer.get(player.id) ?? 0;
+  const pendingQuitterSeasonTax = pendingQuitterTaxByPlayer.get(player.id) ?? 0;
 
   const globalKi = rating ? displayOrdinal(rating.mu, rating.sigma, games) : coldStartKi();
 
@@ -303,6 +307,7 @@ export async function loadPlayerProfile(
     dcs,
     pendingGrieferKiTax,
     pendingDcSeasonTax,
+    pendingQuitterSeasonTax,
     winRatePercent: winRatePercentValue,
     heroes,
     sideWinLoss: league?.showSideWinLoss ? sideStatsFor(displayStats.bySide, player.id) : null,

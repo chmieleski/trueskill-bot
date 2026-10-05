@@ -9,6 +9,7 @@ import {
 } from './display-counters.js';
 import { sumDcSeasonTaxByPlayer } from './dc-tax.js';
 import { sumGrieferKiTaxByPlayer } from './griefer-tax.js';
+import { sumQuitterSeasonTaxByPlayer } from './quitter-tax.js';
 
 const log = createLogger('rank-reset-display');
 
@@ -527,4 +528,22 @@ export async function loadPendingDcTaxByPlayer(
     select: { playerId: true },
   });
   return sumDcSeasonTaxByPlayer(rows);
+}
+
+/** Sum pending Quitter season tax per player (only new quitters with isQuitterSeasonTax: true; not rank-reset gated). */
+export async function loadPendingQuitterTaxByPlayer(
+  leagueId: string,
+  playerIds?: string[],
+  db: Db = defaultPrisma,
+): Promise<Map<string, number>> {
+  const rows = await db.matchPlayer.findMany({
+    where: {
+      isQuitter: true,
+      isQuitterSeasonTax: true,
+      match: { leagueId },
+      ...(playerIds ? { playerId: { in: playerIds } } : {}),
+    },
+    select: { playerId: true },
+  });
+  return sumQuitterSeasonTaxByPlayer(rows);
 }

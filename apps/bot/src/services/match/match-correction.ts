@@ -473,6 +473,7 @@ function toRatingEntries(match: MatchWithPlayers, quitterSet: Set<number>): Rati
       team: assertTeam(player.team),
       heroId: player.heroId,
       isQuitter,
+      isQuitterSeasonTax: isQuitter,
       isGriefer: player.isGriefer,
       isDc: !isQuitter && player.isDc,
       wasNewPlayer: player.wasNewPlayer,
@@ -550,11 +551,12 @@ export async function flipCompletedMatch(
     if (isEventMatch(match)) {
       for (const player of match.players) {
         const isQuitter = quitterSet.has(player.slot);
-        const won = !isQuitter && isWinningTeam(player.team, winningTeam);
+        const won = isWinningTeam(player.team, winningTeam);
         await tx.matchPlayer.update({
           where: { matchId_playerId: { matchId, playerId: player.playerId } },
           data: {
             isQuitter,
+            isQuitterSeasonTax: isQuitter,
             isGriefer: player.isGriefer,
             isDc: isQuitter ? false : player.isDc,
             result: won ? 'WIN' : 'LOSS',
@@ -570,7 +572,7 @@ export async function flipCompletedMatch(
     await restoreMatchRatingSnapshots(leagueId, matchId, tx);
 
     const entries = toRatingEntries(match, quitterSet);
-    const active = entries.filter((e) => !e.isQuitter);
+    const active = entries.filter((e) => !e.isQuitter || e.isQuitterSeasonTax);
     assertBothTeamsHaveActivePlayers(active);
 
     const previewEntries = matchPlayersToRatingEntries(
@@ -595,11 +597,12 @@ export async function flipCompletedMatch(
 
     for (const player of match.players) {
       const isQuitter = quitterSet.has(player.slot);
-      const won = !isQuitter && isWinningTeam(player.team, winningTeam);
+      const won = isWinningTeam(player.team, winningTeam);
       await tx.matchPlayer.update({
         where: { matchId_playerId: { matchId, playerId: player.playerId } },
         data: {
           isQuitter,
+          isQuitterSeasonTax: isQuitter,
           isGriefer: player.isGriefer,
           isDc: isQuitter ? false : player.isDc,
           result: won ? 'WIN' : 'LOSS',
@@ -671,6 +674,7 @@ export async function voidCompletedMatch(matchId: string): Promise<MatchWithPlay
         data: {
           result: null,
           isQuitter: false,
+          isQuitterSeasonTax: false,
           isGriefer: false,
           isDc: false,
           grieferKiAccrued: null,

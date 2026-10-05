@@ -1,13 +1,6 @@
 # Model Selection Guidelines
 
-| Work                                                            | Model Preference                                                  |
-| --------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Default implementation (features, fixes, refactors, scripts)    | Standard Agent / Gemini 3.8 Flash (or Cursor Auto in Cursor)      |
-| Architecture reviews, design critiques, multi-option trade-offs | Deep reasoning model (e.g. Gemini 3.8 Pro / Thinking or Grok 4.6) |
-| Fast / lightweight reviews (quick sanity check, small diff)     | Lightweight / fast model                                          |
-
-## Notes
-
-- Use the default implementation model unless the user asks for a specific model or the task is an architecture/design review.
-- For deep reviews and complex planning, prefer high-reasoning models.
-- If the user explicitly selects or names a model in chat, that override wins for that turn.
+- Use the active tool's default model for ordinary implementation, fixes, refactors, and scripts.
+- Use a deeper reasoning model for architecture reviews, design critiques, and multi-option trade-offs when one is available.
+- Use a faster model for small, focused reviews when one is available.
+- If the user names a model, honor that request when the active tool supports it.

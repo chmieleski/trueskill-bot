@@ -1,4 +1,4 @@
-# DBZ WC3 Bot — Antigravity Workspace Guide
+# DBZ WC3 Bot — Shared Agent Workspace Guide
 
 This repo is a **pnpm + Turborepo monorepo** for a custom Dragon Ball Z Warcraft III ranked Discord bot and web platform.
 
@@ -18,12 +18,14 @@ This repo is a **pnpm + Turborepo monorepo** for a custom Dragon Ball Z Warcraft
 - **Prisma Client**: Import from `@dbz/db`. Always use the singleton in `apps/bot/src/lib/prisma.ts` — never `new PrismaClient()` elsewhere.
 - **Language Policy**: All user-facing strings, logs, command names/descriptions, and errors must be in **English**.
 
-## Antigravity IDE Customizations
+## Shared Agent Configuration
 
-- **Workspace Root**: `.agents/`
-- **MCP Servers**: `.agents/mcp_config.json`
-- **Custom Skills**: `.agents/skills/` (with `.agents/skills.json` indexing)
-- **Workspace Rules**: `.agents/rules/`
+- **Shared rules**: `.agents/rules/` (portable Markdown source of truth)
+- **Shared skills**: `.agents/skills/` (Codex discovers repo skills here)
+- **MCP inventory**: `.agents/mcp_config.json` (currently empty)
+- **Cursor settings**: `.cursor/` (retained for Cursor users)
+
+`AGENTS.md` is the entry point for Codex and other agents that read repository agent instructions. Read the relevant shared rules before work; Cursor `.mdc` rules mirror some of these files and are not the canonical copy.
 
 ### Rules Catalog (`.agents/rules/`)
 
