@@ -13,7 +13,7 @@ import {
   getGameProfileForLeague,
   getLeagueOption,
   resolveLeagueIdFromInteraction,
-  respondLeagueAutocomplete,
+  respondAllLeagueAutocomplete,
   withOptionalLeagueOption,
 } from '../../services/league/index.js';
 
@@ -32,7 +32,7 @@ export const data = withOptionalLeagueOption(
 );
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
-  await respondLeagueAutocomplete(interaction);
+  await respondAllLeagueAutocomplete(interaction);
 }
 
 export async function execute(interaction: ChatInputCommandInteraction) {
