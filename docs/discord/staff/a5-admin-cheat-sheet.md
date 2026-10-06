@@ -3,7 +3,7 @@
 **Leagues (Manage Server)**
 • `/league create` / `list` / `bind` / `unbind`
 • `/league rollover` — `reset:continue|soft|hard` (+ `compression` for soft)
-• `/league set|clear season_end` · `/league crunch start|clear` (past season end = soft pause until clear/extend/rollover)
+• `/league set|clear season_end` · `/league crunch start|clear` (past season end = soft pause)
 
 **Config (Manage Server)** — guild-wide
 • `/config view` (includes league settings when `league:` is set)
@@ -39,5 +39,5 @@ Draft card → edit summary → **Publish** or **Dismiss**
 
 **Remember**
 • No create role → nobody opens lobbies
-• Keep this channel private; public guide stays in the player channel
+• Keep this channel private
 • Fair reports > fast reports

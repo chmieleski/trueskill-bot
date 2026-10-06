@@ -2,8 +2,6 @@
 
 Archive a season and open a **successor**. Old league becomes read-only history.
 
-**S1 → break → S2:** freeze S1 with `reset:continue` (e.g. `Season 1.5`). Later `reset:soft` from that break league — S2 uses **end of 1.5**, not frozen S1.
-
 **Before**
 • Finish/cancel every active lobby or match in that league
 • Pick a name and `continue` / `soft` / `hard`
@@ -25,14 +23,14 @@ Archive a season and open a **successor**. Old league becomes read-only history.
 • **Soft** — compress toward old averages; σ up; hero Calibrating resets
 
 **Also on rollover**
-• Deferred **griefer season tax** hits the **archived ending board**
+• Deferred **griefer / quitter / DC season tax** hits the **archived ending board**
 • Successor may **inherit** season end / crunch timestamps — clear if unwanted
 • `continue` successors have **decay off** by default (see decay guide)
 
-**Pause without successor:** If `/league set season_end` passes and you do **not** rollover, the same league **soft-pauses** (no new ranked lobbies; decay off). Clear/extend season end to resume, or rollover when ready for the next season.
+**No rollover:** once `/league set season_end` passes, the league **soft-pauses** (no new ranked lobbies; decay off). Clear/extend season end to resume.
 
-**Moves:** wc3stats maps, leaderboard/lobby channel, claim, rank-reset, host prompts, bindings, live board (reposted).
-**Stays archived:** match history, per-player rank-reset cooldown history.
+**Moves:** wc3stats maps, channels, claim, rank-reset, host prompts, bindings, live board.
+**Stays archived:** match history, rank-reset cooldown history.
 
 **After:** `/league list` shows Active / Archived. Live board reposts on confirm. Archived leagues cannot register lobbies, import, `/rank_reset`, correct matches, or `/leaderboard setup`.
 
