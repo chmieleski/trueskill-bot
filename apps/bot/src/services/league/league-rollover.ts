@@ -394,6 +394,7 @@ function applySeasonTaxesToEndingGlobals(
   return taxed;
 }
 
+/** Write season-tax μ onto the archived league only (final board); successor seeding ignores it. */
 async function persistEndingSeasonTaxes(
   leagueId: string,
   rows: GlobalRatingRow[],
@@ -402,7 +403,7 @@ async function persistEndingSeasonTaxes(
   quitterIncidentCounts: ReturnType<typeof countQuitterIncidents>,
   gamesByPlayer: Map<string, number>,
   db: Pick<typeof prisma, 'playerRating' | 'matchPlayer'>,
-): Promise<GlobalRatingRow[]> {
+): Promise<void> {
   const taxed = applySeasonTaxesToEndingGlobals(
     rows,
     grieferTaxByPlayer,
@@ -415,7 +416,7 @@ async function persistEndingSeasonTaxes(
     dcTaxByPlayer.size === 0 &&
     quitterIncidentCounts.size === 0
   ) {
-    return taxed;
+    return;
   }
 
   for (const row of taxed) {
@@ -432,31 +433,6 @@ async function persistEndingSeasonTaxes(
   if (grieferTaxByPlayer.size > 0) {
     await clearConsumedGrieferKiAccruals(leagueId, db);
   }
-  return taxed;
-}
-
-function globalSeedRowsWithTaxedMu(
-  globalRatings: Array<{
-    playerId: string;
-    mu: number;
-    sigma: number;
-    lastQualifyingActivityAt: Date | null;
-    idleDecayKiApplied: number;
-    lastDecayAppliedAt: Date | null;
-    isNewPlayer: boolean;
-  }>,
-  taxedSourceGlobals: GlobalRatingRow[],
-): GlobalRatingSeedRow[] {
-  const taxedMu = new Map(taxedSourceGlobals.map((row) => [row.playerId, row.mu]));
-  return globalRatings.map((row) => ({
-    playerId: row.playerId,
-    mu: taxedMu.get(row.playerId) ?? row.mu,
-    sigma: row.sigma,
-    lastQualifyingActivityAt: row.lastQualifyingActivityAt,
-    idleDecayKiApplied: row.idleDecayKiApplied,
-    lastDecayAppliedAt: row.lastDecayAppliedAt,
-    isNewPlayer: row.isNewPlayer,
-  }));
 }
 
 async function countRolloverPlayers(leagueId: string): Promise<number> {
@@ -699,7 +675,8 @@ export async function applyLeagueRollover(
   const result = await prisma.$transaction(async (tx) => {
     await assertNoActiveMatchesWithClient(tx, source.id);
 
-    const taxedSourceGlobals = await persistEndingSeasonTaxes(
+    // Penalties only lower the archived season's final board; successors seed from pre-tax μ.
+    await persistEndingSeasonTaxes(
       source.id,
       sourceGlobalRows,
       grieferTaxByPlayer,
@@ -728,9 +705,7 @@ export async function applyLeagueRollover(
         });
       }
     } else if (resetMode === 'continue') {
-      const seededGlobals = seedContinueGlobalRatings(
-        globalSeedRowsWithTaxedMu(globalRatings, taxedSourceGlobals),
-      );
+      const seededGlobals = seedContinueGlobalRatings(globalRatings);
 
       if (seededGlobals.length > 0) {
         await tx.playerRating.createMany({
@@ -771,11 +746,11 @@ export async function applyLeagueRollover(
       }
     } else {
       const seededGlobalsRaw = seedSoftGlobalRatings(
-        globalSeedRowsWithTaxedMu(globalRatings, taxedSourceGlobals),
+        globalRatings,
         compression ?? ROLLOVER_COMPRESSION_DEFAULT,
       );
 
-      const globalPlayerIds = new Set(taxedSourceGlobals.map((row) => row.playerId));
+      const globalPlayerIds = new Set(globalRatings.map((row) => row.playerId));
       for (const playerId of playerIds) {
         if (!globalPlayerIds.has(playerId)) {
           seededGlobalsRaw.push({
