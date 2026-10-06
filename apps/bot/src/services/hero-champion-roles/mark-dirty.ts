@@ -5,7 +5,7 @@ import { createLogger } from '../../lib/logger.js';
 const log = createLogger('hero_champion_roles_dirty');
 
 /**
- * Mark a league's hero champion roles as dirty when a rating-affecting action occurs.
+ * Mark a league's hero champion and leaderboard rank roles dirty when a rating-affecting action occurs.
  * Best-effort; accepts an optional transaction client.
  */
 export async function markLeagueHeroChampionRolesDirty(
@@ -19,7 +19,7 @@ export async function markLeagueHeroChampionRolesDirty(
   try {
     await db.league.update({
       where: { id: leagueId },
-      data: { heroChampionRolesDirty: true },
+      data: { heroChampionRolesDirty: true, rankRolesDirty: true },
     });
     log.debug({ leagueId }, 'Marked hero champion roles dirty');
   } catch (error) {

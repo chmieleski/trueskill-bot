@@ -2,6 +2,7 @@ import type { Client } from 'discord.js';
 import { env } from '../../config/env.js';
 import { createLogger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
+import { runRankRoleSyncTick } from '../rank-roles/sync-rank-roles.js';
 import { syncHeroChampionRoles } from './sync-hero-champion-roles.js';
 
 const log = createLogger('hero_champion_role_scheduler');
@@ -108,6 +109,10 @@ export function startHeroChampionRoleScheduler(client: Client): void {
   const tick = (): void => {
     void runHeroChampionRoleSyncTick(client).catch((error: unknown) => {
       log.error({ err: error }, 'Hero champion role scheduler tick failed');
+    });
+    // Leaderboard rank roles share this cadence and guild cap.
+    void runRankRoleSyncTick(client, env.heroChampionRoleSyncMaxGuilds).catch((error: unknown) => {
+      log.error({ err: error }, 'Rank role scheduler tick failed');
     });
   };
 

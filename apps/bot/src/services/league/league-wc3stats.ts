@@ -79,6 +79,7 @@ export interface ResolvedLeagueConfig {
   balanceStaticSigmaEnabled: boolean;
   showSideWinLoss: boolean;
   heroChampionRolesEnabled: boolean;
+  rankRolesEnabled: boolean;
   seasonEndsAt: Date | undefined;
   decayInCrunch: boolean;
   seasonPaused: boolean;
@@ -124,6 +125,7 @@ export async function resolveLeagueConfig(leagueId: string): Promise<ResolvedLea
     balanceStaticSigmaEnabled: row?.balanceStaticSigmaEnabled === true,
     showSideWinLoss: row?.showSideWinLoss === true,
     heroChampionRolesEnabled: row?.heroChampionRolesEnabled === true,
+    rankRolesEnabled: row?.rankRolesEnabled === true,
     seasonEndsAt,
     decayInCrunch,
     seasonPaused,

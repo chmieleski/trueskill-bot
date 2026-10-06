@@ -23,6 +23,9 @@ const {
   leagueHeroChampionRoleFindMany,
   leagueHeroChampionRoleCreateMany,
   leagueHeroChampionRoleUpdateMany,
+  leagueRankRoleFindMany,
+  leagueRankRoleCreateMany,
+  leagueRankRoleUpdateMany,
   leagueRolloverDraftDeleteMany,
   leagueRolloverDraftCreate,
   leagueRolloverDraftFindUnique,
@@ -49,6 +52,9 @@ const {
   leagueHeroChampionRoleFindMany: vi.fn(),
   leagueHeroChampionRoleCreateMany: vi.fn(),
   leagueHeroChampionRoleUpdateMany: vi.fn(),
+  leagueRankRoleFindMany: vi.fn(),
+  leagueRankRoleCreateMany: vi.fn(),
+  leagueRankRoleUpdateMany: vi.fn(),
   leagueRolloverDraftDeleteMany: vi.fn(),
   leagueRolloverDraftCreate: vi.fn(),
   leagueRolloverDraftFindUnique: vi.fn(),
@@ -94,6 +100,7 @@ vi.mock('../../lib/prisma.js', () => ({
       findMany: leagueWc3statsSlotMapFindMany,
       createMany: leagueWc3statsSlotMapCreateMany,
     },
+    leagueRankRole: { findMany: leagueRankRoleFindMany },
     leagueHeroChampionRole: {
       findMany: leagueHeroChampionRoleFindMany,
       createMany: leagueHeroChampionRoleCreateMany,
@@ -475,6 +482,7 @@ describe('applyLeagueRollover', () => {
     leagueHeroChampionRoleFindMany.mockResolvedValue([]);
     leagueHeroChampionRoleCreateMany.mockResolvedValue({ count: 0 });
     leagueHeroChampionRoleUpdateMany.mockResolvedValue({ count: 0 });
+    leagueRankRoleFindMany.mockResolvedValue([]);
     leagueCreate.mockResolvedValue({
       id: 'league-2',
       name: 'Season 2',
@@ -501,6 +509,10 @@ describe('applyLeagueRollover', () => {
         },
         playerHeroRating: { createMany: playerHeroRatingCreateMany },
         leagueWc3statsSlotMap: { createMany: leagueWc3statsSlotMapCreateMany },
+        leagueRankRole: {
+          createMany: leagueRankRoleCreateMany,
+          updateMany: leagueRankRoleUpdateMany,
+        },
         leagueHeroChampionRole: {
           createMany: leagueHeroChampionRoleCreateMany,
           updateMany: leagueHeroChampionRoleUpdateMany,
@@ -581,6 +593,7 @@ describe('applyLeagueRollover', () => {
         wc3statsHostPromptEnabled: false,
         wc3statsHostPromptChannelId: null,
         heroChampionRolesEnabled: false,
+        rankRolesEnabled: false,
       },
     });
   });
@@ -636,6 +649,25 @@ describe('applyLeagueRollover', () => {
     });
     expect(result.archivedChampionRoleHolders).toEqual([
       { discordRoleId: 'role-goku', holderDiscordId: 'holder-1' },
+    ]);
+  });
+
+  it('copies rank role mappings to successor and strips archived holders', async () => {
+    leagueRankRoleFindMany.mockResolvedValue([
+      { rank: 1, discordRoleId: 'role-top1', holderDiscordId: 'holder-1' },
+    ]);
+
+    const result = await applyLeagueRollover({ draftId: 'draft-1', actorDiscordId: ACTOR });
+
+    expect(leagueRankRoleCreateMany).toHaveBeenCalledWith({
+      data: [{ leagueId: 'league-2', rank: 1, discordRoleId: 'role-top1', holderDiscordId: null }],
+    });
+    expect(leagueRankRoleUpdateMany).toHaveBeenCalledWith({
+      where: { leagueId: 'league-1' },
+      data: { holderDiscordId: null },
+    });
+    expect(result.archivedChampionRoleHolders).toEqual([
+      { discordRoleId: 'role-top1', holderDiscordId: 'holder-1' },
     ]);
   });
 

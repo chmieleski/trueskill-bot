@@ -11,6 +11,9 @@ export const HERO_CHAMPION_ROLE_DUPLICATE =
 
 export const HERO_CHAMPION_UNKNOWN_HERO = 'Unknown hero.';
 
+export const HERO_CHAMPION_ROLE_USED_BY_RANK =
+  'That Discord role is already mapped as a leaderboard rank role in this league.';
+
 /** Ensure the league’s game supports hero champion roles. */
 export async function assertHeroChampionRolesSupported(leagueId: string): Promise<void> {
   const league = await prisma.league.findUnique({
@@ -52,6 +55,13 @@ export async function setLeagueHeroChampionRole(
   const hero = await prisma.hero.findUnique({ where: { id: heroId } });
   if (!hero) {
     throw new MatchServiceError(HERO_CHAMPION_UNKNOWN_HERO);
+  }
+
+  const rankUse = await prisma.leagueRankRole.findUnique({
+    where: { leagueId_discordRoleId: { leagueId, discordRoleId } },
+  });
+  if (rankUse) {
+    throw new MatchServiceError(HERO_CHAMPION_ROLE_USED_BY_RANK);
   }
 
   try {

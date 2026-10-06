@@ -29,6 +29,7 @@ vi.mock('../../lib/prisma.js', () => ({
     league: { findUnique: leagueFindUnique, update: leagueUpdate },
     hero: { findUnique: heroFindUnique },
     leagueHeroChampionRole: { upsert: championUpsert },
+    leagueRankRole: { findUnique: async () => null },
     $transaction: transaction,
   },
 }));

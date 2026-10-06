@@ -26,7 +26,7 @@ describe('markLeagueHeroChampionRolesDirty', () => {
 
     expect(leagueUpdate).toHaveBeenCalledWith({
       where: { id: 'league-1' },
-      data: { heroChampionRolesDirty: true },
+      data: { heroChampionRolesDirty: true, rankRolesDirty: true },
     });
   });
 
@@ -42,7 +42,7 @@ describe('markLeagueHeroChampionRolesDirty', () => {
 
     expect(customTxUpdate).toHaveBeenCalledWith({
       where: { id: 'league-2' },
-      data: { heroChampionRolesDirty: true },
+      data: { heroChampionRolesDirty: true, rankRolesDirty: true },
     });
     expect(leagueUpdate).not.toHaveBeenCalled();
   });

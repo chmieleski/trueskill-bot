@@ -54,4 +54,6 @@ Only `/register_lobby`, `/lobby`, and `/match complete|cancel|quitters|griefers|
 
 **9) Hero champion roles (UDBR)** — create roles → `/hero_champion_config map` → `enable`. See **a10**.
 
+**10) Leaderboard rank roles** — create roles → `/rank_role_config map rank:1..3` (each rank independent) → `enable`. Holder = that board position; vacant if the player has no Discord link. Ties keep the current holder.
+
 **See everything:** `/config view`

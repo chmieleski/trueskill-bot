@@ -17,7 +17,7 @@
 • Overall board: `leaderboard_channel` / `size` · `/leaderboard setup`
 • `rank_reset` / `rank_reset_cooldown`
 • `wc3stats_map_preset` (UDBR) · `wc3stats_slot` / `map` · `wc3stats_host_prompt` · `wc3stats_host_prompt_pings`
-• `decay` · `/hero_champion_config` (UDBR #1 roles — see **a10**)
+• `decay` · `/hero_champion_config` (UDBR #1 roles — see **a10**) · `/rank_role_config` (leaderboard #1–#3 roles)
 
 **Decay config (Manage Server)**
 • `/decay_config …` — grace/rates/cap/crunch/prize lock/min games · `preset name:strict_crunch`

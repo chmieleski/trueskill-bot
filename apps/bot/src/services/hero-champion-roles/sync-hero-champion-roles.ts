@@ -7,37 +7,42 @@ import { pickHeroChampion } from './pick-hero-champion.js';
 
 const log = createLogger('hero_champion_roles');
 
-async function tryRemoveRole(
+/** Best-effort role removal; logs instead of throwing. Shared with rank role sync. */
+export async function tryRemoveRole(
   member: GuildMember | null,
   roleId: string,
   context: Record<string, unknown>,
+  reason = 'Hero champion role sync',
 ): Promise<void> {
   if (!member?.roles.cache.has(roleId)) {
     return;
   }
   try {
-    await member.roles.remove(roleId, 'Hero champion role sync');
+    await member.roles.remove(roleId, reason);
   } catch (error) {
-    log.warn({ err: error, ...context }, 'Failed to remove hero champion role');
+    log.warn({ err: error, ...context }, 'Failed to remove synced Discord role');
   }
 }
 
-async function tryAddRole(
+/** Best-effort role grant; logs instead of throwing. Shared with rank role sync. */
+export async function tryAddRole(
   member: GuildMember | null,
   roleId: string,
   context: Record<string, unknown>,
+  reason = 'Hero champion role sync',
 ): Promise<void> {
   if (!member || member.roles.cache.has(roleId)) {
     return;
   }
   try {
-    await member.roles.add(roleId, 'Hero champion role sync');
+    await member.roles.add(roleId, reason);
   } catch (error) {
-    log.warn({ err: error, ...context }, 'Failed to add hero champion role');
+    log.warn({ err: error, ...context }, 'Failed to add synced Discord role');
   }
 }
 
-async function fetchMemberBestEffort(
+/** Fetch a guild member, or null when missing / Discord fails. */
+export async function fetchMemberBestEffort(
   client: Client,
   guildId: string,
   discordId: string,
