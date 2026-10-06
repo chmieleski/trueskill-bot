@@ -1,3 +1,10 @@
+# [1.71.0](https://github.com/chmieleski/trueskill-bot/compare/v1.70.2...v1.71.0) (2026-10-06)
+
+
+### Features
+
+* **lobby:** replace balance hints and shuffle with a Balance button ([#208](https://github.com/chmieleski/trueskill-bot/issues/208)) ([2432cc8](https://github.com/chmieleski/trueskill-bot/commit/2432cc84facef7af52628eec4259033728a8d887))
+
 ## [1.70.2](https://github.com/chmieleski/trueskill-bot/compare/v1.70.1...v1.70.2) (2026-10-06)
 
 
