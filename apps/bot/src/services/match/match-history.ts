@@ -5,7 +5,10 @@ import { formatHeroDisplayName, resolveHeroDisplayNames } from '../game/game-her
 import { loadHeroCatalog } from '../guild/hero-catalog.js';
 import { listLeaguesForGuild } from '../league/league.js';
 import { CALIBRATING_LABEL, isCalibrating } from '../rating/rating-math.js';
-import { buildMatchCompletedEmbed } from '../lobby/lobby-preview.js';
+import {
+  buildMatchCancelledDetailEmbed,
+  buildMatchCompletedEmbed,
+} from '../lobby/lobby-preview.js';
 import {
   getGameProfileForMatch,
   getMatchById,
@@ -443,9 +446,9 @@ export function buildMatchHistoryEmbed(
       ? '_No DC matches for this player._'
       : '_No completed matches yet._';
   const singlePageFooter = page.griefersOnly
-    ? 'Copy an id → /match show (completed) or /match ungrief|/match unquit (cancelled)'
+    ? 'Copy an id → /match show /match ungrief|/match unquit (cancelled)'
     : page.dcsOnly
-      ? 'Copy an id → /match show (completed) or /match undc (cancelled)'
+      ? 'Copy an id → /match show /match undc (cancelled)'
       : 'Copy an id → /match show match_id:…';
 
   const embed = new EmbedBuilder()
@@ -548,6 +551,15 @@ export async function loadCompletedMatchShow(input: {
 
   if (input.leagueId && leagueId !== input.leagueId) {
     throw new MatchServiceError('This match was not found.');
+  }
+
+  if (match.status === 'CANCELLED') {
+    const embed = buildMatchCancelledDetailEmbed(match.id, matchToLobbyPlayers(match), {
+      profile: await getGameProfileForMatch(match),
+      timestamp: match.completedAt ?? match.updatedAt,
+      sanctioned: match.players.some((p) => p.isQuitter || p.isGriefer || p.isDc),
+    });
+    return { match, embed };
   }
 
   if (match.status !== 'COMPLETED') {
