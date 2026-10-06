@@ -1,5 +1,6 @@
 import type { ActionRowBuilder, ButtonBuilder, Client, EmbedBuilder } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
+import type { InGameRosterSource } from './in-game-roster.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
 import {
   buildLobbyButtons,
@@ -281,9 +282,11 @@ export async function applyRosterAndSync(
   client: Client,
   matchId: string,
   nextPlayers: LobbyPlayer[],
+  options: { inGameRosterSource?: InGameRosterSource } = {},
 ): Promise<LobbyActionResult> {
   const updated = await replaceMatchRoster(matchId, nextPlayers, {
     markLobbyRosterAuthority: true,
+    inGameRosterSource: options.inGameRosterSource,
   });
   await syncLobbyDiscordMessage(client, updated, 'pending');
   return { match: updated, players: matchToLobbyPlayers(updated) };

@@ -336,6 +336,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         discordChannelId: interaction.channelId,
         players,
         lobbyRosterAuthorityAt: printAttachment ? new Date() : undefined,
+        inGameRosterSource: printAttachment ? 'screenshot' : undefined,
         bypassHostLobbyCap: hasMatchModRole({
           actorDiscordId: interaction.user.id,
           memberRoleIds: memberRoleIds(interaction),
@@ -610,6 +611,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       players,
       wc3statsGameId,
       lobbyRosterAuthorityAt: printAttachment ? new Date() : undefined,
+      inGameRosterSource:
+        source.kind === 'screenshot' ? 'screenshot' : wc3statsGameId ? 'wc3stats' : undefined,
       bypassHostLobbyCap: hasMatchModRole({
         actorDiscordId: interaction.user.id,
         memberRoleIds: memberRoleIds(interaction),

@@ -145,7 +145,9 @@ export async function refreshLobbyFromScreenshot(input: {
     };
   }
 
-  const result = await applyRosterAndSync(input.client, match.id, extracted);
+  const result = await applyRosterAndSync(input.client, match.id, extracted, {
+    inGameRosterSource: 'screenshot',
+  });
   log.info(
     { matchId: match.id, previousCount: current.length, playerCount: extracted.length },
     'Lobby roster replaced from screenshot',
