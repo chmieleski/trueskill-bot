@@ -1,3 +1,10 @@
+## [1.81.1](https://github.com/chmieleski/trueskill-bot/compare/v1.81.0...v1.81.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **rollover:** seed successor from pre-penalty ki ([#218](https://github.com/chmieleski/trueskill-bot/issues/218)) ([53172ba](https://github.com/chmieleski/trueskill-bot/commit/53172bae58729b68d662baea5ca092bb468a2489))
+
 # [1.81.0](https://github.com/chmieleski/trueskill-bot/compare/v1.80.0...v1.81.0) (2026-10-06)
 
 
