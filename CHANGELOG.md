@@ -1,3 +1,10 @@
+# [1.69.0](https://github.com/chmieleski/trueskill-bot/compare/v1.68.0...v1.69.0) (2026-10-06)
+
+
+### Features
+
+* **rank:** show all-time quits on /rank ([#204](https://github.com/chmieleski/trueskill-bot/issues/204)) ([c9ba37f](https://github.com/chmieleski/trueskill-bot/commit/c9ba37f7579e85bc55a0163f2a71dbc23d3b8784))
+
 # [1.68.0](https://github.com/chmieleski/trueskill-bot/compare/v1.67.0...v1.68.0) (2026-10-06)
 
 
