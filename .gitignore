@@ -7,16 +7,11 @@ dist/
 /src/generated/prisma
 apps/*/src/generated/prisma
 
-# Ruflo local secrets and runtime data
+# Local secrets
 .env.local
 .env.*.local
-.claude-flow/data/
-.claude-flow/logs/
-.claude-flow/sessions/
 
-# Local database and runtime data
-ruvector.db
-.swarm/
+# Local runtime data
 .local/
 .env.prod
 .env.production
