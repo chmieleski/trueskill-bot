@@ -1,3 +1,16 @@
+# [1.68.0](https://github.com/chmieleski/trueskill-bot/compare/v1.67.0...v1.68.0) (2026-10-06)
+
+
+### Bug Fixes
+
+* **rating:** preserve quitter tax across rating flows ([963ee0e](https://github.com/chmieleski/trueskill-bot/commit/963ee0e385d3b6a77ab14af6caf8a39daf7d2719))
+* **rating:** restore quitter season tax wiring ([ba516a9](https://github.com/chmieleski/trueskill-bot/commit/ba516a9bf43e6bfbbfa48ece6f665211a957a5db))
+
+
+### Features
+
+* **rating:** tax quitter flags at rollover ([#203](https://github.com/chmieleski/trueskill-bot/issues/203)) ([48fd17b](https://github.com/chmieleski/trueskill-bot/commit/48fd17b6a350231adeddf30a926ec4a9ce74397a))
+
 # [1.67.0](https://github.com/chmieleski/trueskill-bot/compare/v1.66.0...v1.67.0) (2026-10-02)
 
 
