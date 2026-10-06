@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  heroRankPositions,
   coldStartKi,
   competitionRank,
   parseRankOptions,
@@ -102,5 +103,43 @@ describe('parseRankOptions', () => {
       kind: 'self',
       discordId: 'me',
     });
+  });
+});
+
+describe('heroRankPositions', () => {
+  const row = (playerId: string, heroId: number, mu: number) => ({
+    playerId,
+    heroId,
+    mu,
+    sigma: 2,
+    matchesPlayed: 10,
+    player: { username: playerId },
+  });
+  const games = new Map([
+    ['me', 10],
+    ['a', 10],
+    ['b', 10],
+    ['rookie', 2],
+  ]);
+
+  it('ranks the player per hero like the hero leaderboard', () => {
+    const ranks = heroRankPositions(
+      [row('a', 1, 40), row('me', 1, 30), row('b', 1, 20), row('me', 2, 50), row('a', 2, 10)],
+      'me',
+      games,
+    );
+    expect(ranks.get(1)).toBe(2);
+    expect(ranks.get(2)).toBe(1);
+  });
+
+  it('ignores calibrating players above and returns null while calibrating', () => {
+    expect(heroRankPositions([row('rookie', 1, 50), row('me', 1, 30)], 'me', games).get(1)).toBe(1);
+    expect(heroRankPositions([row('rookie', 1, 50)], 'rookie', games).get(1)).toBeNull();
+  });
+
+  it('shares the place on ties and omits heroes without a row', () => {
+    const ranks = heroRankPositions([row('a', 1, 30), row('me', 1, 30)], 'me', games);
+    expect(ranks.get(1)).toBe(1);
+    expect(ranks.has(2)).toBe(false);
   });
 });

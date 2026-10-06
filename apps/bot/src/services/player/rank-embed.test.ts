@@ -147,6 +147,23 @@ describe('formatHeroTable', () => {
     expect(table).not.toContain('%');
   });
 
+  it('prefixes each hero with its board position when ranked', () => {
+    const table = formatHeroTable(
+      [
+        { ...baseProfile.heroes[0]!, rank: 3 },
+        { ...baseProfile.heroes[1]!, rank: 12 },
+      ],
+      17,
+    );
+    expect(table).toContain('#3   Goku');
+    expect(table).toContain('#12  Vegeta');
+  });
+
+  it('shows a dash for an unranked hero and no column when ranks are absent', () => {
+    expect(formatHeroTable([{ ...baseProfile.heroes[0]!, rank: null }], 3)).toContain('-  Goku');
+    expect(formatHeroTable(baseProfile.heroes, 17)).not.toContain('#');
+  });
+
   it('returns italic empty copy when no heroes', () => {
     expect(formatHeroTable([], 17)).toBe('_No hero games yet_');
   });
