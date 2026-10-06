@@ -35,6 +35,7 @@ import { persistMatchRatingPreviewToPlayers } from './match-history-preview.js';
 import { winningTeamFromPlayers } from './match-history.js';
 import {
   gamesByPlayerFromStats,
+  loadLifetimeDisplayStatsByPlayer,
   loadMatchDisplayStatsByPlayer,
 } from '../rating/rank-reset-display.js';
 import { recomputeDisplayCountersForPlayers } from '../rating/display-counters.js';
@@ -485,12 +486,18 @@ export async function completeMatch(
     }
 
     const afterBySlot = await loadPlayerKiBySlot(leagueId, previewEntries, tx);
+    const lifetimeStats = await loadLifetimeDisplayStatsByPlayer(
+      leagueId,
+      playerIds,
+      displayStats,
+      tx,
+    );
     ratingPreview = buildCompletedRatingPreview(
       previewEntries,
       beforeBySlot,
       afterBySlot,
       gamesByPlayer,
-      displayStats,
+      lifetimeStats,
       winChance,
     );
     await persistMatchRatingPreviewToPlayers(matchId, ratingPreview, match.players, tx);

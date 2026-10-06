@@ -21,6 +21,7 @@ import {
 import {
   gamesByPlayerFromStats,
   habitualQuitterFromStats,
+  loadLifetimeDisplayStatsByPlayer,
   loadMatchDisplayStatsByPlayer,
   type PlayerMatchDisplayStats,
 } from './rank-reset-display.js';
@@ -320,13 +321,14 @@ export async function loadPlayerKiBySlot(
 /**
  * Build completed-match preview lines with final ki and after−before deltas.
  * Optional `winChance` is the pre-match lobby predictWin (not post-update).
+ * `lifetimeStatsByPlayer` (rollover chain) drives the habitual quitter mark.
  */
 export function buildCompletedRatingPreview(
   entries: RatingPreviewRosterEntry[],
   beforeBySlot: Map<number, PlayerKiPair>,
   afterBySlot: Map<number, PlayerKiPair>,
   leagueGamesByPlayer: Map<string, number>,
-  displayStatsByPlayer: Map<string, PlayerMatchDisplayStats>,
+  lifetimeStatsByPlayer: Map<string, PlayerMatchDisplayStats>,
   winChance?: WinChancePercents,
 ): LobbyRatingPreview {
   const players: LobbyRatingPlayerLine[] = [...entries]
@@ -350,7 +352,7 @@ export function buildCompletedRatingPreview(
         ...(entry.wasNewPlayer === true ? { wasNewPlayer: true as const } : {}),
         showHero: entry.heroId != null,
         leagueGames: leagueGamesByPlayer.get(entry.playerId) ?? 0,
-        habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),
+        habitualQuitter: habitualQuitterFromStats(lifetimeStatsByPlayer, entry.playerId),
       };
     });
 
@@ -408,6 +410,11 @@ export async function loadLobbyRatingPreview(
     const balanceOptions: BalancePredictWinOptions = {
       staticSigma: leagueConfig.balanceStaticSigmaEnabled,
     };
+    const lifetimeStats = await loadLifetimeDisplayStatsByPlayer(
+      leagueId,
+      playerIds,
+      displayStatsByPlayer,
+    );
 
     const globalByPlayer = new Map(globals.map((row) => [row.playerId, row]));
     const gamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
@@ -433,7 +440,7 @@ export async function loadLobbyRatingPreview(
           ...newFlag,
           showHero: false,
           leagueGames: globalGames,
-          habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),
+          habitualQuitter: habitualQuitterFromStats(lifetimeStats, entry.playerId),
           ...(entry.locked === true ? { locked: true as const } : {}),
         };
       }
@@ -452,7 +459,7 @@ export async function loadLobbyRatingPreview(
         ...newFlag,
         showHero: true,
         leagueGames: globalGames,
-        habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, entry.playerId),
+        habitualQuitter: habitualQuitterFromStats(lifetimeStats, entry.playerId),
         ...(entry.locked === true ? { locked: true as const } : {}),
       };
     });

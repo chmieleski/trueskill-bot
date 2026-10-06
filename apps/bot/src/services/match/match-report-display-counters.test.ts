@@ -227,6 +227,9 @@ describe('completeMatch display counters', () => {
         playerRankReset: {
           findMany: playerRankResetFindMany,
         },
+        league: {
+          findUnique: vi.fn().mockResolvedValue({ predecessorLeagueId: null }),
+        },
         matchStatsReport: {
           findUnique: vi.fn().mockResolvedValue(null),
         },
@@ -323,6 +326,9 @@ describe('cancelInProgressMatch display counters', () => {
         },
         playerRankReset: {
           findMany: playerRankResetFindMany,
+        },
+        league: {
+          findUnique: vi.fn().mockResolvedValue({ predecessorLeagueId: null }),
         },
         matchStatsReport: {
           findUnique: vi.fn().mockResolvedValue(null),

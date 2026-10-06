@@ -12,6 +12,7 @@ Slots are **1–{{slotCount}}**, comma-separated.
 • Quitters **stay in the match**: they win/lose {{ratingLabel}} with their team like everyone else
 • Each quitter-marked game adds a **10% compounded {{ratingLabel}} tax** at season rollover (1000 → 900 → 810…)
 • Quitter flags on cancelled matches count toward the season rollover tax
+• ⚠️ next to a name in lobbies/matches = **50%+ quit rate** across all seasons of this league (survives rollover)
 
 **Griefers** = bug abuse / griefing.
 
