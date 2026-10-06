@@ -1,3 +1,10 @@
+# [1.79.0](https://github.com/chmieleski/trueskill-bot/compare/v1.78.0...v1.79.0) (2026-10-06)
+
+
+### Features
+
+* **match:** show cancelled matches with sanction marks in /match show ([#215](https://github.com/chmieleski/trueskill-bot/issues/215)) ([383f670](https://github.com/chmieleski/trueskill-bot/commit/383f670fd48211ad22922c26cad42b2e3f8e126c))
+
 # [1.78.0](https://github.com/chmieleski/trueskill-bot/compare/v1.77.0...v1.78.0) (2026-10-06)
 
 
