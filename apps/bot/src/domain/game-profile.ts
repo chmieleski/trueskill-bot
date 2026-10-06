@@ -3,6 +3,8 @@ import { WARCRAFT3_UDBR_GAME_ID, WARCRAFT3_WOS_GAME_ID } from './games.js';
 export type HeroBinding = 'slot_bound' | 'optional_in_game';
 export type GameImportKind = 'none' | 'wc3stats';
 export type PostMatchStatsKind = 'none' | 'wos2_bot_v1';
+/** In-game lobby command used to re-seat players (`none` = no Swap commands field). */
+export type LobbySwapCommandKind = 'none' | 'wc3_bang_swap';
 /** Persisted MatchPlayer.team / winning team: 1 or 2. */
 export type TeamId = 1 | 2;
 
@@ -15,6 +17,8 @@ export type GameProfile = {
   import: GameImportKind;
   /** Post-match stats report format accepted for this game. */
   postMatchStats: PostMatchStatsKind;
+  /** Lobby re-seat command syntax for the Swap commands field. */
+  lobbySwapCommand: LobbySwapCommandKind;
   /** User-facing rating unit (e.g. "ki"). Math unchanged; label is per game. */
   ratingLabel: string;
   teamNames: { 1: string; 2: string };
@@ -42,6 +46,7 @@ const GAME_PROFILES: Record<string, GameProfile> = {
     heroBinding: 'slot_bound',
     import: 'wc3stats',
     postMatchStats: 'none',
+    lobbySwapCommand: 'wc3_bang_swap',
     ratingLabel: 'ki',
     teamNames: { 1: 'Z Fighters', 2: 'Evil' },
     sideWinLossDefault: true,
@@ -56,6 +61,7 @@ const GAME_PROFILES: Record<string, GameProfile> = {
     heroBinding: 'optional_in_game',
     import: 'wc3stats',
     postMatchStats: 'wos2_bot_v1',
+    lobbySwapCommand: 'wc3_bang_swap',
     ratingLabel: 'sp',
     teamNames: { 1: 'WOS Enjoyers', 2: 'WOS Haters' },
     sideWinLossDefault: false,
