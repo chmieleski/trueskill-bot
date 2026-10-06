@@ -655,7 +655,17 @@ export function buildLobbyButtons(
     .setEmoji('🔄')
     .setStyle(ButtonStyle.Secondary);
 
-  const topRow = new ActionRowBuilder<ButtonBuilder>();
+  // Workflow order: balance, swap in-game, refresh, then start.
+  const topRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(LOBBY_CUSTOM_IDS.shuffle)
+      .setLabel('Balance teams')
+      .setEmoji('⚖️')
+      .setStyle(ButtonStyle.Primary),
+  );
+  if (showRefresh) {
+    topRow.addComponents(refreshButton);
+  }
   if (options.canStart) {
     topRow.addComponents(
       new ButtonBuilder()
@@ -665,16 +675,6 @@ export function buildLobbyButtons(
         .setStyle(ButtonStyle.Success),
     );
   }
-  if (showRefresh) {
-    topRow.addComponents(refreshButton);
-  }
-  topRow.addComponents(
-    new ButtonBuilder()
-      .setCustomId(LOBBY_CUSTOM_IDS.shuffle)
-      .setLabel('Balance teams')
-      .setEmoji('⚖️')
-      .setStyle(ButtonStyle.Primary),
-  );
   rows.push(topRow);
 
   const rosterControls = [
