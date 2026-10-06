@@ -1,3 +1,10 @@
+# [1.82.0](https://github.com/chmieleski/trueskill-bot/compare/v1.81.1...v1.82.0) (2026-10-06)
+
+
+### Features
+
+* **lobby:** count past seasons for the habitual quitter mark ([#219](https://github.com/chmieleski/trueskill-bot/issues/219)) ([52073f5](https://github.com/chmieleski/trueskill-bot/commit/52073f5eafeb6ed28cda83b8e54aed9dafcf566b))
+
 ## [1.81.1](https://github.com/chmieleski/trueskill-bot/compare/v1.81.0...v1.81.1) (2026-10-06)
 
 
