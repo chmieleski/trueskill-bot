@@ -623,21 +623,27 @@ export function buildLobbyButtons(
     .setEmoji('🔄')
     .setStyle(ButtonStyle.Secondary);
 
+  const topRow = new ActionRowBuilder<ButtonBuilder>();
   if (options.canStart) {
-    const startRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    topRow.addComponents(
       new ButtonBuilder()
         .setCustomId(LOBBY_CUSTOM_IDS.start)
         .setLabel('Start Match')
         .setEmoji('▶️')
         .setStyle(ButtonStyle.Success),
     );
-    if (showRefresh) {
-      startRow.addComponents(refreshButton);
-    }
-    rows.push(startRow);
-  } else if (showRefresh) {
-    rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(refreshButton));
   }
+  if (showRefresh) {
+    topRow.addComponents(refreshButton);
+  }
+  topRow.addComponents(
+    new ButtonBuilder()
+      .setCustomId(LOBBY_CUSTOM_IDS.shuffle)
+      .setLabel('Balance teams')
+      .setEmoji('⚖️')
+      .setStyle(ButtonStyle.Primary),
+  );
+  rows.push(topRow);
 
   const rosterControls = [
     new ButtonBuilder()
@@ -693,11 +699,6 @@ export function buildLobbyButtons(
 
   rows.push(
     new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(LOBBY_CUSTOM_IDS.shuffle)
-        .setLabel('Balance teams')
-        .setEmoji('⚖️')
-        .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(LOBBY_CUSTOM_IDS.lockToggle)
         .setLabel('Lock / Unlock')

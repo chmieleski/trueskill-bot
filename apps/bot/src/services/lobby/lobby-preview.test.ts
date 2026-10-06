@@ -569,7 +569,7 @@ describe('buildLobbyButtons', () => {
     expect(ids).toContain(LOBBY_CUSTOM_IDS.leave);
   });
 
-  it('adds Refresh on the start row when a wc3stats game id is set', () => {
+  it('puts Start, Refresh, and Balance on the top row when a wc3stats game id is set', () => {
     const rows = buildLobbyButtons({
       canStart: true,
       playerCount: 2,
@@ -578,7 +578,11 @@ describe('buildLobbyButtons', () => {
     });
     const startIds = rows[0]?.toJSON().components.map((button) => button.custom_id);
 
-    expect(startIds).toEqual([LOBBY_CUSTOM_IDS.start, LOBBY_CUSTOM_IDS.refresh]);
+    expect(startIds).toEqual([
+      LOBBY_CUSTOM_IDS.start,
+      LOBBY_CUSTOM_IDS.refresh,
+      LOBBY_CUSTOM_IDS.shuffle,
+    ]);
   });
 
   it('adds Refresh on its own row when Start is hidden', () => {
@@ -616,7 +620,7 @@ describe('buildLobbyButtons', () => {
     expect(rosterCustomIds(rows)).not.toContain(LOBBY_CUSTOM_IDS.add);
   });
 
-  it('puts Balance (primary), Lock, and Cancel on the last row', () => {
+  it('puts Lock and Cancel on the last row; Balance (primary) on the top row', () => {
     const rows = buildLobbyButtons({
       canStart: true,
       playerCount: 2,
@@ -624,16 +628,15 @@ describe('buildLobbyButtons', () => {
     });
 
     expect(rowCustomIds(rows.at(-1))).toEqual([
-      LOBBY_CUSTOM_IDS.shuffle,
       LOBBY_CUSTOM_IDS.lockToggle,
       LOBBY_CUSTOM_IDS.cancel,
     ]);
-    expect(rows.at(-1)?.toJSON().components[0]).toMatchObject({
+    expect(rows[0]?.toJSON().components.at(-1)).toMatchObject({
       custom_id: LOBBY_CUSTOM_IDS.shuffle,
       label: 'Balance teams',
       style: 1,
     });
-    expect(rows.at(-1)?.toJSON().components[2]).toMatchObject({
+    expect(rows.at(-1)?.toJSON().components[1]).toMatchObject({
       custom_id: LOBBY_CUSTOM_IDS.cancel,
       label: 'Cancel',
       style: 2,
@@ -650,7 +653,6 @@ describe('buildLobbyButtons', () => {
     expect(ids).toContain(LOBBY_CUSTOM_IDS.cancel);
     expect(ids).not.toContain(LOBBY_CUSTOM_IDS.start);
     expect(rowCustomIds(rows.at(-1))).toEqual([
-      LOBBY_CUSTOM_IDS.shuffle,
       LOBBY_CUSTOM_IDS.lockToggle,
       LOBBY_CUSTOM_IDS.cancel,
     ]);
@@ -664,9 +666,12 @@ describe('buildLobbyButtons', () => {
       wc3statsGameId: '42',
     });
 
-    expect(rowCustomIds(rows[0])).toEqual([LOBBY_CUSTOM_IDS.start, LOBBY_CUSTOM_IDS.refresh]);
-    expect(rowCustomIds(rows.at(-1))).toEqual([
+    expect(rowCustomIds(rows[0])).toEqual([
+      LOBBY_CUSTOM_IDS.start,
+      LOBBY_CUSTOM_IDS.refresh,
       LOBBY_CUSTOM_IDS.shuffle,
+    ]);
+    expect(rowCustomIds(rows.at(-1))).toEqual([
       LOBBY_CUSTOM_IDS.lockToggle,
       LOBBY_CUSTOM_IDS.cancel,
     ]);
