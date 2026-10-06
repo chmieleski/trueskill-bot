@@ -599,6 +599,51 @@ export function buildMatchCancelledEmbed(
     .setTimestamp(new Date());
 }
 
+/** Read-only roster of a cancelled match for /match show; sanction marks (🚪 🐛 🔌) come from the roster. */
+export function buildMatchCancelledDetailEmbed(
+  matchId: string,
+  players: LobbyPlayer[],
+  options: {
+    profile?: GameProfile;
+    timestamp?: Date;
+    eventName?: string | null;
+    sanctioned?: boolean;
+  } = {},
+): EmbedBuilder {
+  const profile = resolvedProfile(options.profile);
+  const { teamAValue, teamBValue, teamACount, teamBCount } = teamFieldValues(
+    players,
+    undefined,
+    profile,
+  );
+  const sanctioned = options.sanctioned === true;
+  const note = sanctioned
+    ? '\nSanctions: 🚪 quit · 🐛 griefer · 🔌 DC. Use /match unquit, /match ungrief or /match undc to clear.'
+    : '';
+  const embed = new EmbedBuilder()
+    .setTitle('Match Cancelled')
+    .setDescription(`This match was cancelled; no rating changes were applied.${note}`)
+    .addFields(
+      {
+        name: `${TEAM_A_EMOJI} ${teamDisplayName(1, profile)} (${teamACount})`,
+        value: teamAValue,
+        inline: false,
+      },
+      {
+        name: `${TEAM_B_EMOJI} ${teamDisplayName(2, profile)} (${teamBCount})`,
+        value: teamBValue,
+        inline: false,
+      },
+    )
+    .setColor(0xed4245);
+  return applyEmbedChrome(embed, {
+    matchId,
+    profile,
+    timestamp: options.timestamp ?? new Date(),
+    eventName: options.eventName,
+  });
+}
+
 /** Empty-slot options for player claim. Slot-bound games include the hero name. */
 export function claimSlotSelectOptions(
   players: LobbyPlayer[],
