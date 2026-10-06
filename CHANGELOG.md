@@ -1,3 +1,10 @@
+# [1.80.0](https://github.com/chmieleski/trueskill-bot/compare/v1.79.0...v1.80.0) (2026-10-06)
+
+
+### Features
+
+* **roles:** add leaderboard [#1](https://github.com/chmieleski/trueskill-bot/issues/1)–[#3](https://github.com/chmieleski/trueskill-bot/issues/3) rank roles ([#216](https://github.com/chmieleski/trueskill-bot/issues/216)) ([2c40975](https://github.com/chmieleski/trueskill-bot/commit/2c40975315fc18ea4c9f9ad264e4a432aa461e10))
+
 # [1.79.0](https://github.com/chmieleski/trueskill-bot/compare/v1.78.0...v1.79.0) (2026-10-06)
 
 
