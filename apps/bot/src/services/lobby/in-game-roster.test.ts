@@ -29,6 +29,28 @@ function applySwaps(start: Map<number, string>, moves: SwapMove[]): Map<number, 
   return seats;
 }
 
+/** Lower bound, computed independently: misplaced players minus closed loops among them. */
+function minimumMoves(target: { slot: number; nick: string }[], start: Map<number, string>) {
+  const current = new Map([...start].map(([slot, name]) => [name.toLowerCase(), slot]));
+  const targetSlot = new Map(target.map((t) => [t.nick, t.slot]));
+  const occupant = new Map([...start].map(([slot, name]) => [slot, name.toLowerCase()]));
+  const misplaced = target.filter((t) => current.get(t.nick) !== t.slot).map((t) => t.nick);
+  const seen = new Set<string>();
+  let loops = 0;
+  for (const nick of misplaced) {
+    if (seen.has(nick)) continue;
+    let walker: string | undefined = nick;
+    const path: string[] = [];
+    while (walker && !seen.has(walker) && misplaced.includes(walker)) {
+      seen.add(walker);
+      path.push(walker);
+      walker = occupant.get(targetSlot.get(walker)!);
+    }
+    if (walker !== undefined && path.includes(walker)) loops += 1;
+  }
+  return misplaced.length - loops;
+}
+
 function seeded(seed: number): () => number {
   let a = seed;
   return () => {
@@ -109,7 +131,7 @@ describe('planSwapMoves', () => {
     ).toEqual([]);
   });
 
-  it('uses the raw in-game name and absolute target slots', () => {
+  it('uses the raw in-game name and absolute target slots, one command for a two-player trade', () => {
     const snapshot = [
       { slot: 1, nick: 'goku', rawName: 'Goku' },
       { slot: 7, nick: 'broly', rawName: 'Broly' },
@@ -122,10 +144,52 @@ describe('planSwapMoves', () => {
         ],
         snapshot,
       ),
-    ).toEqual([
-      { name: 'Broly', botSlot: 1 },
-      { name: 'Goku', botSlot: 7 },
+    ).toEqual([{ name: 'Broly', botSlot: 1 }]);
+  });
+
+  it('uses k-1 commands for a loop of k players', () => {
+    const snapshot = [
+      { slot: 1, nick: 'a', rawName: 'A' },
+      { slot: 2, nick: 'b', rawName: 'B' },
+      { slot: 3, nick: 'c', rawName: 'C' },
+    ];
+    const target = [
+      { slot: 2, nick: 'a' },
+      { slot: 3, nick: 'b' },
+      { slot: 1, nick: 'c' },
+    ];
+    expect(planSwapMoves(target, snapshot)).toHaveLength(2);
+  });
+
+  it('uses one command per player for a chain ending in an empty slot', () => {
+    const snapshot = [
+      { slot: 1, nick: 'a', rawName: 'A' },
+      { slot: 2, nick: 'b', rawName: 'B' },
+    ];
+    const target = [
+      { slot: 2, nick: 'a' },
+      { slot: 3, nick: 'b' },
+    ];
+    expect(planSwapMoves(target, snapshot)).toEqual([
+      { name: 'A', botSlot: 2 },
+      { name: 'B', botSlot: 3 },
     ]);
+  });
+
+  it('handles two separate loops independently', () => {
+    const snapshot = [
+      { slot: 1, nick: 'a', rawName: 'a' },
+      { slot: 7, nick: 'b', rawName: 'b' },
+      { slot: 2, nick: 'c', rawName: 'c' },
+      { slot: 8, nick: 'd', rawName: 'd' },
+    ];
+    const target = [
+      { slot: 7, nick: 'a' },
+      { slot: 1, nick: 'b' },
+      { slot: 8, nick: 'c' },
+      { slot: 2, nick: 'd' },
+    ];
+    expect(planSwapMoves(target, snapshot)).toHaveLength(2);
   });
 
   it('commands a Discord-only player by username', () => {
@@ -164,7 +228,10 @@ describe('planSwapMoves', () => {
         rawName: name,
       }));
 
-      for (const plan of [planSwapMoves(target, snapshot), planSwapMoves(target, [])]) {
+      const accurate = planSwapMoves(target, snapshot);
+      expect(accurate.length).toBe(minimumMoves(target, start));
+
+      for (const plan of [accurate, planSwapMoves(target, [])]) {
         const end = applySwaps(start, plan);
         for (const { slot, nick } of target) {
           expect(end.get(slot)?.toLowerCase()).toBe(nick);

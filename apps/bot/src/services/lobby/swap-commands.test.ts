@@ -24,9 +24,10 @@ describe('buildSwapCommandLines', () => {
         { slot: 5, nick: 'goku' },
         { slot: 7, nick: 'broly' },
       ],
+      // Chain, not a loop: Goku 7 → 5 (empty), Broly 1 → 7 (Goku's old seat).
       snapshot: [
         { slot: 7, nick: 'goku', rawName: 'Goku' },
-        { slot: 5, nick: 'broly', rawName: 'Broly' },
+        { slot: 1, nick: 'broly', rawName: 'Broly' },
       ],
       leagueSlotMap: null,
     });
@@ -75,7 +76,8 @@ describe('loadLobbySwapCommands', () => {
 
   it('builds lines from the stored snapshot for a league lobby', async () => {
     await expect(loadLobbySwapCommands(pendingMatch({}), udbr)).resolves.toEqual({
-      lines: ['!swap Broly 5', '!swap Goku 6'],
+      // Two-player trade: one swap seats both.
+      lines: ['!swap Goku 6'],
       source: 'screenshot',
       observedAt,
     });
@@ -87,7 +89,7 @@ describe('loadLobbySwapCommands', () => {
       pendingMatch({ leagueId: null, eventId: 'event-1' }),
       udbr,
     );
-    expect(result?.lines).toEqual(['!swap Broly 5', '!swap Goku 6']);
+    expect(result?.lines).toEqual(['!swap Goku 6']);
     expect(loadLeagueWc3statsHeroSlotMap).not.toHaveBeenCalled();
   });
 

@@ -62,24 +62,50 @@ export function parseInGameRosterSource(value: unknown): InGameRosterSource | nu
 }
 
 /**
- * Moves that make the game match `target`. Each move names a player and their
- * final slot; target slots are distinct, so a later move never disturbs an
- * earlier one and the plan converges from any start. The snapshot only skips
- * players it shows already seated — a stale snapshot can drop a line, never
- * produce a wrong swap.
+ * Fewest moves that make the game match `target`. Each move names a player and
+ * their final slot; target slots are distinct, so a later move never disturbs an
+ * earlier one and the plan converges in any order. Misplaced players form chains
+ * (ending at an empty or unneeded slot: one move each) and loops (k players: the
+ * last one is seated by the others, so k-1 moves). The snapshot only skips
+ * players — a stale snapshot can drop a line, never produce a wrong swap.
  */
 // ponytail: names that prefix another player's name may be ambiguous on prefix-matching host bots.
 export function planSwapMoves(
   target: ReadonlyArray<Pick<LobbyPlayer, 'slot' | 'nick'>>,
   snapshot: ReadonlyArray<InGameRosterEntry>,
 ): SwapMove[] {
-  const seen = new Map(snapshot.map((entry) => [entry.nick, entry]));
-  return target
-    .map((player) => ({ player, inGame: seen.get(normalizeNick(player.nick)) }))
-    .filter(({ player, inGame }) => inGame?.slot !== player.slot)
-    .map(({ player, inGame }) => ({
-      name: inGame?.rawName ?? normalizeNick(player.nick),
-      botSlot: player.slot,
-    }))
+  const inGameByNick = new Map(snapshot.map((entry) => [entry.nick, entry]));
+  const nickInGameSlot = new Map(snapshot.map((entry) => [entry.slot, entry.nick]));
+  const misplaced = new Map<string, { slot: number; name: string }>();
+  for (const player of target) {
+    const nick = normalizeNick(player.nick);
+    const inGame = inGameByNick.get(nick);
+    if (inGame?.slot !== player.slot) {
+      misplaced.set(nick, { slot: player.slot, name: inGame?.rawName ?? nick });
+    }
+  }
+
+  // Follow "who sits in my target seat" links; a walk that returns to itself is a loop.
+  const implied = new Set<string>();
+  const visited = new Set<string>();
+  for (const start of misplaced.keys()) {
+    const path: string[] = [];
+    let walker: string | undefined = start;
+    while (walker !== undefined && misplaced.has(walker) && !visited.has(walker)) {
+      visited.add(walker);
+      path.push(walker);
+      walker = nickInGameSlot.get(misplaced.get(walker)!.slot);
+    }
+    const loopStart = walker === undefined ? -1 : path.indexOf(walker);
+    if (loopStart >= 0) {
+      const loop = path.slice(loopStart);
+      // The loop member with the highest target slot gets seated by the others.
+      implied.add(loop.reduce((a, b) => (misplaced.get(a)!.slot > misplaced.get(b)!.slot ? a : b)));
+    }
+  }
+
+  return [...misplaced]
+    .filter(([nick]) => !implied.has(nick))
+    .map(([, move]) => ({ name: move.name, botSlot: move.slot }))
     .sort((a, b) => a.botSlot - b.botSlot);
 }
