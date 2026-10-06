@@ -694,14 +694,14 @@ export function buildLobbyButtons(
   rows.push(
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
+        .setCustomId(LOBBY_CUSTOM_IDS.shuffle)
+        .setLabel('Balance teams')
+        .setEmoji('⚖️')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
         .setCustomId(LOBBY_CUSTOM_IDS.lockToggle)
         .setLabel('Lock / Unlock')
         .setEmoji('🔒')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId(LOBBY_CUSTOM_IDS.shuffle)
-        .setLabel('Balance')
-        .setEmoji('⚖️')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(LOBBY_CUSTOM_IDS.cancel)
