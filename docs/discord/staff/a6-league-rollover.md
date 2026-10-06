@@ -23,7 +23,7 @@ Archive a season and open a **successor**. Old league becomes read-only history.
 • **Soft** — compress toward old averages; σ up; hero Calibrating resets
 
 **Also on rollover**
-• Deferred **griefer / quitter / DC season tax** hits the **archived ending board**
+• Deferred **griefer / quitter / DC season tax** hits the **archived ending board** only — `continue` / `soft` successors start from pre-tax ki
 • Successor may **inherit** season end / crunch timestamps — clear if unwanted
 • `continue` successors have **decay off** by default (see decay guide)
 

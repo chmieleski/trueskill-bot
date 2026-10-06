@@ -723,7 +723,7 @@ describe('applyLeagueRollover', () => {
     });
   });
 
-  it('continue applies griefer tax to ending season and copies post-tax ratings', async () => {
+  it('continue applies griefer tax to ending season and copies pre-tax ratings', async () => {
     matchPlayerFindMany.mockImplementation(
       (args: { where?: { isGriefer?: boolean; isDc?: boolean } }) => {
         if (args?.where?.isGriefer) {
@@ -759,7 +759,7 @@ describe('applyLeagueRollover', () => {
         {
           leagueId: 'league-15',
           playerId: 'p1',
-          mu: taxedMu,
+          mu: 30,
           sigma: 3,
           lastQualifyingActivityAt: ACTIVITY_AT,
           idleDecayKiApplied: 4,
@@ -899,6 +899,40 @@ describe('applyLeagueRollover', () => {
           sigma: 6,
           matchesPlayed: 0,
         },
+      ],
+    });
+  });
+
+  it('soft reset taxes the ending season but compresses successor from pre-tax ratings', async () => {
+    matchPlayerFindMany.mockImplementation(
+      (args: { where?: { isGriefer?: boolean; isDc?: boolean } }) => {
+        if (args?.where?.isDc) {
+          return Promise.resolve([{ playerId: 'p1' }, { playerId: 'p1' }, { playerId: 'p1' }]);
+        }
+        return Promise.resolve([]);
+      },
+    );
+    leagueRolloverDraftFindUnique.mockResolvedValue({
+      id: 'draft-soft',
+      sourceLeagueId: 'league-1',
+      successorName: 'Season 2',
+      resetMode: 'soft',
+      compression: 0.5,
+      actorDiscordId: ACTOR,
+      sourceLeague: ACTIVE_SOURCE,
+    });
+    leagueCreate.mockResolvedValue({ id: 'league-3', name: 'Season 2' });
+
+    await applyLeagueRollover({ draftId: 'draft-soft', actorDiscordId: ACTOR });
+
+    expect(playerRatingUpdate).toHaveBeenCalledWith({
+      where: { leagueId_playerId: { leagueId: 'league-1', playerId: 'p1' } },
+      data: { mu: applyKiTaxToMu(30, 3, 0, 300) },
+    });
+    expect(playerRatingCreateMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ leagueId: 'league-3', playerId: 'p1', mu: 27.5 }),
+        expect.objectContaining({ leagueId: 'league-3', playerId: 'p2', mu: 22.5 }),
       ],
     });
   });
