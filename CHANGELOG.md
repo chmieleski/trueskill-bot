@@ -1,3 +1,15 @@
+# [1.76.0](https://github.com/chmieleski/trueskill-bot/compare/v1.75.0...v1.76.0) (2026-10-06)
+
+
+### Bug Fixes
+
+* **lobby:** keep locks when a screenshot or sync leaves the player in place ([332f05e](https://github.com/chmieleski/trueskill-bot/commit/332f05ea3bc478b835bd5595592f1278e2843190))
+
+
+### Features
+
+* **lobby:** use the fewest swap commands ([05f0442](https://github.com/chmieleski/trueskill-bot/commit/05f044253fc4fa2a5b47002701e9110c2c66f24b))
+
 # [1.75.0](https://github.com/chmieleski/trueskill-bot/compare/v1.74.0...v1.75.0) (2026-10-06)
 
 
