@@ -21,9 +21,9 @@ export type BalanceRosterEntry = {
   team: 1 | 2;
   heroId: number | null;
   nick: string;
-  /** Soft lock: exclude this seat from balance suggestions. */
+  /** Soft lock: Balance never moves this seat. */
   locked?: boolean;
-  /** Live lobby New flag for win% / swap hints. */
+  /** Live lobby New flag for win% / Balance. */
   isNewPlayer?: boolean;
   /** Completed-match snapshot New flag. */
   wasNewPlayer?: boolean;
@@ -34,27 +34,8 @@ export type BalanceRatingLookup = {
   hero: (playerId: string, heroId: number) => MuSigma;
 };
 
-export type BalanceSuggestion = {
-  kind: 'swap' | 'move';
-  fromSlot: number;
-  toSlot: number;
-  fromNick: string;
-  toNick?: string;
-  resultingWinChance: { teamAPercent: number; teamBPercent: number };
-};
-
 function resolvedProfile(profile?: GameProfile): GameProfile {
   return profile ?? getGameProfile(WARCRAFT3_UDBR_GAME_ID);
-}
-
-function emptySlotsForProfile(profile: GameProfile, occupied: Set<number>): number[] {
-  const empty: number[] = [];
-  for (let slot = 1; slot <= profile.slotCount; slot += 1) {
-    if (!occupied.has(slot)) {
-      empty.push(slot);
-    }
-  }
-  return empty;
 }
 
 function imbalance(teamAPercent: number): number {
@@ -126,195 +107,102 @@ function swappedSeat(
   };
 }
 
-function applySwap(
-  roster: BalanceRosterEntry[],
-  slotA: number,
-  slotB: number,
-  profile: GameProfile,
-): BalanceRosterEntry[] {
-  const a = roster.find((e) => e.slot === slotA)!;
-  const b = roster.find((e) => e.slot === slotB)!;
-  return roster.map((entry) => {
-    if (entry.slot === slotA) {
-      return swappedSeat(b, slotA, entry.team, profile);
-    }
-    if (entry.slot === slotB) {
-      return swappedSeat(a, slotB, entry.team, profile);
-    }
-    return entry;
-  });
+/** Max rounded imbalance (|50 − teamA%|) that counts as balanced: 50/50 or 51/49. */
+export const BALANCE_TARGET_IMBALANCE = 1;
+
+/** Random placements tried per Balance click before settling for the closest one. */
+// ponytail: random sampling, not exhaustive search; raise if 49–51 is often missed on solvable lobbies.
+const BALANCE_ATTEMPTS = 3000;
+
+export type BalanceResult = {
+  roster: BalanceRosterEntry[];
+  winChance: { teamAPercent: number; teamBPercent: number };
+  /** True when the result is within {@link BALANCE_TARGET_IMBALANCE}. */
+  balanced: boolean;
+};
+
+function seatingKey(roster: BalanceRosterEntry[]): string {
+  return roster
+    .map((entry) => `${entry.slot}:${entry.playerId}`)
+    .sort()
+    .join('|');
 }
 
-function applyMove(
-  roster: BalanceRosterEntry[],
-  fromSlot: number,
-  toSlot: number,
-  profile: GameProfile,
-): BalanceRosterEntry[] {
-  return roster.map((entry) =>
-    entry.slot === fromSlot
-      ? {
-          ...entry,
-          slot: toSlot,
-          heroId: rosterHeroId(profile, toSlot),
-          team: teamForSlot(profile, toSlot),
-        }
-      : entry,
-  );
-}
-
-/** Max distinct advisory moves shown on the Match Lobby embed. */
-export const MAX_BALANCE_SUGGESTIONS = 3;
-
-/** Exposed for tie-break unit tests. */
-export function compareSuggestions(a: BalanceSuggestion, b: BalanceSuggestion): number {
-  const imbDiff =
-    imbalance(a.resultingWinChance.teamAPercent) - imbalance(b.resultingWinChance.teamAPercent);
-  if (imbDiff !== 0) {
-    return imbDiff;
+function fisherYatesInPlace<T>(items: T[], random: () => number): void {
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    const tmp = items[i]!;
+    items[i] = items[j]!;
+    items[j] = tmp;
   }
-  if (a.kind !== b.kind) {
-    return a.kind === 'swap' ? -1 : 1;
-  }
-  if (a.fromSlot !== b.fromSlot) {
-    return a.fromSlot - b.fromSlot;
-  }
-  return a.toSlot - b.toSlot;
 }
 
 /**
- * Empty-slot moves for the same player (e.g. nick → slots 6/7/8) count as one
- * suggestion — keep the best destination. Swaps stay distinct.
+ * Re-seat unlocked players across all non-locked slots (occupied or empty) so
+ * win chance lands at 50/50 or 51/49. Locked seats never move. Random search,
+ * so repeated calls return different balanced seatings; the current seating is
+ * never returned. Falls back to the closest seating found that is no worse than
+ * the current one. Returns undefined when nothing can be moved or improved.
  */
-export function dedupeEmptySlotMoves(candidates: BalanceSuggestion[]): BalanceSuggestion[] {
-  const bestMoveByFromSlot = new Map<number, BalanceSuggestion>();
-  const swaps: BalanceSuggestion[] = [];
-
-  for (const candidate of candidates) {
-    if (candidate.kind === 'swap') {
-      swaps.push(candidate);
-      continue;
-    }
-    const existing = bestMoveByFromSlot.get(candidate.fromSlot);
-    if (!existing || compareSuggestions(candidate, existing) < 0) {
-      bestMoveByFromSlot.set(candidate.fromSlot, candidate);
-    }
-  }
-
-  return [...swaps, ...bestMoveByFromSlot.values()];
-}
-
-/**
- * Returns up to {@link MAX_BALANCE_SUGGESTIONS} improving single moves, best first.
- * Always searches (no win-chance band). Same-player empty-slot destinations
- * collapse to one entry (best free slot).
- */
-export function suggestBalanceMoves(
+export function findBalancedRoster(
   roster: BalanceRosterEntry[],
   lookup: BalanceRatingLookup,
-  currentWinChance: { teamAPercent: number; teamBPercent: number },
   options?: BalancePredictWinOptions,
   profile?: GameProfile,
-): BalanceSuggestion[] {
-  if (!teamCountsOk(roster)) {
-    return [];
-  }
-
+  random: () => number = Math.random,
+): BalanceResult | undefined {
   const resolved = resolvedProfile(profile);
-  const currentImbalance = imbalance(currentWinChance.teamAPercent);
-  const occupied = new Set(roster.map((e) => e.slot));
-  const emptySlots = emptySlotsForProfile(resolved, occupied);
-  const lockedSlots = new Set(
-    roster.filter((entry) => entry.locked === true).map((entry) => entry.slot),
-  );
-  const { teamA, teamB } = splitRosterByTeam(roster);
+  const fixed = roster.filter((entry) => entry.locked === true);
+  const movers = roster.filter((entry) => entry.locked !== true);
+  if (movers.length === 0) {
+    return undefined;
+  }
 
-  const candidates: BalanceSuggestion[] = [];
-
-  for (const a of teamA) {
-    for (const b of teamB) {
-      if (lockedSlots.has(a.slot) || lockedSlots.has(b.slot)) {
-        continue;
-      }
-      const next = applySwap(roster, a.slot, b.slot, resolved);
-      const wc = winChanceForRoster(next, lookup, options);
-      if (!wc || imbalance(wc.teamAPercent) >= currentImbalance) {
-        continue;
-      }
-      candidates.push({
-        kind: 'swap',
-        fromSlot: a.slot,
-        toSlot: b.slot,
-        fromNick: a.nick,
-        toNick: b.nick,
-        resultingWinChance: wc,
-      });
+  const lockedSlots = new Set(fixed.map((entry) => entry.slot));
+  const openSlots: number[] = [];
+  for (let slot = 1; slot <= resolved.slotCount; slot += 1) {
+    if (!lockedSlots.has(slot)) {
+      openSlots.push(slot);
     }
   }
 
-  for (const entry of roster) {
-    if (lockedSlots.has(entry.slot)) {
+  const currentKey = seatingKey(roster);
+  const current = winChanceForRoster(roster, lookup, options);
+  let bestImbalance = current ? imbalance(current.teamAPercent) : Number.POSITIVE_INFINITY;
+  let best: Omit<BalanceResult, 'balanced'> | undefined;
+
+  for (let attempt = 0; attempt < BALANCE_ATTEMPTS; attempt += 1) {
+    fisherYatesInPlace(openSlots, random);
+    const next = [
+      ...fixed,
+      ...movers.map((entry, index) => {
+        const slot = openSlots[index]!;
+        return swappedSeat(entry, slot, teamForSlot(resolved, slot), resolved);
+      }),
+    ];
+    if (seatingKey(next) === currentKey) {
       continue;
     }
-    for (const toSlot of emptySlots) {
-      if (lockedSlots.has(toSlot)) {
-        continue;
-      }
-      const next = applyMove(roster, entry.slot, toSlot, resolved);
-      if (!teamCountsOk(next)) {
-        continue;
-      }
-      const wc = winChanceForRoster(next, lookup, options);
-      if (!wc || imbalance(wc.teamAPercent) >= currentImbalance) {
-        continue;
-      }
-      candidates.push({
-        kind: 'move',
-        fromSlot: entry.slot,
-        toSlot,
-        fromNick: entry.nick,
-        resultingWinChance: wc,
-      });
+    const winChance = winChanceForRoster(next, lookup, options);
+    if (!winChance || imbalance(winChance.teamAPercent) > bestImbalance) {
+      continue;
+    }
+    if (best && imbalance(winChance.teamAPercent) === bestImbalance) {
+      continue;
+    }
+    bestImbalance = imbalance(winChance.teamAPercent);
+    best = { roster: next, winChance };
+    if (bestImbalance <= BALANCE_TARGET_IMBALANCE) {
+      break;
     }
   }
 
-  if (candidates.length === 0) {
-    return [];
+  if (!best) {
+    return undefined;
   }
-
-  const deduped = dedupeEmptySlotMoves(candidates);
-  deduped.sort(compareSuggestions);
-  return deduped.slice(0, MAX_BALANCE_SUGGESTIONS);
-}
-
-/** Best single improving move, or undefined when none. */
-export function suggestBalanceMove(
-  roster: BalanceRosterEntry[],
-  lookup: BalanceRatingLookup,
-  currentWinChance: { teamAPercent: number; teamBPercent: number },
-  options?: BalancePredictWinOptions,
-  profile?: GameProfile,
-): BalanceSuggestion | undefined {
-  return suggestBalanceMoves(roster, lookup, currentWinChance, options, profile)[0];
-}
-
-export function formatBalanceHint(suggestion: BalanceSuggestion): string {
-  const { teamAPercent, teamBPercent } = suggestion.resultingWinChance;
-  if (suggestion.kind === 'swap') {
-    return `Swap ${suggestion.fromNick} (${suggestion.fromSlot}) ↔ ${suggestion.toNick} (${suggestion.toSlot}) → ~${teamAPercent}% / ${teamBPercent}%`;
-  }
-  return `Move ${suggestion.fromNick} (${suggestion.fromSlot}) → empty slot ${suggestion.toSlot} → ~${teamAPercent}% / ${teamBPercent}%`;
-}
-
-/** Formats up to three hints as a numbered list for the lobby embed. */
-export function formatBalanceHints(suggestions: BalanceSuggestion[]): string {
-  if (suggestions.length === 0) {
-    return '';
-  }
-  if (suggestions.length === 1) {
-    return formatBalanceHint(suggestions[0]!);
-  }
-  return suggestions
-    .map((suggestion, index) => `${index + 1}. ${formatBalanceHint(suggestion)}`)
-    .join('\n');
+  return {
+    roster: [...best.roster].sort((a, b) => a.slot - b.slot),
+    winChance: best.winChance,
+    balanced: bestImbalance <= BALANCE_TARGET_IMBALANCE,
+  };
 }

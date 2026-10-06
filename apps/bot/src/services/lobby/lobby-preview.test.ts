@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BALANCE_HINT_DISCLAIMER,
   buildLobbyButtons,
   buildMatchCompletedEmbed,
   buildMatchInProgressEmbed,
@@ -617,7 +616,7 @@ describe('buildLobbyButtons', () => {
     expect(rosterCustomIds(rows)).not.toContain(LOBBY_CUSTOM_IDS.add);
   });
 
-  it('puts Lock, Shuffle, and Cancel on the last row', () => {
+  it('puts Lock, Balance, and Cancel on the last row', () => {
     const rows = buildLobbyButtons({
       canStart: true,
       playerCount: 2,
@@ -629,6 +628,10 @@ describe('buildLobbyButtons', () => {
       LOBBY_CUSTOM_IDS.shuffle,
       LOBBY_CUSTOM_IDS.cancel,
     ]);
+    expect(rows.at(-1)?.toJSON().components[1]).toMatchObject({
+      custom_id: LOBBY_CUSTOM_IDS.shuffle,
+      label: 'Balance',
+    });
     expect(rows.at(-1)?.toJSON().components[2]).toMatchObject({
       custom_id: LOBBY_CUSTOM_IDS.cancel,
       label: 'Cancel',
@@ -715,7 +718,7 @@ describe('claimSlotSelectOptions', () => {
 });
 
 describe('balance hint on embeds', () => {
-  it('shows Balance hint on Match Lobby when suggestion present', () => {
+  it('never shows a Balance hint field on Match Lobby', () => {
     const embed = buildMatchLobbyEmbed(
       'm1',
       [
@@ -729,93 +732,10 @@ describe('balance hint on embeds', () => {
             { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
           ],
           winChance: { teamAPercent: 70, teamBPercent: 30 },
-          balanceSuggestions: [
-            {
-              kind: 'swap',
-              fromSlot: 1,
-              toSlot: 7,
-              fromNick: 'Alice',
-              toNick: 'Bob',
-              resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
-            },
-          ],
         },
       },
     );
-    const fields = embed.data.fields ?? [];
-    const hint = fields.find((f) => f.name === 'Balance hint');
-    expect(hint?.value).toBe(`Swap Alice (1) ↔ Bob (7) → ~52% / 48%\n${BALANCE_HINT_DISCLAIMER}`);
-  });
-
-  it('lists up to three numbered balance hints', () => {
-    const embed = buildMatchLobbyEmbed(
-      'm1',
-      [
-        { nick: 'Alice', slot: 1 },
-        { nick: 'Bob', slot: 7 },
-      ],
-      {
-        ratingPreview: {
-          players: [
-            { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
-            { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
-          ],
-          winChance: { teamAPercent: 70, teamBPercent: 30 },
-          balanceSuggestions: [
-            {
-              kind: 'swap',
-              fromSlot: 1,
-              toSlot: 7,
-              fromNick: 'Alice',
-              toNick: 'Bob',
-              resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
-            },
-            {
-              kind: 'move',
-              fromSlot: 7,
-              toSlot: 2,
-              fromNick: 'Bob',
-              resultingWinChance: { teamAPercent: 51, teamBPercent: 49 },
-            },
-          ],
-        },
-      },
-    );
-    const fields = embed.data.fields ?? [];
-    const hint = fields.find((f) => f.name === 'Balance hint');
-    expect(hint?.value).toBe(
-      `1. Swap Alice (1) ↔ Bob (7) → ~52% / 48%\n2. Move Bob (7) → empty slot 2 → ~51% / 49%\n${BALANCE_HINT_DISCLAIMER}`,
-    );
-  });
-
-  it('omits Balance hint on Match In Progress even if DTO has suggestion', () => {
-    const embed = buildMatchInProgressEmbed(
-      'm1',
-      [
-        { nick: 'Alice', slot: 1 },
-        { nick: 'Bob', slot: 7 },
-      ],
-      {
-        ratingPreview: {
-          players: [
-            { slot: 1, nick: 'Alice', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
-            { slot: 7, nick: 'Bob', globalOrdinal: 1000, heroOrdinal: 1000, leagueGames: 8 },
-          ],
-          winChance: { teamAPercent: 70, teamBPercent: 30 },
-          balanceSuggestions: [
-            {
-              kind: 'move',
-              fromSlot: 7,
-              toSlot: 2,
-              fromNick: 'Bob',
-              resultingWinChance: { teamAPercent: 51, teamBPercent: 49 },
-            },
-          ],
-        },
-      },
-    );
-    const fields = embed.data.fields ?? [];
-    expect(fields.some((f) => f.name === 'Balance hint')).toBe(false);
+    expect((embed.data.fields ?? []).some((f) => f.name === 'Balance hint')).toBe(false);
   });
 });
 

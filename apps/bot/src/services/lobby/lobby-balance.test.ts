@@ -3,15 +3,10 @@ import { getGameProfile } from '../../domain/game-profile.js';
 import { WARCRAFT3_WOS_GAME_ID } from '../../domain/games.js';
 import { computeWinChanceFromRatings } from '../rating/rating-preview.js';
 import {
-  compareSuggestions,
-  dedupeEmptySlotMoves,
-  formatBalanceHint,
-  formatBalanceHints,
-  suggestBalanceMove,
-  suggestBalanceMoves,
+  BALANCE_TARGET_IMBALANCE,
+  findBalancedRoster,
   type BalanceRatingLookup,
   type BalanceRosterEntry,
-  type BalanceSuggestion,
   type MuSigma,
 } from './lobby-balance.js';
 
@@ -19,7 +14,7 @@ const DEFAULT: MuSigma = { mu: 25, sigma: 8.333 };
 
 function lookupFromMaps(
   globals: Record<string, MuSigma>,
-  heroes: Record<string, MuSigma>,
+  heroes: Record<string, MuSigma> = {},
 ): BalanceRatingLookup {
   return {
     global: (playerId) => globals[playerId] ?? DEFAULT,
@@ -27,472 +22,155 @@ function lookupFromMaps(
   };
 }
 
-describe('suggestBalanceMove', () => {
-  it('returns undefined at 50/50 when no swap or move can improve', () => {
-    const roster: BalanceRosterEntry[] = [
-      { playerId: 'a', slot: 1, team: 1, heroId: 1, nick: 'Alice' },
-      { playerId: 'b', slot: 7, team: 2, heroId: 7, nick: 'Bob' },
-    ];
-    const lookup = lookupFromMaps({}, {});
-    expect(
-      suggestBalanceMove(roster, lookup, { teamAPercent: 50, teamBPercent: 50 }),
-    ).toBeUndefined();
-  });
+/** Deterministic RNG (mulberry32) so tests are reproducible. */
+function seeded(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
-  it('still suggests when win chance is inside the old 45–55 band if a move improves', () => {
-    const roster: BalanceRosterEntry[] = [
-      { playerId: 's1', slot: 1, team: 1, heroId: 1, nick: 'S1' },
-      { playerId: 's2', slot: 2, team: 1, heroId: 2, nick: 'S2' },
-      { playerId: 'w1', slot: 3, team: 1, heroId: 3, nick: 'W1' },
-      { playerId: 'm1', slot: 7, team: 2, heroId: 7, nick: 'M1' },
-      { playerId: 'm2', slot: 8, team: 2, heroId: 8, nick: 'M2' },
-      { playerId: 'm3', slot: 9, team: 2, heroId: 9, nick: 'M3' },
-    ];
-    const lookup = lookupFromMaps(
-      {
-        s1: { mu: 27, sigma: 3 },
-        s2: { mu: 26, sigma: 3 },
-        w1: { mu: 24, sigma: 6 },
-        m1: { mu: 25, sigma: 5 },
-        m2: { mu: 25, sigma: 5 },
-        m3: { mu: 25, sigma: 5 },
-      },
-      {},
-    );
-    const suggestion = suggestBalanceMove(
-      roster,
-      lookup,
-      {
-        teamAPercent: 53,
-        teamBPercent: 47,
-      },
-      { staticSigma: true },
-    );
-    expect(suggestion).toBeDefined();
-    expect(suggestion!.kind).toBe('swap');
-    expect(Math.abs(50 - suggestion!.resultingWinChance.teamAPercent)).toBeLessThan(3);
-  });
+function seat(playerId: string, slot: number, extra: Partial<BalanceRosterEntry> = {}) {
+  return {
+    playerId,
+    slot,
+    team: slot <= 6 ? 1 : 2,
+    heroId: slot,
+    nick: playerId,
+    ...extra,
+  } as BalanceRosterEntry;
+}
 
-  it('returns undefined when all players are on one team even if win chance is unbalanced', () => {
-    const roster: BalanceRosterEntry[] = [
-      { playerId: 'a', slot: 1, team: 1, heroId: 1, nick: 'Alice' },
-      { playerId: 'b', slot: 2, team: 1, heroId: 2, nick: 'Bob' },
-    ];
-    const lookup = lookupFromMaps({}, {});
-    expect(
-      suggestBalanceMove(roster, lookup, { teamAPercent: 90, teamBPercent: 10 }),
-    ).toBeUndefined();
-  });
+function seating(roster: BalanceRosterEntry[]): string {
+  return roster.map((entry) => `${entry.slot}:${entry.playerId}`).join('|');
+}
 
-  it('rejects moves that would empty a team', () => {
-    // 1v2: only A player moving to B empty slot would empty A — must not suggest that
-    // unless a swap exists. With one on A, swaps are possible with B players.
-    const roster: BalanceRosterEntry[] = [
-      { playerId: 'strong', slot: 1, team: 1, heroId: 1, nick: 'Strong' },
-      { playerId: 'w1', slot: 7, team: 2, heroId: 7, nick: 'Weak1' },
-      { playerId: 'w2', slot: 8, team: 2, heroId: 8, nick: 'Weak2' },
-    ];
-    const lookup = lookupFromMaps(
-      {
-        strong: { mu: 40, sigma: 2 },
-        w1: { mu: 20, sigma: 8 },
-        w2: { mu: 20, sigma: 8 },
-      },
-      {},
-    );
-    const suggestion = suggestBalanceMove(roster, lookup, {
-      teamAPercent: 90,
-      teamBPercent: 10,
-    });
-    // If a suggestion exists, both teams must still have ≥1 after applying it
-    if (suggestion) {
-      const next = new Map(roster.map((e) => [e.slot, e]));
-      if (suggestion.kind === 'move') {
-        const moving = next.get(suggestion.fromSlot)!;
-        next.delete(suggestion.fromSlot);
-        next.set(suggestion.toSlot, {
-          ...moving,
-          slot: suggestion.toSlot,
-          heroId: suggestion.toSlot,
-          team: suggestion.toSlot <= 6 ? 1 : 2,
-        });
-      } else {
-        const a = next.get(suggestion.fromSlot)!;
-        const b = next.get(suggestion.toSlot)!;
-        next.set(suggestion.fromSlot, {
-          ...b,
-          slot: suggestion.fromSlot,
-          heroId: suggestion.fromSlot,
-          team: a.team,
-        });
-        next.set(suggestion.toSlot, {
-          ...a,
-          slot: suggestion.toSlot,
-          heroId: suggestion.toSlot,
-          team: b.team,
-        });
-      }
-      const teamA = [...next.values()].filter((e) => e.team === 1);
-      const teamB = [...next.values()].filter((e) => e.team === 2);
-      expect(teamA.length).toBeGreaterThanOrEqual(1);
-      expect(teamB.length).toBeGreaterThanOrEqual(1);
-    }
-  });
+/** Stacked 6v6: strong players all on team A. */
+const STACKED: BalanceRosterEntry[] = [
+  seat('s1', 1),
+  seat('s2', 2),
+  seat('s3', 3),
+  seat('m1', 4),
+  seat('m2', 5),
+  seat('m3', 6),
+  seat('w1', 7),
+  seat('w2', 8),
+  seat('w3', 9),
+  seat('n1', 10),
+  seat('n2', 11),
+  seat('n3', 12),
+];
+const STACKED_LOOKUP = lookupFromMaps({
+  s1: { mu: 35, sigma: 3 },
+  s2: { mu: 33, sigma: 3 },
+  s3: { mu: 31, sigma: 3 },
+  m1: { mu: 28, sigma: 3 },
+  m2: { mu: 27, sigma: 3 },
+  m3: { mu: 26, sigma: 3 },
+  w1: { mu: 24, sigma: 3 },
+  w2: { mu: 23, sigma: 3 },
+  w3: { mu: 22, sigma: 3 },
+  n1: { mu: 20, sigma: 3 },
+  n2: { mu: 19, sigma: 3 },
+  n3: { mu: 18, sigma: 3 },
+});
 
-  it('prefers an improving swap when it beats staying put', () => {
-    // 2v2 skew: Strong+WeakA on A vs Weak1+Mid on B → swap Strong with Mid improves
-    const roster: BalanceRosterEntry[] = [
-      { playerId: 'strong', slot: 1, team: 1, heroId: 1, nick: 'Strong' },
-      { playerId: 'weakA', slot: 2, team: 1, heroId: 2, nick: 'WeakA' },
-      { playerId: 'w1', slot: 7, team: 2, heroId: 7, nick: 'Weak1' },
-      { playerId: 'mid', slot: 8, team: 2, heroId: 8, nick: 'Mid' },
-    ];
-    const lookup = lookupFromMaps(
-      {
-        strong: { mu: 40, sigma: 2 },
-        weakA: { mu: 18, sigma: 8 },
-        w1: { mu: 18, sigma: 8 },
-        mid: { mu: 25, sigma: 5 },
-      },
-      {},
+describe('findBalancedRoster', () => {
+  it('reaches 50/50 or 51/49 on a stacked lobby', () => {
+    const result = findBalancedRoster(STACKED, STACKED_LOOKUP, undefined, undefined, seeded(1));
+    expect(result).toBeDefined();
+    expect(result!.balanced).toBe(true);
+    expect(Math.abs(50 - result!.winChance.teamAPercent)).toBeLessThanOrEqual(
+      BALANCE_TARGET_IMBALANCE,
     );
-    const suggestion = suggestBalanceMove(roster, lookup, {
-      teamAPercent: 85,
-      teamBPercent: 15,
-    });
-    expect(suggestion).toBeDefined();
-    expect(suggestion!.kind).toBe('swap');
-    expect(suggestion!.fromNick).toBe('Strong');
-    expect(
-      suggestion!.resultingWinChance.teamAPercent + suggestion!.resultingWinChance.teamBPercent,
-    ).toBe(100);
-    const imbalance = Math.abs(50 - suggestion!.resultingWinChance.teamAPercent);
-    expect(imbalance).toBeLessThan(Math.abs(50 - 85));
-  });
-
-  it('can suggest a move into an empty slot when that improves balance', () => {
-    // 1v3 skew: moving one B player onto empty A slot can help
-    const roster: BalanceRosterEntry[] = [
-      { playerId: 'a1', slot: 1, team: 1, heroId: 1, nick: 'A1' },
-      { playerId: 'b1', slot: 7, team: 2, heroId: 7, nick: 'B1' },
-      { playerId: 'b2', slot: 8, team: 2, heroId: 8, nick: 'B2' },
-      { playerId: 'b3', slot: 9, team: 2, heroId: 9, nick: 'B3' },
-    ];
-    const lookup = lookupFromMaps(
-      {
-        a1: { mu: 22, sigma: 6 },
-        b1: { mu: 30, sigma: 4 },
-        b2: { mu: 30, sigma: 4 },
-        b3: { mu: 30, sigma: 4 },
-      },
-      {},
-    );
-    const suggestion = suggestBalanceMove(roster, lookup, {
-      teamAPercent: 20,
-      teamBPercent: 80,
-    });
-    expect(suggestion).toBeDefined();
-    expect(Math.abs(50 - suggestion!.resultingWinChance.teamAPercent)).toBeLessThan(
-      Math.abs(50 - 20),
+    expect(result!.roster.map((e) => e.playerId).sort()).toEqual(
+      STACKED.map((e) => e.playerId).sort(),
     );
   });
 
-  it('never suggests WOS slots above 10', () => {
+  it('returns a different balanced combination on another click', () => {
+    const first = findBalancedRoster(STACKED, STACKED_LOOKUP, undefined, undefined, seeded(1))!;
+    const second = findBalancedRoster(
+      first.roster,
+      STACKED_LOOKUP,
+      undefined,
+      undefined,
+      seeded(2),
+    )!;
+    expect(second.balanced).toBe(true);
+    expect(seating(second.roster)).not.toBe(seating(first.roster));
+  });
+
+  it('never moves locked seats', () => {
+    const roster = STACKED.map((e) => (e.slot === 1 || e.slot === 7 ? { ...e, locked: true } : e));
+    const result = findBalancedRoster(roster, STACKED_LOOKUP, undefined, undefined, seeded(3))!;
+    expect(result.balanced).toBe(true);
+    expect(result.roster.find((e) => e.slot === 1)?.playerId).toBe('s1');
+    expect(result.roster.find((e) => e.slot === 7)?.playerId).toBe('w1');
+    expect(result.roster.filter((e) => e.locked === true)).toHaveLength(2);
+  });
+
+  it('may use empty slots but keeps both teams populated and within the profile', () => {
     const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
     const roster: BalanceRosterEntry[] = [
-      { playerId: 'a1', slot: 1, team: 1, heroId: null, nick: 'A1' },
-      { playerId: 'b1', slot: 6, team: 2, heroId: null, nick: 'B1' },
-      { playerId: 'b2', slot: 7, team: 2, heroId: null, nick: 'B2' },
-      { playerId: 'b3', slot: 8, team: 2, heroId: null, nick: 'B3' },
+      { ...seat('s1', 1), team: 1 },
+      { ...seat('s2', 2), team: 1 },
+      { ...seat('w1', 6), team: 2 },
     ];
-    const lookup = lookupFromMaps(
-      {
-        a1: { mu: 22, sigma: 6 },
-        b1: { mu: 30, sigma: 4 },
-        b2: { mu: 30, sigma: 4 },
-        b3: { mu: 30, sigma: 4 },
-      },
-      {},
-    );
-    const suggestion = suggestBalanceMove(
-      roster,
-      lookup,
-      { teamAPercent: 20, teamBPercent: 80 },
-      undefined,
-      wos,
-    );
-    if (suggestion) {
-      expect(suggestion.toSlot).toBeLessThanOrEqual(10);
-      expect(suggestion.fromSlot).toBeLessThanOrEqual(10);
+    const lookup = lookupFromMaps({
+      s1: { mu: 30, sigma: 3 },
+      s2: { mu: 30, sigma: 3 },
+      w1: { mu: 20, sigma: 3 },
+    });
+    for (let seed = 1; seed <= 5; seed += 1) {
+      const result = findBalancedRoster(roster, lookup, undefined, wos, seeded(seed));
+      expect(result).toBeDefined();
+      const teams = new Set(result!.roster.map((e) => e.team));
+      expect(teams).toEqual(new Set([1, 2]));
+      expect(result!.roster.every((e) => e.slot >= 1 && e.slot <= wos.slotCount)).toBe(true);
     }
   });
 
-  it('compareSuggestions prefers swap over move, then lower fromSlot', () => {
-    const base = {
-      resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
-      fromNick: 'x',
-    };
-    const swap = { ...base, kind: 'swap' as const, fromSlot: 2, toSlot: 9, toNick: 'y' };
-    const move = { ...base, kind: 'move' as const, fromSlot: 1, toSlot: 10 };
-    expect(compareSuggestions(swap, move)).toBeLessThan(0);
-
-    const swapHigh = { ...swap, fromSlot: 3 };
-    const swapLow = { ...swap, fromSlot: 1 };
-    expect(compareSuggestions(swapLow, swapHigh)).toBeLessThan(0);
+  it('falls back to the closest seating when 49–51 is unreachable', () => {
+    const roster = [seat('pro', 1), seat('a', 2), seat('b', 7)];
+    const lookup = lookupFromMaps({ pro: { mu: 45, sigma: 1 }, b: { mu: 10, sigma: 1 } });
+    const result = findBalancedRoster(roster, lookup, undefined, undefined, seeded(4))!;
+    expect(result.balanced).toBe(false);
+    const teamOf = (id: string) => result.roster.find((e) => e.playerId === id)!.team;
+    expect(teamOf('pro')).not.toBe(teamOf('a'));
   });
 
-  it('collapses same-player empty-slot moves into one suggestion', () => {
-    const roster: BalanceRosterEntry[] = [
-      { playerId: 'a1', slot: 1, team: 1, heroId: 1, nick: 'A1' },
-      { playerId: 'chmieleski', slot: 7, team: 2, heroId: 7, nick: 'chmieleski' },
-      { playerId: 'b2', slot: 8, team: 2, heroId: 8, nick: 'B2' },
-      { playerId: 'b3', slot: 9, team: 2, heroId: 9, nick: 'B3' },
-    ];
-    const lookup = lookupFromMaps(
-      {
-        a1: { mu: 22, sigma: 6 },
-        chmieleski: { mu: 35, sigma: 3 },
-        b2: { mu: 30, sigma: 4 },
-        b3: { mu: 30, sigma: 4 },
-      },
-      {},
-    );
-    const suggestions = suggestBalanceMoves(roster, lookup, {
-      teamAPercent: 15,
-      teamBPercent: 85,
-    });
-    const movesFromChmieleski = suggestions.filter(
-      (s) => s.kind === 'move' && s.fromNick === 'chmieleski',
-    );
-    expect(movesFromChmieleski.length).toBeLessThanOrEqual(1);
-    expect(suggestions.length).toBeGreaterThan(0);
-    expect(suggestions.length).toBeLessThanOrEqual(3);
+  it('returns undefined when every seat is locked', () => {
+    const roster = [seat('a', 1, { locked: true }), seat('b', 7, { locked: true })];
+    expect(findBalancedRoster(roster, lookupFromMaps({}))).toBeUndefined();
   });
 
-  it('returns at most three distinct suggestions', () => {
-    const roster: BalanceRosterEntry[] = [
-      { playerId: 's1', slot: 1, team: 1, heroId: 1, nick: 'S1' },
-      { playerId: 's2', slot: 2, team: 1, heroId: 2, nick: 'S2' },
-      { playerId: 's3', slot: 3, team: 1, heroId: 3, nick: 'S3' },
-      { playerId: 'w1', slot: 7, team: 2, heroId: 7, nick: 'W1' },
-      { playerId: 'w2', slot: 8, team: 2, heroId: 8, nick: 'W2' },
-      { playerId: 'w3', slot: 9, team: 2, heroId: 9, nick: 'W3' },
-    ];
-    const lookup = lookupFromMaps(
-      {
-        s1: { mu: 40, sigma: 2 },
-        s2: { mu: 38, sigma: 2 },
-        s3: { mu: 36, sigma: 2 },
-        w1: { mu: 18, sigma: 8 },
-        w2: { mu: 18, sigma: 8 },
-        w3: { mu: 18, sigma: 8 },
-      },
-      {},
-    );
-    const suggestions = suggestBalanceMoves(roster, lookup, {
-      teamAPercent: 90,
-      teamBPercent: 10,
-    });
-    expect(suggestions.length).toBeGreaterThan(0);
-    expect(suggestions.length).toBeLessThanOrEqual(3);
-  });
-});
-
-describe('dedupeEmptySlotMoves', () => {
-  it('keeps one move per fromSlot and all swaps', () => {
-    const baseWc = { teamAPercent: 52, teamBPercent: 48 };
-    const candidates: BalanceSuggestion[] = [
-      {
-        kind: 'move',
-        fromSlot: 7,
-        toSlot: 6,
-        fromNick: 'chmieleski',
-        resultingWinChance: { teamAPercent: 48, teamBPercent: 52 },
-      },
-      {
-        kind: 'move',
-        fromSlot: 7,
-        toSlot: 5,
-        fromNick: 'chmieleski',
-        resultingWinChance: { teamAPercent: 50, teamBPercent: 50 },
-      },
-      {
-        kind: 'move',
-        fromSlot: 7,
-        toSlot: 4,
-        fromNick: 'chmieleski',
-        resultingWinChance: { teamAPercent: 49, teamBPercent: 51 },
-      },
-      {
-        kind: 'swap',
-        fromSlot: 1,
-        toSlot: 8,
-        fromNick: 'Alice',
-        toNick: 'Bob',
-        resultingWinChance: baseWc,
-      },
-    ];
-    const deduped = dedupeEmptySlotMoves(candidates);
-    const moves = deduped.filter((c) => c.kind === 'move');
-    expect(moves).toHaveLength(1);
-    expect(moves[0]!.toSlot).toBe(5); // perfect 50/50 beats 49/51
-    expect(deduped.filter((c) => c.kind === 'swap')).toHaveLength(1);
-  });
-});
-
-describe('formatBalanceHint', () => {
-  it('formats swap and move lines', () => {
-    expect(
-      formatBalanceHint({
-        kind: 'swap',
-        fromSlot: 3,
-        toSlot: 9,
-        fromNick: 'Alice',
-        toNick: 'Bob',
-        resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
-      }),
-    ).toBe('Swap Alice (3) ↔ Bob (9) → ~52% / 48%');
-
-    expect(
-      formatBalanceHint({
-        kind: 'move',
-        fromSlot: 3,
-        toSlot: 10,
-        fromNick: 'Alice',
-        resultingWinChance: { teamAPercent: 51, teamBPercent: 49 },
-      }),
-    ).toBe('Move Alice (3) → empty slot 10 → ~51% / 49%');
-  });
-
-  it('numbers multiple hints', () => {
-    expect(
-      formatBalanceHints([
-        {
-          kind: 'swap',
-          fromSlot: 1,
-          toSlot: 7,
-          fromNick: 'Alice',
-          toNick: 'Bob',
-          resultingWinChance: { teamAPercent: 52, teamBPercent: 48 },
-        },
-        {
-          kind: 'move',
-          fromSlot: 8,
-          toSlot: 2,
-          fromNick: 'Eve',
-          resultingWinChance: { teamAPercent: 51, teamBPercent: 49 },
-        },
-      ]),
-    ).toBe('1. Swap Alice (1) ↔ Bob (7) → ~52% / 48%\n2. Move Eve (8) → empty slot 2 → ~51% / 49%');
-  });
-});
-
-describe('suggestBalanceMoves soft locks', () => {
-  it('skips candidates that touch a locked slot', () => {
-    const roster: BalanceRosterEntry[] = [
-      { playerId: 'strong', slot: 1, team: 1, heroId: 1, nick: 'Strong', locked: true },
-      { playerId: 'weakA', slot: 2, team: 1, heroId: 2, nick: 'WeakA' },
-      { playerId: 'w1', slot: 7, team: 2, heroId: 7, nick: 'Weak1' },
-      { playerId: 'mid', slot: 8, team: 2, heroId: 8, nick: 'Mid' },
-    ];
-    const lookup = lookupFromMaps(
-      {
-        strong: { mu: 40, sigma: 2 },
-        weakA: { mu: 18, sigma: 8 },
-        w1: { mu: 18, sigma: 8 },
-        mid: { mu: 25, sigma: 5 },
-      },
-      {},
-    );
-    const unlocked = suggestBalanceMove(
-      roster.map((e) => ({ ...e, locked: false })),
-      lookup,
-      {
-        teamAPercent: 85,
-        teamBPercent: 15,
-      },
-    );
-    expect(unlocked).toBeDefined();
-    expect(unlocked!.fromNick).toBe('Strong');
-
-    const lockedSuggestions = suggestBalanceMoves(roster, lookup, {
-      teamAPercent: 85,
-      teamBPercent: 15,
-    });
-    expect(lockedSuggestions.every((s) => s.fromSlot !== 1 && s.toSlot !== 1)).toBe(true);
-  });
-
-  it('returns empty when every improving move would touch a lock', () => {
-    const roster: BalanceRosterEntry[] = [
-      { playerId: 'a', slot: 1, team: 1, heroId: 1, nick: 'Alice', locked: true },
-      { playerId: 'b', slot: 7, team: 2, heroId: 7, nick: 'Bob', locked: true },
-    ];
-    const lookup = lookupFromMaps(
-      {
-        a: { mu: 40, sigma: 2 },
-        b: { mu: 18, sigma: 8 },
-      },
-      {},
-    );
-    expect(suggestBalanceMoves(roster, lookup, { teamAPercent: 90, teamBPercent: 10 })).toEqual([]);
-  });
-});
-
-describe('suggestBalanceMoves new-player flags on swap', () => {
-  it('keeps isNewPlayer on swapped seats so claimed win% matches recompute', () => {
-    const roster: BalanceRosterEntry[] = [
-      { playerId: 'v1', slot: 1, team: 1, heroId: 1, nick: 'V1' },
-      { playerId: 'v2', slot: 2, team: 1, heroId: 2, nick: 'V2' },
-      { playerId: 'v3', slot: 3, team: 1, heroId: 3, nick: 'V3' },
-      { playerId: 'b1', slot: 7, team: 2, heroId: 7, nick: 'B1' },
-      { playerId: 'new', slot: 8, team: 2, heroId: 8, nick: 'New', isNewPlayer: true },
+  it('keeps isNewPlayer on moved seats so its win% matches a recompute', () => {
+    const roster = [
+      seat('v1', 1),
+      seat('v2', 2),
+      seat('v3', 3),
+      seat('b1', 7),
+      seat('new', 8, { isNewPlayer: true }),
     ];
     const globals = new Map<string, MuSigma>([
       ['v1', { mu: 30, sigma: 3 }],
       ['v2', { mu: 30, sigma: 3 }],
       ['v3', { mu: 30, sigma: 3 }],
       ['b1', { mu: 30, sigma: 3 }],
-      ['new', { mu: 25, sigma: 8.333 }],
     ]);
-    const heroes = new Map<string, MuSigma>();
     const lookup: BalanceRatingLookup = {
       global: (playerId) => globals.get(playerId) ?? DEFAULT,
-      hero: (playerId, heroId) => heroes.get(`${playerId}:${heroId}`) ?? DEFAULT,
+      hero: () => DEFAULT,
     };
-    const entries = roster.map((entry) => ({ ...entry }));
-    const currentWinChance = computeWinChanceFromRatings(entries, globals, heroes, {
-      staticSigma: true,
-    })!;
-    const suggestion = suggestBalanceMove(roster, lookup, currentWinChance, { staticSigma: true });
-    expect(suggestion).toBeDefined();
-    expect(suggestion!.kind).toBe('swap');
-    const involvesNew =
-      (suggestion!.fromSlot === 8 || suggestion!.toSlot === 8) &&
-      roster.some((e) => e.slot === 8 && e.isNewPlayer === true);
-    expect(involvesNew).toBe(true);
-
-    const swappedEntries = roster.map((entry) => {
-      if (entry.slot === suggestion!.fromSlot) {
-        const other = roster.find((e) => e.slot === suggestion!.toSlot)!;
-        return {
-          ...other,
-          slot: suggestion!.fromSlot,
-          heroId: suggestion!.fromSlot,
-          team: entry.team,
-        };
-      }
-      if (entry.slot === suggestion!.toSlot) {
-        const other = roster.find((e) => e.slot === suggestion!.fromSlot)!;
-        return { ...other, slot: suggestion!.toSlot, heroId: suggestion!.toSlot, team: entry.team };
-      }
-      return entry;
-    });
-    const recomputed = computeWinChanceFromRatings(swappedEntries, globals, heroes, {
+    const result = findBalancedRoster(roster, lookup, { staticSigma: true }, undefined, seeded(5))!;
+    expect(result.roster.find((e) => e.playerId === 'new')?.isNewPlayer).toBe(true);
+    const recomputed = computeWinChanceFromRatings(result.roster, globals, new Map(), {
       staticSigma: true,
     });
-    expect(recomputed).toEqual(suggestion!.resultingWinChance);
-    expect(Math.abs(50 - suggestion!.resultingWinChance.teamAPercent)).toBeLessThan(
-      Math.abs(50 - currentWinChance.teamAPercent),
-    );
+    expect(recomputed).toEqual(result.winChance);
   });
 });

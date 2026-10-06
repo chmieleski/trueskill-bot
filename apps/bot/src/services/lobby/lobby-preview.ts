@@ -7,7 +7,6 @@ import {
   TimestampStyles,
 } from 'discord.js';
 import type { LobbyPlayer, ValidatedLobby } from './lobby-ocr.js';
-import { formatBalanceHints } from './lobby-balance.js';
 import type { LobbyRatingPlayerLine, LobbyRatingPreview } from '../rating/rating-preview.js';
 import { formatPublicKi, isCalibrating } from '../rating/rating-math.js';
 import { NEW_PLAYER_ROSTER_MARKER } from '../rating/new-player.js';
@@ -31,6 +30,7 @@ export const LOBBY_CUSTOM_IDS = {
   refresh: 'lobby:refresh',
   cancel: 'lobby:cancel',
   lockToggle: 'lobby:lock',
+  /** Balance button; id kept as `lobby:shuffle` so already-posted lobbies keep working. */
   shuffle: 'lobby:shuffle',
   reportFromFile: 'lobby:report_file',
   reportWinner: 'match:report',
@@ -259,23 +259,6 @@ function ratingPreviewFields(
   ];
 }
 
-/** Shown under Balance hint(s). Suggestions come from ratings; the host decides seating. */
-export const BALANCE_HINT_DISCLAIMER = '_Based on ratings — the host has the last word._';
-
-function balanceHintFields(preview: LobbyRatingPreview | undefined) {
-  const suggestions = preview?.balanceSuggestions;
-  if (!suggestions || suggestions.length === 0) {
-    return [];
-  }
-  return [
-    {
-      name: 'Balance hint',
-      value: `${formatBalanceHints(suggestions)}\n${BALANCE_HINT_DISCLAIMER}`,
-      inline: false,
-    },
-  ];
-}
-
 function teamFieldValues(
   players: LobbyPlayer[],
   ratingPreview: LobbyRatingPreview | undefined,
@@ -406,7 +389,6 @@ export function buildMatchLobbyEmbed(
         inline: false,
       },
       ...ratingPreviewFields(options.ratingPreview, profile, screenshotCommandLeadField(profile)),
-      ...balanceHintFields(options.ratingPreview),
     )
     .setColor(0x5865f2);
 
@@ -718,8 +700,8 @@ export function buildLobbyButtons(
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(LOBBY_CUSTOM_IDS.shuffle)
-        .setLabel('Shuffle')
-        .setEmoji('🎲')
+        .setLabel('Balance')
+        .setEmoji('⚖️')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(LOBBY_CUSTOM_IDS.cancel)

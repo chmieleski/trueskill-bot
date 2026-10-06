@@ -18,10 +18,8 @@ export {
   removePlayer,
   rosterAfterClaim,
   rosterAfterLeave,
-  shuffleLobbyPlayers,
   swapPlayers,
 } from './roster.js';
-export type { ShuffleScope } from './roster.js';
 export {
   resolveHostPendingMatch,
   resolvePendingMatchByMessageId,
@@ -71,7 +69,8 @@ export {
   lockLobbySlot,
   unlockLobbySlot,
   toggleLobbySlotLock,
-  shuffleLobbyRoster,
+  balanceLobbyRoster,
+  balanceResultMessage,
 } from './actions.js';
 export { applyRemapPairs, parseRemapPairs, resolveSwapForm } from './remap.js';
 export {
