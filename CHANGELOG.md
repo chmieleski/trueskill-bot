@@ -1,3 +1,10 @@
+# [1.74.0](https://github.com/chmieleski/trueskill-bot/compare/v1.73.0...v1.74.0) (2026-10-06)
+
+
+### Features
+
+* **lobby:** show in-game swap commands after Balance ([#211](https://github.com/chmieleski/trueskill-bot/issues/211)) ([0142835](https://github.com/chmieleski/trueskill-bot/commit/014283538218870f68ad76bba0ddf875a8eff564))
+
 # [1.73.0](https://github.com/chmieleski/trueskill-bot/compare/v1.72.0...v1.73.0) (2026-10-06)
 
 
