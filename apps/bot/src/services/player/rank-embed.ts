@@ -32,6 +32,19 @@ export function formatDcPoolField(
   return `Loses **${profile.pendingDcSeasonTax} ${ratingLabel}** at season end (${dcLabel})`;
 }
 
+/** Embed field value for pending quitter season tax (estimate on current ki); null when none. */
+export function formatQuitterPoolField(
+  profile: Pick<PlayerProfile, 'pendingQuitterSeasonTax'>,
+  ratingLabel = 'ki',
+): string | null {
+  if (profile.pendingQuitterSeasonTax <= 0) {
+    return null;
+  }
+
+  // No quit count: the W/L/Q line includes legacy quits that are not taxed.
+  return `Loses **~${profile.pendingQuitterSeasonTax} ${ratingLabel}** at season end (10% per quit)`;
+}
+
 export function formatHeroTable(heroes: PlayerProfileHero[], leagueGames: number): string {
   if (heroes.length === 0) {
     return '_No hero games yet_';
@@ -122,6 +135,11 @@ export function buildRankEmbed(
   const dcPool = formatDcPoolField(profile, ratingLabel);
   if (dcPool) {
     embed.addFields({ name: 'Disconnect pool', value: dcPool });
+  }
+
+  const quitterPool = formatQuitterPoolField(profile, ratingLabel);
+  if (quitterPool) {
+    embed.addFields({ name: 'Quitter pool', value: quitterPool });
   }
 
   // Omit when empty (no hero ratings / stats yet).

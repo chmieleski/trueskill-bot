@@ -265,9 +265,11 @@ export async function loadPlayerProfile(
     dcs: 0,
   };
   const { games, wins, losses, quits, griefs, dcs } = mine;
-  const pendingGrieferKiTax = pendingTaxByPlayer.get(player.id) ?? 0;
-  const pendingDcSeasonTax = pendingDcTaxByPlayer.get(player.id) ?? 0;
-  const pendingQuitterSeasonTax = pendingQuitterTaxByPlayer.get(player.id) ?? 0;
+  // Archived seasons settled their taxes at rollover (DC/quit flags stay for history).
+  const seasonOpen = !league?.archivedAt;
+  const pendingGrieferKiTax = seasonOpen ? (pendingTaxByPlayer.get(player.id) ?? 0) : 0;
+  const pendingDcSeasonTax = seasonOpen ? (pendingDcTaxByPlayer.get(player.id) ?? 0) : 0;
+  const pendingQuitterSeasonTax = seasonOpen ? (pendingQuitterTaxByPlayer.get(player.id) ?? 0) : 0;
 
   const globalKi = rating ? displayOrdinal(rating.mu, rating.sigma, games) : coldStartKi();
 

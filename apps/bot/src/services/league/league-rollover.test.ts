@@ -781,12 +781,16 @@ describe('applyLeagueRollover', () => {
   });
 
   it('applies compounding quitter tax to ending season ratings', async () => {
-    matchPlayerFindMany.mockImplementation((args: { where?: { isQuitter?: boolean } }) => {
-      const rows = args?.where?.isQuitter
-        ? [{ playerId: 'p1' }, { playerId: 'p1' }, { playerId: 'p1' }]
-        : [];
-      return Promise.resolve(rows);
-    });
+    matchPlayerFindMany.mockImplementation(
+      (args: { where?: { isQuitter?: boolean; isQuitterSeasonTax?: boolean } }) => {
+        // Legacy quits (already took the old 3-loss penalty) have isQuitterSeasonTax=false.
+        const rows =
+          args?.where?.isQuitter && args.where.isQuitterSeasonTax
+            ? [{ playerId: 'p1' }, { playerId: 'p1' }, { playerId: 'p1' }]
+            : [];
+        return Promise.resolve(rows);
+      },
+    );
     const counts = countQuitterIncidents([
       { playerId: 'p1' },
       { playerId: 'p1' },

@@ -1405,8 +1405,7 @@ async function handleMitigationApprovalButton(interaction: ButtonInteraction): P
   // approve
   await interaction.deferUpdate();
   const completed = await approveMitigationMatch(parsed.matchId);
-  const winnerTeam =
-    completed.match.players.find((p) => p.result === 'WIN' && !p.isQuitter)?.team === 2 ? 2 : 1;
+  const winnerTeam = completed.match.players.find((p) => p.result === 'WIN')?.team === 2 ? 2 : 1;
   const mitigation = normalizeMitigationPercent(completed.match.ratingMitigationPercent);
   void refreshAllLeaderboardChannels(interaction.client).catch(() => undefined);
   await syncLobbyDiscordMessage(interaction.client, completed.match, 'completed', {

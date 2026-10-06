@@ -1,10 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { MatchServiceError } from '../match/match-service.js';
 import { ensurePlayerRatings } from './rating-preview.js';
 import {
   accrueGrieferPenalties,
   applyMatchRatings,
-  assertBothTeamsHaveActivePlayers,
   canRunHeroRate,
   canRunTeamRate,
   partitionRosterForRating,
@@ -12,69 +10,53 @@ import {
 } from './rating-update.js';
 
 describe('partitionRosterForRating', () => {
-  it('splits quitters from rateable veterans', () => {
-    const { quitters, newNonQuit, activeRateable } = partitionRosterForRating([
+  it('keeps quitters in the rateable roster (like griefers)', () => {
+    const { pairedNew, activeRateable } = partitionRosterForRating([
       { slot: 1, team: 1, isQuitter: true },
       { slot: 2, team: 1, isQuitter: false },
       { slot: 7, team: 2, isQuitter: false },
     ]);
 
-    expect(quitters.map((entry) => entry.slot)).toEqual([1]);
-    expect(newNonQuit).toEqual([]);
-    expect(activeRateable.map((entry) => entry.slot)).toEqual([2, 7]);
-  });
-
-  it('keeps new quitters with isQuitterSeasonTax in activeRateable', () => {
-    const { quitters, newNonQuit, activeRateable } = partitionRosterForRating([
-      { slot: 1, team: 1, isQuitter: true, isQuitterSeasonTax: true },
-      { slot: 2, team: 1, isQuitter: false },
-      { slot: 7, team: 2, isQuitter: false },
-    ]);
-
-    expect(quitters).toEqual([]);
-    expect(newNonQuit).toEqual([]);
+    expect(pairedNew).toEqual([]);
     expect(activeRateable.map((entry) => entry.slot)).toEqual([1, 2, 7]);
   });
 
   it('keeps griefers in the rateable roster when not New', () => {
-    const { quitters, newNonQuit, activeRateable } = partitionRosterForRating([
+    const { pairedNew, activeRateable } = partitionRosterForRating([
       { slot: 1, team: 1, isQuitter: false },
       { slot: 2, team: 1, isQuitter: false },
     ]);
 
-    expect(quitters).toEqual([]);
-    expect(newNonQuit).toEqual([]);
+    expect(pairedNew).toEqual([]);
     expect(activeRateable.map((entry) => entry.slot)).toEqual([1, 2]);
   });
 
   it('freezes paired New (1v1) and leaves veterans rateable', () => {
-    const { quitters, newNonQuit, activeRateable } = partitionRosterForRating([
+    const { pairedNew, activeRateable } = partitionRosterForRating([
       { slot: 1, team: 1 as const, isQuitter: false, wasNewPlayer: true },
       { slot: 2, team: 1 as const, isQuitter: false, wasNewPlayer: false },
       { slot: 7, team: 2 as const, isQuitter: false, wasNewPlayer: true },
       { slot: 8, team: 2 as const, isQuitter: false, wasNewPlayer: false },
     ]);
 
-    expect(newNonQuit.map((entry) => entry.slot).sort()).toEqual([1, 7]);
+    expect(pairedNew.map((entry) => entry.slot).sort()).toEqual([1, 7]);
     expect(activeRateable.map((entry) => entry.slot).sort()).toEqual([2, 8]);
-    expect(quitters).toEqual([]);
   });
 
-  it('rates one-sided New (k=0) instead of freezing', () => {
-    const { newNonQuit, activeRateable, quitters } = partitionRosterForRating([
+  it('rates one-sided New (k=0) instead of freezing, quitters included', () => {
+    const { pairedNew, activeRateable } = partitionRosterForRating([
       { slot: 1, team: 1 as const, isQuitter: false, wasNewPlayer: false },
       { slot: 2, team: 1 as const, isQuitter: false, wasNewPlayer: false },
       { slot: 7, team: 2 as const, isQuitter: false, wasNewPlayer: true },
       { slot: 8, team: 2 as const, isQuitter: true, wasNewPlayer: true },
     ]);
 
-    expect(newNonQuit).toEqual([]);
-    expect(activeRateable.map((entry) => entry.slot).sort()).toEqual([1, 2, 7]);
-    expect(quitters.map((entry) => entry.slot)).toEqual([8]);
+    expect(pairedNew).toEqual([]);
+    expect(activeRateable.map((entry) => entry.slot).sort()).toEqual([1, 2, 7, 8]);
   });
 
   it('freezes k lowest slots per team and rates excess New (2v1)', () => {
-    const { newNonQuit, activeRateable } = partitionRosterForRating([
+    const { pairedNew, activeRateable } = partitionRosterForRating([
       { slot: 1, team: 1 as const, isQuitter: false, wasNewPlayer: true },
       { slot: 3, team: 1 as const, isQuitter: false, wasNewPlayer: true },
       { slot: 2, team: 1 as const, isQuitter: false, wasNewPlayer: false },
@@ -83,30 +65,29 @@ describe('partitionRosterForRating', () => {
     ]);
 
     // k=1 → freeze slot 1 (lowest New on T1) and slot 7; excess New slot 3 rates
-    expect(newNonQuit.map((entry) => entry.slot).sort()).toEqual([1, 7]);
+    expect(pairedNew.map((entry) => entry.slot).sort()).toEqual([1, 7]);
     expect(activeRateable.map((entry) => entry.slot).sort()).toEqual([2, 3, 8]);
   });
 
-  it('freezes surviving New when the paired New quit (balanced 1v1)', () => {
-    const { newNonQuit, activeRateable, quitters } = partitionRosterForRating([
+  it('freezes both paired New when one of them quit (balanced 1v1)', () => {
+    const { pairedNew, activeRateable } = partitionRosterForRating([
       { slot: 1, team: 1 as const, isQuitter: true, wasNewPlayer: true },
       { slot: 2, team: 1 as const, isQuitter: false, wasNewPlayer: false },
       { slot: 7, team: 2 as const, isQuitter: false, wasNewPlayer: true },
       { slot: 8, team: 2 as const, isQuitter: false, wasNewPlayer: false },
     ]);
 
-    expect(quitters.map((entry) => entry.slot)).toEqual([1]);
-    expect(newNonQuit.map((entry) => entry.slot)).toEqual([7]);
+    expect(pairedNew.map((entry) => entry.slot)).toEqual([1, 7]);
     expect(activeRateable.map((entry) => entry.slot).sort()).toEqual([2, 8]);
   });
 
   it('treats missing wasNewPlayer as not New', () => {
-    const { newNonQuit, activeRateable } = partitionRosterForRating([
+    const { pairedNew, activeRateable } = partitionRosterForRating([
       { slot: 1, team: 1, isQuitter: false },
       { slot: 2, team: 1, isQuitter: false, wasNewPlayer: false },
     ]);
 
-    expect(newNonQuit).toEqual([]);
+    expect(pairedNew).toEqual([]);
     expect(activeRateable.map((entry) => entry.slot)).toEqual([1, 2]);
   });
 });
@@ -150,23 +131,6 @@ describe('canRunHeroRate', () => {
         { team: 2, heroId: 7 },
       ]),
     ).toBe(true);
-  });
-});
-
-describe('assertBothTeamsHaveActivePlayers', () => {
-  it('accepts one active player per team', () => {
-    expect(() =>
-      assertBothTeamsHaveActivePlayers([
-        { slot: 1, team: 1 },
-        { slot: 6, team: 2 },
-      ]),
-    ).not.toThrow();
-  });
-
-  it('rejects when quitters empty a team', () => {
-    expect(() => assertBothTeamsHaveActivePlayers([{ slot: 1, team: 1 }])).toThrow(
-      MatchServiceError,
-    );
   });
 });
 
@@ -270,7 +234,7 @@ describe('applyMatchRatings', () => {
     }
   });
 
-  it('does not reset idle decay streak for quitters', async () => {
+  it('rates quitters with their team without resetting their idle decay streak', async () => {
     const db = heroNullDb();
     db.playerRating.findMany.mockResolvedValue([
       { playerId: 'p1', mu: 25, sigma: 8.333 },
@@ -285,14 +249,15 @@ describe('applyMatchRatings', () => {
 
     await applyMatchRatings('league-1', roster, 1, COMPLETED_AT, db as never);
 
-    const updatedPlayerIds = db.playerRating.update.mock.calls.map(
-      (call) => call[0].where.leagueId_playerId.playerId as string,
+    const dataByPlayer = new Map(
+      db.playerRating.update.mock.calls.map(
+        (call) => [call[0].where.leagueId_playerId.playerId as string, call[0].data] as const,
+      ),
     );
-    expect(updatedPlayerIds).toEqual(expect.arrayContaining(['p1', 'p2']));
-    expect(updatedPlayerIds).not.toContain('p3');
-    for (const call of db.playerRating.update.mock.calls) {
-      expect(call[0].data).toMatchObject(activityResetData);
-    }
+    expect(dataByPlayer.get('p1')).toMatchObject(activityResetData);
+    expect(dataByPlayer.get('p2')).toMatchObject(activityResetData);
+    expect(dataByPlayer.get('p3')!.mu).toBeLessThan(25);
+    expect(dataByPlayer.get('p3')).not.toHaveProperty('lastQualifyingActivityAt');
   });
 
   it('resets idle decay streak for frozen New who skip team rate', async () => {

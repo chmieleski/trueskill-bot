@@ -201,7 +201,7 @@ describe('computeWinChanceFromRatings', () => {
     expect(flagged!.teamAPercent).toBeLessThan(unmarkedNew!.teamAPercent);
   });
 
-  it('omits quitters so paired New win% is unchanged after a quit flag', () => {
+  it('keeps pre-match win% unchanged after a quit flag (quitters stay in the match)', () => {
     const vetsA = ['a1', 'a2', 'a3', 'a4'];
     const vetsB = ['b1', 'b2', 'b3', 'b4', 'b5'];
     const baseEntries = [
@@ -228,7 +228,17 @@ describe('computeWinChanceFromRatings', () => {
       { staticSigma: true },
     );
 
+    const withVeteranQuitter = computeWinChanceFromRatings(
+      baseEntries.map((entry) =>
+        entry.playerId === 'a1' ? { ...entry, isQuitter: true as const } : entry,
+      ),
+      globals,
+      heroes,
+      { staticSigma: true },
+    );
+
     expect(preMatch).toEqual(withQuitter);
+    expect(preMatch).toEqual(withVeteranQuitter);
     expect(preMatch!.teamAPercent + preMatch!.teamBPercent).toBe(100);
   });
 

@@ -1,7 +1,6 @@
 import type { Prisma } from '@dbz/db';
 import { rating, rate, type Rating } from 'openskill';
 import { prisma } from '../../lib/prisma.js';
-import { MatchServiceError } from '../match/match-service.js';
 import {
   ratingEntitiesForHero,
   ratingEntitiesForOverall,
@@ -27,9 +26,8 @@ export type RatingRosterEntry = {
   slot: number;
   team: 1 | 2;
   heroId: number | null;
+  /** Quit incident; rated with the team like everyone else, counted for the rollover tax. */
   isQuitter: boolean;
-  /** When true, season tax method applies instead of synthetic losses (quitter stays in team rate). */
-  isQuitterSeasonTax?: boolean;
   isGriefer?: boolean;
   /** Disconnect incident; not used by OpenSkill apply (season tax only). */
   isDc?: boolean;
@@ -49,30 +47,24 @@ function heroKey(playerId: string, heroId: number): string {
 
 /**
  * Split roster for rating apply.
- * Non-quit New freeze only when pairable across teams (`k = min(newA, newB)`);
- * quit New still count toward k so a lone surviving New stays frozen when the
- * other team's New quit. Excess / one-sided non-quit New rate normally.
+ * New freeze only when pairable across teams (`k = min(newA, newB)`, lowest slots).
+ * Everyone else rates with their team — quitters included (flag only feeds the rollover tax).
  */
 export function partitionRosterForRating<
   T extends {
-    isQuitter: boolean;
-    isQuitterSeasonTax?: boolean;
     wasNewPlayer?: boolean;
     team: 1 | 2;
     slot: number;
   },
->(entries: T[]): { quitters: T[]; newNonQuit: T[]; activeRateable: T[] } {
-  const quitters = entries.filter((entry) => entry.isQuitter && !entry.isQuitterSeasonTax);
-  const nonQuit = entries.filter((entry) => !entry.isQuitter || entry.isQuitterSeasonTax === true);
+>(entries: T[]): { pairedNew: T[]; activeRateable: T[] } {
   const pairedNewKeys = computePairedNewKeys(entries, (entry) => entry.wasNewPlayer === true);
 
   const isPairedNew = (entry: T): boolean =>
     entry.wasNewPlayer === true && pairedNewKeys.has(entryPairKey(entry));
 
   return {
-    quitters,
-    newNonQuit: nonQuit.filter(isPairedNew),
-    activeRateable: nonQuit.filter((entry) => !isPairedNew(entry)),
+    pairedNew: entries.filter(isPairedNew),
+    activeRateable: entries.filter((entry) => !isPairedNew(entry)),
   };
 }
 
@@ -150,16 +142,6 @@ export async function accrueGrieferPenalties(
       where: { matchId_playerId: { matchId, playerId: entry.playerId } },
       data: { grieferKiAccrued },
     });
-  }
-}
-
-export function assertBothTeamsHaveActivePlayers(active: { slot: number; team: 1 | 2 }[]): void {
-  const { teamA, teamB } = splitRosterByTeam(active);
-
-  if (teamA.length === 0 || teamB.length === 0) {
-    throw new MatchServiceError(
-      'Cannot complete: after quitters, a team has no remaining players. Cancel the match instead.',
-    );
   }
 }
 
@@ -497,11 +479,13 @@ export async function applyMatchRatings(
 
   for (const entry of activeRateable) {
     const updated = updatedByPlayer.get(entry.playerId);
+    // Quitters are rated with their team, but a quit is not qualifying activity for idle decay.
+    const reset = entry.isQuitter ? {} : activityReset;
 
     if (!updated) {
       await db.playerRating.update({
         where: { leagueId_playerId: { leagueId, playerId: entry.playerId } },
-        data: activityReset,
+        data: reset,
       });
       continue;
     }
@@ -511,7 +495,7 @@ export async function applyMatchRatings(
       data: {
         mu: updated.global.mu,
         sigma: updated.global.sigma,
-        ...activityReset,
+        ...reset,
       },
     });
 
@@ -536,8 +520,8 @@ export async function applyMatchRatings(
   }
 
   // Paired frozen New skip team rate but still reset idle streak.
-  const { newNonQuit } = partitionRosterForRating(sorted);
-  await resetIdleDecayStreakForNonQuit(leagueId, newNonQuit, completedAt, db);
+  const { pairedNew } = partitionRosterForRating(sorted);
+  await resetIdleDecayStreakForNonQuit(leagueId, pairedNew, completedAt, db);
 }
 
 export type MuSigma = { mu: number; sigma: number };

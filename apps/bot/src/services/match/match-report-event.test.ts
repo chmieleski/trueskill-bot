@@ -66,7 +66,6 @@ vi.mock('../../lib/logger.js', () => ({
 vi.mock('../rating/rating-update.js', () => ({
   applyMatchRatings,
   accrueGrieferPenalties,
-  assertBothTeamsHaveActivePlayers: vi.fn(),
   loadLiveGlobalByPlayer: vi.fn(),
   loadPreMatchGlobalByPlayer,
 }));

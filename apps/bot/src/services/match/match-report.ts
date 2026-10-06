@@ -21,7 +21,6 @@ import { assertTeam } from '../../domain/game-profile.js';
 import {
   accrueGrieferPenalties,
   applyMatchRatings,
-  assertBothTeamsHaveActivePlayers,
   loadLiveGlobalByPlayer,
   loadPreMatchGlobalByPlayer,
   type RatingRosterEntry,
@@ -377,16 +376,11 @@ export async function completeMatch(
     assertKnownSlots(match, grieferSet, 'griefer');
     assertKnownSlots(match, dcSet, 'DC');
 
-    const activeForTeams = match.players
-      .filter((p) => !quitterSet.has(p.slot))
-      .map((p) => ({ slot: p.slot, team: assertTeam(p.team) }));
-    assertBothTeamsHaveActivePlayers(activeForTeams);
-
     // Event matches: roster/results only — no OpenSkill or IHL side effects.
     if (isEventMatch(match)) {
       for (const player of match.players) {
         const isQuitter = quitterSet.has(player.slot);
-        const won = !isQuitter && isWinningTeam(player.team, winningTeam);
+        const won = isWinningTeam(player.team, winningTeam);
 
         await tx.matchPlayer.update({
           where: { matchId_playerId: { matchId, playerId: player.playerId } },
@@ -429,8 +423,6 @@ export async function completeMatch(
     const playerIds = match.players.map((p) => p.playerId);
     const isNewByPlayerId = await loadIsNewPlayerByPlayerId(leagueId, playerIds, tx);
     const entries = toRatingEntries(match, quitterSet, grieferSet, dcSet, isNewByPlayerId);
-    const active = entries.filter((entry) => !entry.isQuitter);
-    assertBothTeamsHaveActivePlayers(active);
 
     for (const entry of previewEntries) {
       entry.wasNewPlayer = isNewByPlayerId.get(entry.playerId) === true;
@@ -446,7 +438,7 @@ export async function completeMatch(
 
     for (const player of match.players) {
       const isQuitter = quitterSet.has(player.slot);
-      const won = !isQuitter && isWinningTeam(player.team, winningTeam);
+      const won = isWinningTeam(player.team, winningTeam);
 
       await tx.matchPlayer.update({
         where: { matchId_playerId: { matchId, playerId: player.playerId } },

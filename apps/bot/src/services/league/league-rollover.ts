@@ -21,6 +21,7 @@ import {
   gamesByPlayerFromStats,
   loadMatchDisplayStatsByPlayer,
   loadPendingQuitterTaxByPlayer,
+  loadQuitterSeasonTaxCounts,
 } from '../rating/rank-reset-display.js';
 import { invalidateDecayLeagueCache } from '../rating/rating-decay-league-cache.js';
 
@@ -353,14 +354,6 @@ async function loadPendingDcTaxForLeague(leagueId: string) {
   return sumDcSeasonTaxByPlayer(rows);
 }
 
-async function loadQuitterIncidentCountsForLeague(leagueId: string) {
-  const rows = await prisma.matchPlayer.findMany({
-    where: { isQuitter: true, match: { leagueId } },
-    select: { playerId: true },
-  });
-  return countQuitterIncidents(rows);
-}
-
 async function loadPendingQuitterTaxForLeague(leagueId: string) {
   return loadPendingQuitterTaxByPlayer(leagueId);
 }
@@ -690,7 +683,7 @@ export async function applyLeagueRollover(
     await Promise.all([
       loadPendingGrieferTaxForLeague(source.id),
       loadPendingDcTaxForLeague(source.id),
-      loadQuitterIncidentCountsForLeague(source.id),
+      loadQuitterSeasonTaxCounts(source.id),
       loadMatchDisplayStatsByPlayer(source.id, [...playerIds]),
     ]);
   const gamesByPlayer = gamesByPlayerFromStats(displayStats);
