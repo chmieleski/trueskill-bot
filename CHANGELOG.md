@@ -1,3 +1,10 @@
+# [1.77.0](https://github.com/chmieleski/trueskill-bot/compare/v1.76.0...v1.77.0) (2026-10-06)
+
+
+### Features
+
+* **rank:** show hero board position on /rank ([#212](https://github.com/chmieleski/trueskill-bot/issues/212)) ([6d5e54e](https://github.com/chmieleski/trueskill-bot/commit/6d5e54e2c54c18a6efc07706fa39e460d79690f3))
+
 # [1.76.0](https://github.com/chmieleski/trueskill-bot/compare/v1.75.0...v1.76.0) (2026-10-06)
 
 
