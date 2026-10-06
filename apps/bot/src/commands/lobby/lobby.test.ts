@@ -40,6 +40,18 @@ describe('lobby command data', () => {
     expect(wc3statsId?.type).toBe(ApplicationCommandOptionType.Integer);
   });
 
+  it('takes a comma-separated slot list on lock and unlock', () => {
+    const json = data.toJSON();
+    for (const name of ['lock', 'unlock']) {
+      const sub = json.options?.find((option) => option.name === name);
+      const options = sub && 'options' in sub ? (sub.options ?? []) : [];
+      const slots = options.find((option) => option.name === 'slots');
+
+      expect(slots?.required).toBe(true);
+      expect(slots?.type).toBe(ApplicationCommandOptionType.String);
+    }
+  });
+
   it('describes cancel as host or match moderator', () => {
     const json = data.toJSON();
     const cancel = json.options?.find((option) => option.name === 'cancel');

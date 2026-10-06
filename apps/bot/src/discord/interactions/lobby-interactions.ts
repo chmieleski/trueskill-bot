@@ -37,7 +37,8 @@ import {
   balanceResultMessage,
   startLobbyMatchByMessageId,
   syncLobbyDiscordMessage,
-  toggleLobbySlotLock,
+  setLobbyLockedSlots,
+  formatSlotList,
 } from '../../services/lobby/index.js';
 import { claimSlotSelectOptions, LOBBY_CUSTOM_IDS } from '../../services/lobby/index.js';
 import { loadHeroCatalog } from '../../services/guild/index.js';
@@ -377,7 +378,13 @@ async function handleLockToggleEntry(interaction: ButtonInteraction): Promise<vo
     return;
   }
 
-  const options = playerSelectOptions(result.players);
+  const lockedSlots = new Set(
+    result.players.filter((player) => player.locked === true).map((player) => player.slot),
+  );
+  const options = playerSelectOptions(result.players).map((option) => ({
+    ...option,
+    default: lockedSlots.has(Number(option.value)),
+  }));
   if (options.length === 0) {
     await replyEphemeral(interaction, 'No players to lock or unlock.');
     return;
@@ -386,19 +393,25 @@ async function handleLockToggleEntry(interaction: ButtonInteraction): Promise<vo
   const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(`lobby:select:lock_slot:${messageId}`)
-      .setPlaceholder('Select a player to lock or unlock')
+      .setPlaceholder('Select the players to lock')
+      .setMinValues(0)
+      .setMaxValues(options.length)
       .addOptions(options),
   );
 
-  await replyEphemeral(interaction, 'Select a player to lock or unlock their seat:', [row]);
+  await replyEphemeral(
+    interaction,
+    'Select every player to lock. Unselected players are unlocked:',
+    [row],
+  );
 }
 
 async function handleSelectLockSlot(
   interaction: StringSelectMenuInteraction,
   messageId: string,
 ): Promise<void> {
-  const slot = Number(interaction.values[0]);
-  if (!Number.isInteger(slot)) {
+  const slots = interaction.values.map(Number).sort((a, b) => a - b);
+  if (!slots.every(Number.isInteger)) {
     await updateEphemeral(interaction, 'Invalid slot.');
     return;
   }
@@ -419,20 +432,19 @@ async function handleSelectLockSlot(
 
   try {
     const config = await resolveGuildConfig(interaction.guildId);
-    const result = await toggleLobbySlotLock({
+    const result = await setLobbyLockedSlots({
       client: interaction.client,
       actorDiscordId: interaction.user.id,
       matchId: pending.match.id,
-      slot,
+      lockedSlots: slots,
       memberRoleIds: memberRoleIds(interaction),
       matchModRoleId: config.matchModRoleId,
     });
-    const locked = result.players.find((player) => player.slot === slot)?.locked === true;
     await updateEphemeral(
       interaction,
-      locked
-        ? `Locked slot ${slot} in match \`${result.match.id}\`.`
-        : `Unlocked slot ${slot} in match \`${result.match.id}\`.`,
+      slots.length > 0
+        ? `Locked ${formatSlotList(slots)} in match \`${result.match.id}\`. Everyone else is unlocked.`
+        : `Unlocked every slot in match \`${result.match.id}\`.`,
     );
   } catch (error) {
     if (error instanceof MatchServiceError) {

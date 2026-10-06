@@ -5,7 +5,7 @@ import {
   getGameProfileForMatch,
   matchToLobbyPlayers,
   requireLeagueId,
-  setMatchPlayerLocked,
+  setMatchPlayersLocked,
 } from '../match/match-service.js';
 import { prisma } from '../../lib/prisma.js';
 import { nickForDiscordId } from './lobby-identity.js';
@@ -252,59 +252,58 @@ type ManageLobbyInput = {
 
 async function syncAfterLock(
   client: Client,
-  match: Awaited<ReturnType<typeof setMatchPlayerLocked>>,
+  match: Awaited<ReturnType<typeof setMatchPlayersLocked>>,
 ): Promise<LobbyActionResult> {
   await syncLobbyDiscordMessage(client, match, 'pending');
   return { match, players: matchToLobbyPlayers(match) };
 }
 
-/** Soft-lock an occupied PENDING seat (host or match mod). */
-export async function lockLobbySlot(
-  input: ManageLobbyInput & { slot: number },
+/** "slot 3" / "slots 1, 3, 7" for lock replies. */
+export function formatSlotList(slots: number[]): string {
+  return `${slots.length === 1 ? 'slot' : 'slots'} ${slots.join(', ')}`;
+}
+
+/** Soft-lock occupied PENDING seats (host or match mod). */
+export async function lockLobbySlots(
+  input: ManageLobbyInput & { slots: number[] },
 ): Promise<LobbyActionResult> {
-  const { match } = await resolvePendingMatchForManage({
-    actorDiscordId: input.actorDiscordId,
-    matchId: input.matchId,
-    memberRoleIds: input.memberRoleIds,
-    matchModRoleId: input.matchModRoleId,
-  });
-  const updated = await setMatchPlayerLocked(match.id, input.slot, true);
+  const { match } = await resolvePendingMatchForManage(input);
+  const updated = await setMatchPlayersLocked(
+    match.id,
+    input.slots.map((slot) => ({ slot, locked: true })),
+  );
   return syncAfterLock(input.client, updated);
 }
 
-/** Clear soft lock on a PENDING seat (host or match mod). Idempotent when unlocked. */
-export async function unlockLobbySlot(
-  input: ManageLobbyInput & { slot: number },
+/** Clear soft locks on PENDING seats (host or match mod). Idempotent when unlocked. */
+export async function unlockLobbySlots(
+  input: ManageLobbyInput & { slots: number[] },
 ): Promise<LobbyActionResult> {
-  const { match } = await resolvePendingMatchForManage({
-    actorDiscordId: input.actorDiscordId,
-    matchId: input.matchId,
-    memberRoleIds: input.memberRoleIds,
-    matchModRoleId: input.matchModRoleId,
-  });
-  const updated = await setMatchPlayerLocked(match.id, input.slot, false);
+  const { match } = await resolvePendingMatchForManage(input);
+  const updated = await setMatchPlayersLocked(
+    match.id,
+    input.slots.map((slot) => ({ slot, locked: false })),
+  );
   return syncAfterLock(input.client, updated);
 }
 
-/** Toggle soft lock on an occupied PENDING seat (button path). */
-export async function toggleLobbySlotLock(
-  input: ManageLobbyInput & { slot: number },
+/**
+ * Lock exactly `lockedSlots` and unlock every other occupied seat (button path).
+ */
+export async function setLobbyLockedSlots(
+  input: ManageLobbyInput & { lockedSlots: number[] },
 ): Promise<LobbyActionResult> {
-  const { match, players } = await resolvePendingMatchForManage({
-    actorDiscordId: input.actorDiscordId,
-    matchId: input.matchId,
-    memberRoleIds: input.memberRoleIds,
-    matchModRoleId: input.matchModRoleId,
-  });
-  const profile = await getGameProfileForMatch(match);
-  if (!isSlotInProfile(profile, input.slot)) {
-    throw new MatchServiceError(invalidSlotMessage(profile));
+  const { match, players } = await resolvePendingMatchForManage(input);
+  const occupied = new Set(players.map((player) => player.slot));
+  const stale = input.lockedSlots.find((slot) => !occupied.has(slot));
+  if (stale !== undefined) {
+    throw new MatchServiceError(`Nobody in slot ${stale} to lock.`);
   }
-  const occupant = players.find((player) => player.slot === input.slot);
-  if (!occupant) {
-    throw new MatchServiceError('Nobody in that slot to lock.');
-  }
-  const updated = await setMatchPlayerLocked(match.id, input.slot, occupant.locked !== true);
+  const wanted = new Set(input.lockedSlots);
+  const updated = await setMatchPlayersLocked(
+    match.id,
+    players.map((player) => ({ slot: player.slot, locked: wanted.has(player.slot) })),
+  );
   return syncAfterLock(input.client, updated);
 }
 

@@ -10,7 +10,8 @@ import {
   buildMatchLobbyEmbed,
   cancelLobbyMatch,
   isImageAttachment,
-  lockLobbySlot,
+  formatSlotList,
+  lockLobbySlots,
   parseRemapPairs,
   recreateLobbyFromVoidedMatch,
   refreshLobbyFromScreenshot,
@@ -24,9 +25,10 @@ import {
   balanceResultMessage,
   startLobbyMatch,
   swapLobbyPlayers,
-  unlockLobbySlot,
+  unlockLobbySlots,
 } from '../../services/lobby/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
+import { parseFlagSlots } from '../match/match.js';
 import { sendNewPlayerSuggestPrompts } from '../../discord/interactions/new-player-interactions.js';
 
 const log = createLogger('lobby_cmd');
@@ -174,14 +176,12 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName('lock')
-      .setDescription('Soft-lock a player into their current slot (host or match moderator)')
-      .addIntegerOption((option) =>
+      .setDescription('Soft-lock players into their current slots (host or match moderator)')
+      .addStringOption((option) =>
         option
-          .setName('slot')
-          .setDescription('Occupied lobby slot to lock')
-          .setRequired(true)
-          .setMinValue(1)
-          .setMaxValue(12),
+          .setName('slots')
+          .setDescription('Comma-separated slots to lock, like "1,3,7"')
+          .setRequired(true),
       )
       .addStringOption((option) =>
         option
@@ -193,14 +193,12 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName('unlock')
-      .setDescription('Clear a soft lock on a lobby slot (host or match moderator)')
-      .addIntegerOption((option) =>
+      .setDescription('Clear soft locks on lobby slots (host or match moderator)')
+      .addStringOption((option) =>
         option
-          .setName('slot')
-          .setDescription('Lobby slot to unlock')
-          .setRequired(true)
-          .setMinValue(1)
-          .setMaxValue(12),
+          .setName('slots')
+          .setDescription('Comma-separated slots to unlock, like "1,3,7"')
+          .setRequired(true),
       )
       .addStringOption((option) =>
         option
@@ -412,39 +410,45 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     if (subcommand === 'lock') {
-      const slot = interaction.options.getInteger('slot', true);
+      const slots = parseFlagSlots(interaction.options.getString('slots', true), 'lock');
+      if (slots.length === 0) {
+        throw new MatchServiceError('Give at least one slot, like "1,3,7".');
+      }
       const matchModRoleId = interaction.guildId
         ? (await resolveGuildConfig(interaction.guildId)).matchModRoleId
         : undefined;
-      const result = await lockLobbySlot({
+      const result = await lockLobbySlots({
         client: interaction.client,
         actorDiscordId: hostDiscordId,
         matchId,
-        slot,
+        slots,
         memberRoleIds: memberRoleIds(interaction),
         matchModRoleId,
       });
       await interaction.editReply({
-        content: `Locked slot ${slot} in match \`${result.match.id}\`.`,
+        content: `Locked ${formatSlotList(slots)} in match \`${result.match.id}\`.`,
       });
       return;
     }
 
     if (subcommand === 'unlock') {
-      const slot = interaction.options.getInteger('slot', true);
+      const slots = parseFlagSlots(interaction.options.getString('slots', true), 'unlock');
+      if (slots.length === 0) {
+        throw new MatchServiceError('Give at least one slot, like "1,3,7".');
+      }
       const matchModRoleId = interaction.guildId
         ? (await resolveGuildConfig(interaction.guildId)).matchModRoleId
         : undefined;
-      const result = await unlockLobbySlot({
+      const result = await unlockLobbySlots({
         client: interaction.client,
         actorDiscordId: hostDiscordId,
         matchId,
-        slot,
+        slots,
         memberRoleIds: memberRoleIds(interaction),
         matchModRoleId,
       });
       await interaction.editReply({
-        content: `Unlocked slot ${slot} in match \`${result.match.id}\`.`,
+        content: `Unlocked ${formatSlotList(slots)} in match \`${result.match.id}\`.`,
       });
       return;
     }

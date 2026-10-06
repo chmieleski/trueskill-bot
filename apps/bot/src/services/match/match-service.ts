@@ -590,12 +590,12 @@ export async function getMatchById(matchId: string): Promise<MatchWithPlayers | 
 }
 
 /**
- * Soft-lock toggle on a PENDING MatchPlayer seat (no roster rewrite).
+ * Set soft locks on PENDING MatchPlayer seats (no roster rewrite).
+ * Validates every slot before writing so a bad slot changes nothing.
  */
-export async function setMatchPlayerLocked(
+export async function setMatchPlayersLocked(
   matchId: string,
-  slot: number,
-  locked: boolean,
+  changes: Array<{ slot: number; locked: boolean }>,
 ): Promise<MatchWithPlayers> {
   const match = await getMatchById(matchId);
   if (!match) {
@@ -606,24 +606,23 @@ export async function setMatchPlayerLocked(
   }
 
   const profile = await loadMatchProfileForTenant(match);
-  if (!isSlotInProfile(profile, slot)) {
-    throw new MatchServiceError(invalidSlotMessage(profile));
-  }
-
-  const occupant = match.players.find((player) => player.slot === slot);
-  if (!occupant) {
-    if (locked) {
-      throw new MatchServiceError('Nobody in that slot to lock.');
+  const updates = changes.map(({ slot, locked }) => {
+    if (!isSlotInProfile(profile, slot)) {
+      throw new MatchServiceError(invalidSlotMessage(profile));
     }
-    throw new MatchServiceError(`Slot ${slot} is empty.`);
-  }
-
-  await prisma.matchPlayer.update({
-    where: {
-      matchId_playerId: { matchId, playerId: occupant.playerId },
-    },
-    data: { locked },
+    const occupant = match.players.find((player) => player.slot === slot);
+    if (!occupant) {
+      throw new MatchServiceError(
+        locked ? `Nobody in slot ${slot} to lock.` : `Slot ${slot} is empty.`,
+      );
+    }
+    return prisma.matchPlayer.update({
+      where: { matchId_playerId: { matchId, playerId: occupant.playerId } },
+      data: { locked },
+    });
   });
+
+  await prisma.$transaction(updates);
 
   const updated = await getMatchById(matchId);
   if (!updated) {
