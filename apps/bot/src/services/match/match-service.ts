@@ -26,6 +26,7 @@ import {
   LEAGUE_SEASON_PAUSED_MESSAGE,
 } from '../league/league.js';
 import { getGameProfileForLeague, LeagueNotFoundError } from '../league/league-profile.js';
+import { inGameRosterData, type InGameRosterSource } from '../lobby/in-game-roster.js';
 import {
   EVENT_NOT_ACTIVE_MESSAGE,
   EVENT_NOT_FOUND_MESSAGE,
@@ -64,6 +65,8 @@ export type CreatePendingMatchInput = {
   bypassHostLobbyCap?: boolean;
   /** Set when roster authority comes from a screenshot at register time. */
   lobbyRosterAuthorityAt?: Date | null;
+  /** Set when `players` were read from the game; records the in-game roster snapshot. */
+  inGameRosterSource?: InGameRosterSource;
 } & ({ leagueId: string; eventId?: never } | { eventId: string; leagueId?: never });
 
 /** True when the match belongs to an Event (unrated). */
@@ -82,6 +85,8 @@ export function requireLeagueId(match: { leagueId: string | null }): string {
 export type ReplaceMatchRosterOptions = {
   /** Record screenshot/manual edit time so wc3stats cannot overwrite with older data. */
   markLobbyRosterAuthority?: boolean;
+  /** Set when the roster was read from the game; records the in-game roster snapshot. */
+  inGameRosterSource?: InGameRosterSource;
 };
 
 function mapHeroCatalogError(error: unknown): never {
@@ -505,6 +510,9 @@ export async function createPendingMatch(
         discordChannelId: input.discordChannelId,
         wc3statsGameId,
         lobbyRosterAuthorityAt: input.lobbyRosterAuthorityAt ?? undefined,
+        ...(input.inGameRosterSource && players.length > 0
+          ? inGameRosterData(players, input.inGameRosterSource)
+          : {}),
         players: {
           create: resolved.map((entry) => ({
             playerId: entry.playerId,
@@ -780,6 +788,13 @@ export async function replaceMatchRoster(
       await tx.match.update({
         where: { id: matchId },
         data: { lobbyRosterAuthorityAt: new Date() },
+      });
+    }
+
+    if (options.inGameRosterSource && roster.length > 0) {
+      await tx.match.update({
+        where: { id: matchId },
+        data: inGameRosterData(roster, options.inGameRosterSource),
       });
     }
 

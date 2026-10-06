@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { env } from '../../config/env.js';
 import { createLogger } from '../../lib/logger.js';
-import { normalizeNick } from '../player/player-nick.js';
+import { normalizeNick, stripBattleTag } from '../player/player-nick.js';
 import { teamDisplayName } from '../guild/team-names.js';
 
 const log = createLogger('lobby-ocr');
@@ -13,6 +13,8 @@ export interface LobbyPlayer {
   locked?: boolean;
   /** Quitter flag when creating a roster; host/mods set via report flow. */
   isQuitter?: boolean;
+  /** Exact in-game name (case kept, battle tag stripped) when read from the game. */
+  rawName?: string;
 }
 
 export interface ValidatedLobby {
@@ -66,7 +68,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function parsePlayersPayload(raw: string): LobbyPlayer[] {
+export function parsePlayersPayload(raw: string): LobbyPlayer[] {
   let parsed: unknown;
 
   try {
@@ -110,6 +112,7 @@ function parsePlayersPayload(raw: string): LobbyPlayer[] {
     players.push({
       slot,
       nick: cleanedNick,
+      rawName: stripBattleTag(nick),
     });
   }
 

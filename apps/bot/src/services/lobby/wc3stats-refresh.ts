@@ -268,7 +268,9 @@ export async function refreshLobbyFromWc3stats(input: {
     };
   }
 
-  const updated = await replaceMatchRoster(linked.id, applied.players);
+  const updated = await replaceMatchRoster(linked.id, applied.players, {
+    inGameRosterSource: 'wc3stats',
+  });
   await syncLobbyDiscordMessage(input.client, updated, 'pending');
   const result = await withNewPlayerSuggestions(
     { match: updated, players: matchToLobbyPlayers(updated) },

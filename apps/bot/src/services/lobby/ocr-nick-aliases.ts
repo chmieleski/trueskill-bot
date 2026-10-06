@@ -52,7 +52,8 @@ export function applyOcrNickAliases(
       { fromNick: player.nick, toNick: mapped, slot: player.slot },
       'OCR nick alias applied',
     );
-    return { ...player, nick: mapped };
+    // The raw OCR text is the misread; the alias target is the real in-game name.
+    return { ...player, nick: mapped, rawName: mapped };
   });
 }
 

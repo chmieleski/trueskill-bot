@@ -1,6 +1,6 @@
 import { createLogger } from '../../lib/logger.js';
 import type { LobbyPlayer } from '../lobby/lobby-ocr.js';
-import { normalizeNick } from '../player/player-nick.js';
+import { stripBattleTag } from '../player/player-nick.js';
 import type { Wc3statsSlot } from './wc3stats-client.js';
 import type { Wc3statsHeroSlotMap } from './wc3stats-slot-map.js';
 
@@ -69,7 +69,8 @@ export function extractWc3statsRoster(
       continue;
     }
 
-    const nick = normalizeNick(slot.player?.name ?? '');
+    const rawName = stripBattleTag(slot.player?.name ?? '');
+    const nick = rawName.toLowerCase();
     if (nick === '') {
       continue;
     }
@@ -89,7 +90,7 @@ export function extractWc3statsRoster(
 
     seenNicks.add(nick);
     seenHeroSlots.add(heroSlot);
-    players.push({ slot: heroSlot, nick });
+    players.push({ slot: heroSlot, nick, rawName });
   }
 
   players.sort((a, b) => a.slot - b.slot);

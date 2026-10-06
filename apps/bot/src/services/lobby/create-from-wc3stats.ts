@@ -125,6 +125,7 @@ export async function createMatchFromWc3statsLobby(
     discordChannelId: input.discordChannelId,
     players,
     wc3statsGameId,
+    inGameRosterSource: 'wc3stats',
     bypassHostLobbyCap: hasMatchModRole({
       actorDiscordId: input.hostDiscordId,
       memberRoleIds: input.memberRoleIds,

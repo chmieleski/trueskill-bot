@@ -25,6 +25,7 @@ vi.mock('../../lib/logger.js', () => ({
 import {
   extractLobbyPlayers,
   isGeminiCapacityError,
+  parsePlayersPayload,
   GEMINI_OCR_FALLBACK_MODEL,
   GEMINI_OCR_PRIMARY_MODEL,
 } from './lobby-ocr.js';
@@ -90,8 +91,8 @@ describe('extractLobbyPlayers capacity fallback', () => {
     expect(generateContent.mock.calls[0]![0].model).toBe(GEMINI_OCR_PRIMARY_MODEL);
     expect(generateContent.mock.calls[1]![0].model).toBe(GEMINI_OCR_FALLBACK_MODEL);
     expect(players).toEqual([
-      { slot: 1, nick: 'goku' },
-      { slot: 7, nick: 'vegeta' },
+      { slot: 1, nick: 'goku', rawName: 'Goku' },
+      { slot: 7, nick: 'vegeta', rawName: 'Vegeta' },
     ]);
   });
 
@@ -103,5 +104,12 @@ describe('extractLobbyPlayers capacity fallback', () => {
     );
     expect(generateContent).toHaveBeenCalledTimes(1);
     expect(generateContent.mock.calls[0]![0].model).toBe(GEMINI_OCR_PRIMARY_MODEL);
+  });
+});
+
+describe('parsePlayersPayload rawName', () => {
+  it('keeps the raw OCR nick as rawName', () => {
+    const players = parsePlayersPayload('{"players":[{"slot":2,"nick":"Broly#42"}]}');
+    expect(players).toEqual([{ slot: 2, nick: 'broly', rawName: 'Broly' }]);
   });
 });

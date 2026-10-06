@@ -345,6 +345,11 @@ model Match {
   wc3statsGameId              String?
   /// Last screenshot upload or manual roster edit; wc3stats Refresh must beat this.
   lobbyRosterAuthorityAt      DateTime?
+  /// Last roster read from the game (screenshot OCR / wc3stats): [{ slot, nick, rawName }] in bot slots.
+  inGameRoster                Json?
+  inGameRosterAt              DateTime?
+  /// 'screenshot' | 'wc3stats'
+  inGameRosterSource          String?
   leagueId                    String?
   eventId                     String?
   completedAt                 DateTime?
