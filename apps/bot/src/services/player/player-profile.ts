@@ -20,6 +20,7 @@ import {
 } from '../rating/rank-reset-display.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
 import { loadRankHeroesFromMatchStats } from './player-match-stats-heroes.js';
+import { rankLeaderboardRows } from '../leaderboard/leaderboard.js';
 
 const DEFAULT_MU = 25;
 const DEFAULT_SIGMA = 8.333;
@@ -47,6 +48,8 @@ export type PlayerProfileHero = {
   winRatePercent: number | null;
   /** When set (WOS stats heroes), shown instead of public ki in the hero table. */
   leadingColumn?: string;
+  /** Position on this hero's league board (`/leaderboard hero`); null while calibrating. */
+  rank?: number | null;
 };
 
 export type PlayerProfile = {
@@ -113,6 +116,45 @@ export function sortRankProfileHeroes(heroes: PlayerProfileHero[]): PlayerProfil
       (a, b) => b.matchesPlayed - a.matchesPlayed || b.ki - a.ki || a.name.localeCompare(b.name),
     )
     .slice(0, RANK_HERO_TOP);
+}
+
+/**
+ * Player's position on each hero board, ranked exactly like `/leaderboard hero`.
+ * Heroes the player has no row for are absent from the result.
+ */
+export function heroRankPositions(
+  rows: {
+    playerId: string;
+    heroId: number;
+    mu: number;
+    sigma: number;
+    matchesPlayed: number;
+    player: { username: string };
+  }[],
+  playerId: string,
+  leagueGamesByPlayer: Map<string, number>,
+): Map<number, number | null> {
+  const byHero = new Map<number, typeof rows>();
+  for (const row of rows) {
+    byHero.set(row.heroId, [...(byHero.get(row.heroId) ?? []), row]);
+  }
+
+  const ranks = new Map<number, number | null>();
+  for (const [heroId, heroRows] of byHero) {
+    const ranked = rankLeaderboardRows(
+      heroRows.map((row) => ({
+        playerId: row.playerId,
+        username: row.player.username,
+        ki: displayOrdinal(row.mu, row.sigma, row.matchesPlayed),
+      })),
+      (row) => leagueGamesByPlayer.get(row.playerId) ?? 0,
+    );
+    const mine = ranked.find((row) => row.playerId === playerId);
+    if (mine) {
+      ranks.set(heroId, mine.rank);
+    }
+  }
+  return ranks;
 }
 
 export function parseRankOptions(input: {
@@ -294,19 +336,24 @@ export async function loadPlayerProfile(
   const winRatePercentValue = winRatePercent(wins, losses);
   const heroes = includeStatsHeroes
     ? statsHeroes
-    : sortRankProfileHeroes(
-        heroRatings.map((row) => {
-          const heroWl = heroStatsFor(displayStats.byHero, player.id, row.heroId);
-          return {
-            heroId: row.heroId,
-            name: row.hero.name,
-            ki: displayOrdinal(row.mu, row.sigma, row.matchesPlayed),
-            matchesPlayed: row.matchesPlayed,
-            wins: heroWl.wins,
-            losses: heroWl.losses,
-            winRatePercent: winRatePercent(heroWl.wins, heroWl.losses),
-          };
-        }),
+    : await withHeroRanks(
+        leagueId,
+        player.id,
+        gamesByPlayer,
+        sortRankProfileHeroes(
+          heroRatings.map((row) => {
+            const heroWl = heroStatsFor(displayStats.byHero, player.id, row.heroId);
+            return {
+              heroId: row.heroId,
+              name: row.hero.name,
+              ki: displayOrdinal(row.mu, row.sigma, row.matchesPlayed),
+              matchesPlayed: row.matchesPlayed,
+              wins: heroWl.wins,
+              losses: heroWl.losses,
+              winRatePercent: winRatePercent(heroWl.wins, heroWl.losses),
+            };
+          }),
+        ),
       );
 
   return {
@@ -329,4 +376,33 @@ export async function loadPlayerProfile(
     sideWinLoss: league?.showSideWinLoss ? sideStatsFor(displayStats.bySide, player.id) : null,
     decayFooter,
   };
+}
+
+/** Attach each shown hero's board position (one query across the shown heroes). */
+async function withHeroRanks(
+  leagueId: string,
+  playerId: string,
+  leagueGamesByPlayer: Map<string, number>,
+  heroes: PlayerProfileHero[],
+): Promise<PlayerProfileHero[]> {
+  if (heroes.length === 0) {
+    return heroes;
+  }
+  const rows = await prisma.playerHeroRating.findMany({
+    where: {
+      leagueId,
+      heroId: { in: heroes.map((hero) => hero.heroId) },
+      matchesPlayed: { gt: 0 },
+    },
+    select: {
+      playerId: true,
+      heroId: true,
+      mu: true,
+      sigma: true,
+      matchesPlayed: true,
+      player: { select: { username: true } },
+    },
+  });
+  const ranks = heroRankPositions(rows, playerId, leagueGamesByPlayer);
+  return heroes.map((hero) => ({ ...hero, rank: ranks.get(hero.heroId) ?? null }));
 }

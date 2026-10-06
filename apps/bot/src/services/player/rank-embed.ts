@@ -60,13 +60,19 @@ export function formatHeroTable(heroes: PlayerProfileHero[], leagueGames: number
       record: recordWithWr,
     };
   });
+  // Rank column only when the source ranks heroes (slot-bound ratings, not WOS stats).
+  const ranks = heroes.some((hero) => hero.rank !== undefined)
+    ? heroes.map((hero) => (typeof hero.rank === 'number' ? `#${hero.rank}` : '-'))
+    : null;
+  const rankWidth = ranks ? Math.max(...ranks.map((rank) => rank.length)) : 0;
   const nameWidth = Math.max(...cells.map((cell) => cell.name.length));
   const kiWidth = Math.max(...cells.map((cell) => cell.ki.length));
 
-  const lines = cells.map((cell) => {
+  const lines = cells.map((cell, index) => {
+    const rank = ranks ? `${ranks[index]!.padEnd(rankWidth, ' ')}  ` : '';
     const name = cell.name.padEnd(nameWidth, ' ');
     const ki = cell.ki.padStart(kiWidth, ' ');
-    return `${name}  ${ki} · ${cell.record}`;
+    return `${rank}${name}  ${ki} · ${cell.record}`;
   });
 
   return `\`\`\`\n${lines.join('\n')}\n\`\`\``;
