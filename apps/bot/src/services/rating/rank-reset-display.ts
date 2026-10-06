@@ -191,7 +191,7 @@ export function gamesByPlayerFromStats(
   return new Map([...stats.entries()].map(([playerId, row]) => [playerId, row.games]));
 }
 
-/** True when league quit rate is 50%+ (same W/L/Q window as `/rank`). */
+/** True when quit rate is 50%+ over the given W/L/Q window (lifetime for the ⚠️ mark). */
 export function isHabitualQuitter(quits: number, games: number): boolean {
   if (quits < 1) {
     return false;
@@ -491,6 +491,59 @@ export async function loadMatchDisplayStatsByPlayer(
   }
 
   return history;
+}
+
+type LineageDb = Db & Pick<PrismaClient, 'league'>;
+
+/** Rollover chain for a league: itself, then each `predecessorLeagueId`, newest first. */
+async function loadLeagueLineageIds(leagueId: string, db: LineageDb): Promise<string[]> {
+  const ids = [leagueId];
+  for (;;) {
+    const row = await db.league.findUnique({
+      where: { id: ids[ids.length - 1] },
+      select: { predecessorLeagueId: true },
+    });
+    const next = row?.predecessorLeagueId;
+    if (!next || ids.includes(next)) {
+      return ids;
+    }
+    ids.push(next);
+  }
+}
+
+/**
+ * Lifetime display stats: `current` (this league) plus every predecessor league in the
+ * rollover chain. Each league keeps its own rank-reset window. Used for the habitual
+ * quitter mark so a new season does not wipe quit history. Pass `current` when the
+ * caller already loaded this league's stats; otherwise it is loaded here.
+ */
+export async function loadLifetimeDisplayStatsByPlayer(
+  leagueId: string,
+  playerIds: string[],
+  current?: Map<string, PlayerMatchDisplayStats>,
+  db: LineageDb = defaultPrisma,
+): Promise<Map<string, PlayerMatchDisplayStats>> {
+  const lineage = await loadLeagueLineageIds(leagueId, db);
+  const [currentStats, ...past] = await Promise.all([
+    current ?? loadMatchDisplayStatsByPlayer(leagueId, playerIds, db),
+    ...lineage.slice(1).map((id) => loadMatchDisplayStatsByPlayer(id, playerIds, db)),
+  ]);
+
+  const lifetime = new Map(currentStats);
+  for (const stats of past) {
+    for (const [playerId, row] of stats) {
+      const sum = lifetime.get(playerId) ?? ZERO_DISPLAY_STATS;
+      lifetime.set(playerId, {
+        games: sum.games + row.games,
+        wins: sum.wins + row.wins,
+        losses: sum.losses + row.losses,
+        quits: sum.quits + row.quits,
+        griefs: sum.griefs + row.griefs,
+        dcs: sum.dcs + row.dcs,
+      });
+    }
+  }
+  return lifetime;
 }
 
 /** Sum deferred griefer ki tax per player in one league (active season accruals). */

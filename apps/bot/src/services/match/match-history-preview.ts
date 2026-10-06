@@ -3,7 +3,7 @@ import {
   countCompletedGamesThrough,
   habitualQuitterFromStats,
   loadLatestRankResetAtByPlayer,
-  loadMatchDisplayStatsByPlayer,
+  loadLifetimeDisplayStatsByPlayer,
   type PlayerMatchDisplayStats,
 } from '../rating/rank-reset-display.js';
 import { resolveLeagueConfig } from '../league/league-wc3stats.js';
@@ -205,7 +205,7 @@ export async function rebuildCompletedRatingPreview(
   }
 
   const leagueGamesByPlayer = await loadLeagueGamesAfterMatch(match);
-  const displayStatsByPlayer = await loadMatchDisplayStatsByPlayer(
+  const lifetimeStatsByPlayer = await loadLifetimeDisplayStatsByPlayer(
     leagueId,
     match.players.map((player) => player.playerId),
   );
@@ -254,7 +254,7 @@ export async function rebuildCompletedRatingPreview(
     beforeBySlot,
     afterBySlot,
     leagueGamesByPlayer,
-    displayStatsByPlayer,
+    lifetimeStatsByPlayer,
     winChanceFromSnapshots(match, snapshots, balanceOptions),
   );
 }
@@ -343,7 +343,7 @@ async function loadLeagueGamesAfterMatch(match: MatchWithPlayers): Promise<Map<s
 export function ratingPreviewFromStoredMatchPlayers(
   match: MatchWithPlayers,
   leagueGamesByPlayer: Map<string, number>,
-  displayStatsByPlayer: Map<string, PlayerMatchDisplayStats>,
+  lifetimeStatsByPlayer: Map<string, PlayerMatchDisplayStats>,
 ): LobbyRatingPreview | undefined {
   if (match.players.some((player) => player.globalKi == null)) {
     return undefined;
@@ -361,7 +361,7 @@ export function ratingPreviewFromStoredMatchPlayers(
       ...(player.wasNewPlayer ? { wasNewPlayer: true as const } : {}),
       showHero: player.heroId != null && player.heroKi != null,
       leagueGames: leagueGamesByPlayer.get(player.playerId) ?? 0,
-      habitualQuitter: habitualQuitterFromStats(displayStatsByPlayer, player.playerId),
+      habitualQuitter: habitualQuitterFromStats(lifetimeStatsByPlayer, player.playerId),
     })),
   };
 }
@@ -375,14 +375,14 @@ export async function resolveCompletedRatingPreview(
 ): Promise<LobbyRatingPreview | undefined> {
   const leagueId = requireLeagueId(match);
   const playerIds = match.players.map((player) => player.playerId);
-  const [leagueGamesByPlayer, displayStatsByPlayer] = await Promise.all([
+  const [leagueGamesByPlayer, lifetimeStatsByPlayer] = await Promise.all([
     loadLeagueGamesAfterMatch(match),
-    loadMatchDisplayStatsByPlayer(leagueId, playerIds),
+    loadLifetimeDisplayStatsByPlayer(leagueId, playerIds),
   ]);
   const stored = ratingPreviewFromStoredMatchPlayers(
     match,
     leagueGamesByPlayer,
-    displayStatsByPlayer,
+    lifetimeStatsByPlayer,
   );
   if (stored) {
     const winChance = await loadWinChanceFromMatchSnapshots(match);
