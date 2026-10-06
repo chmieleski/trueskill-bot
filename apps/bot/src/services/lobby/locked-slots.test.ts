@@ -20,4 +20,14 @@ describe('reconcileMatchPlayerLocked', () => {
   it('stays unlocked when OCR/wc3stats omit prior lock intent', () => {
     expect(reconcileMatchPlayerLocked(new Set(), 'p1', 3, false)).toBe(false);
   });
+
+  it('keeps lock on a screenshot/wc3stats read when the player is still in the same slot', () => {
+    const previous = new Set(['p1:3']);
+    expect(reconcileMatchPlayerLocked(previous, 'p1', 3, undefined)).toBe(true);
+  });
+
+  it('clears lock on a screenshot/wc3stats read when the player changed slot', () => {
+    const previous = new Set(['p1:3']);
+    expect(reconcileMatchPlayerLocked(previous, 'p1', 5, undefined)).toBe(false);
+  });
 });

@@ -731,7 +731,7 @@ export async function replaceMatchRoster(
         .map((row) => matchPlayerLockPairKey(row.playerId, row.slot)),
     );
     const incomingLockedBySlot = new Map(
-      roster.map((player) => [player.slot, player.locked === true] as const),
+      roster.map((player) => [player.slot, player.locked] as const),
     );
 
     const resolved = await resolvePlayersInTx(tx, roster, existing.leagueId, profile);
@@ -753,7 +753,7 @@ export async function replaceMatchRoster(
         previousLockedPairs,
         entry.playerId,
         entry.slot,
-        incomingLockedBySlot.get(entry.slot) === true,
+        incomingLockedBySlot.get(entry.slot),
       );
       const prev = prevByPlayerId.get(entry.playerId);
       const data = {

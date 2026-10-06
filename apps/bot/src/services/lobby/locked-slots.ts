@@ -6,14 +6,17 @@ export function matchPlayerLockPairKey(playerId: string, slot: number): string {
 }
 
 /**
- * Keep soft lock only when the same playerId stays in the same slot and the
- * incoming lobby row still requests locked. OCR/wc3stats omit locked → false.
+ * Keep soft lock only when the same playerId stays in the same slot.
+ * `incomingLocked` false = explicit unlock; undefined = no opinion (screenshot /
+ * wc3stats reads), so a player still in their locked seat stays locked.
  */
 export function reconcileMatchPlayerLocked(
   previousLockedPairs: ReadonlySet<string>,
   playerId: string,
   slot: number,
-  incomingLocked: boolean,
+  incomingLocked: boolean | undefined,
 ): boolean {
-  return incomingLocked && previousLockedPairs.has(matchPlayerLockPairKey(playerId, slot));
+  return (
+    incomingLocked !== false && previousLockedPairs.has(matchPlayerLockPairKey(playerId, slot))
+  );
 }

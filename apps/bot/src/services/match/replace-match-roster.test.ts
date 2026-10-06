@@ -412,7 +412,7 @@ describe('replaceMatchRoster diff', () => {
     });
   });
 
-  it('unlocks when incoming roster omits locked for a previously locked pair', async () => {
+  it('keeps the lock when a screenshot/wc3stats read leaves the locked player in place', async () => {
     stubTransaction([
       {
         playerId: 'p-a',
@@ -438,9 +438,45 @@ describe('replaceMatchRoster diff', () => {
       { id: 'p-b', username: 'bob' },
     ]);
 
-    // OCR/wc3stats omit locked → reconcile returns false; must write unlock.
+    // OCR/wc3stats omit locked (no opinion): same player, same slot stays locked.
     await replaceMatchRoster(MATCH_ID, [
       { slot: 1, nick: 'alice' },
+      { slot: 6, nick: 'bob' },
+    ]);
+
+    expect(matchPlayerDeleteMany).not.toHaveBeenCalled();
+    expect(matchPlayerCreate).not.toHaveBeenCalled();
+    expect(matchPlayerUpdate).not.toHaveBeenCalled();
+  });
+
+  it('unlocks when the incoming row explicitly sets locked: false', async () => {
+    stubTransaction([
+      {
+        playerId: 'p-a',
+        slot: 1,
+        team: 1,
+        heroId: null,
+        locked: true,
+        isQuitter: false,
+        isGriefer: false,
+      },
+      {
+        playerId: 'p-b',
+        slot: 6,
+        team: 2,
+        heroId: null,
+        locked: false,
+        isQuitter: false,
+        isGriefer: false,
+      },
+    ]);
+    stubPlayersByNick([
+      { id: 'p-a', username: 'alice' },
+      { id: 'p-b', username: 'bob' },
+    ]);
+
+    await replaceMatchRoster(MATCH_ID, [
+      { slot: 1, nick: 'alice', locked: false },
       { slot: 6, nick: 'bob' },
     ]);
 
