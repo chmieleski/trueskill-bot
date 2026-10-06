@@ -1,3 +1,10 @@
+# [1.75.0](https://github.com/chmieleski/trueskill-bot/compare/v1.74.0...v1.75.0) (2026-10-06)
+
+
+### Features
+
+* **lobby:** order top row as Balance teams, Refresh, Start Match ([80435ac](https://github.com/chmieleski/trueskill-bot/commit/80435ac5bf42188c8c82c5527b83546c1494dd57))
+
 # [1.74.0](https://github.com/chmieleski/trueskill-bot/compare/v1.73.0...v1.74.0) (2026-10-06)
 
 
