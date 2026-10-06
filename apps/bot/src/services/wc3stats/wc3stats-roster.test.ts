@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { WOS_WC3STATS_SLOT_MAP } from './wc3stats-slot-map.js';
-import { extractWc3statsRoster } from './wc3stats-roster.js';
+import { extractWc3statsRoster, type Wc3statsSlot } from './wc3stats-roster.js';
 
 describe('extractWc3statsRoster', () => {
   it('maps occupied humans to slot = index + 1', () => {
@@ -15,8 +15,8 @@ describe('extractWc3statsRoster', () => {
     });
     expect(result.usable).toBe(true);
     expect(result.players).toEqual([
-      { slot: 1, nick: 'alice' },
-      { slot: 4, nick: 'bob' },
+      { slot: 1, nick: 'alice', rawName: 'Alice' },
+      { slot: 4, nick: 'bob', rawName: 'Bob' },
     ]);
   });
 
@@ -60,13 +60,13 @@ describe('extractWc3statsRoster', () => {
 
     expect(result.usable).toBe(true);
     expect(result.players).toEqual([
-      { slot: 1, nick: 'sapphirez' },
-      { slot: 2, nick: 'wuru' },
-      { slot: 3, nick: 'dragonnpx4' },
-      { slot: 4, nick: 'mahson' },
-      { slot: 5, nick: 'notverriegod' },
-      { slot: 7, nick: 'tiny' },
-      { slot: 8, nick: 'sekai' },
+      { slot: 1, nick: 'sapphirez', rawName: 'Sapphirez' },
+      { slot: 2, nick: 'wuru', rawName: 'Wuru' },
+      { slot: 3, nick: 'dragonnpx4', rawName: 'Dragonnpx4' },
+      { slot: 4, nick: 'mahson', rawName: 'Mahson' },
+      { slot: 5, nick: 'notverriegod', rawName: 'notverriegod' },
+      { slot: 7, nick: 'tiny', rawName: 'Tiny' },
+      { slot: 8, nick: 'sekai', rawName: 'Sekai' },
     ]);
   });
 
@@ -100,7 +100,7 @@ describe('extractWc3statsRoster', () => {
       ],
     });
     expect(result.usable).toBe(true);
-    expect(result.players).toEqual([{ slot: 1, nick: 'alice' }]);
+    expect(result.players).toEqual([{ slot: 1, nick: 'alice', rawName: 'Alice' }]);
     expect(result.occupiedCount).toBe(1);
   });
 
@@ -128,6 +128,15 @@ describe('extractWc3statsRoster', () => {
     );
 
     expect(result.usable).toBe(true);
-    expect(result.players).toEqual([{ slot: 1, nick: 'chmieleski' }]);
+    expect(result.players).toEqual([{ slot: 1, nick: 'chmieleski', rawName: 'Chmieleski' }]);
+  });
+});
+
+describe('extractWc3statsRoster rawName', () => {
+  it('keeps the in-game name (case, no battle tag) as rawName', () => {
+    const result = extractWc3statsRoster({
+      slots: [{ status: 'occupied', player: { name: 'Goku#1234' } } as Wc3statsSlot],
+    });
+    expect(result.players).toEqual([{ slot: 1, nick: 'goku', rawName: 'Goku' }]);
   });
 });

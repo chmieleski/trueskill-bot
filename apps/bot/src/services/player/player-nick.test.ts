@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeNick } from './player-nick.js';
+import { normalizeNick, stripBattleTag } from './player-nick.js';
 
 describe('normalizeNick', () => {
   it('trims whitespace and lowercases ASCII nicks', () => {
@@ -23,5 +23,16 @@ describe('normalizeNick', () => {
 
   it('preserves nicks that are not Battle.net tags', () => {
     expect(normalizeNick('foo#bar')).toBe('foo#bar');
+  });
+});
+
+describe('stripBattleTag', () => {
+  it('trims and strips #1234 but keeps case', () => {
+    expect(stripBattleTag('  Goku#1234 ')).toBe('Goku');
+    expect(stripBattleTag('Vegeta')).toBe('Vegeta');
+  });
+
+  it('normalizeNick still lowercases the stripped nick', () => {
+    expect(normalizeNick('Goku#1234')).toBe('goku');
   });
 });
