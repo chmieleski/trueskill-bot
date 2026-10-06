@@ -14,7 +14,7 @@
     "backfill:display-counters": "tsx scripts/backfill-display-counters.ts",
     "verify:display-counters": "tsx scripts/verify-display-counters.ts",
     "seed:veterans": "tsx scripts/seed-veteran-ratings.ts",
-    "test": "vitest run",
+    "test": "vitest run --exclude src/deploy/pack-release.test.ts && vitest run src/deploy/pack-release.test.ts",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
