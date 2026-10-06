@@ -1116,9 +1116,20 @@ describe('swap commands field', () => {
     const field = (embed.data.fields ?? []).find((f) => f.name === 'Swap commands');
     expect(field?.value).toBe(
       '`!swap Goku 1`\n`!swap Broly 5`\n' +
-        `_From screenshot · <t:${observedAt.getTime() / 1000}:R>. Refresh or post a screenshot after swapping to confirm._`,
+        `_From screenshot · <t:${observedAt.getTime() / 1000}:R>. Run these in Warcraft; after all swaps, Refresh or a new screenshot copies the Warcraft lobby back into Discord._`,
     );
     expect(field?.inline).toBe(false);
+  });
+
+  it('stays within the 1024-char field limit for very long names', () => {
+    const lines = Array.from({ length: 12 }, (_, i) => `!swap ${'x'.repeat(100)}${i} ${i + 1}`);
+    const embed = buildMatchLobbyEmbed('m1', players, {
+      swapCommands: { lines, source: 'wc3stats', observedAt },
+    });
+    const value = (embed.data.fields ?? []).find((f) => f.name === 'Swap commands')!.value;
+    expect(value.length).toBeLessThanOrEqual(1024);
+    expect(value).toMatch(/…and \d+ more/);
+    expect(value).toContain('_From wc3stats');
   });
 
   it('omits the field when there are no lines or no swap data', () => {

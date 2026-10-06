@@ -33,7 +33,7 @@ New nullable columns on `Match`:
 | `inGameRosterAt`     | `DateTime?` | When that state was observed                                       |
 | `inGameRosterSource` | `String?`   | `'screenshot' \| 'wc3stats'` — shown in the field footer           |
 
-- `nick` = canonical (normalized, alias-applied) username; `rawName` = exact in-game name (pre-normalize, pre-alias) when the source has it, else `nick`.
+- `nick` = canonical (normalized, alias-applied) username; `rawName` = exact in-game name (pre-normalize; an OCR alias replaces it with the alias target, since the raw OCR text is the misread) when the source has it, else `nick`.
 - **Written** (overwritten, latest wins) whenever a roster comes from the game:
   - Screenshot refresh with ≥1 OCR player (`refreshLobbyFromScreenshot`)
   - wc3stats Refresh that is applied (`refreshLobbyFromWc3stats`, fresh and not kept-existing)
@@ -52,8 +52,8 @@ New nullable columns on `Match`:
 
 **Why this is stale-safe:** each command puts one named player into their **absolute final** slot. Target slots are distinct, so a later command never names a player already placed nor targets a placed slot → the sequence converges from **any** starting arrangement, in any order. The snapshot is only used to _skip_ players already in place. The only stale failure mode is a skipped player who actually moved in-game since the snapshot. Mitigations:
 
-- Footer shows source + age: `_From screenshot · 4 min ago. Refresh or post a screenshot after swapping to confirm._`
-- Verification loop: after swapping, Refresh/screenshot updates the snapshot; when it matches Discord the field **disappears**. Any remaining lines are exactly what still needs doing.
+- Footer shows source + age: `_From screenshot · 4 min ago. Run these in Warcraft; after all swaps, Refresh or a new screenshot copies the Warcraft lobby back into Discord._`
+- After a game read (Refresh/screenshot) the Discord roster is **replaced** by the Warcraft lobby, so the field always disappears — it is not a confirmation that every swap succeeded. Hosts refresh only after all swaps; if teams are still off, press Balance again. (Corrected after final review.)
 - No snapshot → no field (nothing to diff against).
 
 ### 3. Game adapter (`game:warcraft3_*`)
@@ -66,7 +66,7 @@ New nullable columns on `Match`:
 ### 4. Embed field
 
 - Match Lobby only (not In Progress / Completed), only when `lobbySwapCommand !== 'none'`, a snapshot exists, and the plan is non-empty.
-- Name: `Swap commands`. Value: one command per line, each in inline code (protects names with `_`/`*`; copies cleanly), then the footer line. Fits the 1024-char field limit (≤12 lines × ~25 chars).
+- Name: `Swap commands`. Value: one command per line, each in inline code (protects names with `_`/`*`; copies cleanly), then the footer line. Capped at the 1024-char field limit: overflow lines collapse to `…and N more`.
 - `syncLobbyDiscordMessage` loads the slot map and passes `inGameRoster`, `inGameRosterAt`, `inGameRosterSource`, and the mapper into `buildMatchLobbyEmbed`.
 
 ## Known limits

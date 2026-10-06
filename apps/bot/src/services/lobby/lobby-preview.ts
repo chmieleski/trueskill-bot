@@ -267,18 +267,26 @@ export type LobbySwapCommands = {
   observedAt: Date;
 };
 
+/** Discord embed field value limit. */
+const EMBED_FIELD_VALUE_MAX = 1024;
+
 function swapCommandFields(swap: LobbySwapCommands | undefined) {
   if (!swap || swap.lines.length === 0) {
     return [];
   }
-  const footer = `_From ${swap.source} · ${time(swap.observedAt, TimestampStyles.RelativeTime)}. Refresh or post a screenshot after swapping to confirm._`;
-  return [
-    {
-      name: 'Swap commands',
-      value: [...swap.lines.map((line) => `\`${line}\``), footer].join('\n'),
-      inline: false,
-    },
-  ];
+  const footer = `_From ${swap.source} · ${time(swap.observedAt, TimestampStyles.RelativeTime)}. Run these in Warcraft; after all swaps, Refresh or a new screenshot copies the Warcraft lobby back into Discord._`;
+  const commands = swap.lines.map((line) => `\`${line}\``);
+  let shown = commands.length;
+  const valueFor = (count: number) =>
+    [
+      ...commands.slice(0, count),
+      ...(count < commands.length ? [`…and ${commands.length - count} more`] : []),
+      footer,
+    ].join('\n');
+  while (shown > 0 && valueFor(shown).length > EMBED_FIELD_VALUE_MAX) {
+    shown -= 1;
+  }
+  return [{ name: 'Swap commands', value: valueFor(shown), inline: false }];
 }
 
 function teamFieldValues(

@@ -34,7 +34,7 @@ describe('applyOcrNickAliases', () => {
   it('rewrites exact fromNick hits and preserves other fields', () => {
     const map = new Map([['b0jan', 'bojan']]);
     expect(applyOcrNickAliases(players, map)).toEqual([
-      { slot: 1, nick: 'bojan', locked: true },
+      { slot: 1, nick: 'bojan', locked: true, rawName: 'bojan' },
       { slot: 2, nick: 'goku' },
     ]);
   });
@@ -48,6 +48,16 @@ describe('applyOcrNickAliases', () => {
     const before = structuredClone(players);
     applyOcrNickAliases(players, map);
     expect(players).toEqual(before);
+  });
+});
+
+describe('applyOcrNickAliases rawName', () => {
+  it('replaces the misread in-game name so swap commands use the real nick', () => {
+    const aliased = applyOcrNickAliases(
+      [{ slot: 3, nick: 'b0jan', rawName: 'B0jan' }],
+      new Map([['b0jan', 'bojan']]),
+    );
+    expect(aliased).toEqual([{ slot: 3, nick: 'bojan', rawName: 'bojan' }]);
   });
 });
 
