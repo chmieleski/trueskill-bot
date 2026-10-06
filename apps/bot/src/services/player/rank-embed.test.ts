@@ -230,6 +230,21 @@ describe('buildRankEmbed', () => {
     });
   });
 
+  it('shows quitter pool field with estimated season-end ki loss', () => {
+    const fields =
+      buildRankEmbed({
+        ...baseProfile,
+        griefs: 0,
+        pendingGrieferKiTax: 0,
+        quits: 2,
+        pendingQuitterSeasonTax: 760,
+      }).toJSON().fields ?? [];
+    expect(fields[0]).toMatchObject({
+      name: 'Quitter pool',
+      value: 'Loses **~760 ki** at season end (10% per quit)',
+    });
+  });
+
   it('omits griefer pool when no pending tax', () => {
     const fields =
       buildRankEmbed({

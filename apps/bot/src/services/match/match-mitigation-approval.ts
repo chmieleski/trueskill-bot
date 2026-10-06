@@ -187,7 +187,6 @@ export async function requestMitigationApproval(
         where: { matchId_playerId: { matchId: input.matchId, playerId: player.playerId } },
         data: {
           isQuitter,
-          isQuitterSeasonTax: isQuitter,
           isGriefer: isQuitter ? false : isGriefer,
           isDc: isQuitter ? false : isDc,
         },

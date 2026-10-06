@@ -217,8 +217,7 @@ export async function rebuildCompletedRatingPreview(
     const heroSnap =
       entry.heroId != null ? heroByKey.get(`${entry.playerId}:${entry.heroId}`) : undefined;
     const heroGamesBefore = heroSnap?.matchesPlayed ?? 0;
-    const heroGamesAfter =
-      entry.heroId != null && !entry.isQuitter ? heroGamesBefore + 1 : heroGamesBefore;
+    const heroGamesAfter = entry.heroId != null ? heroGamesBefore + 1 : heroGamesBefore;
     const games = globalGames.get(entry.playerId) ?? 0;
 
     beforeBySlot.set(

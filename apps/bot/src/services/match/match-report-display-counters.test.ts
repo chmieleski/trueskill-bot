@@ -78,7 +78,6 @@ vi.mock('../../config/env.js', () => ({
 vi.mock('../rating/rating-update.js', () => ({
   applyMatchRatings,
   accrueGrieferPenalties,
-  assertBothTeamsHaveActivePlayers: vi.fn(),
   loadLiveGlobalByPlayer: vi.fn(),
   loadPreMatchGlobalByPlayer,
 }));
@@ -273,6 +272,15 @@ describe('completeMatch display counters', () => {
         displayGriefs: 0,
         displayDcs: 0,
       },
+    });
+  });
+
+  it('keeps a quitter in the match with their team result', async () => {
+    await completeMatch('match-1', 1, [1]);
+
+    expect(matchPlayerUpdate).toHaveBeenCalledWith({
+      where: { matchId_playerId: { matchId: 'match-1', playerId: 'p1' } },
+      data: expect.objectContaining({ isQuitter: true, result: 'WIN' }),
     });
   });
 });

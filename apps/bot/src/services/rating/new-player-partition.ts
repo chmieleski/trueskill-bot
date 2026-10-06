@@ -10,7 +10,6 @@ export type NewPlayerPartitionEntry = {
   wasNewPlayer?: boolean;
   /** Live lobby balance (`PlayerRating.isNewPlayer`). */
   isNewPlayer?: boolean;
-  isQuitter?: boolean;
 };
 
 /** True when a seat is flagged New for balance (live or snapshot). */
@@ -30,10 +29,7 @@ function newSeatsOnTeam<T extends NewPlayerPartitionEntry>(
     .sort((left, right) => left.slot - right.slot);
 }
 
-/**
- * Lowest-slot pair-off keys shared by rating apply and balance.
- * Quitters count toward `k` when present (rating apply); pre-match balance has none.
- */
+/** Lowest-slot pair-off keys shared by rating apply and balance (quitters pair like anyone). */
 export function computePairedNewKeys<T extends NewPlayerPartitionEntry>(
   entries: T[],
   isNew: (entry: T) => boolean = isMarkedNewPlayer,
@@ -51,7 +47,7 @@ export function computePairedNewKeys<T extends NewPlayerPartitionEntry>(
 }
 
 /**
- * Balance path: paired non-quit New are omitted; excess get discounted μ.
+ * Balance path: paired New are omitted; excess get discounted μ.
  * Uses the same `k` / lowest-slot rules as `partitionRosterForRating`.
  */
 export function classifyNewSeatsForBalance<T extends NewPlayerPartitionEntry>(
@@ -62,7 +58,7 @@ export function classifyNewSeatsForBalance<T extends NewPlayerPartitionEntry>(
   const excessKeys = new Set<string>();
 
   for (const entry of entries) {
-    if (entry.isQuitter || !isMarkedNewPlayer(entry)) {
+    if (!isMarkedNewPlayer(entry)) {
       continue;
     }
     const key = entryPairKey(entry);

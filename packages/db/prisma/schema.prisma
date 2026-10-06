@@ -385,9 +385,10 @@ model MatchPlayer {
   slot               Int // 1..profile.slotCount (absolute lobby position; team from profile)
   heroId             Int? // slot_bound: equals slot; optional_in_game: null until pick (phase 2)
   result             MatchResult? // Null until match ends
-  isQuitter          Boolean      @default(false) // Quitter penalty flag; excluded from team rating
-  /// Quitter rated with the team (season tax method) instead of excluded; set by correction/mitigation flows.
-  isQuitterSeasonTax Boolean      @default(false)
+  isQuitter          Boolean      @default(false) // Quit incident; stays in team rating, 10%/quit compounding tax at rollover
+  /// Quit counts toward the rollover quitter tax. False only for legacy quits finalized before
+  /// v1.68.0 reached prod (2026-10-06 08:16 UTC) — they already took the old 3-loss penalty.
+  isQuitterSeasonTax Boolean      @default(true)
   isGriefer          Boolean      @default(false) // Bug-abuse penalty flag; stays in team rating
   isDc               Boolean      @default(false) // Disconnect incident; season tax from count
   /// Soft lock: balance hints + shuffle leave this player↔slot pair alone.

@@ -70,13 +70,13 @@ describe('classifyNewSeatsForBalance', () => {
     expect([...excessKeys]).toEqual(['1:3']);
   });
 
-  it('counts quit New toward k but only non-quit seats freeze', () => {
+  it('pairs and freezes a quit New like any New (quitters stay in the match)', () => {
     const { frozenKeys, excessKeys } = classifyNewSeatsForBalance([
-      { slot: 1, team: 1, wasNewPlayer: true, isQuitter: true },
-      { slot: 7, team: 2, wasNewPlayer: true },
+      { slot: 1, team: 1 as const, wasNewPlayer: true, isQuitter: true },
+      { slot: 7, team: 2 as const, wasNewPlayer: true },
     ]);
 
-    expect([...frozenKeys]).toEqual(['2:7']);
+    expect([...frozenKeys]).toEqual(['1:1', '2:7']);
     expect([...excessKeys]).toEqual([]);
   });
 });

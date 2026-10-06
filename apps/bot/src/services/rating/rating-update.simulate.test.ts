@@ -255,36 +255,32 @@ describe('simulatePostMatchRatings with New', () => {
 });
 
 describe('simulatePostMatchRatings quitter handling', () => {
-  it('leaves quitter global and hero ratings unchanged before rollover', () => {
+  it('rates a quitter with their team exactly like a finisher (tax is rollover-only)', () => {
     const entries = [
-      {
-        playerId: 'quitA',
-        slot: 1,
-        team: 1 as const,
-        heroId: 1,
-        isQuitter: true,
-      },
-      {
-        playerId: 'vetB',
-        slot: 7,
-        team: 2 as const,
-        heroId: null,
-        isQuitter: false,
-      },
+      { playerId: 'quitA', slot: 1, team: 1 as const, heroId: 1, isQuitter: true },
+      { playerId: 'vetB', slot: 7, team: 2 as const, heroId: 7, isQuitter: false },
     ];
-    const overall = { mu: 28, sigma: 6 };
-    const after = simulatePostMatchRatings(
-      entries,
+    const startGlobal = new Map([
+      ['quitA', { mu: 28, sigma: 6 }],
+      ['vetB', { mu: 25, sigma: 8.333 }],
+    ]);
+    const startHero = new Map([
+      ['quitA:1', { mu: 25, sigma: 8.333 }],
+      ['vetB:7', { mu: 25, sigma: 8.333 }],
+    ]);
+
+    const quit = simulatePostMatchRatings(entries, 2, startGlobal, startHero);
+    const finished = simulatePostMatchRatings(
+      entries.map((entry) => ({ ...entry, isQuitter: false })),
       2,
-      new Map([
-        ['quitA', overall],
-        ['vetB', { mu: 25, sigma: 8.333 }],
-      ]),
-      new Map([['quitA:1', { mu: 25, sigma: 8.333 }]]),
+      startGlobal,
+      startHero,
     );
 
-    expect(after.globalByPlayer.get('quitA')).toEqual(overall);
-    expect(after.heroByKey.get('quitA:1')).toEqual({ mu: 25, sigma: 8.333 });
+    expect(quit.globalByPlayer.get('quitA')!.mu).toBeLessThan(28);
+    expect(quit.heroByKey.get('quitA:1')!.mu).toBeLessThan(25);
+    expect(quit.globalByPlayer).toEqual(finished.globalByPlayer);
+    expect(quit.heroByKey).toEqual(finished.heroByKey);
   });
 });
 
@@ -369,7 +365,7 @@ describe('simulatePostMatchRatings with mitigation', () => {
     expect(softLossDelta).toBeCloseTo(fullLossDelta * 0.5, 5);
   });
 
-  it('leaves quitter ratings unchanged with or without mitigation', () => {
+  it('mitigates a quitter team Δμ like everyone else', () => {
     const entries = [
       { playerId: 'quit', slot: 1, team: 1 as const, heroId: null, isQuitter: true },
       { playerId: 'a', slot: 2, team: 1 as const, heroId: null, isQuitter: false },
@@ -383,7 +379,8 @@ describe('simulatePostMatchRatings with mitigation', () => {
     const full = simulatePostMatchRatings(entries, 1, start, new Map());
     const soft = simulatePostMatchRatings(entries, 1, start, new Map(), new Map(), 50);
 
-    expect(full.globalByPlayer.get('quit')!.mu).toBe(25);
-    expect(soft.globalByPlayer.get('quit')!.mu).toBe(25);
+    const fullDelta = full.globalByPlayer.get('quit')!.mu - 25;
+    expect(fullDelta).toBeGreaterThan(0);
+    expect(soft.globalByPlayer.get('quit')!.mu - 25).toBeCloseTo(fullDelta * 0.5, 5);
   });
 });

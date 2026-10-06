@@ -38,7 +38,7 @@ Commands if you prefer:
 • Prefer the **buttons** on the match message
 • Double-check **slot numbers** before you complete
 • Cancel broken starts — don’t cancel to hide a real loss
-• Quitters are excluded from the normal rating update; each quitter-marked game adds a 10% compounded tax at season rollover
+• Quitters stay in the match (normal win/loss with their team); each quitter-marked game adds a 10% compounded tax at season rollover
 • Later matches are **not** recalculated after a flip/void
 
 When in doubt: report what actually happened. Details → **a2** (mod powers) and **a3** (quitters).

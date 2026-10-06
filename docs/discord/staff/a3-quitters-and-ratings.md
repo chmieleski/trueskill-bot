@@ -9,9 +9,8 @@ Slots are **1–{{slotCount}}**, comma-separated.
 /match complete winner:{{team2}} quitters:2,8
 ```
 
-• Quitters have no immediate rating penalty; each quitter-marked game adds a **10% compounded {{ratingLabel}} tax** at season rollover
-• They are **not** in the normal team rating update
-• Everyone else still gets a normal win/loss when you complete
+• Quitters **stay in the match**: they win/lose {{ratingLabel}} with their team like everyone else
+• Each quitter-marked game adds a **10% compounded {{ratingLabel}} tax** at season rollover (1000 → 900 → 810…)
 • Quitter flags on cancelled matches count toward the season rollover tax
 
 **Griefers** = bug abuse / griefing.

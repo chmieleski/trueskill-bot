@@ -531,10 +531,10 @@ export async function loadPendingDcTaxByPlayer(
 }
 
 /**
- * Pending quitter season tax per player: 10% compounded per quitter-marked game,
- * on current public ki (same basis as rollover; not rank-reset gated).
+ * Quits that count toward the rollover tax, per player. Legacy quits that already took the
+ * pre-v1.68 3-loss penalty carry `isQuitterSeasonTax = false` and are skipped.
  */
-export async function loadPendingQuitterTaxByPlayer(
+export async function loadQuitterSeasonTaxCounts(
   leagueId: string,
   playerIds?: string[],
   db: Db = defaultPrisma,
@@ -542,12 +542,25 @@ export async function loadPendingQuitterTaxByPlayer(
   const rows = await db.matchPlayer.findMany({
     where: {
       isQuitter: true,
+      isQuitterSeasonTax: true,
       match: { leagueId },
       ...(playerIds ? { playerId: { in: playerIds } } : {}),
     },
     select: { playerId: true },
   });
-  const incidentCounts = countQuitterIncidents(rows);
+  return countQuitterIncidents(rows);
+}
+
+/**
+ * Pending quitter season tax per player: 10% compounded per taxable quit,
+ * on current public ki (same basis as rollover; not rank-reset gated).
+ */
+export async function loadPendingQuitterTaxByPlayer(
+  leagueId: string,
+  playerIds?: string[],
+  db: Db = defaultPrisma,
+): Promise<Map<string, number>> {
+  const incidentCounts = await loadQuitterSeasonTaxCounts(leagueId, playerIds, db);
   const taxedPlayerIds = [...incidentCounts.keys()];
   if (taxedPlayerIds.length === 0) {
     return new Map();
