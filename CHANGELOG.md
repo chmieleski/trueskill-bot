@@ -1,3 +1,10 @@
+# [1.70.0](https://github.com/chmieleski/trueskill-bot/compare/v1.69.0...v1.70.0) (2026-10-06)
+
+
+### Features
+
+* **ops:** add pnpm logs:prod to tail production logs via SSM ([17d9ab3](https://github.com/chmieleski/trueskill-bot/commit/17d9ab369182c399d9038c79d0b72c39ba3346c6))
+
 # [1.69.0](https://github.com/chmieleski/trueskill-bot/compare/v1.68.0...v1.69.0) (2026-10-06)
 
 
