@@ -76,20 +76,20 @@ export async function findLatestManualSanctionMatchId(
         ? { isGriefer: true, isQuitter: false }
         : { isDc: true, isQuitter: false };
 
-  const row = await prisma.matchPlayer.findFirst({
-    where: {
-      playerId,
-      ...flagWhere,
-      match: {
-        leagueId,
-        isManualSanction: true,
-        status: 'CANCELLED',
+  // Prefer manual sanctions; fall back to a regular match cancelled with the flag.
+  for (const manual of [true, false]) {
+    const row = await prisma.matchPlayer.findFirst({
+      where: {
+        playerId,
+        ...flagWhere,
+        match: { leagueId, isManualSanction: manual, status: 'CANCELLED' },
       },
-    },
-    orderBy: { match: { createdAt: 'desc' } },
-    select: { matchId: true },
-  });
-  return row?.matchId ?? null;
+      orderBy: { match: { createdAt: 'desc' } },
+      select: { matchId: true },
+    });
+    if (row) return row.matchId;
+  }
+  return null;
 }
 
 async function assertLeagueWritableForSanction(leagueId: string): Promise<void> {
@@ -278,8 +278,9 @@ export async function removeManualSanction(
     throw new MatchServiceError(manualSanctionNotFoundMessage(input.type, input.username));
   }
 
-  if (input.matchId) {
-    const match = await getMatchById(resolvedMatchId);
+  const resolvedMatch = await getMatchById(resolvedMatchId);
+  if (input.matchId || (resolvedMatch && !resolvedMatch.isManualSanction)) {
+    const match = resolvedMatch;
     if (!match) {
       throw new MatchServiceError('This match was not found.');
     }
@@ -331,7 +332,7 @@ export async function removeManualSanction(
     };
   }
 
-  const match = await getMatchById(resolvedMatchId);
+  const match = resolvedMatch;
   if (!match?.isManualSanction) {
     throw new MatchServiceError(manualSanctionNotFoundMessage(input.type, input.username));
   }
