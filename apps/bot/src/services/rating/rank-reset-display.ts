@@ -9,7 +9,7 @@ import {
 } from './display-counters.js';
 import { sumDcSeasonTaxByPlayer } from './dc-tax.js';
 import { sumGrieferKiTaxByPlayer } from './griefer-tax.js';
-import { sumQuitterSeasonTaxByPlayer } from './quitter-tax.js';
+import { countQuitterIncidents, quitterSeasonTaxByPlayer } from './quitter-tax.js';
 
 const log = createLogger('rank-reset-display');
 
@@ -530,7 +530,10 @@ export async function loadPendingDcTaxByPlayer(
   return sumDcSeasonTaxByPlayer(rows);
 }
 
-/** Sum pending Quitter season tax per player (only new quitters with isQuitterSeasonTax: true; not rank-reset gated). */
+/**
+ * Pending quitter season tax per player: 10% compounded per quitter-marked game,
+ * on current public ki (same basis as rollover; not rank-reset gated).
+ */
 export async function loadPendingQuitterTaxByPlayer(
   leagueId: string,
   playerIds?: string[],
@@ -539,11 +542,23 @@ export async function loadPendingQuitterTaxByPlayer(
   const rows = await db.matchPlayer.findMany({
     where: {
       isQuitter: true,
-      isQuitterSeasonTax: true,
       match: { leagueId },
       ...(playerIds ? { playerId: { in: playerIds } } : {}),
     },
     select: { playerId: true },
   });
-  return sumQuitterSeasonTaxByPlayer(rows);
+  const incidentCounts = countQuitterIncidents(rows);
+  const taxedPlayerIds = [...incidentCounts.keys()];
+  if (taxedPlayerIds.length === 0) {
+    return new Map();
+  }
+
+  const [ratings, displayStats] = await Promise.all([
+    db.playerRating.findMany({
+      where: { leagueId, playerId: { in: taxedPlayerIds } },
+      select: { playerId: true, mu: true, sigma: true },
+    }),
+    loadMatchDisplayStatsByPlayer(leagueId, taxedPlayerIds, db),
+  ]);
+  return quitterSeasonTaxByPlayer(ratings, incidentCounts, gamesByPlayerFromStats(displayStats));
 }

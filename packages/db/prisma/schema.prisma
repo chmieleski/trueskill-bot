@@ -379,28 +379,30 @@ model Match {
 
 // MatchPlayer - Player participation in a match
 model MatchPlayer {
-  matchId          String
-  playerId         String
-  team             Int // 1 or 2 (from game profile teamForSlot; not a fixed slot cutoff)
-  slot             Int // 1..profile.slotCount (absolute lobby position; team from profile)
-  heroId           Int? // slot_bound: equals slot; optional_in_game: null until pick (phase 2)
-  result           MatchResult? // Null until match ends
-  isQuitter        Boolean      @default(false) // Quitter penalty flag; excluded from team rating
-  isGriefer        Boolean      @default(false) // Bug-abuse penalty flag; stays in team rating
-  isDc             Boolean      @default(false) // Disconnect incident; season tax from count
+  matchId            String
+  playerId           String
+  team               Int // 1 or 2 (from game profile teamForSlot; not a fixed slot cutoff)
+  slot               Int // 1..profile.slotCount (absolute lobby position; team from profile)
+  heroId             Int? // slot_bound: equals slot; optional_in_game: null until pick (phase 2)
+  result             MatchResult? // Null until match ends
+  isQuitter          Boolean      @default(false) // Quitter penalty flag; excluded from team rating
+  /// Quitter rated with the team (season tax method) instead of excluded; set by correction/mitigation flows.
+  isQuitterSeasonTax Boolean      @default(false)
+  isGriefer          Boolean      @default(false) // Bug-abuse penalty flag; stays in team rating
+  isDc               Boolean      @default(false) // Disconnect incident; season tax from count
   /// Soft lock: balance hints + shuffle leave this player↔slot pair alone.
-  locked           Boolean      @default(false)
+  locked             Boolean      @default(false)
   /// Deferred global ki tax for this griefer incident (null when not griefer).
-  grieferKiAccrued Int?
-  wasNewPlayer     Boolean      @default(false) // Snapshot of PlayerRating.isNewPlayer at rating apply
+  grieferKiAccrued   Int?
+  wasNewPlayer       Boolean      @default(false) // Snapshot of PlayerRating.isNewPlayer at rating apply
   /// Display ki after this match (null until completed with preview written).
-  globalKi         Int?
+  globalKi           Int?
   /// after − before global display ki for this match.
-  globalKiDelta    Int?
+  globalKiDelta      Int?
   /// Hero display ki after this match (null when no hero / not written).
-  heroKi           Int?
+  heroKi             Int?
   /// after − before hero display ki for this match.
-  heroKiDelta      Int?
+  heroKiDelta        Int?
 
   match  Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
   player Player            @relation(fields: [playerId], references: [id], onDelete: Cascade)

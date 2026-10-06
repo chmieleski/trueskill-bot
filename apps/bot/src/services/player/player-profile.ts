@@ -13,6 +13,7 @@ import {
   loadMatchDisplayStats,
   loadPendingDcTaxByPlayer,
   loadPendingGrieferKiTaxByPlayer,
+  loadPendingQuitterTaxByPlayer,
   sideStatsFor,
   winRatePercent,
 } from '../rating/rank-reset-display.js';
@@ -205,6 +206,7 @@ export async function loadPlayerProfile(
     displayStats,
     pendingTaxByPlayer,
     pendingDcTaxByPlayer,
+    pendingQuitterTaxByPlayer,
   ] = await Promise.all([
     prisma.league.findUnique({
       where: { id: leagueId },

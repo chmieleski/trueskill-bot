@@ -15,12 +15,12 @@ import {
 import {
   applyQuitterSeasonTaxToSeededGlobals,
   countQuitterIncidents,
-  quitterSeasonTaxByPlayer,
   summarizeQuitterSeasonTax,
 } from '../rating/quitter-tax.js';
 import {
   gamesByPlayerFromStats,
   loadMatchDisplayStatsByPlayer,
+  loadPendingQuitterTaxByPlayer,
 } from '../rating/rank-reset-display.js';
 import { invalidateDecayLeagueCache } from '../rating/rating-decay-league-cache.js';
 
@@ -362,20 +362,7 @@ async function loadQuitterIncidentCountsForLeague(leagueId: string) {
 }
 
 async function loadPendingQuitterTaxForLeague(leagueId: string) {
-  const incidentCounts = await loadQuitterIncidentCountsForLeague(leagueId);
-  const playerIds = [...incidentCounts.keys()];
-  if (playerIds.length === 0) {
-    return new Map<string, number>();
-  }
-
-  const [ratings, displayStats] = await Promise.all([
-    prisma.playerRating.findMany({
-      where: { leagueId, playerId: { in: playerIds } },
-      select: { playerId: true, mu: true, sigma: true },
-    }),
-    loadMatchDisplayStatsByPlayer(leagueId, playerIds),
-  ]);
-  return quitterSeasonTaxByPlayer(ratings, incidentCounts, gamesByPlayerFromStats(displayStats));
+  return loadPendingQuitterTaxByPlayer(leagueId);
 }
 
 async function clearConsumedGrieferKiAccruals(
