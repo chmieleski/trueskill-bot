@@ -1,3 +1,10 @@
+# [1.72.0](https://github.com/chmieleski/trueskill-bot/compare/v1.71.0...v1.72.0) (2026-10-06)
+
+
+### Features
+
+* **lobby:** make the Balance button stand out ([#209](https://github.com/chmieleski/trueskill-bot/issues/209)) ([8ce16fa](https://github.com/chmieleski/trueskill-bot/commit/8ce16fac7a33a2b24cb8dda12ef0ff77830cce0b))
+
 # [1.71.0](https://github.com/chmieleski/trueskill-bot/compare/v1.70.2...v1.71.0) (2026-10-06)
 
 
