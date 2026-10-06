@@ -1,3 +1,10 @@
+## [1.70.1](https://github.com/chmieleski/trueskill-bot/compare/v1.70.0...v1.70.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **league:** show archived leagues in read-only command autocomplete ([#206](https://github.com/chmieleski/trueskill-bot/issues/206)) ([9e2cce4](https://github.com/chmieleski/trueskill-bot/commit/9e2cce4074623cf09116d7aaea1359a439bdbad4))
+
 # [1.70.0](https://github.com/chmieleski/trueskill-bot/compare/v1.69.0...v1.70.0) (2026-10-06)
 
 
