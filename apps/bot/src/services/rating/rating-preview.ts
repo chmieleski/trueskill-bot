@@ -2,7 +2,6 @@ import type { Prisma } from '@dbz/db';
 import { predictWin } from 'openskill';
 import { assertTeam } from '../../domain/game-profile.js';
 import { listCatalogHeroIds } from '../guild/hero-catalog.js';
-import { getGameProfileForLeague } from '../league/league-profile.js';
 import { resolveLeagueConfig } from '../league/league-wc3stats.js';
 import { prisma } from '../../lib/prisma.js';
 import { createLogger } from '../../lib/logger.js';
@@ -25,14 +24,8 @@ import {
   loadMatchDisplayStatsByPlayer,
   type PlayerMatchDisplayStats,
 } from './rank-reset-display.js';
-import {
-  suggestBalanceMoves,
-  type BalanceRatingLookup,
-  type BalanceSuggestion,
-} from '../lobby/lobby-balance.js';
+import type { BalanceRatingLookup, BalanceRosterEntry } from '../lobby/lobby-balance.js';
 import { applyPendingDecayForPlayers } from './rating-decay.js';
-
-export type { BalanceSuggestion };
 
 const log = createLogger('rating-preview');
 
@@ -68,7 +61,7 @@ export interface LobbyRatingPlayerLine {
   leagueGames: number;
   /** League `/rank` quit rate is 50%+ (post–rank-reset). */
   habitualQuitter?: boolean;
-  /** Soft lock: balance hints + shuffle leave this seat alone. */
+  /** Soft lock: Balance leaves this seat alone. */
   locked?: boolean;
 }
 
@@ -76,8 +69,6 @@ export interface LobbyRatingPreview {
   players: LobbyRatingPlayerLine[];
   /** Present only when both teams have ≥1 human. Pre-match OpenSkill predictWin. */
   winChance?: WinChancePercents;
-  /** Up to 3 improving single moves (best first); empty-slot moves deduped per player. */
-  balanceSuggestions?: BalanceSuggestion[];
 }
 
 export type RatingPreviewRosterEntry = {
@@ -496,50 +487,7 @@ export async function loadLobbyRatingPreview(
       return { players };
     }
 
-    const lookup: BalanceRatingLookup = {
-      global: (playerId) => {
-        const row = globalByPlayer.get(playerId);
-        return row ? { mu: row.mu, sigma: row.sigma } : defaultMuSigma();
-      },
-      hero: (playerId, heroId) => {
-        const row = heroByKey.get(heroKey(playerId, heroId));
-        return row ? { mu: row.mu, sigma: row.sigma } : defaultMuSigma();
-      },
-    };
-
-    const profile = await getGameProfileForLeague(leagueId);
-    const balanceRoster = entriesForBalance.map((entry) => ({
-      playerId: entry.playerId,
-      slot: entry.slot,
-      team: entry.team,
-      heroId: entry.heroId,
-      nick: entry.nick,
-      locked: entry.locked === true,
-      ...(entry.isNewPlayer === true ? { isNewPlayer: true as const } : {}),
-      ...(entry.wasNewPlayer === true ? { wasNewPlayer: true as const } : {}),
-    }));
-
-    let balanceSuggestions: BalanceSuggestion[] | undefined;
-    try {
-      const suggestions = suggestBalanceMoves(
-        balanceRoster,
-        lookup,
-        winChance,
-        balanceOptions,
-        profile,
-      );
-      if (suggestions.length > 0) {
-        balanceSuggestions = suggestions;
-      }
-    } catch (error) {
-      log.warn({ err: error }, 'Failed to compute balance suggestions');
-    }
-
-    return {
-      players,
-      winChance,
-      balanceSuggestions,
-    };
+    return { players, winChance };
   } catch (error) {
     log.error({ err: error }, 'Failed to load lobby rating preview');
     return {
@@ -553,6 +501,49 @@ export async function loadLobbyRatingPreview(
       })),
     };
   }
+}
+
+/**
+ * Load league μ/σ for a live lobby roster as Balance search inputs. Every hero
+ * row is loaded so seats moved to other slots score with their real hero rating.
+ */
+export async function loadBalanceContext(
+  leagueId: string,
+  entries: RatingPreviewRosterEntry[],
+): Promise<{
+  roster: BalanceRosterEntry[];
+  lookup: BalanceRatingLookup;
+  options: BalancePredictWinOptions;
+}> {
+  await ensurePlayerRatingsWithDecayCatchUp(leagueId, entries);
+
+  const playerIds = entries.map((entry) => entry.playerId);
+  const [globals, heroes, leagueConfig] = await Promise.all([
+    prisma.playerRating.findMany({ where: { leagueId, playerId: { in: playerIds } } }),
+    prisma.playerHeroRating.findMany({ where: { leagueId, playerId: { in: playerIds } } }),
+    resolveLeagueConfig(leagueId),
+  ]);
+  const globalByPlayer = new Map(globals.map((row) => [row.playerId, row]));
+  const heroByKey = new Map(heroes.map((row) => [`${row.playerId}:${row.heroId}`, row]));
+
+  return {
+    roster: entries.map((entry) => ({
+      playerId: entry.playerId,
+      slot: entry.slot,
+      team: entry.team,
+      heroId: entry.heroId,
+      nick: entry.nick,
+      locked: entry.locked === true,
+      ...(globalByPlayer.get(entry.playerId)?.isNewPlayer === true
+        ? { isNewPlayer: true as const }
+        : {}),
+    })),
+    lookup: {
+      global: (playerId) => globalByPlayer.get(playerId) ?? defaultMuSigma(),
+      hero: (playerId, heroId) => heroByKey.get(`${playerId}:${heroId}`) ?? defaultMuSigma(),
+    },
+    options: { staticSigma: leagueConfig.balanceStaticSigmaEnabled },
+  };
 }
 
 /** Map MatchWithPlayers rows into preview roster entries. */

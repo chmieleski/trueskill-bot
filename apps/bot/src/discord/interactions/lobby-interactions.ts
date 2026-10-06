@@ -33,7 +33,8 @@ import {
   refreshLobbyFromWc3stats,
   removePlayer,
   resolvePendingMatchByMessageId,
-  shuffleLobbyRoster,
+  balanceLobbyRoster,
+  balanceResultMessage,
   startLobbyMatchByMessageId,
   syncLobbyDiscordMessage,
   toggleLobbySlotLock,
@@ -442,42 +443,12 @@ async function handleSelectLockSlot(
   }
 }
 
-async function handleShuffleEntry(interaction: ButtonInteraction): Promise<void> {
+/** Balance button: re-seat unlocked players for 50/50 or 51/49 (host or match mod). */
+async function handleBalance(interaction: ButtonInteraction): Promise<void> {
   const messageId = interaction.message.id;
-  const result = await requirePendingMatch(messageId);
-
-  if ('error' in result) {
-    await replyEphemeral(interaction, result.error);
-    return;
-  }
-
-  if (!(await assertManagePendingOrReply(interaction, result.match))) {
-    return;
-  }
-
-  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId(`lobby:select:shuffle_scope:${messageId}`)
-      .setPlaceholder('Choose shuffle scope')
-      .addOptions(
-        { label: 'Within teams', value: 'team', description: 'Keep players on their current team' },
-        { label: 'Whole lobby', value: 'all', description: 'Players may switch teams' },
-      ),
-  );
-
-  await replyEphemeral(interaction, 'Shuffle unlocked seats:', [row]);
-}
-
-async function handleSelectShuffleScope(
-  interaction: StringSelectMenuInteraction,
-  messageId: string,
-): Promise<void> {
-  const scopeRaw = interaction.values[0];
-  const scope = scopeRaw === 'all' ? 'all' : 'team';
-
   const pending = await requirePendingMatch(messageId);
   if ('error' in pending) {
-    await updateEphemeral(interaction, pending.error);
+    await replyEphemeral(interaction, pending.error);
     return;
   }
 
@@ -489,23 +460,20 @@ async function handleSelectShuffleScope(
     return;
   }
 
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
     const config = await resolveGuildConfig(interaction.guildId);
-    const result = await shuffleLobbyRoster({
+    const result = await balanceLobbyRoster({
       client: interaction.client,
       actorDiscordId: interaction.user.id,
       matchId: pending.match.id,
-      scope,
       memberRoleIds: memberRoleIds(interaction),
       matchModRoleId: config.matchModRoleId,
     });
-    await updateEphemeral(
-      interaction,
-      `Shuffled unlocked seats (${scope === 'all' ? 'whole lobby' : 'within teams'}) in match \`${result.match.id}\`.`,
-    );
+    await interaction.editReply({ content: balanceResultMessage(result) });
   } catch (error) {
     if (error instanceof MatchServiceError) {
-      await updateEphemeral(interaction, error.message);
+      await interaction.editReply({ content: error.message });
       return;
     }
     throw error;
@@ -1455,7 +1423,7 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
   }
 
   if (customId === LOBBY_CUSTOM_IDS.shuffle) {
-    await handleShuffleEntry(interaction);
+    await handleBalance(interaction);
     return;
   }
 
@@ -1519,11 +1487,6 @@ async function handleSelect(interaction: StringSelectMenuInteraction): Promise<v
 
   if (kind === 'lock_slot') {
     await handleSelectLockSlot(interaction, messageId);
-    return;
-  }
-
-  if (kind === 'shuffle_scope') {
-    await handleSelectShuffleScope(interaction, messageId);
     return;
   }
 

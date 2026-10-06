@@ -9,6 +9,7 @@ import {
 } from '../match/match-service.js';
 import { prisma } from '../../lib/prisma.js';
 import { nickForDiscordId } from './lobby-identity.js';
+import { normalizeNick } from '../player/player-nick.js';
 import {
   addPlayer,
   editPlayerNick,
@@ -16,11 +17,15 @@ import {
   removePlayer,
   rosterAfterClaim,
   rosterAfterLeave,
-  shuffleLobbyPlayers,
   swapPlayers,
-  type ShuffleScope,
 } from './roster.js';
 import { applyRemapPairs } from './remap.js';
+import { findBalancedRoster } from './lobby-balance.js';
+import {
+  loadBalanceContext,
+  matchPlayersToRatingEntries,
+  type WinChancePercents,
+} from '../rating/rating-preview.js';
 import {
   applyRosterAndSync,
   syncLobbyDiscordMessage,
@@ -34,7 +39,7 @@ import {
 } from './resolve.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
 
-export type { LobbyActionResult, ShuffleScope };
+export type { LobbyActionResult };
 
 const PLAYER_CLAIM_DISABLED_MESSAGE = 'Player slot claim is disabled on this server.';
 
@@ -303,20 +308,44 @@ export async function toggleLobbySlotLock(
   return syncAfterLock(input.client, updated);
 }
 
-/** Randomly shuffle unlocked seats (host or match mod). */
-export async function shuffleLobbyRoster(
-  input: ManageLobbyInput & { scope: ShuffleScope },
-): Promise<LobbyActionResult> {
-  const { match, players } = await resolvePendingMatchForManage({
+/**
+ * Re-seat unlocked players for a 50/50 or 51/49 win chance (host or match mod).
+ * Each call picks a different seating; locked seats stay put.
+ */
+export async function balanceLobbyRoster(
+  input: ManageLobbyInput,
+): Promise<LobbyActionResult & { winChance: WinChancePercents; balanced: boolean }> {
+  const { match } = await resolvePendingMatchForManage({
     actorDiscordId: input.actorDiscordId,
     matchId: input.matchId,
     memberRoleIds: input.memberRoleIds,
     matchModRoleId: input.matchModRoleId,
   });
   const profile = await getGameProfileForMatch(match);
-  const { players: next, shuffled } = shuffleLobbyPlayers(players, profile, input.scope);
-  if (!shuffled) {
-    throw new MatchServiceError('Nothing to shuffle.');
+  const { roster, lookup, options } = await loadBalanceContext(
+    requireLeagueId(match),
+    matchPlayersToRatingEntries(match.players),
+  );
+  const result = findBalancedRoster(roster, lookup, options, profile);
+  if (!result) {
+    throw new MatchServiceError(
+      'Could not find a better seating. Unlock some seats and try again.',
+    );
   }
-  return applyRosterAndSync(input.client, match.id, next);
+  const next: LobbyPlayer[] = result.roster.map((entry) => ({
+    slot: entry.slot,
+    nick: normalizeNick(entry.nick),
+    ...(entry.locked === true ? { locked: true as const } : {}),
+  }));
+  const synced = await applyRosterAndSync(input.client, match.id, next);
+  return { ...synced, winChance: result.winChance, balanced: result.balanced };
+}
+
+/** Ephemeral reply for the Balance button and `/lobby balance`. */
+export function balanceResultMessage(
+  result: Awaited<ReturnType<typeof balanceLobbyRoster>>,
+): string {
+  const { teamAPercent, teamBPercent } = result.winChance;
+  const prefix = result.balanced ? 'Balanced' : 'Closest found';
+  return `${prefix} → **${teamAPercent}% / ${teamBPercent}%** in match \`${result.match.id}\`. Click again for another combination.`;
 }

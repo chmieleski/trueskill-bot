@@ -9,7 +9,7 @@ const log = createLogger('lobby-ocr');
 export interface LobbyPlayer {
   slot: number;
   nick: string;
-  /** Soft lock for balance hints + shuffle; omitted/false = unlocked. */
+  /** Soft lock: Balance never moves this seat; omitted/false = unlocked. */
   locked?: boolean;
   /** Quitter flag when creating a roster; host/mods set via report flow. */
   isQuitter?: boolean;

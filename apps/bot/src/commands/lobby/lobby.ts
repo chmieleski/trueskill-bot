@@ -20,7 +20,8 @@ import {
   resolveHostPendingMatch,
   resolveMimeType,
   resolveSwapForm,
-  shuffleLobbyRoster,
+  balanceLobbyRoster,
+  balanceResultMessage,
   startLobbyMatch,
   swapLobbyPlayers,
   unlockLobbySlot,
@@ -210,17 +211,9 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand((subcommand) =>
     subcommand
-      .setName('shuffle')
-      .setDescription('Randomly shuffle unlocked lobby seats (host or match moderator)')
-      .addStringOption((option) =>
-        option
-          .setName('scope')
-          .setDescription('Shuffle within each team, or across the whole lobby')
-          .setRequired(true)
-          .addChoices(
-            { name: 'Within teams', value: 'team' },
-            { name: 'Whole lobby', value: 'all' },
-          ),
+      .setName('balance')
+      .setDescription(
+        'Re-seat unlocked players for a 50/50 or 51/49 win chance (host or match moderator)',
       )
       .addStringOption((option) =>
         option
@@ -456,23 +449,18 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
 
-    if (subcommand === 'shuffle') {
-      const scopeRaw = interaction.options.getString('scope', true);
-      const scope = scopeRaw === 'all' ? 'all' : 'team';
+    if (subcommand === 'balance') {
       const matchModRoleId = interaction.guildId
         ? (await resolveGuildConfig(interaction.guildId)).matchModRoleId
         : undefined;
-      const result = await shuffleLobbyRoster({
+      const result = await balanceLobbyRoster({
         client: interaction.client,
         actorDiscordId: hostDiscordId,
         matchId,
-        scope,
         memberRoleIds: memberRoleIds(interaction),
         matchModRoleId,
       });
-      await interaction.editReply({
-        content: `Shuffled unlocked seats (${scope === 'all' ? 'whole lobby' : 'within teams'}) in match \`${result.match.id}\`.`,
-      });
+      await interaction.editReply({ content: balanceResultMessage(result) });
       return;
     }
 
