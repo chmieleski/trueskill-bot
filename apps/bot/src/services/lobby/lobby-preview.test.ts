@@ -616,7 +616,7 @@ describe('buildLobbyButtons', () => {
     expect(rosterCustomIds(rows)).not.toContain(LOBBY_CUSTOM_IDS.add);
   });
 
-  it('puts Lock, Balance, and Cancel on the last row', () => {
+  it('puts Balance (primary), Lock, and Cancel on the last row', () => {
     const rows = buildLobbyButtons({
       canStart: true,
       playerCount: 2,
@@ -624,13 +624,14 @@ describe('buildLobbyButtons', () => {
     });
 
     expect(rowCustomIds(rows.at(-1))).toEqual([
-      LOBBY_CUSTOM_IDS.lockToggle,
       LOBBY_CUSTOM_IDS.shuffle,
+      LOBBY_CUSTOM_IDS.lockToggle,
       LOBBY_CUSTOM_IDS.cancel,
     ]);
-    expect(rows.at(-1)?.toJSON().components[1]).toMatchObject({
+    expect(rows.at(-1)?.toJSON().components[0]).toMatchObject({
       custom_id: LOBBY_CUSTOM_IDS.shuffle,
-      label: 'Balance',
+      label: 'Balance teams',
+      style: 1,
     });
     expect(rows.at(-1)?.toJSON().components[2]).toMatchObject({
       custom_id: LOBBY_CUSTOM_IDS.cancel,
@@ -649,8 +650,8 @@ describe('buildLobbyButtons', () => {
     expect(ids).toContain(LOBBY_CUSTOM_IDS.cancel);
     expect(ids).not.toContain(LOBBY_CUSTOM_IDS.start);
     expect(rowCustomIds(rows.at(-1))).toEqual([
-      LOBBY_CUSTOM_IDS.lockToggle,
       LOBBY_CUSTOM_IDS.shuffle,
+      LOBBY_CUSTOM_IDS.lockToggle,
       LOBBY_CUSTOM_IDS.cancel,
     ]);
   });
@@ -665,8 +666,8 @@ describe('buildLobbyButtons', () => {
 
     expect(rowCustomIds(rows[0])).toEqual([LOBBY_CUSTOM_IDS.start, LOBBY_CUSTOM_IDS.refresh]);
     expect(rowCustomIds(rows.at(-1))).toEqual([
-      LOBBY_CUSTOM_IDS.lockToggle,
       LOBBY_CUSTOM_IDS.shuffle,
+      LOBBY_CUSTOM_IDS.lockToggle,
       LOBBY_CUSTOM_IDS.cancel,
     ]);
   });
