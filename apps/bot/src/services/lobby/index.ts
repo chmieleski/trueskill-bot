@@ -66,9 +66,10 @@ export {
   remapLobbyPlayers,
   editLobbyPlayerNick,
   applyRosterUpdateForMessage,
-  lockLobbySlot,
-  unlockLobbySlot,
-  toggleLobbySlotLock,
+  lockLobbySlots,
+  unlockLobbySlots,
+  setLobbyLockedSlots,
+  formatSlotList,
   balanceLobbyRoster,
   balanceResultMessage,
 } from './actions.js';

@@ -149,7 +149,8 @@ export function parseDcSlots(slotsRaw: string | null | undefined): number[] {
   return parseFlagSlots(slotsRaw, 'DC');
 }
 
-function parseFlagSlots(slotsRaw: string | null | undefined, label: string): number[] {
+/** Parse comma-separated slots like "1,3,7" (deduped, sorted). */
+export function parseFlagSlots(slotsRaw: string | null | undefined, label: string): number[] {
   const trimmed = slotsRaw?.trim();
 
   if (!trimmed) {
