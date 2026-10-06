@@ -1,3 +1,10 @@
+# [1.81.0](https://github.com/chmieleski/trueskill-bot/compare/v1.80.0...v1.81.0) (2026-10-06)
+
+
+### Features
+
+* **rank:** show final ki after pending season punishments ([#217](https://github.com/chmieleski/trueskill-bot/issues/217)) ([fff29dd](https://github.com/chmieleski/trueskill-bot/commit/fff29dd282d0c7ed2cb2e60695727a838caf855d))
+
 # [1.80.0](https://github.com/chmieleski/trueskill-bot/compare/v1.79.0...v1.80.0) (2026-10-06)
 
 
