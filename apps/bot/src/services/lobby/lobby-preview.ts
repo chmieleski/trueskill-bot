@@ -6,6 +6,7 @@ import {
   time,
   TimestampStyles,
 } from 'discord.js';
+import type { InGameRosterSource } from './in-game-roster.js';
 import type { LobbyPlayer, ValidatedLobby } from './lobby-ocr.js';
 import type { LobbyRatingPlayerLine, LobbyRatingPreview } from '../rating/rating-preview.js';
 import { formatPublicKi, isCalibrating } from '../rating/rating-math.js';
@@ -259,6 +260,27 @@ function ratingPreviewFields(
   ];
 }
 
+/** Copy-paste in-game commands for the Match Lobby (see swap-commands.ts). */
+export type LobbySwapCommands = {
+  lines: string[];
+  source: InGameRosterSource;
+  observedAt: Date;
+};
+
+function swapCommandFields(swap: LobbySwapCommands | undefined) {
+  if (!swap || swap.lines.length === 0) {
+    return [];
+  }
+  const footer = `_From ${swap.source} · ${time(swap.observedAt, TimestampStyles.RelativeTime)}. Refresh or post a screenshot after swapping to confirm._`;
+  return [
+    {
+      name: 'Swap commands',
+      value: [...swap.lines.map((line) => `\`${line}\``), footer].join('\n'),
+      inline: false,
+    },
+  ];
+}
+
 function teamFieldValues(
   players: LobbyPlayer[],
   ratingPreview: LobbyRatingPreview | undefined,
@@ -340,6 +362,7 @@ export function buildMatchLobbyEmbed(
     wc3statsLinkAvailable?: boolean;
     profile?: GameProfile;
     eventName?: string | null;
+    swapCommands?: LobbySwapCommands;
   } = {},
 ): EmbedBuilder {
   const profile = resolvedProfile(options.profile);
@@ -389,6 +412,7 @@ export function buildMatchLobbyEmbed(
         inline: false,
       },
       ...ratingPreviewFields(options.ratingPreview, profile, screenshotCommandLeadField(profile)),
+      ...swapCommandFields(options.swapCommands),
     )
     .setColor(0x5865f2);
 
