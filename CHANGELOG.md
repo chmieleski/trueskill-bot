@@ -1,3 +1,10 @@
+## [1.70.2](https://github.com/chmieleski/trueskill-bot/compare/v1.70.1...v1.70.2) (2026-10-06)
+
+
+### Bug Fixes
+
+* **rating:** keep quitters in match rating; skip legacy quits in rollover tax ([#207](https://github.com/chmieleski/trueskill-bot/issues/207)) ([69b262c](https://github.com/chmieleski/trueskill-bot/commit/69b262cae56840a66b29ec5a93de30684184bcb9))
+
 ## [1.70.1](https://github.com/chmieleski/trueskill-bot/compare/v1.70.0...v1.70.1) (2026-10-06)
 
 
