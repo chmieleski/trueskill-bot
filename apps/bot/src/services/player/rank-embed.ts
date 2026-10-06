@@ -88,10 +88,14 @@ export function buildRankEmbed(
   const title = isCalibrating(leagueGames)
     ? CALIBRATING_LABEL
     : `Rank #${profile.rankPosition} · ${profile.globalKi} ${ratingLabel}`;
+  const quits =
+    profile.lifetimeQuits > profile.quits
+      ? `${profile.quits}Q (${profile.lifetimeQuits} all-time)`
+      : `${profile.quits}Q`;
   const record =
     profile.winRatePercent === null
-      ? `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q · ${profile.griefs}G · ${profile.dcs}D`
-      : `${profile.wins}W · ${profile.losses}L · ${profile.quits}Q · ${profile.griefs}G · ${profile.dcs}D · ${profile.winRatePercent}% WR`;
+      ? `${profile.wins}W · ${profile.losses}L · ${quits} · ${profile.griefs}G · ${profile.dcs}D`
+      : `${profile.wins}W · ${profile.losses}L · ${quits} · ${profile.griefs}G · ${profile.dcs}D · ${profile.winRatePercent}% WR`;
 
   const sideLine =
     profile.sideWinLoss && options?.teamNames
