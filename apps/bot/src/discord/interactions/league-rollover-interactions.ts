@@ -5,6 +5,7 @@ import {
   stripHeroChampionDiscordRoles,
   syncHeroChampionRoles,
 } from '../../services/hero-champion-roles/index.js';
+import { syncRankRoles } from '../../services/rank-roles/index.js';
 import { deleteMessageBestEffort, setupLiveLeaderboard } from '../../services/leaderboard/index.js';
 import {
   applyLeagueRollover,
@@ -60,7 +61,7 @@ export function buildRolloverConfirmComponents(input: {
 }
 
 /**
- * After DB rollover: strip archived champions' Discord roles, then sync successor mappings.
+ * After DB rollover: strip archived hero champion / rank role holders, then sync successor mappings.
  * Best-effort — never fails the rollover reply.
  */
 async function syncChampionRolesAfterRollover(
@@ -93,6 +94,15 @@ async function syncChampionRolesAfterRollover(
     log.warn(
       { err: error, successorLeagueId: result.successorLeagueId },
       'Failed to sync successor hero champion roles after rollover',
+    );
+  }
+
+  try {
+    await syncRankRoles(interaction.client, result.successorLeagueId);
+  } catch (error) {
+    log.warn(
+      { err: error, successorLeagueId: result.successorLeagueId },
+      'Failed to sync successor rank roles after rollover',
     );
   }
 }

@@ -26,6 +26,7 @@ import {
   listLeagueWc3statsSlotMaps,
 } from '../../services/wc3stats/index.js';
 import { listLeagueHeroChampionRoles } from '../../services/hero-champion-roles/index.js';
+import { listLeagueRankRoles } from '../../services/rank-roles/index.js';
 import {
   formatOcrNickAliasLines,
   formatOcrNickAliasSection,
@@ -284,6 +285,19 @@ export function formatHeroChampionRolesLine(
   return `${header} · \`${n}\` hero${n === 1 ? '' : 'es'} mapped · manage with \`/hero_champion_config\``;
 }
 
+/** One-line summary of leaderboard rank roles for `/config view`. */
+export function formatRankRolesLine(
+  enabled: boolean,
+  mappings: { rank: number; discordRoleId: string }[],
+): string {
+  const header = `**Rank roles:** \`${enabled ? 'on' : 'off'}\``;
+  if (mappings.length === 0) {
+    return `${header} · no ranks mapped · manage with \`/rank_role_config\``;
+  }
+  const list = mappings.map((m) => `#${m.rank} <@&${m.discordRoleId}>`).join(', ');
+  return `${header} · ${list} · manage with \`/rank_role_config\``;
+}
+
 /** Build `/config view` output for guild-wide and league-scoped settings. */
 export async function buildConfigViewContent(
   interaction: ChatInputCommandInteraction,
@@ -302,6 +316,7 @@ export async function buildConfigViewContent(
   const leagueConfig = await resolveLeagueConfig(leagueId);
   const slotMaps = await listLeagueWc3statsSlotMaps(leagueId);
   const heroChampionRoles = await listLeagueHeroChampionRoles(leagueId);
+  const rankRoles = await listLeagueRankRoles(leagueId);
   const ocrNickAliases = await listLeagueOcrNickAliases(leagueId);
 
   return [
@@ -340,6 +355,7 @@ export async function buildConfigViewContent(
     formatBalanceStaticSigmaLine(leagueConfig.balanceStaticSigmaEnabled),
     formatSideWinLossLine(leagueConfig.showSideWinLoss),
     formatHeroChampionRolesLine(leagueConfig.heroChampionRolesEnabled, heroChampionRoles),
+    formatRankRolesLine(leagueConfig.rankRolesEnabled, rankRoles),
     formatDecayLine(
       leagueConfig.decayEnabled,
       leagueConfig.seasonEndsAt,

@@ -522,6 +522,7 @@ function successorLeagueCreateData(
     decayPrizeLockEnabled: source.decayPrizeLockEnabled,
     decayPrizeLockMinGames: source.decayPrizeLockMinGames,
     heroChampionRolesEnabled: source.heroChampionRolesEnabled,
+    rankRolesEnabled: source.rankRolesEnabled,
   };
 }
 
@@ -651,7 +652,7 @@ export async function applyLeagueRollover(
   const resetMode = parseResetMode(draft.resetMode);
   const compression = draft.compression;
 
-  const [globalRatings, heroRatings, slotMaps, championRoles] = await Promise.all([
+  const [globalRatings, heroRatings, slotMaps, championRoles, rankRoles] = await Promise.all([
     prisma.playerRating.findMany({ where: { leagueId: source.id } }),
     prisma.playerHeroRating.findMany({ where: { leagueId: source.id } }),
     prisma.leagueWc3statsSlotMap.findMany({ where: { leagueId: source.id } }),
@@ -659,17 +660,18 @@ export async function applyLeagueRollover(
       where: { leagueId: source.id },
       select: { heroId: true, discordRoleId: true, holderDiscordId: true },
     }),
+    prisma.leagueRankRole.findMany({
+      where: { leagueId: source.id },
+      select: { rank: true, discordRoleId: true, holderDiscordId: true },
+    }),
   ]);
 
-  const archivedChampionRoleHolders = championRoles
-    .filter(
-      (row): row is { heroId: number; discordRoleId: string; holderDiscordId: string } =>
-        typeof row.holderDiscordId === 'string' && row.holderDiscordId.length > 0,
-    )
-    .map((row) => ({
-      discordRoleId: row.discordRoleId,
-      holderDiscordId: row.holderDiscordId,
-    }));
+  // Hero champion + leaderboard rank role holders: both are stripped the same way.
+  const archivedChampionRoleHolders = [...championRoles, ...rankRoles].flatMap((row) =>
+    row.holderDiscordId
+      ? [{ discordRoleId: row.discordRoleId, holderDiscordId: row.holderDiscordId }]
+      : [],
+  );
 
   const playerIds = new Set<string>();
   for (const row of globalRatings) {
@@ -849,6 +851,21 @@ export async function applyLeagueRollover(
       });
     }
 
+    if (rankRoles.length > 0) {
+      await tx.leagueRankRole.createMany({
+        data: rankRoles.map((row) => ({
+          leagueId: successor.id,
+          rank: row.rank,
+          discordRoleId: row.discordRoleId,
+          holderDiscordId: null,
+        })),
+      });
+      await tx.leagueRankRole.updateMany({
+        where: { leagueId: source.id },
+        data: { holderDiscordId: null },
+      });
+    }
+
     const bindingsMoved = await tx.leagueChannelBinding.updateMany({
       where: { leagueId: source.id },
       data: { leagueId: successor.id },
@@ -870,6 +887,7 @@ export async function applyLeagueRollover(
         wc3statsHostPromptEnabled: false,
         wc3statsHostPromptChannelId: null,
         heroChampionRolesEnabled: false,
+        rankRolesEnabled: false,
       },
     });
 

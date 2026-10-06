@@ -94,6 +94,12 @@ model League {
   heroChampionRolesDirty         Boolean      @default(false)
   /// Last time hero champion roles were synced for this league.
   lastHeroChampionSyncAt         DateTime?
+  /// When true, sync Discord roles for overall leaderboard #1–#3 (staff-mapped).
+  rankRolesEnabled               Boolean      @default(false)
+  /// Set to true when ratings changed in this league, cleared after rank role sync.
+  rankRolesDirty                 Boolean      @default(false)
+  /// Last time rank roles were synced for this league.
+  lastRankRoleSyncAt             DateTime?
   createdAt                      DateTime     @default(now())
   updatedAt                      DateTime     @updatedAt
 
@@ -105,6 +111,7 @@ model League {
   rankResets        PlayerRankReset[]
   wc3statsSlotMaps  LeagueWc3statsSlotMap[]
   heroChampionRoles LeagueHeroChampionRole[]
+  rankRoles         LeagueRankRole[]
   ocrNickAliases    LeagueOcrNickAlias[]
   predecessor       League?                  @relation("LeagueSuccession", fields: [predecessorLeagueId], references: [id])
   successors        League[]                 @relation("LeagueSuccession")
@@ -114,6 +121,7 @@ model League {
   @@index([guildId])
   @@index([gameId])
   @@index([heroChampionRolesEnabled, heroChampionRolesDirty])
+  @@index([rankRolesEnabled, rankRolesDirty])
 }
 
 // LeagueWc3statsSlotMap - map wc3stats slots[] index → bot hero/slot (1-12) per league
@@ -293,6 +301,23 @@ model LeagueHeroChampionRole {
   hero   Hero   @relation(fields: [heroId], references: [id], onDelete: Cascade)
 
   @@id([leagueId, heroId])
+  @@unique([leagueId, discordRoleId])
+  @@index([leagueId])
+}
+
+/// Staff-mapped Discord role for overall leaderboard position #1–#3 in a league.
+model LeagueRankRole {
+  leagueId        String
+  /// Leaderboard position (1–3).
+  rank            Int
+  discordRoleId   String
+  holderDiscordId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+
+  @@id([leagueId, rank])
   @@unique([leagueId, discordRoleId])
   @@index([leagueId])
 }
