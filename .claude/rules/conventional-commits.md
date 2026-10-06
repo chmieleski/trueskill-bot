@@ -1,8 +1,3 @@
----
-description: Conventional Commits for version bumps and CHANGELOG.md
-alwaysApply: true
----
-
 # Conventional Commits
 
 Every commit message and **squash PR title** must follow Conventional Commits. CI lints the PR title. `main` squash-merge is required so the merge commit is releasable.
@@ -15,12 +10,12 @@ type(optional-scope): short summary
 
 Types:
 
-| Type | Version bump |
-|------|----------------|
-| `feat` | minor |
-| `fix` | patch |
-| `feat!` / `fix!` / footer `BREAKING CHANGE:` | major |
-| `docs`, `chore`, `refactor`, `test`, `perf`, `style` | none |
+| Type                                                 | Version bump |
+| ---------------------------------------------------- | ------------ |
+| `feat`                                               | minor        |
+| `fix`                                                | patch        |
+| `feat!` / `fix!` / footer `BREAKING CHANGE:`         | major        |
+| `docs`, `chore`, `refactor`, `test`, `perf`, `style` | none         |
 
 Examples: `feat(lobby): always show the balance hint`, `fix: hide ki while calibrating`, `docs: add changelog spec`.
 
