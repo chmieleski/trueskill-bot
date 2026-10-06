@@ -34,6 +34,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "pack:bot": "bash deploy/aws/pack-release.sh",
+    "logs:prod": "bash apps/bot/scripts/prod-logs.sh",
     "prepare": "husky"
   },
   "devDependencies": {

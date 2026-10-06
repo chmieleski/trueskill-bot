@@ -2,27 +2,28 @@
 
 Monorepo (pnpm + Turborepo). Prefer root scripts; filters target `@dbz/bot`, `@dbz/web`, `@dbz/db`.
 
-| Script                              | Purpose                                                             |
-| ----------------------------------- | ------------------------------------------------------------------- |
-| `pnpm dev` / `pnpm dev:bot`         | Bot tsx watch (`@dbz/bot`)                                          |
-| `pnpm dev:web`                      | Next.js web shell (`@dbz/web`)                                      |
-| `pnpm build`                        | Turbo build (db generate + bot + web)                               |
-| `pnpm build:bot` / `pnpm build:web` | Filtered builds                                                     |
-| `pnpm typecheck`                    | Turbo typecheck                                                     |
-| `pnpm start`                        | Production bot from `apps/bot/dist/`                                |
-| `pnpm deploy-commands`              | Manual slash command deploy                                         |
-| `pnpm db:migrate`                   | Prisma migrate dev (`@dbz/db`)                                      |
-| `pnpm db:push`                      | Push schema without migration                                       |
-| `pnpm db:studio`                    | Prisma Studio                                                       |
-| `pnpm db:generate`                  | Regenerate Prisma client                                            |
-| `pnpm db:up`                        | Start local Postgres (Docker Compose, port 5433)                    |
-| `pnpm db:down`                      | Stop local Postgres (volume kept)                                   |
-| `pnpm db:clone`                     | Dump hosted public data → local Postgres                            |
-| `pnpm db:clone:heroes`              | Same clone, `"Hero"` table only                                     |
-| `pnpm db:backup`                    | Gzipped schema+data dump of hosted prod → `.local/backups/`         |
-| `pnpm db:restore`                   | Restore a backup into local Docker only (`-- path.sql.gz` optional) |
-| `pnpm db:migrate-aws`               | Migrate public schema + data from Supabase to AWS RDS PostgreSQL    |
-| `pnpm db:migrate-multi-league`      | Probe schema, migrate deploy if needed, ensure Game/UDBR leagues    |
+| Script                              | Purpose                                                                   |
+| ----------------------------------- | ------------------------------------------------------------------------- |
+| `pnpm dev` / `pnpm dev:bot`         | Bot tsx watch (`@dbz/bot`)                                                |
+| `pnpm dev:web`                      | Next.js web shell (`@dbz/web`)                                            |
+| `pnpm build`                        | Turbo build (db generate + bot + web)                                     |
+| `pnpm build:bot` / `pnpm build:web` | Filtered builds                                                           |
+| `pnpm typecheck`                    | Turbo typecheck                                                           |
+| `pnpm start`                        | Production bot from `apps/bot/dist/`                                      |
+| `pnpm deploy-commands`              | Manual slash command deploy                                               |
+| `pnpm db:migrate`                   | Prisma migrate dev (`@dbz/db`)                                            |
+| `pnpm db:push`                      | Push schema without migration                                             |
+| `pnpm db:studio`                    | Prisma Studio                                                             |
+| `pnpm db:generate`                  | Regenerate Prisma client                                                  |
+| `pnpm db:up`                        | Start local Postgres (Docker Compose, port 5433)                          |
+| `pnpm db:down`                      | Stop local Postgres (volume kept)                                         |
+| `pnpm db:clone`                     | Dump hosted public data → local Postgres                                  |
+| `pnpm db:clone:heroes`              | Same clone, `"Hero"` table only                                           |
+| `pnpm db:backup`                    | Gzipped schema+data dump of hosted prod → `.local/backups/`               |
+| `pnpm db:restore`                   | Restore a backup into local Docker only (`-- path.sql.gz` optional)       |
+| `pnpm db:migrate-aws`               | Migrate public schema + data from Supabase to AWS RDS PostgreSQL          |
+| `pnpm db:migrate-multi-league`      | Probe schema, migrate deploy if needed, ensure Game/UDBR leagues          |
+| `pnpm logs:prod`                    | Tail production bot logs via SSM (tofu output → journalctl → pino-pretty) |
 
 Keep a **root** `.env` for local `DATABASE_URL` / `DIRECT_URL` (shared by bot + Prisma CLI).
 
