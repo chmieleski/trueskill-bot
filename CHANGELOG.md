@@ -1,3 +1,10 @@
+# [1.73.0](https://github.com/chmieleski/trueskill-bot/compare/v1.72.0...v1.73.0) (2026-10-06)
+
+
+### Features
+
+* **lobby:** put Balance beside Refresh on the top row ([#210](https://github.com/chmieleski/trueskill-bot/issues/210)) ([8239c66](https://github.com/chmieleski/trueskill-bot/commit/8239c664762b647502ded8a308e5154f528a763e))
+
 # [1.72.0](https://github.com/chmieleski/trueskill-bot/compare/v1.71.0...v1.72.0) (2026-10-06)
 
 
