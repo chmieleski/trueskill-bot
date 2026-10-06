@@ -45,6 +45,25 @@ export function formatQuitterPoolField(
   return `Loses **~${profile.pendingQuitterSeasonTax} ${ratingLabel}** at season end (10% per quit)`;
 }
 
+/** Embed field value for global ki after all pending season taxes; null when none pending. */
+export function formatFinalKiField(
+  profile: Pick<
+    PlayerProfile,
+    'globalKi' | 'pendingGrieferKiTax' | 'pendingDcSeasonTax' | 'pendingQuitterSeasonTax'
+  >,
+  ratingLabel = 'ki',
+): string | null {
+  const totalTax =
+    profile.pendingGrieferKiTax + profile.pendingDcSeasonTax + profile.pendingQuitterSeasonTax;
+  if (totalTax <= 0) {
+    return null;
+  }
+
+  // Rollover clamps at 0; quitter tax is an estimate, so the result is too.
+  const approx = profile.pendingQuitterSeasonTax > 0 ? '~' : '';
+  return `**${approx}${Math.max(0, profile.globalKi - totalTax)} ${ratingLabel}**`;
+}
+
 export function formatHeroTable(heroes: PlayerProfileHero[], leagueGames: number): string {
   if (heroes.length === 0) {
     return '_No hero games yet_';
@@ -146,6 +165,12 @@ export function buildRankEmbed(
   const quitterPool = formatQuitterPoolField(profile, ratingLabel);
   if (quitterPool) {
     embed.addFields({ name: 'Quitter pool', value: quitterPool });
+  }
+
+  // Calibrating players have hidden ki; don't leak it through the projection.
+  const finalKi = isCalibrating(leagueGames) ? null : formatFinalKiField(profile, ratingLabel);
+  if (finalKi) {
+    embed.addFields({ name: 'Final ki after punishment', value: finalKi });
   }
 
   // Omit when empty (no hero ratings / stats yet).

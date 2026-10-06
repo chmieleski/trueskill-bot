@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildRankEmbed,
   formatDcPoolField,
+  formatFinalKiField,
   formatGrieferPoolField,
   formatHeroTable,
   formatSideWinLossRecordLine,
@@ -262,6 +263,26 @@ describe('buildRankEmbed', () => {
     });
   });
 
+  it('shows final ki after all pending punishments under the pools', () => {
+    const fields =
+      buildRankEmbed({ ...baseProfile, dcs: 3, pendingDcSeasonTax: 300 }).toJSON().fields ?? [];
+    expect(fields.slice(0, 3).map((field) => field.name)).toEqual([
+      'Griefer pool',
+      'Disconnect pool',
+      'Final ki after punishment',
+    ]);
+    expect(fields[2]!.value).toBe('**3450 ki**');
+  });
+
+  it('formatFinalKiField marks quitter estimates, clamps at 0, and omits when nothing pending', () => {
+    const none = { globalKi: 1000, pendingGrieferKiTax: 0, pendingDcSeasonTax: 0 };
+    expect(formatFinalKiField({ ...none, pendingQuitterSeasonTax: 0 })).toBeNull();
+    expect(formatFinalKiField({ ...none, pendingQuitterSeasonTax: 100 })).toBe('**~900 ki**');
+    expect(
+      formatFinalKiField({ ...none, pendingDcSeasonTax: 1200, pendingQuitterSeasonTax: 0 }),
+    ).toBe('**0 ki**');
+  });
+
   it('omits griefer pool when no pending tax', () => {
     const fields =
       buildRankEmbed({
@@ -330,14 +351,14 @@ describe('buildRankEmbed', () => {
     const names = buildRankEmbed({ ...baseProfile, heroes: [] })
       .toJSON()
       .fields?.map((f) => f.name);
-    expect(names).toEqual(['Griefer pool']);
+    expect(names).toEqual(['Griefer pool', 'Final ki after punishment']);
   });
 
   it('omits the Heroes field when showHeroes is false even if ratings exist', () => {
     const names = buildRankEmbed(baseProfile, { showHeroes: false })
       .toJSON()
       .fields?.map((f) => f.name);
-    expect(names).toEqual(['Griefer pool']);
+    expect(names).toEqual(['Griefer pool', 'Final ki after punishment']);
   });
 
   it('includes the Heroes field when hero ratings exist', () => {
@@ -382,7 +403,13 @@ describe('buildRankEmbed', () => {
   it('adds teammate fields after Griefer pool and Heroes', () => {
     const data = buildRankEmbed(baseProfile, { teammates: sampleTeammates }).toJSON();
     const names = (data.fields ?? []).map((f) => f.name);
-    expect(names).toEqual(['Griefer pool', 'Heroes', 'Played with', 'Win with']);
+    expect(names).toEqual([
+      'Griefer pool',
+      'Final ki after punishment',
+      'Heroes',
+      'Played with',
+      'Win with',
+    ]);
     expect(data.fields?.find((field) => field.name === 'Played with')?.value).toContain('Ghost');
     expect(data.fields?.find((field) => field.name === 'Played with')?.value).toContain('14G');
     expect(names).not.toContain('Lose with');
@@ -394,14 +421,18 @@ describe('buildRankEmbed', () => {
       teammates: sampleTeammates,
     }).toJSON();
     const names = (data.fields ?? []).map((f) => f.name);
-    expect(names).toEqual(['Griefer pool', 'Played with', 'Win with']);
+    expect(names).toEqual(['Griefer pool', 'Final ki after punishment', 'Played with', 'Win with']);
   });
 
   it('omits all teammate fields when every list is empty', () => {
     const data = buildRankEmbed(baseProfile, {
       teammates: { playedWith: [], winWith: [], loseWith: [] },
     }).toJSON();
-    expect((data.fields ?? []).map((f) => f.name)).toEqual(['Griefer pool', 'Heroes']);
+    expect((data.fields ?? []).map((f) => f.name)).toEqual([
+      'Griefer pool',
+      'Final ki after punishment',
+      'Heroes',
+    ]);
   });
 
   it('adds opponent fields after teammate fields', () => {
@@ -412,6 +443,7 @@ describe('buildRankEmbed', () => {
     const names = (data.fields ?? []).map((f) => f.name);
     expect(names).toEqual([
       'Griefer pool',
+      'Final ki after punishment',
       'Heroes',
       'Played with',
       'Win with',
@@ -430,7 +462,13 @@ describe('buildRankEmbed', () => {
       opponents: { playedAgainst: [], winAgainst: [], loseAgainst: [] },
     }).toJSON();
     const names = (data.fields ?? []).map((f) => f.name);
-    expect(names).toEqual(['Griefer pool', 'Heroes', 'Played with', 'Win with']);
+    expect(names).toEqual([
+      'Griefer pool',
+      'Final ki after punishment',
+      'Heroes',
+      'Played with',
+      'Win with',
+    ]);
   });
 
   it('shows idle decay footer for linked players when set', () => {
