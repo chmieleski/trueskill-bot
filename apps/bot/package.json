@@ -1,6 +1,6 @@
 {
   "name": "@dbz/bot",
-  "version": "1.77.0",
+  "version": "1.78.0",
   "private": true,
   "type": "module",
   "description": "Discord bot for managing DBZ Warcraft III ranked matches",

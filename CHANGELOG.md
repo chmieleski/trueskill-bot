@@ -1,3 +1,15 @@
+# [1.78.0](https://github.com/chmieleski/trueskill-bot/compare/v1.77.0...v1.78.0) (2026-10-06)
+
+
+### Bug Fixes
+
+* **match:** let sanction remove clear flags on regular cancelled matches ([#214](https://github.com/chmieleski/trueskill-bot/issues/214)) ([f67ab85](https://github.com/chmieleski/trueskill-bot/commit/f67ab850143e943a0b83080dd52fb50ab00a52c0))
+
+
+### Features
+
+* **lobby:** lock and unlock several slots at once ([#213](https://github.com/chmieleski/trueskill-bot/issues/213)) ([50c1b91](https://github.com/chmieleski/trueskill-bot/commit/50c1b9123ac1b78fd7a9972ca54e28360423e8a0))
+
 # [1.77.0](https://github.com/chmieleski/trueskill-bot/compare/v1.76.0...v1.77.0) (2026-10-06)
 
 
