@@ -18,10 +18,12 @@ const baseProfile: PlayerProfile = {
   wins: 12,
   losses: 5,
   quits: 2,
+  lifetimeQuits: 2,
   griefs: 1,
   dcs: 0,
   pendingGrieferKiTax: 250,
   pendingDcSeasonTax: 0,
+  pendingQuitterSeasonTax: 0,
   winRatePercent: 70.6,
   heroes: [
     {
@@ -166,6 +168,12 @@ describe('buildRankEmbed', () => {
     expect(description).not.toContain('tax ki');
   });
 
+  it('shows all-time quits when they exceed the rank-reset window', () => {
+    const description =
+      buildRankEmbed({ ...baseProfile, quits: 0, lifetimeQuits: 7 }).toJSON().description ?? '';
+    expect(description).toContain('12W · 5L · 0Q (7 all-time) · 1G · 0D · 70.6% WR');
+  });
+
   it('appends side W–L under the overall record when enabled', () => {
     const description =
       buildRankEmbed(
@@ -262,6 +270,7 @@ describe('buildRankEmbed', () => {
       wins: 0,
       losses: 0,
       quits: 0,
+      lifetimeQuits: 0,
       griefs: 0,
       dcs: 0,
       pendingGrieferKiTax: 0,

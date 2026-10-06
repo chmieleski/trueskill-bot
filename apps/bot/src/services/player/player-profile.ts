@@ -1,3 +1,4 @@
+import { MatchStatus } from '@dbz/db';
 import { prisma } from '../../lib/prisma.js';
 import { normalizeNick } from './player-nick.js';
 import {
@@ -58,6 +59,8 @@ export type PlayerProfile = {
   losses: number;
   /** Completed or cancelled matches where this player was marked a quitter. */
   quits: number;
+  /** Quits across every league, ignoring rank resets — never hidden by reset or rollover. */
+  lifetimeQuits: number;
   /** Completed or cancelled matches where this player was marked a griefer (not quitter). */
   griefs: number;
   /** Completed or cancelled matches where this player was marked DC (not quitter); rank-reset gated. */
@@ -207,6 +210,7 @@ export async function loadPlayerProfile(
     pendingTaxByPlayer,
     pendingDcTaxByPlayer,
     pendingQuitterTaxByPlayer,
+    lifetimeQuits,
   ] = await Promise.all([
     prisma.league.findUnique({
       where: { id: leagueId },
@@ -241,6 +245,13 @@ export async function loadPlayerProfile(
     loadPendingGrieferKiTaxByPlayer(leagueId, [player.id]),
     loadPendingDcTaxByPlayer(leagueId, [player.id]),
     loadPendingQuitterTaxByPlayer(leagueId, [player.id]),
+    prisma.matchPlayer.count({
+      where: {
+        playerId: player.id,
+        isQuitter: true,
+        match: { status: { in: [MatchStatus.COMPLETED, MatchStatus.CANCELLED] } },
+      },
+    }),
   ]);
 
   const displayStatsByPlayer = displayStats.byPlayer;
@@ -305,6 +316,7 @@ export async function loadPlayerProfile(
     wins,
     losses,
     quits,
+    lifetimeQuits,
     griefs,
     dcs,
     pendingGrieferKiTax,
