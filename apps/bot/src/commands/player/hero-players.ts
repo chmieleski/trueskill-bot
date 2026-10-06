@@ -6,7 +6,7 @@ import {
   getGameProfileForLeague,
   getLeagueOption,
   resolveLeagueIdFromInteraction,
-  respondLeagueAutocomplete,
+  respondAllLeagueAutocomplete,
   withOptionalLeagueOption,
 } from '../../services/league/index.js';
 import { buildHeroPlayersEmbed } from '../../services/player/hero-players-embed.js';
@@ -82,7 +82,7 @@ export const data = withOptionalLeagueOption(
 );
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
-  if (await respondLeagueAutocomplete(interaction)) {
+  if (await respondAllLeagueAutocomplete(interaction)) {
     return;
   }
 
