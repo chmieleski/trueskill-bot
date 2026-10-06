@@ -1,7 +1,7 @@
 ---
-description: Match/player/hero domain model and ranking design decisions
-globs: packages/db/prisma/**/*.{prisma,sql,ts},apps/bot/src/**/*.{ts,prisma}
-alwaysApply: false
+paths:
+  - 'packages/db/prisma/**/*.{prisma,sql,ts}'
+  - 'apps/bot/src/**/*.{ts,prisma}'
 ---
 
 # Database Domain

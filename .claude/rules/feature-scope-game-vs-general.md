@@ -1,8 +1,3 @@
----
-description: Declare whether work is general bot core or scoped to a specific game (IHL)
-alwaysApply: true
----
-
 # Feature scope — general vs game
 
 This bot is **multi-guild** and **multi-league**. A guild may run several IHLs (one per game instance). Ratings and matches are isolated per **league**, not globally.
@@ -11,10 +6,10 @@ This bot is **multi-guild** and **multi-league**. A guild may run several IHLs (
 
 Every feature, bugfix, plan, or PR must state one scope:
 
-| Scope | Meaning | Examples |
-|-------|---------|----------|
-| `general` | Shared across all games/leagues | `resolveLeagueContext`, OpenSkill apply shell, match status machine, global command deploy, per-game Player link (via league.gameId), Prisma tenancy (`leagueId`) |
-| `game:<gameId>` | Only for one game catalog id | `game:warcraft3_udbr` — wc3stats import, UDBR slot map, WC3 OCR prompts, 1–12 `Hero` assumptions |
+| Scope           | Meaning                         | Examples                                                                                                                                                          |
+| --------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `general`       | Shared across all games/leagues | `resolveLeagueContext`, OpenSkill apply shell, match status machine, global command deploy, per-game Player link (via league.gameId), Prisma tenancy (`leagueId`) |
+| `game:<gameId>` | Only for one game catalog id    | `game:warcraft3_udbr` — wc3stats import, UDBR slot map, WC3 OCR prompts, 1–12 `Hero` assumptions                                                                  |
 
 If scope is unclear, **ask before writing code**.
 

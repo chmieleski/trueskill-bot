@@ -1,7 +1,8 @@
 ---
-description: How to add and implement Discord slash commands
-globs: apps/bot/src/commands/**/*.ts,apps/bot/src/handlers/**/*.ts,apps/bot/src/types/command.ts
-alwaysApply: false
+paths:
+  - 'apps/bot/src/commands/**/*.ts'
+  - 'apps/bot/src/handlers/**/*.ts'
+  - 'apps/bot/src/types/command.ts'
 ---
 
 # Adding a Slash Command

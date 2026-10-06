@@ -1,8 +1,3 @@
----
-description: When adding env vars, sync AWS SSM, Terraform, and refresh-env
-alwaysApply: true
----
-
 # Env vars → AWS production sync
 
 Production `.env` is **fully rewritten** on every deploy from SSM (`deploy/aws/refresh-env.sh`). Hand-editing the host `.env` does not survive the next CI/update.
@@ -16,7 +11,7 @@ Skip for **local-only** keys (e.g. `PROD_DIRECT_URL` for `db:clone`, `CLICKUP_AP
 ## Checklist (plan, then implement — do not ship half)
 
 1. **App** — parse in `src/config/env.ts` with a safe default when optional.
-2. **Docs** — `.env.example` + `.cursor/rules/scripts-and-env.mdc`.
+2. **Docs** — `.env.example` + `.claude/rules/scripts-and-env.md`.
 3. **Terraform**
    - `infra/aws/variables.tf` (+ default)
    - `infra/aws/ssm.tf` — `SecureString` for secrets, `String` for config

@@ -1,7 +1,6 @@
 ---
-description: Source layout and bootstrap flow for the Discord bot
-globs: apps/bot/src/**/*.ts
-alwaysApply: false
+paths:
+  - 'apps/bot/src/**/*.ts'
 ---
 
 # Project Structure

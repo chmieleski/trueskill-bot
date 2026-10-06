@@ -1,33 +1,28 @@
----
-description: pnpm scripts and required environment variables
-alwaysApply: true
----
-
 # Scripts & Environment
 
 Monorepo (pnpm + Turborepo). Prefer root scripts; filters target `@dbz/bot`, `@dbz/web`, `@dbz/db`.
 
-| Script | Purpose |
-|--------|---------|
-| `pnpm dev` / `pnpm dev:bot` | Bot tsx watch (`@dbz/bot`) |
-| `pnpm dev:web` | Next.js web shell (`@dbz/web`) |
-| `pnpm build` | Turbo build (db generate + bot + web) |
-| `pnpm build:bot` / `pnpm build:web` | Filtered builds |
-| `pnpm typecheck` | Turbo typecheck |
-| `pnpm start` | Production bot from `apps/bot/dist/` |
-| `pnpm deploy-commands` | Manual slash command deploy |
-| `pnpm db:migrate` | Prisma migrate dev (`@dbz/db`) |
-| `pnpm db:push` | Push schema without migration |
-| `pnpm db:studio` | Prisma Studio |
-| `pnpm db:generate` | Regenerate Prisma client |
-| `pnpm db:up` | Start local Postgres (Docker Compose, port 5433) |
-| `pnpm db:down` | Stop local Postgres (volume kept) |
-| `pnpm db:clone` | Dump hosted public data → local Postgres |
-| `pnpm db:clone:heroes` | Same clone, `"Hero"` table only |
-| `pnpm db:backup` | Gzipped schema+data dump of hosted prod → `.local/backups/` |
-| `pnpm db:restore` | Restore a backup into local Docker only (`-- path.sql.gz` optional) |
-| `pnpm db:migrate-aws` | Migrate public schema + data from Supabase to AWS RDS PostgreSQL |
-| `pnpm db:migrate-multi-league` | Probe schema, migrate deploy if needed, ensure Game/UDBR leagues |
+| Script                              | Purpose                                                             |
+| ----------------------------------- | ------------------------------------------------------------------- |
+| `pnpm dev` / `pnpm dev:bot`         | Bot tsx watch (`@dbz/bot`)                                          |
+| `pnpm dev:web`                      | Next.js web shell (`@dbz/web`)                                      |
+| `pnpm build`                        | Turbo build (db generate + bot + web)                               |
+| `pnpm build:bot` / `pnpm build:web` | Filtered builds                                                     |
+| `pnpm typecheck`                    | Turbo typecheck                                                     |
+| `pnpm start`                        | Production bot from `apps/bot/dist/`                                |
+| `pnpm deploy-commands`              | Manual slash command deploy                                         |
+| `pnpm db:migrate`                   | Prisma migrate dev (`@dbz/db`)                                      |
+| `pnpm db:push`                      | Push schema without migration                                       |
+| `pnpm db:studio`                    | Prisma Studio                                                       |
+| `pnpm db:generate`                  | Regenerate Prisma client                                            |
+| `pnpm db:up`                        | Start local Postgres (Docker Compose, port 5433)                    |
+| `pnpm db:down`                      | Stop local Postgres (volume kept)                                   |
+| `pnpm db:clone`                     | Dump hosted public data → local Postgres                            |
+| `pnpm db:clone:heroes`              | Same clone, `"Hero"` table only                                     |
+| `pnpm db:backup`                    | Gzipped schema+data dump of hosted prod → `.local/backups/`         |
+| `pnpm db:restore`                   | Restore a backup into local Docker only (`-- path.sql.gz` optional) |
+| `pnpm db:migrate-aws`               | Migrate public schema + data from Supabase to AWS RDS PostgreSQL    |
+| `pnpm db:migrate-multi-league`      | Probe schema, migrate deploy if needed, ensure Game/UDBR leagues    |
 
 Keep a **root** `.env` for local `DATABASE_URL` / `DIRECT_URL` (shared by bot + Prisma CLI).
 
@@ -59,7 +54,7 @@ Keep a **root** `.env` for local `DATABASE_URL` / `DIRECT_URL` (shared by bot + 
 - `OBS_RSS_MB_WARN` — RSS MiB alert threshold (default `512`)
 - `OBS_EVENT_LOOP_MS_WARN` — event-loop p99 ms alert threshold (default `200`)
 - `OBS_SAMPLE_INTERVAL_MS` — health sampler interval (default `15000`)
-- `CLICKUP_API_TOKEN` — **local-only** ClickUp personal API token for agents when the ClickUp MCP is rate-limited. Not read by the bot; skip AWS SSM. See `.cursor/rules/clickup-api-fallback.mdc`
+- `CLICKUP_API_TOKEN` — **local-only** ClickUp personal API token for agents when the ClickUp MCP is rate-limited. Not read by the bot; skip AWS SSM. See `.claude/rules/clickup-api-fallback.md`
 
-Production: every **bot** env key must also live in AWS SSM and `deploy/aws/refresh-env.sh` — see `.cursor/rules/env-aws-sync.mdc`.
+Production: every **bot** env key must also live in AWS SSM and `deploy/aws/refresh-env.sh` — see `.claude/rules/env-aws-sync.md`.
 Web (Vercel) needs no DB env for the base shell.

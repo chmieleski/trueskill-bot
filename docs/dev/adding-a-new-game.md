@@ -4,7 +4,7 @@
 
 **Audience:** engineers / agents implementing a second (or Nth) game on this Discord bot.  
 **Related design:** `docs/superpowers/specs/2026-08-15-multi-league-ihl-design.md`  
-**Scope label:** work for a new game is always `game:<gameId>` — see `.cursor/rules/feature-scope-game-vs-general.mdc`.
+**Scope label:** work for a new game is always `game:<gameId>` — see `.claude/rules/feature-scope-game-vs-general.md`.
 
 This guide assumes the **multi-league** model is live: `Game`, `League`, channel bindings, ratings/matches keyed by `leagueId`, and global slash commands (optional dev `GUILD_ID` for guild-scoped deploy only).
 
@@ -117,7 +117,7 @@ WC3 UDBR uses a global `Hero` table (slots 1–12). That is **not** universal.
 ### 8. Docs & rules
 
 - [ ] Add the game to **Known games** below.
-- [ ] If you introduce new always-on conventions, update `.cursor/rules/feature-scope-game-vs-general.mdc` only when the rule is truly cross-cutting.
+- [ ] If you introduce new always-on conventions, update `.claude/rules/feature-scope-game-vs-general.md` only when the rule is truly cross-cutting.
 - [ ] Do not claim the feature is `general` if it would break a guild that also runs WC3.
 
 ## Do not

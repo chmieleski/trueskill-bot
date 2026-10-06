@@ -1,8 +1,3 @@
----
-description: Use ClickUp REST API with CLICKUP_API_TOKEN when the ClickUp MCP is rate-limited
-alwaysApply: true
----
-
 # ClickUp MCP → REST API fallback
 
 Prefer the ClickUp MCP (`plugin-clickup-clickup`) for normal list/task work.

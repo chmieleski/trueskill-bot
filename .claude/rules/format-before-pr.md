@@ -1,8 +1,3 @@
----
-description: Always run Prettier format check before creating or updating a PR
-alwaysApply: true
----
-
 # Format before PR
 
 CI runs `npm run format:check` (Prettier). Agents forget this often — treat it as a hard gate.

@@ -130,7 +130,7 @@ sudo systemctl restart dbz-bot
 
 Env-only refresh does **not** run `host-update.sh` (that promotes a staged release). Full break-glass deploy remains `update-bot.sh` above.
 
-`deploy/aws/refresh-env.sh` pulls **all** parameters under the SSM prefix (plus fixed `NODE_ENV` / `AUTO_DEPLOY_COMMANDS`). New keys only need a Terraform SSM parameter + a line in that script (see `.cursor/rules/env-aws-sync.mdc`).
+`deploy/aws/refresh-env.sh` pulls **all** parameters under the SSM prefix (plus fixed `NODE_ENV` / `AUTO_DEPLOY_COMMANDS`). New keys only need a Terraform SSM parameter + a line in that script (see `.claude/rules/env-aws-sync.md`).
 
 ### Existing hosts (before re-create)
 

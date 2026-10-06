@@ -1,7 +1,6 @@
 ---
-description: Prefer shared domain/use-case functions over duplicating button and command paths
-globs: apps/bot/src/**/*.ts
-alwaysApply: false
+paths:
+  - 'apps/bot/src/**/*.ts'
 ---
 
 # Shared Domain Logic (DRY)

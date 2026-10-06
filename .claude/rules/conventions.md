@@ -1,7 +1,6 @@
 ---
-description: TypeScript/ESM conventions, Prisma usage, and graceful shutdown
-globs: apps/bot/src/**/*.ts
-alwaysApply: false
+paths:
+  - 'apps/bot/src/**/*.ts'
 ---
 
 # Conventions

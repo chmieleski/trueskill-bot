@@ -1,8 +1,3 @@
----
-description: General guidance for choosing an available model
-alwaysApply: true
----
-
 # Model Selection Guidelines
 
 - Use the active tool's default model for ordinary implementation, fixes, refactors, and scripts.
