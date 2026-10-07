@@ -1,3 +1,10 @@
+## [1.83.2](https://github.com/chmieleski/trueskill-bot/compare/v1.83.1...v1.83.2) (2026-10-07)
+
+
+### Bug Fixes
+
+* **match:** show sanction marks on cancelled match roster ([f90acdd](https://github.com/chmieleski/trueskill-bot/commit/f90acddf577f75b9f6848dbd0df66e55cd0d2e13))
+
 ## [1.83.1](https://github.com/chmieleski/trueskill-bot/compare/v1.83.0...v1.83.1) (2026-10-07)
 
 
