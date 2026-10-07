@@ -628,3 +628,31 @@ export async function loadPendingQuitterTaxByPlayer(
   ]);
   return quitterSeasonTaxByPlayer(ratings, incidentCounts, gamesByPlayerFromStats(displayStats));
 }
+
+/** Ki after pending season taxes ("soft ki"); rollover clamps at 0. */
+export function kiAfterSeasonTax(ki: number, pendingTax: number): number {
+  return Math.max(0, ki - pendingTax);
+}
+
+/**
+ * Total pending season tax (griefer + DC + quitter) per player in an open season.
+ * Archived leagues already applied these at rollover — callers must skip them.
+ */
+export async function loadPendingSeasonTaxByPlayer(
+  leagueId: string,
+  playerIds?: string[],
+  db: Db = defaultPrisma,
+): Promise<Map<string, number>> {
+  const parts = await Promise.all([
+    loadPendingGrieferKiTaxByPlayer(leagueId, playerIds, db),
+    loadPendingDcTaxByPlayer(leagueId, playerIds, db),
+    loadPendingQuitterTaxByPlayer(leagueId, playerIds, db),
+  ]);
+  const total = new Map<string, number>();
+  for (const part of parts) {
+    for (const [playerId, tax] of part) {
+      total.set(playerId, (total.get(playerId) ?? 0) + tax);
+    }
+  }
+  return total;
+}

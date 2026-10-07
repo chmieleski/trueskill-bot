@@ -16,8 +16,10 @@ import { displayOrdinal, isCalibrating } from '../rating/rating-math.js';
 import {
   gamesByPlayerFromStats,
   heroStatsFor,
+  kiAfterSeasonTax,
   loadMatchDisplayStats,
   loadMatchDisplayStatsByPlayer,
+  loadPendingSeasonTaxByPlayer,
   winRatePercent,
 } from '../rating/rank-reset-display.js';
 
@@ -208,7 +210,7 @@ async function loadEligibleOverallRows(leagueId: string): Promise<{
   const playerIds = ratingIds.map((row) => row.playerId);
   await applyPendingDecayForPlayers(leagueId, playerIds);
 
-  const [ratings, displayStatsByPlayer, league] = await Promise.all([
+  const [ratings, displayStatsByPlayer, pendingTaxByPlayer, league] = await Promise.all([
     prisma.playerRating.findMany({
       where: { leagueId },
       include: {
@@ -216,6 +218,7 @@ async function loadEligibleOverallRows(leagueId: string): Promise<{
       },
     }),
     loadMatchDisplayStatsByPlayer(leagueId, playerIds),
+    loadPendingSeasonTaxByPlayer(leagueId, playerIds),
     prisma.league.findUnique({
       where: { id: leagueId },
       select: {
@@ -248,6 +251,8 @@ async function loadEligibleOverallRows(leagueId: string): Promise<{
       : null;
 
   const gamesByPlayer = gamesByPlayerFromStats(displayStatsByPlayer);
+  // Board ranks by soft ki; archived seasons already applied these taxes at rollover.
+  const seasonOpen = !league?.archivedAt;
 
   const mapped = ratings
     .map((row) => {
@@ -257,7 +262,10 @@ async function loadEligibleOverallRows(leagueId: string): Promise<{
         playerId: row.playerId,
         username: row.player.username,
         discordId: row.player.discordId,
-        ki: displayOrdinal(row.mu, row.sigma, games),
+        ki: kiAfterSeasonTax(
+          displayOrdinal(row.mu, row.sigma, games),
+          seasonOpen ? (pendingTaxByPlayer.get(row.playerId) ?? 0) : 0,
+        ),
         games,
         leagueGames: games,
         winRatePercent: winRatePercent(stats?.wins ?? 0, stats?.losses ?? 0),

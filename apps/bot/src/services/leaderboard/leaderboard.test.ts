@@ -4,11 +4,13 @@ const {
   playerRatingFindMany,
   leagueFindUnique,
   loadMatchDisplayStatsByPlayer,
+  loadPendingSeasonTaxByPlayer,
   applyPendingDecayForPlayers,
 } = vi.hoisted(() => ({
   playerRatingFindMany: vi.fn(),
   leagueFindUnique: vi.fn(),
   loadMatchDisplayStatsByPlayer: vi.fn(),
+  loadPendingSeasonTaxByPlayer: vi.fn(),
   applyPendingDecayForPlayers: vi.fn(),
 }));
 
@@ -24,6 +26,7 @@ vi.mock('../rating/rank-reset-display.js', async (importOriginal) => {
   return {
     ...actual,
     loadMatchDisplayStatsByPlayer,
+    loadPendingSeasonTaxByPlayer,
   };
 });
 
@@ -224,6 +227,7 @@ describe('loadEligibleOverallRows display-stats scope', () => {
         ['p2', { games: 8, wins: 3, losses: 5, quits: 0, griefs: 0, dcs: 0 }],
       ]),
     );
+    loadPendingSeasonTaxByPlayer.mockResolvedValue(new Map());
   });
 
   it('passes rating player ids into loadMatchDisplayStatsByPlayer', async () => {
@@ -233,5 +237,60 @@ describe('loadEligibleOverallRows display-stats scope', () => {
       'league-1',
       expect.arrayContaining(['p1', 'p2']),
     );
+  });
+});
+
+describe('loadEligibleOverallRows soft ki', () => {
+  const ratings = [
+    {
+      playerId: 'p1',
+      mu: 40,
+      sigma: 3,
+      lastQualifyingActivityAt: null,
+      player: { id: 'p1', username: 'alpha', discordId: 'd1' },
+    },
+    {
+      playerId: 'p2',
+      mu: 35,
+      sigma: 3,
+      lastQualifyingActivityAt: null,
+      player: { id: 'p2', username: 'bravo', discordId: 'd2' },
+    },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    applyPendingDecayForPlayers.mockResolvedValue(undefined);
+    playerRatingFindMany
+      .mockResolvedValueOnce([{ playerId: 'p1' }, { playerId: 'p2' }])
+      .mockResolvedValueOnce(ratings);
+    loadMatchDisplayStatsByPlayer.mockResolvedValue(
+      new Map([
+        ['p1', { games: 20, wins: 10, losses: 10, quits: 0, griefs: 0, dcs: 0 }],
+        ['p2', { games: 20, wins: 10, losses: 10, quits: 0, griefs: 0, dcs: 0 }],
+      ]),
+    );
+    loadPendingSeasonTaxByPlayer.mockResolvedValue(new Map([['p1', 100_000]]));
+  });
+
+  it('ranks by ki after pending season taxes, clamped at 0', async () => {
+    leagueFindUnique.mockResolvedValue({ status: 'ACTIVE', archivedAt: null });
+
+    const { entries } = await loadOverallLeaderboardTop('league-1', 10);
+
+    expect(entries.map((e) => [e.playerId, e.rank])).toEqual([
+      ['p2', 1],
+      ['p1', 2],
+    ]);
+    expect(entries[1]!.ki).toBe(0);
+  });
+
+  it('ignores pending tax on an archived league (already applied at rollover)', async () => {
+    leagueFindUnique.mockResolvedValue({ status: 'ARCHIVED', archivedAt: new Date() });
+
+    const { entries } = await loadOverallLeaderboardTop('league-1', 10);
+
+    expect(entries.map((e) => e.playerId)).toEqual(['p1', 'p2']);
+    expect(entries[0]!.ki).toBeGreaterThan(entries[1]!.ki);
   });
 });

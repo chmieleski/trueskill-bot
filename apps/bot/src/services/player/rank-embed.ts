@@ -3,6 +3,7 @@ import type { PlayerProfile, PlayerProfileHero } from './player-profile.js';
 import type { OpponentStats, TeammateStats } from './teammate-stats.js';
 import { formatTeammateTable } from './teammate-stats.js';
 import { CALIBRATING_LABEL, formatPublicKi, isCalibrating } from '../rating/rating-math.js';
+import { kiAfterSeasonTax } from '../rating/rank-reset-display.js';
 
 const RANK_GOLD = 0xf0b232;
 
@@ -59,9 +60,9 @@ export function formatFinalKiField(
     return null;
   }
 
-  // Rollover clamps at 0; quitter tax is an estimate, so the result is too.
+  // Same soft ki the leaderboard ranks by; quitter tax is an estimate, so the result is too.
   const approx = profile.pendingQuitterSeasonTax > 0 ? '~' : '';
-  return `**${approx}${Math.max(0, profile.globalKi - totalTax)} ${ratingLabel}**`;
+  return `**${approx}${kiAfterSeasonTax(profile.globalKi, totalTax)} ${ratingLabel}**`;
 }
 
 export function formatHeroTable(heroes: PlayerProfileHero[], leagueGames: number): string {

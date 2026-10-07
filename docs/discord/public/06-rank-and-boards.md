@@ -42,6 +42,8 @@ WOS `/rank` lists **most-played heroes** from uploaded match reports.
 
 Some servers have a **live overall** message that updates after matches. Quitter / griefer boards are optional.
 
+The overall board and rank roles use {{ratingLabel}} **after pending punishments**; `/rank` shows full {{ratingLabel}} plus the breakdown.
+
 {{#rankReset}}Some leagues offer a full rank reset when staff enable it:
 
 ```

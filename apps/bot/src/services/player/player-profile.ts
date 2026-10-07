@@ -11,6 +11,7 @@ import { displayOrdinal, isCalibrating } from '../rating/rating-math.js';
 import {
   gamesByPlayerFromStats,
   heroStatsFor,
+  kiAfterSeasonTax,
   loadMatchDisplayStats,
   loadPendingDcTaxByPlayer,
   loadPendingGrieferKiTaxByPlayer,
@@ -284,9 +285,10 @@ export async function loadPlayerProfile(
       : Promise.resolve([]),
     // W/L/games/quits and soft-ki z restart after the player's latest rank reset.
     loadMatchDisplayStats(leagueId),
-    loadPendingGrieferKiTaxByPlayer(leagueId, [player.id]),
-    loadPendingDcTaxByPlayer(leagueId, [player.id]),
-    loadPendingQuitterTaxByPlayer(leagueId, [player.id]),
+    // League-wide: rank position follows the leaderboard's soft ki (ki after pending taxes).
+    loadPendingGrieferKiTaxByPlayer(leagueId),
+    loadPendingDcTaxByPlayer(leagueId),
+    loadPendingQuitterTaxByPlayer(leagueId),
     prisma.matchPlayer.count({
       where: {
         playerId: player.id,
@@ -312,17 +314,31 @@ export async function loadPlayerProfile(
   const pendingGrieferKiTax = seasonOpen ? (pendingTaxByPlayer.get(player.id) ?? 0) : 0;
   const pendingDcSeasonTax = seasonOpen ? (pendingDcTaxByPlayer.get(player.id) ?? 0) : 0;
   const pendingQuitterSeasonTax = seasonOpen ? (pendingQuitterTaxByPlayer.get(player.id) ?? 0) : 0;
+  const pendingTaxFor = (playerId: string): number =>
+    seasonOpen
+      ? (pendingTaxByPlayer.get(playerId) ?? 0) +
+        (pendingDcTaxByPlayer.get(playerId) ?? 0) +
+        (pendingQuitterTaxByPlayer.get(playerId) ?? 0)
+      : 0;
 
   const globalKi = rating ? displayOrdinal(rating.mu, rating.sigma, games) : coldStartKi();
 
   const calibratedKis = allRatings
     .filter((row) => !isCalibrating(gamesByPlayer.get(row.playerId) ?? 0))
-    .map((row) => displayOrdinal(row.mu, row.sigma, gamesByPlayer.get(row.playerId) ?? 0));
+    .map((row) =>
+      kiAfterSeasonTax(
+        displayOrdinal(row.mu, row.sigma, gamesByPlayer.get(row.playerId) ?? 0),
+        pendingTaxFor(row.playerId),
+      ),
+    );
   if (!rating && !isCalibrating(games)) {
     calibratedKis.push(globalKi);
   }
 
-  const rankPosition = isCalibrating(games) ? null : competitionRank(globalKi, calibratedKis);
+  // Position matches the leaderboard (soft ki); the embed still shows true globalKi.
+  const rankPosition = isCalibrating(games)
+    ? null
+    : competitionRank(kiAfterSeasonTax(globalKi, pendingTaxFor(player.id)), calibratedKis);
   const decayFooter =
     league && rating
       ? resolveRankDecayFooter({
