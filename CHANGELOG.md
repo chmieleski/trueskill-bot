@@ -1,3 +1,10 @@
+# [1.83.0](https://github.com/chmieleski/trueskill-bot/compare/v1.82.0...v1.83.0) (2026-10-07)
+
+
+### Features
+
+* **leaderboard:** rank by ki after pending season taxes ([#220](https://github.com/chmieleski/trueskill-bot/issues/220)) ([9014ade](https://github.com/chmieleski/trueskill-bot/commit/9014adee1f72312806a51efa379452a434a46ac3))
+
 # [1.82.0](https://github.com/chmieleski/trueskill-bot/compare/v1.81.1...v1.82.0) (2026-10-06)
 
 
