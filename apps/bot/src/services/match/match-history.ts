@@ -554,7 +554,17 @@ export async function loadCompletedMatchShow(input: {
   }
 
   if (match.status === 'CANCELLED') {
-    const embed = buildMatchCancelledDetailEmbed(match.id, matchToLobbyPlayers(match), {
+    const flagsBySlot = new Map(match.players.map((p) => [p.slot, p]));
+    const roster = matchToLobbyPlayers(match).map((player) => {
+      const row = flagsBySlot.get(player.slot);
+      return {
+        ...player,
+        isQuitter: row?.isQuitter,
+        isGriefer: row?.isGriefer,
+        isDc: row?.isDc,
+      };
+    });
+    const embed = buildMatchCancelledDetailEmbed(match.id, roster, {
       profile: await getGameProfileForMatch(match),
       timestamp: match.completedAt ?? match.updatedAt,
       sanctioned: match.players.some((p) => p.isQuitter || p.isGriefer || p.isDc),
