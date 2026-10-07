@@ -1,3 +1,10 @@
+## [1.83.1](https://github.com/chmieleski/trueskill-bot/compare/v1.83.0...v1.83.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **heroes:** rename Freeza to Frieza ([1394085](https://github.com/chmieleski/trueskill-bot/commit/13940856a508ecd3a1203d55c67c83e0e9fabb78))
+
 # [1.83.0](https://github.com/chmieleski/trueskill-bot/compare/v1.82.0...v1.83.0) (2026-10-07)
 
 
