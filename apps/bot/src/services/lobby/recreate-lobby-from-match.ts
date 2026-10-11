@@ -1,3 +1,4 @@
+import { readInGameRosterSnapshot } from './in-game-roster.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
 import { canStartLobby } from './lobby-preview.js';
 import { createLogger } from '../../lib/logger.js';
@@ -83,6 +84,8 @@ export async function recreateLobbyFromVoidedMatch(
   assertRecreatableMatch(source);
 
   const players = matchToLobbyPlayers(source);
+  // Keep the voided lobby's last game read so Balance can list Swap commands right away.
+  const inGameRosterSnapshot = readInGameRosterSnapshot(source);
   const profile = await getGameProfileForMatch(source);
   const canStart = canStartLobby(players, profile);
   const bypassHostLobbyCap = hasMatchModRole({
@@ -104,6 +107,7 @@ export async function recreateLobbyFromVoidedMatch(
       players,
       wc3statsGameId: source.wc3statsGameId,
       bypassHostLobbyCap,
+      inGameRosterSnapshot,
     });
 
     log.info(
@@ -149,6 +153,7 @@ export async function recreateLobbyFromVoidedMatch(
     players,
     wc3statsGameId: source.wc3statsGameId,
     bypassHostLobbyCap,
+    inGameRosterSnapshot,
   });
 
   const match = await getMatchById(created.matchId);
