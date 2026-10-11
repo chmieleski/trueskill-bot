@@ -20,7 +20,7 @@ import {
   swapPlayers,
 } from './roster.js';
 import { applyRemapPairs } from './remap.js';
-import { findBalancedRoster } from './lobby-balance.js';
+import { findBalancedRoster, type NewPlayerSplit } from './lobby-balance.js';
 import {
   loadBalanceContext,
   matchPlayersToRatingEntries,
@@ -308,12 +308,14 @@ export async function setLobbyLockedSlots(
 }
 
 /**
- * Re-seat unlocked players for a 50/50 or 51/49 win chance (host or match mod).
+ * Re-seat unlocked players for a 45–55 win chance in the fewest in-game swaps (host or match mod).
  * Each call picks a different seating; locked seats stay put.
  */
 export async function balanceLobbyRoster(
   input: ManageLobbyInput,
-): Promise<LobbyActionResult & { winChance: WinChancePercents; balanced: boolean }> {
+): Promise<
+  LobbyActionResult & { winChance: WinChancePercents; balanced: boolean; newSplit: NewPlayerSplit }
+> {
   const { match } = await resolvePendingMatchForManage({
     actorDiscordId: input.actorDiscordId,
     matchId: input.matchId,
@@ -337,7 +339,12 @@ export async function balanceLobbyRoster(
     ...(entry.locked === true ? { locked: true as const } : {}),
   }));
   const synced = await applyRosterAndSync(input.client, match.id, next);
-  return { ...synced, winChance: result.winChance, balanced: result.balanced };
+  return {
+    ...synced,
+    winChance: result.winChance,
+    balanced: result.balanced,
+    newSplit: result.newSplit,
+  };
 }
 
 /** Ephemeral reply for the Balance button and `/lobby balance`. */
@@ -346,5 +353,7 @@ export function balanceResultMessage(
 ): string {
   const { teamAPercent, teamBPercent } = result.winChance;
   const prefix = result.balanced ? 'Balanced' : 'Closest found';
-  return `${prefix} → **${teamAPercent}% / ${teamBPercent}%** in match \`${result.match.id}\`. Click again for another combination.`;
+  const { team1, team2, even } = result.newSplit;
+  const newNote = even ? '' : `\nNew players split ${team1}/${team2} because of locked seats.`;
+  return `${prefix} → **${teamAPercent}% / ${teamBPercent}%** in match \`${result.match.id}\`. Click again for another combination.${newNote}`;
 }

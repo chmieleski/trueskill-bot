@@ -18,16 +18,19 @@ export function toInGameRosterSnapshot(players: ReadonlyArray<LobbyPlayer>): InG
   }));
 }
 
+/** `Match` columns holding one game read. */
+export type InGameRosterSnapshot = {
+  inGameRoster: InGameRosterEntry[];
+  inGameRosterAt: Date;
+  inGameRosterSource: InGameRosterSource;
+};
+
 /** `Match` update data recording a fresh game read. */
 export function inGameRosterData(
   players: ReadonlyArray<LobbyPlayer>,
   source: InGameRosterSource,
   now: Date = new Date(),
-): {
-  inGameRoster: InGameRosterEntry[];
-  inGameRosterAt: Date;
-  inGameRosterSource: InGameRosterSource;
-} {
+): InGameRosterSnapshot {
   return {
     inGameRoster: toInGameRosterSnapshot(players),
     inGameRosterAt: now,
@@ -59,6 +62,20 @@ export function parseInGameRoster(value: unknown): InGameRosterEntry[] | null {
 
 export function parseInGameRosterSource(value: unknown): InGameRosterSource | null {
   return value === 'screenshot' || value === 'wc3stats' ? value : null;
+}
+
+/** A match's last game read, or undefined when it has none (or it is malformed). */
+export function readInGameRosterSnapshot(match: {
+  inGameRoster: unknown;
+  inGameRosterAt: Date | null;
+  inGameRosterSource: unknown;
+}): InGameRosterSnapshot | undefined {
+  const inGameRoster = parseInGameRoster(match.inGameRoster);
+  const inGameRosterSource = parseInGameRosterSource(match.inGameRosterSource);
+  if (!inGameRoster || !inGameRosterSource || !match.inGameRosterAt) {
+    return undefined;
+  }
+  return { inGameRoster, inGameRosterAt: match.inGameRosterAt, inGameRosterSource };
 }
 
 /**

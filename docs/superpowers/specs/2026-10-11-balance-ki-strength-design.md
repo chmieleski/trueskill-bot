@@ -30,7 +30,7 @@ Coin flip = 50% / 0.500 / 0.693. The gain comes from the `−z·σ` term: new / 
 
 `z(g)` is the public-ki conservatism (3 → 2.5 over 5 games), so `1000 + 200 × μ_eff` is the 80/20 blend of the ki players see. Global `g` = league display W/L games; hero `g` = `matchesPlayed` (snapshot value for completed matches).
 
-New pair-off omission and excess-New μ discount are **skipped** in this mode: ki already penalizes uncertainty, and this is the model the backtest measured.
+New pair-off omission and excess-New μ discount are **skipped** in this mode: ki already penalizes uncertainty, and this is the model the backtest measured. The Balance button still splits New seats evenly across teams before optimising win% (seating, not strength).
 
 ## Staff
 

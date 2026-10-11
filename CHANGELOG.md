@@ -1,3 +1,31 @@
+## [1.85.1](https://github.com/chmieleski/trueskill-bot/compare/v1.85.0...v1.85.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **lobby:** keep the last game read when recreating a lobby ([#223](https://github.com/chmieleski/trueskill-bot/issues/223)) ([f1136ea](https://github.com/chmieleski/trueskill-bot/commit/f1136ea47b5dec954a27b8d0fc7b636470810690))
+
+# [1.85.0](https://github.com/chmieleski/trueskill-bot/compare/v1.84.0...v1.85.0) (2026-10-11)
+
+
+### Features
+
+* **lobby:** balance with the fewest in-game swaps ([#222](https://github.com/chmieleski/trueskill-bot/issues/222)) ([30fa5b7](https://github.com/chmieleski/trueskill-bot/commit/30fa5b7817239eb7ea97804a7b144e75f7c97d00))
+
+# [1.84.0](https://github.com/chmieleski/trueskill-bot/compare/v1.83.2...v1.84.0) (2026-10-11)
+
+
+### Features
+
+* **lobby:** split new players evenly on balance ([#221](https://github.com/chmieleski/trueskill-bot/issues/221)) ([e0eb9ea](https://github.com/chmieleski/trueskill-bot/commit/e0eb9ead9f1a38ca7efe9437edbfe0c42ae7b705))
+
+## [1.83.2](https://github.com/chmieleski/trueskill-bot/compare/v1.83.1...v1.83.2) (2026-10-07)
+
+
+### Bug Fixes
+
+* **match:** show sanction marks on cancelled match roster ([f90acdd](https://github.com/chmieleski/trueskill-bot/commit/f90acddf577f75b9f6848dbd0df66e55cd0d2e13))
+
 ## [1.83.1](https://github.com/chmieleski/trueskill-bot/compare/v1.83.0...v1.83.1) (2026-10-07)
 
 
