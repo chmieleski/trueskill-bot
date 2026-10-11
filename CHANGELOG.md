@@ -1,3 +1,10 @@
+## [1.86.1](https://github.com/chmieleski/trueskill-bot/compare/v1.86.0...v1.86.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **roles:** strip old holder on remap and add duplicate role cleanup ([#225](https://github.com/chmieleski/trueskill-bot/issues/225)) ([ee08f42](https://github.com/chmieleski/trueskill-bot/commit/ee08f4264c3fede70a070665eae3da16a79573ae))
+
 # [1.86.0](https://github.com/chmieleski/trueskill-bot/compare/v1.85.1...v1.86.0) (2026-10-11)
 
 
