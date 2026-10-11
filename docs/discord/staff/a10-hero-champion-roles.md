@@ -28,6 +28,14 @@ Hero `1–12` = UDBR lobby slots. Remapping the same hero replaces the role and 
 
 Removes the mapping and tries to strip the role from the current holder.
 
+**5) Fix duplicate holders**
+
+```
+/hero_champion_config cleanup
+```
+
+Removes every mapped hero and rank role from anyone who is not the current holder (same as `/rank_role_config cleanup`). Can take a minute.
+
 **Rules**
 • Eligibility: Discord-linked, not calibrating (under 5 overall games), **≥5 games played on that hero**
 • Ranked by **hero ki**

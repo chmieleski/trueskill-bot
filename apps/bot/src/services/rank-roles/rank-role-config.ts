@@ -1,5 +1,9 @@
 import { Prisma } from '@dbz/db';
 import { prisma } from '../../lib/prisma.js';
+import {
+  type ReplacedRoleHolder,
+  toReplacedHolder,
+} from '../hero-champion-roles/hero-champion-config.js';
 import { MatchServiceError } from '../match/match-service.js';
 
 export const RANK_ROLE_DUPLICATE =
@@ -16,12 +20,15 @@ export async function setLeagueRankRolesEnabled(leagueId: string, enabled: boole
   });
 }
 
-/** Upsert a staff-mapped Discord role for one leaderboard position (1–3). */
+/**
+ * Upsert a staff-mapped Discord role for one leaderboard position (1–3).
+ * Returns the replaced holder so the caller can strip the old Discord role.
+ */
 export async function setLeagueRankRole(
   leagueId: string,
   rank: number,
   discordRoleId: string,
-): Promise<void> {
+): Promise<ReplacedRoleHolder | null> {
   const heroUse = await prisma.leagueHeroChampionRole.findUnique({
     where: { leagueId_discordRoleId: { leagueId, discordRoleId } },
   });
@@ -30,7 +37,11 @@ export async function setLeagueRankRole(
   }
 
   try {
-    await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx) => {
+      const previous = await tx.leagueRankRole.findUnique({
+        where: { leagueId_rank: { leagueId, rank } },
+        select: { discordRoleId: true, holderDiscordId: true },
+      });
       await tx.leagueRankRole.upsert({
         where: { leagueId_rank: { leagueId, rank } },
         create: { leagueId, rank, discordRoleId, holderDiscordId: null },
@@ -38,6 +49,7 @@ export async function setLeagueRankRole(
         update: { discordRoleId, holderDiscordId: null },
       });
       await tx.league.update({ where: { id: leagueId }, data: { rankRolesDirty: true } });
+      return toReplacedHolder(previous);
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {

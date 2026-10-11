@@ -3,9 +3,9 @@ export { loadEligibleHeroCandidates } from './load-eligible-candidates.js';
 export {
   clearHeroChampionHolder,
   stripHeroChampionDiscordRoles,
-  sweepHeroChampionDiscordRoles,
+  sweepStrayCleanupReply,
+  sweepStrayRoleHolders,
   syncHeroChampionRoles,
-  type HeroChampionSweepResult,
 } from './sync-hero-champion-roles.js';
 export { HERO_CHAMPION_MIN_HERO_MATCHES } from './load-eligible-candidates.js';
 export { notifyLeagueRatingChanged } from './notify-league-rating-changed.js';

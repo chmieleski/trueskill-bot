@@ -5,6 +5,9 @@ import {
   clearHeroChampionHolder,
   setLeagueHeroChampionRole,
   setLeagueHeroChampionRolesEnabled,
+  stripHeroChampionDiscordRoles,
+  sweepStrayCleanupReply as cleanupReply,
+  sweepStrayRoleHolders,
   syncHeroChampionRoles,
 } from '../../services/hero-champion-roles/index.js';
 import {
@@ -66,6 +69,13 @@ export const data = new SlashCommandBuilder()
             .setMinValue(1)
             .setMaxValue(12),
         ),
+    ),
+  )
+  .addSubcommand((subcommand) =>
+    withSubcommandLeagueOption(
+      subcommand
+        .setName('cleanup')
+        .setDescription('Remove hero/rank roles from everyone except the current holders'),
     ),
   );
 
@@ -140,8 +150,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     // Defer before DB upsert + sync so Discord does not show "did not respond".
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
+    let replaced;
     try {
-      await setLeagueHeroChampionRole(leagueId, heroId, role.id);
+      replaced = await setLeagueHeroChampionRole(leagueId, heroId, role.id);
     } catch (error) {
       if (error instanceof MatchServiceError) {
         await interaction.editReply({ content: error.message });
@@ -150,6 +161,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       throw error;
     }
 
+    if (replaced && interaction.guildId) {
+      await stripHeroChampionDiscordRoles(interaction.client, interaction.guildId, [replaced]);
+    }
     await syncHeroChampionRoles(interaction.client, leagueId);
     log.info(
       {
@@ -189,6 +203,21 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     await interaction.editReply({
       content: `Cleared hero champion role mapping for hero \`${heroId}\`.`,
     });
+    return;
+  }
+
+  if (subcommand === 'cleanup') {
+    const leagueId = await requireLeagueId(interaction);
+    if (!leagueId) return;
+
+    // Sweep fetches every linked player; can take a while.
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    const removed = await sweepStrayRoleHolders(interaction.client, leagueId);
+    log.info(
+      { guildId: interaction.guildId, leagueId, removed, userId: interaction.user.id },
+      'Stray hero/rank roles swept',
+    );
+    await interaction.editReply({ content: cleanupReply(removed) });
     return;
   }
 
