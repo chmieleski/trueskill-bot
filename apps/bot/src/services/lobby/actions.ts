@@ -308,7 +308,7 @@ export async function setLobbyLockedSlots(
 }
 
 /**
- * Re-seat unlocked players for a 50/50 or 51/49 win chance (host or match mod).
+ * Re-seat unlocked players for a 45–55 win chance in the fewest in-game swaps (host or match mod).
  * Each call picks a different seating; locked seats stay put.
  */
 export async function balanceLobbyRoster(
