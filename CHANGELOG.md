@@ -1,3 +1,10 @@
+# [1.85.0](https://github.com/chmieleski/trueskill-bot/compare/v1.84.0...v1.85.0) (2026-10-11)
+
+
+### Features
+
+* **lobby:** balance with the fewest in-game swaps ([#222](https://github.com/chmieleski/trueskill-bot/issues/222)) ([30fa5b7](https://github.com/chmieleski/trueskill-bot/commit/30fa5b7817239eb7ea97804a7b144e75f7c97d00))
+
 # [1.84.0](https://github.com/chmieleski/trueskill-bot/compare/v1.83.2...v1.84.0) (2026-10-11)
 
 
