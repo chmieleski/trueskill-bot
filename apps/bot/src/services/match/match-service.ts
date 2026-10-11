@@ -26,7 +26,11 @@ import {
   LEAGUE_SEASON_PAUSED_MESSAGE,
 } from '../league/league.js';
 import { getGameProfileForLeague, LeagueNotFoundError } from '../league/league-profile.js';
-import { inGameRosterData, type InGameRosterSource } from '../lobby/in-game-roster.js';
+import {
+  inGameRosterData,
+  type InGameRosterSnapshot,
+  type InGameRosterSource,
+} from '../lobby/in-game-roster.js';
 import {
   EVENT_NOT_ACTIVE_MESSAGE,
   EVENT_NOT_FOUND_MESSAGE,
@@ -67,6 +71,8 @@ export type CreatePendingMatchInput = {
   lobbyRosterAuthorityAt?: Date | null;
   /** Set when `players` were read from the game; records the in-game roster snapshot. */
   inGameRosterSource?: InGameRosterSource;
+  /** An earlier game read carried over unchanged (e.g. recreating a voided lobby). */
+  inGameRosterSnapshot?: InGameRosterSnapshot;
 } & ({ leagueId: string; eventId?: never } | { eventId: string; leagueId?: never });
 
 /** True when the match belongs to an Event (unrated). */
@@ -512,7 +518,7 @@ export async function createPendingMatch(
         lobbyRosterAuthorityAt: input.lobbyRosterAuthorityAt ?? undefined,
         ...(input.inGameRosterSource && players.length > 0
           ? inGameRosterData(players, input.inGameRosterSource)
-          : {}),
+          : (input.inGameRosterSnapshot ?? {})),
         players: {
           create: resolved.map((entry) => ({
             playerId: entry.playerId,

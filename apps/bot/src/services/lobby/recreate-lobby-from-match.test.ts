@@ -93,6 +93,12 @@ const VOIDED_MATCH = {
   ],
 };
 
+const SNAPSHOT = {
+  inGameRoster: [{ slot: 2, nick: 'goku', rawName: 'Goku' }],
+  inGameRosterAt: new Date('2026-08-23T09:00:00Z'),
+  inGameRosterSource: 'wc3stats' as const,
+};
+
 describe('recreateLobbyFromVoidedMatch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -189,5 +195,30 @@ describe('recreateLobbyFromVoidedMatch', () => {
     expect(result.matchId).toBe('new-1');
     expect(result.sourceMatchId).toBe('voided-1');
     expect(result.hostDiscordId).toBe('host-1');
+  });
+
+  it('carries the last game read over so Balance shows swap commands', async () => {
+    getMatchById
+      .mockResolvedValueOnce({ ...VOIDED_MATCH, ...SNAPSHOT })
+      .mockResolvedValueOnce({ ...VOIDED_MATCH, id: 'new-3', status: 'PENDING' });
+    createPendingMatch.mockResolvedValue({
+      matchId: 'new-3',
+      createdAt: new Date('2026-08-23T12:00:00Z'),
+      teamACount: 1,
+      teamBCount: 0,
+      playerCount: 1,
+    });
+
+    await recreateLobbyFromVoidedMatch({
+      actorDiscordId: 'mod-1',
+      memberRoleIds: ['mod-role'],
+      matchModRoleId: 'mod-role',
+      sourceMatchId: 'voided-1',
+      discordChannelId: 'chan-2',
+    });
+
+    expect(createPendingMatch).toHaveBeenCalledWith(
+      expect.objectContaining({ inGameRosterSnapshot: SNAPSHOT }),
+    );
   });
 });
