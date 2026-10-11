@@ -1,3 +1,10 @@
+## [1.85.1](https://github.com/chmieleski/trueskill-bot/compare/v1.85.0...v1.85.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **lobby:** keep the last game read when recreating a lobby ([#223](https://github.com/chmieleski/trueskill-bot/issues/223)) ([f1136ea](https://github.com/chmieleski/trueskill-bot/commit/f1136ea47b5dec954a27b8d0fc7b636470810690))
+
 # [1.85.0](https://github.com/chmieleski/trueskill-bot/compare/v1.84.0...v1.85.0) (2026-10-11)
 
 
