@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   BALANCE_STATIC_SIGMA,
+  balanceEntitiesForSeat,
   blendedRatingForBalance,
   effectiveBalanceMuForExcessNew,
+  kiStrengthEntityForBalance,
   ratingEntitiesForBalance,
   ratingEntitiesForHero,
   ratingEntitiesForOverall,
   rosterEntriesWithHeroId,
 } from './rating-entities.js';
+import { displayOrdinal } from './rating-math.js';
 
 const G = { mu: 25, sigma: 8.333 };
 const H = { mu: 28, sigma: 7 };
@@ -91,5 +94,48 @@ describe('rosterEntriesWithHeroId', () => {
         { playerId: 'p2', heroId: 7 },
       ]),
     ).toEqual([{ playerId: 'p2', heroId: 7 }]);
+  });
+});
+
+describe('kiStrengthEntityForBalance', () => {
+  it('blends player/hero ki strength 80/20 with fixed σ', () => {
+    const global = { mu: 30, sigma: 3, games: 10 };
+    const hero = { mu: 26, sigma: 5, games: 2 };
+    const entity = kiStrengthEntityForBalance(global, hero, 4);
+
+    const kiG = displayOrdinal(global.mu, global.sigma, global.games);
+    const kiH = displayOrdinal(hero.mu, hero.sigma, hero.games);
+    // 1000 + 200 × strength reproduces the displayed ki blend (± rounding).
+    expect(1000 + 200 * entity.mu).toBeCloseTo(0.8 * kiG + 0.2 * kiH, -1);
+    expect(entity.sigma).toBe(BALANCE_STATIC_SIGMA);
+  });
+
+  it('uses global ki only for WOS seats', () => {
+    const global = { mu: 30, sigma: 3, games: 10 };
+    expect(kiStrengthEntityForBalance(global, H, null).mu).toBeCloseTo(30 - 2.5 * 3);
+  });
+
+  it('treats missing games as cold start (z = 3)', () => {
+    expect(kiStrengthEntityForBalance(G, G, null).mu).toBeCloseTo(25 - 3 * 8.333);
+  });
+});
+
+describe('balanceEntitiesForSeat with kiStrength', () => {
+  const classification = { frozenKeys: new Set(['1:1']), excessKeys: new Set(['1:2']) };
+
+  it('keeps paired New seats instead of omitting them', () => {
+    expect(balanceEntitiesForSeat(G, H, 1, '1:1', classification, { kiStrength: true })).toEqual([
+      kiStrengthEntityForBalance(G, H, 1),
+    ]);
+  });
+
+  it('does not discount excess New seats', () => {
+    expect(balanceEntitiesForSeat(G, H, 2, '1:2', classification, { kiStrength: true })).toEqual([
+      kiStrengthEntityForBalance(G, H, 2),
+    ]);
+  });
+
+  it('is unchanged when kiStrength is off', () => {
+    expect(balanceEntitiesForSeat(G, H, 1, '1:1', classification, {})).toEqual([]);
   });
 });

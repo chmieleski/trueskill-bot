@@ -77,6 +77,7 @@ export interface ResolvedLeagueConfig {
   apiTokenCreatedAt: Date | undefined;
   decayEnabled: boolean;
   balanceStaticSigmaEnabled: boolean;
+  balanceKiStrengthEnabled: boolean;
   showSideWinLoss: boolean;
   heroChampionRolesEnabled: boolean;
   rankRolesEnabled: boolean;
@@ -123,6 +124,7 @@ export async function resolveLeagueConfig(leagueId: string): Promise<ResolvedLea
     apiTokenCreatedAt: row?.apiTokenCreatedAt ?? undefined,
     decayEnabled,
     balanceStaticSigmaEnabled: row?.balanceStaticSigmaEnabled === true,
+    balanceKiStrengthEnabled: row?.balanceKiStrengthEnabled === true,
     showSideWinLoss: row?.showSideWinLoss === true,
     heroChampionRolesEnabled: row?.heroChampionRolesEnabled === true,
     rankRolesEnabled: row?.rankRolesEnabled === true,

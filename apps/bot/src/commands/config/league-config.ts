@@ -29,10 +29,10 @@ import {
   withSubcommandLeagueOption,
 } from '../../services/league/index.js';
 import {
-  setBalanceStaticSigmaEnabled,
+  parseBalanceMode,
+  setBalanceMode,
   setShowSideWinLoss,
 } from '../../services/league/league-balance-config.js';
-import { BALANCE_STATIC_SIGMA } from '../../services/rating/rating-entities.js';
 import {
   clearAllLeagueWc3statsSlotMaps,
   clearLeagueWc3statsSlotMap,
@@ -51,6 +51,7 @@ import { MatchServiceError } from '../../services/match/index.js';
 import { RankResetServiceError } from '../../services/rating/index.js';
 import {
   assertConfigStaff,
+  formatBalanceModeLine,
   requireLeagueId,
   requireWc3statsLeague,
   requireWritableLeagueForDecay,
@@ -82,7 +83,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('leaderboard_size')
-            .setDescription('How many players appear on the live overall leaderboard')
+            .setDescription('Players shown on the live overall leaderboard')
             .addIntegerOption((option) =>
               option
                 .setName('size')
@@ -101,7 +102,7 @@ export const data = new SlashCommandBuilder()
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
-                .setDescription('On: players can claim/leave slots. Off: host seats only.')
+                .setDescription('On: players claim/leave slots. Off: host seats only.')
                 .setRequired(true),
             ),
         ),
@@ -120,7 +121,7 @@ export const data = new SlashCommandBuilder()
             .addChannelOption((option) =>
               option
                 .setName('channel')
-                .setDescription('Dedicated lobby channel (required when first enabling)')
+                .setDescription('Dedicated lobby channel (required when enabling)')
                 .setRequired(false),
             ),
         ),
@@ -165,7 +166,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('rank_reset')
-            .setDescription('Enable or disable player rank reset for this league')
+            .setDescription('Enable or disable player rank reset')
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
@@ -201,7 +202,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('decay')
-            .setDescription('Enable or disable idle rating decay for this league')
+            .setDescription('Enable or disable idle rating decay')
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
@@ -213,13 +214,18 @@ export const data = new SlashCommandBuilder()
       .addSubcommand((subcommand) =>
         withSubcommandLeagueOption(
           subcommand
-            .setName('balance_static_sigma')
-            .setDescription('Fixed σ for lobby win% / balance (ki apply stays dynamic)')
-            .addBooleanOption((option) =>
+            .setName('balance_mode')
+            .setDescription('Lobby win%/Balance: dynamic μ/σ, static σ, or ki')
+            .addStringOption((option) =>
               option
-                .setName('enabled')
-                .setDescription('On: fixed σ for balance. Off: persisted σ.')
-                .setRequired(true),
+                .setName('mode')
+                .setDescription('Team strength model')
+                .setRequired(true)
+                .addChoices(
+                  { name: 'dynamic', value: 'dynamic' },
+                  { name: 'static', value: 'static' },
+                  { name: 'ki', value: 'ki' },
+                ),
             ),
         ),
       )
@@ -665,20 +671,25 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
 
-    if (subcommand === 'balance_static_sigma') {
+    if (subcommand === 'balance_mode') {
       const leagueId = await requireWritableLeagueForDecay(interaction);
       if (!leagueId) return;
 
-      const enabled = interaction.options.getBoolean('enabled', true);
-      await setBalanceStaticSigmaEnabled(leagueId, enabled);
+      const mode = parseBalanceMode(interaction.options.getString('mode', true));
+      if (!mode) {
+        await interaction.reply({
+          content: 'Unknown balance mode.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+      await setBalanceMode(leagueId, mode);
       log.info(
-        { guildId: interaction.guildId, leagueId, enabled, userId: interaction.user.id },
-        'Lobby balance static sigma setting updated',
+        { guildId: interaction.guildId, leagueId, mode, userId: interaction.user.id },
+        'Lobby balance mode updated',
       );
       await interaction.reply({
-        content: enabled
-          ? `Lobby balance uses static σ (${BALANCE_STATIC_SIGMA}). Ki apply is unchanged.`
-          : 'Lobby balance uses each player’s persisted σ again.',
+        content: `${formatBalanceModeLine(mode)}. Ki apply is unchanged.`,
         flags: MessageFlags.Ephemeral,
       });
       return;

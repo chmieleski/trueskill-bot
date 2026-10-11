@@ -145,6 +145,30 @@ function defaultMuSigma(): MuSigma {
   return { mu: DEFAULT_MU, sigma: DEFAULT_SIGMA };
 }
 
+/** League flags that shape lobby win% / Balance (never `rate()`). */
+export function balanceOptionsFromLeagueConfig(leagueConfig: {
+  balanceStaticSigmaEnabled: boolean;
+  balanceKiStrengthEnabled: boolean;
+}): BalancePredictWinOptions {
+  return {
+    staticSigma: leagueConfig.balanceStaticSigmaEnabled,
+    kiStrength: leagueConfig.balanceKiStrengthEnabled,
+  };
+}
+
+/** League-global completed games for ki z; skips the query unless ki balance is on. */
+async function loadGamesForKiBalance(
+  leagueId: string,
+  playerIds: string[],
+  options: BalancePredictWinOptions,
+  db: Db = prisma,
+): Promise<Map<string, number>> {
+  if (!options.kiStrength) {
+    return new Map();
+  }
+  return gamesByPlayerFromStats(await loadMatchDisplayStatsByPlayer(leagueId, playerIds, db));
+}
+
 /**
  * Pre-match win chance from μ/σ maps (same predictWin path as the lobby).
  * Hero slots use an 80% player / 20% hero blend; `rate()` is independent overall then hero.
@@ -212,15 +236,13 @@ export async function loadRosterWinChance(
   await ensurePlayerRatingsWithDecayCatchUp(leagueId, entries, db);
 
   const leagueConfig = await resolveLeagueConfig(leagueId);
-  const balanceOptions: BalancePredictWinOptions = {
-    staticSigma: leagueConfig.balanceStaticSigmaEnabled,
-  };
+  const balanceOptions = balanceOptionsFromLeagueConfig(leagueConfig);
 
   const playerIds = entries.map((entry) => entry.playerId);
   const withHero = entries.filter(
     (entry): entry is typeof entry & { heroId: number } => entry.heroId != null,
   );
-  const [globals, heroes] = await Promise.all([
+  const [globals, heroes, gamesByPlayer] = await Promise.all([
     db.playerRating.findMany({
       where: { leagueId, playerId: { in: playerIds } },
     }),
@@ -235,13 +257,20 @@ export async function loadRosterWinChance(
           },
         })
       : Promise.resolve([]),
+    loadGamesForKiBalance(leagueId, playerIds, balanceOptions, db),
   ]);
 
   const globalByPlayer = new Map(
-    globals.map((row) => [row.playerId, { mu: row.mu, sigma: row.sigma }]),
+    globals.map((row) => [
+      row.playerId,
+      { mu: row.mu, sigma: row.sigma, games: gamesByPlayer.get(row.playerId) ?? 0 },
+    ]),
   );
   const heroByKey = new Map(
-    heroes.map((row) => [`${row.playerId}:${row.heroId}`, { mu: row.mu, sigma: row.sigma }]),
+    heroes.map((row) => [
+      `${row.playerId}:${row.heroId}`,
+      { mu: row.mu, sigma: row.sigma, games: row.matchesPlayed },
+    ]),
   );
 
   return computeWinChanceFromRatings(entries, globalByPlayer, heroByKey, balanceOptions);
@@ -407,9 +436,7 @@ export async function loadLobbyRatingPreview(
       loadMatchDisplayStatsByPlayer(leagueId, playerIds),
       resolveLeagueConfig(leagueId),
     ]);
-    const balanceOptions: BalancePredictWinOptions = {
-      staticSigma: leagueConfig.balanceStaticSigmaEnabled,
-    };
+    const balanceOptions = balanceOptionsFromLeagueConfig(leagueConfig);
     const lifetimeStats = await loadLifetimeDisplayStatsByPlayer(
       leagueId,
       playerIds,
@@ -472,11 +499,14 @@ export async function loadLobbyRatingPreview(
     const globalMuSigma = new Map(
       [...globalByPlayer.entries()].map(([playerId, row]) => [
         playerId,
-        { mu: row.mu, sigma: row.sigma },
+        { mu: row.mu, sigma: row.sigma, games: gamesByPlayer.get(playerId) ?? 0 },
       ]),
     );
     const heroMuSigma = new Map(
-      [...heroByKey.entries()].map(([key, row]) => [key, { mu: row.mu, sigma: row.sigma }]),
+      [...heroByKey.entries()].map(([key, row]) => [
+        key,
+        { mu: row.mu, sigma: row.sigma, games: row.matchesPlayed },
+      ]),
     );
     const entriesForBalance = sorted.map((entry) => ({
       ...entry,
@@ -530,6 +560,8 @@ export async function loadBalanceContext(
     prisma.playerHeroRating.findMany({ where: { leagueId, playerId: { in: playerIds } } }),
     resolveLeagueConfig(leagueId),
   ]);
+  const options = balanceOptionsFromLeagueConfig(leagueConfig);
+  const gamesByPlayer = await loadGamesForKiBalance(leagueId, playerIds, options);
   const globalByPlayer = new Map(globals.map((row) => [row.playerId, row]));
   const heroByKey = new Map(heroes.map((row) => [`${row.playerId}:${row.heroId}`, row]));
 
@@ -546,10 +578,18 @@ export async function loadBalanceContext(
         : {}),
     })),
     lookup: {
-      global: (playerId) => globalByPlayer.get(playerId) ?? defaultMuSigma(),
-      hero: (playerId, heroId) => heroByKey.get(`${playerId}:${heroId}`) ?? defaultMuSigma(),
+      global: (playerId) => {
+        const row = globalByPlayer.get(playerId);
+        return row
+          ? { mu: row.mu, sigma: row.sigma, games: gamesByPlayer.get(playerId) ?? 0 }
+          : defaultMuSigma();
+      },
+      hero: (playerId, heroId) => {
+        const row = heroByKey.get(`${playerId}:${heroId}`);
+        return row ? { mu: row.mu, sigma: row.sigma, games: row.matchesPlayed } : defaultMuSigma();
+      },
     },
-    options: { staticSigma: leagueConfig.balanceStaticSigmaEnabled },
+    options,
   };
 }
 

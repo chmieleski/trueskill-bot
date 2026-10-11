@@ -1,4 +1,10 @@
-export type MuSigma = { mu: number; sigma: number };
+import { displayConservatismZ } from './rating-math.js';
+
+/**
+ * `games` = completed games for that rating entity (league-global W/L count or hero
+ * `matchesPlayed`). Only read when {@link BalancePredictWinOptions.kiStrength} is on.
+ */
+export type MuSigma = { mu: number; sigma: number; games?: number };
 
 /** Player (league-global) share of `predictWin` / balance-hint team strength. */
 export const BALANCE_PLAYER_WEIGHT = 0.8;
@@ -24,7 +30,33 @@ export function effectiveBalanceMuForExcessNew(mu: number): number {
 export type BalancePredictWinOptions = {
   /** When true, every seat uses {@link BALANCE_STATIC_SIGMA} instead of persisted σ. */
   staticSigma?: boolean;
+  /**
+   * When true, each seat is its display-ki strength (μ − z·σ, 80/20 player/hero) with
+   * {@link BALANCE_STATIC_SIGMA}; New pair-off / discount are skipped. Overrides `staticSigma`.
+   */
+  kiStrength?: boolean;
 };
+
+/** Display-ki strength in μ units: ki = 1000 + 200 × this (see `displayOrdinal`). */
+function kiStrength(entity: MuSigma): number {
+  return entity.mu - displayConservatismZ(entity.games ?? 0) * entity.sigma;
+}
+
+/**
+ * Balance entity scored by display ki: 80% player / 20% hero ki strength (WOS global only),
+ * fixed σ so team strength is the ki sum players see. Backtest on UDBR history beat μ/σ.
+ */
+export function kiStrengthEntityForBalance(
+  global: MuSigma,
+  hero: MuSigma,
+  heroId: number | null,
+): MuSigma {
+  const mu =
+    heroId == null
+      ? kiStrength(global)
+      : BALANCE_PLAYER_WEIGHT * kiStrength(global) + BALANCE_HERO_WEIGHT * kiStrength(hero);
+  return { mu, sigma: BALANCE_STATIC_SIGMA };
+}
 
 /** Overall OpenSkill entity for `rate()` / overall synthetics (hero-agnostic). */
 export function ratingEntitiesForOverall(global: MuSigma): MuSigma[] {
@@ -89,6 +121,10 @@ export function balanceEntitiesForSeat(
   classification: { frozenKeys: Set<string>; excessKeys: Set<string> },
   options?: BalancePredictWinOptions,
 ): MuSigma[] {
+  // Ki already discounts uncertain (New / calibrating) players through z·σ.
+  if (options?.kiStrength) {
+    return [kiStrengthEntityForBalance(global, hero, heroId)];
+  }
   if (classification.frozenKeys.has(entryKey)) {
     return [];
   }

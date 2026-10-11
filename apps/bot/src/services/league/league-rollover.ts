@@ -485,6 +485,7 @@ function successorLeagueCreateData(
     crunchStartedAt: source.crunchStartedAt,
     decayEnabled: resetMode === 'continue' ? false : (source.decayEnabled ?? true),
     balanceStaticSigmaEnabled: source.balanceStaticSigmaEnabled,
+    balanceKiStrengthEnabled: source.balanceKiStrengthEnabled,
     decayMidGraceDays: source.decayMidGraceDays,
     decayMidTier1Ki: source.decayMidTier1Ki,
     decayMidTier2Ki: source.decayMidTier2Ki,

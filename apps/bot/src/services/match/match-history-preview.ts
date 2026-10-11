@@ -9,6 +9,7 @@ import {
 import { resolveLeagueConfig } from '../league/league-wc3stats.js';
 import { displayOrdinal } from '../rating/rating-math.js';
 import {
+  balanceOptionsFromLeagueConfig,
   buildCompletedRatingPreview,
   computeWinChanceFromRatings,
   matchPlayersToRatingEntries,
@@ -72,10 +73,13 @@ export async function loadGlobalGamesBeforeMatch(
 
 function snapshotsToMaps(snapshots: SnapshotRow[]): {
   globalByPlayer: Map<string, { mu: number; sigma: number }>;
-  heroByKey: Map<string, { mu: number; sigma: number; matchesPlayed: number }>;
+  heroByKey: Map<string, { mu: number; sigma: number; matchesPlayed: number; games: number }>;
 } {
   const globalByPlayer = new Map<string, { mu: number; sigma: number }>();
-  const heroByKey = new Map<string, { mu: number; sigma: number; matchesPlayed: number }>();
+  const heroByKey = new Map<
+    string,
+    { mu: number; sigma: number; matchesPlayed: number; games: number }
+  >();
 
   for (const snap of snapshots) {
     if (snap.entityKind === 'GLOBAL') {
@@ -86,6 +90,7 @@ function snapshotsToMaps(snapshots: SnapshotRow[]): {
       mu: snap.mu,
       sigma: snap.sigma,
       matchesPlayed: snap.matchesPlayed ?? 0,
+      games: snap.matchesPlayed ?? 0,
     });
   }
 
@@ -97,6 +102,7 @@ function winChanceFromSnapshots(
   match: MatchWithPlayers,
   snapshots: SnapshotRow[],
   options?: BalancePredictWinOptions,
+  globalGamesBefore?: Map<string, number>,
 ): WinChancePercents | undefined {
   const playerIds = match.players.map((player) => player.playerId);
   const globalSnaps = snapshots.filter((snap) => snap.entityKind === 'GLOBAL');
@@ -105,9 +111,15 @@ function winChanceFromSnapshots(
   }
 
   const { globalByPlayer, heroByKey } = snapshotsToMaps(snapshots);
+  const globalsWithGames = new Map(
+    [...globalByPlayer.entries()].map(([playerId, value]) => [
+      playerId,
+      { ...value, games: globalGamesBefore?.get(playerId) ?? 0 },
+    ]),
+  );
   return computeWinChanceFromRatings(
     matchPlayersToRatingEntries(match.players),
-    globalByPlayer,
+    globalsWithGames,
     heroByKey,
     options,
   );
@@ -124,9 +136,16 @@ export async function loadWinChanceFromMatchSnapshots(
     }),
     resolveLeagueConfig(leagueId),
   ]);
-  return winChanceFromSnapshots(match, snapshots, {
-    staticSigma: leagueConfig.balanceStaticSigmaEnabled,
-  });
+  const options = balanceOptionsFromLeagueConfig(leagueConfig);
+  const globalGames = options.kiStrength
+    ? await loadGlobalGamesBeforeMatch(
+        leagueId,
+        match.players.map((player) => player.playerId),
+        match.completedAt,
+        match.id,
+      )
+    : undefined;
+  return winChanceFromSnapshots(match, snapshots, options, globalGames);
 }
 
 function kiPairFromState(
@@ -245,9 +264,7 @@ export async function rebuildCompletedRatingPreview(
   }
 
   const leagueConfig = await resolveLeagueConfig(leagueId);
-  const balanceOptions: BalancePredictWinOptions = {
-    staticSigma: leagueConfig.balanceStaticSigmaEnabled,
-  };
+  const balanceOptions = balanceOptionsFromLeagueConfig(leagueConfig);
 
   return buildCompletedRatingPreview(
     previewEntries,
@@ -255,7 +272,7 @@ export async function rebuildCompletedRatingPreview(
     afterBySlot,
     leagueGamesByPlayer,
     lifetimeStatsByPlayer,
-    winChanceFromSnapshots(match, snapshots, balanceOptions),
+    winChanceFromSnapshots(match, snapshots, balanceOptions, globalGames),
   );
 }
 

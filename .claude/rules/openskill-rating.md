@@ -36,6 +36,7 @@ Spec: `docs/superpowers/specs/2026-08-22-independent-overall-hero-rate-design.md
 μ_eff = 0.8 × μ_player + 0.2 × μ_hero
 σ_eff = √((0.8 × σ_player)² + (0.2 × σ_hero)²)   // default
 σ_eff = 6.0 for every seat when League.balanceStaticSigmaEnabled   // predictWin only
+μ_eff = 0.8 × (μ_p − z_p·σ_p) + 0.2 × (μ_h − z_h·σ_h), σ_eff = 6.0  // when League.balanceKiStrengthEnabled (display-ki strength, same z as public ki)
 Team array (predictWin) = [Blend1, Blend2, ...]
 ```
 
@@ -44,7 +45,7 @@ Team array (predictWin) = [Blend1, Blend2, ...]
 
 **New-player balance (predictWin / Balance button only; `rate()` unchanged):** paired non-quit New seats are **omitted** from the team array (same lowest-slot pair-off as rating apply). Excess / one-sided New contribute `μ_eff = min(0.8 × μ_blend, 20)` after the 80/20 blend. Unmarked calibrating players keep full μ. Spec: `docs/superpowers/specs/2026-08-28-new-player-balance-mu-discount-design.md`.
 
-Public roster ki is unchanged (still two numbers). `rate()` is the independent ladders above, not this blend. Specs: `docs/superpowers/specs/2026-08-22-player-hero-balance-weight-design.md`, `docs/superpowers/specs/2026-08-24-balance-static-sigma-design.md`. Staff: `/league_config set balance_static_sigma`.
+Public roster ki is unchanged (still two numbers). `rate()` is the independent ladders above, not this blend. Specs: `docs/superpowers/specs/2026-08-22-player-hero-balance-weight-design.md`, `docs/superpowers/specs/2026-08-24-balance-static-sigma-design.md`. Staff: `/league_config set balance_mode mode:dynamic|static|ki` (writes both flags; `ki` = `balanceKiStrengthEnabled`, skips New pair-off/discount because ki already penalizes σ). Spec: `docs/superpowers/specs/2026-10-11-balance-ki-strength-design.md`.
 
 Compare Team A vs Team B to get P(win). After the match, OpenSkill updates overall then hero from the actual outcome on those separate arrays.
 
@@ -119,7 +120,7 @@ Cold start (0 games, z=3) ≈ 1000; after 5+ games the board is slightly less ha
 ## Agent constraints
 
 - Keep league-global vs hero ratings in separate tables/services (SRP); do not merge into one persisted μ
-- Lobby win% / Balance may blend μ/σ at 80/20 for `predictWin` only (`ratingEntitiesForBalance`); optional per-league static σ=6 when `balanceStaticSigmaEnabled`; never persist the blend
+- Lobby win% / Balance may blend μ/σ at 80/20 for `predictWin` only (`ratingEntitiesForBalance`); optional per-league static σ=6 when `balanceStaticSigmaEnabled`, or display-ki strength when `balanceKiStrengthEnabled`; never persist the blend
 - Paired New seats are omitted from `predictWin`; excess / one-sided New use `effectiveBalanceMuForExcessNew` (see 2026-08-28 balance μ discount spec); `rate()` unchanged
 - Never feed `[global, hero]` as one `rate()` team
 - Every `playerRating` / `playerHeroRating` query must filter by `leagueId`

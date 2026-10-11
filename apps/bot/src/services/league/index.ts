@@ -147,7 +147,7 @@ export {
   type StartLeagueCrunchResult,
 } from './league-decay.js';
 
-export { setBalanceStaticSigmaEnabled, setShowSideWinLoss } from './league-balance-config.js';
+export { setBalanceMode, setShowSideWinLoss } from './league-balance-config.js';
 
 export {
   createOrRotateLeagueApiToken,
