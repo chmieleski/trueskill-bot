@@ -1,3 +1,10 @@
+# [1.84.0](https://github.com/chmieleski/trueskill-bot/compare/v1.83.2...v1.84.0) (2026-10-11)
+
+
+### Features
+
+* **lobby:** split new players evenly on balance ([#221](https://github.com/chmieleski/trueskill-bot/issues/221)) ([e0eb9ea](https://github.com/chmieleski/trueskill-bot/commit/e0eb9ead9f1a38ca7efe9437edbfe0c42ae7b705))
+
 ## [1.83.2](https://github.com/chmieleski/trueskill-bot/compare/v1.83.1...v1.83.2) (2026-10-07)
 
 
