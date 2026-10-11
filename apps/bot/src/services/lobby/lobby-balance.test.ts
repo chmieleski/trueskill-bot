@@ -173,4 +173,78 @@ describe('findBalancedRoster', () => {
     });
     expect(recomputed).toEqual(result.winChance);
   });
+
+  describe('New player split', () => {
+    const newOn = (roster: BalanceRosterEntry[], team: 1 | 2) =>
+      roster.filter((e) => e.team === team && e.isNewPlayer === true).length;
+
+    it('splits an even New count exactly in half', () => {
+      const roster = STACKED.map((e) =>
+        ['s1', 's2', 'm1', 'm2'].includes(e.playerId) ? { ...e, isNewPlayer: true } : e,
+      );
+      for (let seed = 1; seed <= 10; seed += 1) {
+        const result = findBalancedRoster(
+          roster,
+          STACKED_LOOKUP,
+          undefined,
+          undefined,
+          seeded(seed),
+        )!;
+        expect(newOn(result.roster, 1)).toBe(2);
+        expect(newOn(result.roster, 2)).toBe(2);
+        expect(result.newSplit).toEqual({ team1: 2, team2: 2, even: true });
+      }
+    });
+
+    it('keeps an odd New count within one', () => {
+      const roster = STACKED.map((e) =>
+        ['s1', 's2', 'm1'].includes(e.playerId) ? { ...e, isNewPlayer: true } : e,
+      );
+      for (let seed = 1; seed <= 10; seed += 1) {
+        const result = findBalancedRoster(
+          roster,
+          STACKED_LOOKUP,
+          undefined,
+          undefined,
+          seeded(seed),
+        )!;
+        expect(Math.abs(newOn(result.roster, 1) - newOn(result.roster, 2))).toBe(1);
+        expect(result.newSplit.even).toBe(true);
+      }
+    });
+
+    it('prefers an even New split over a better win%', () => {
+      // Equal ratings: 4v0 New already reads 50/50, but must still be split.
+      const roster = [
+        seat('n1', 1, { isNewPlayer: true }),
+        seat('n2', 2, { isNewPlayer: true }),
+        seat('n3', 3, { isNewPlayer: true }),
+        seat('n4', 4, { isNewPlayer: true }),
+        seat('v1', 7),
+        seat('v2', 8),
+        seat('v3', 9),
+        seat('v4', 10),
+      ];
+      const result = findBalancedRoster(
+        roster,
+        lookupFromMaps({}),
+        undefined,
+        undefined,
+        seeded(6),
+      )!;
+      expect(newOn(result.roster, 1)).toBe(2);
+      expect(newOn(result.roster, 2)).toBe(2);
+    });
+
+    it('gets as close as locks allow and reports an uneven split', () => {
+      const roster = STACKED.map((e) => {
+        if (['s1', 's2', 's3'].includes(e.playerId)) {
+          return { ...e, isNewPlayer: true, locked: true };
+        }
+        return e.playerId === 'm1' ? { ...e, isNewPlayer: true } : e;
+      });
+      const result = findBalancedRoster(roster, STACKED_LOOKUP, undefined, undefined, seeded(7))!;
+      expect(result.newSplit).toEqual({ team1: 3, team2: 1, even: false });
+    });
+  });
 });
