@@ -9,20 +9,26 @@ import {
   setLeagueHeroChampionRolesEnabled,
 } from './hero-champion-config.js';
 
-const { leagueFindUnique, leagueUpdate, heroFindUnique, championUpsert, transaction } = vi.hoisted(
-  () => ({
-    leagueFindUnique: vi.fn(),
-    leagueUpdate: vi.fn(),
-    heroFindUnique: vi.fn(),
-    championUpsert: vi.fn(),
-    transaction: vi.fn((callback: (tx: unknown) => Promise<unknown>) =>
-      callback({
-        leagueHeroChampionRole: { upsert: championUpsert },
-        league: { update: leagueUpdate },
-      }),
-    ),
-  }),
-);
+const {
+  leagueFindUnique,
+  leagueUpdate,
+  heroFindUnique,
+  championFindUnique,
+  championUpsert,
+  transaction,
+} = vi.hoisted(() => ({
+  leagueFindUnique: vi.fn(),
+  leagueUpdate: vi.fn(),
+  heroFindUnique: vi.fn(),
+  championFindUnique: vi.fn(async () => null),
+  championUpsert: vi.fn(),
+  transaction: vi.fn((callback: (tx: unknown) => Promise<unknown>) =>
+    callback({
+      leagueHeroChampionRole: { findUnique: championFindUnique, upsert: championUpsert },
+      league: { update: leagueUpdate },
+    }),
+  ),
+}));
 
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
@@ -110,5 +116,19 @@ describe('hero champion config', () => {
       where: { id: 'L1' },
       data: { heroChampionRolesDirty: true },
     });
+  });
+
+  it('returns the replaced holder on remap so the caller can strip the old role', async () => {
+    leagueFindUnique.mockResolvedValue({ gameId: WARCRAFT3_UDBR_GAME_ID });
+    heroFindUnique.mockResolvedValue({ id: 1, name: 'Goku' });
+    championFindUnique.mockResolvedValueOnce({ discordRoleId: 'old-role', holderDiscordId: 'u1' });
+    championUpsert.mockResolvedValue({});
+    leagueUpdate.mockResolvedValue({});
+
+    await expect(setLeagueHeroChampionRole('L1', 1, 'role-1')).resolves.toEqual({
+      discordRoleId: 'old-role',
+      holderDiscordId: 'u1',
+    });
+    await expect(setLeagueHeroChampionRole('L1', 1, 'role-1')).resolves.toBeNull();
   });
 });

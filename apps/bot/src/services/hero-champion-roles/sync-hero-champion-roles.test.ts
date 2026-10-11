@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   leagueFindUnique,
   leagueHeroChampionRoleUpdate,
+  playerFindMany,
   loadEligibleHeroCandidates,
   getGameProfile,
 } = vi.hoisted(() => ({
+  playerFindMany: vi.fn(),
   leagueFindUnique: vi.fn(),
   leagueHeroChampionRoleUpdate: vi.fn(),
   loadEligibleHeroCandidates: vi.fn(),
@@ -16,6 +18,7 @@ vi.mock('../../lib/prisma.js', () => ({
   prisma: {
     league: { findUnique: leagueFindUnique },
     leagueHeroChampionRole: { update: leagueHeroChampionRoleUpdate },
+    player: { findMany: playerFindMany },
   },
 }));
 
@@ -27,10 +30,7 @@ vi.mock('./load-eligible-candidates.js', () => ({
   loadEligibleHeroCandidates,
 }));
 
-import {
-  sweepHeroChampionDiscordRoles,
-  syncHeroChampionRoles,
-} from './sync-hero-champion-roles.js';
+import { sweepStrayRoleHolders, syncHeroChampionRoles } from './sync-hero-champion-roles.js';
 
 describe('syncHeroChampionRoles', () => {
   const add = vi.fn();
@@ -137,64 +137,42 @@ describe('syncHeroChampionRoles', () => {
   });
 });
 
-describe('sweepHeroChampionDiscordRoles', () => {
-  const add = vi.fn(async function add(this: { cache: Map<string, true> }, roleId: string) {
-    this.cache.set(roleId, true);
-  });
-  const remove = vi.fn(async function remove(this: { cache: Map<string, true> }, roleId: string) {
-    this.cache.delete(roleId);
-  });
+describe('sweepStrayRoleHolders', () => {
+  const remove = vi.fn();
+  const membersFetch = vi.fn();
+  const client = {
+    guilds: { fetch: vi.fn(async () => ({ members: { fetch: membersFetch } })) },
+  } as never;
 
-  function member(id: string, roleIds: string[]) {
-    const cache = new Map(roleIds.map((r) => [r, true] as const));
-    return {
-      id,
-      roles: {
-        cache: {
-          has: (roleId: string) => cache.has(roleId),
-        },
-        add: add.bind({ cache }),
-        remove: remove.bind({ cache }),
-      },
-    };
+  function member(roleIds: string[]) {
+    return { roles: { cache: { has: (r: string) => roleIds.includes(r) }, remove } };
   }
-
-  const members = new Map([
-    ['holder', member('holder', [])],
-    ['stale', member('stale', ['role-1'])],
-  ]);
-
-  const guildsFetch = vi.fn();
-  const client = { guilds: { fetch: guildsFetch } } as never;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    members.set('holder', member('holder', []));
-    members.set('stale', member('stale', ['role-1']));
-    guildsFetch.mockResolvedValue({
-      members: {
-        fetch: vi.fn().mockResolvedValue(undefined),
-        cache: {
-          values: () => members.values(),
-          get: (id: string) => members.get(id),
-        },
-      },
+    leagueFindUnique.mockResolvedValue({
+      guildId: 'g1',
+      gameId: 'game',
+      heroChampionRoles: [{ discordRoleId: 'hero-role', holderDiscordId: 'holder' }],
+      rankRoles: [{ discordRoleId: 'rank-role', holderDiscordId: 'other' }],
+    });
+    playerFindMany.mockResolvedValue([
+      { discordId: 'holder' },
+      { discordId: 'stale' },
+      { discordId: 'left' },
+    ]);
+    membersFetch.mockImplementation(async (id: string) => {
+      if (id === 'left') throw new Error('Unknown Member');
+      return member(id === 'holder' ? ['hero-role', 'rank-role'] : ['hero-role']);
     });
   });
 
-  it('removes stale role holders and ensures the DB holder', async () => {
-    leagueFindUnique.mockResolvedValue({
-      guildId: 'g1',
-      status: 'ACTIVE',
-      heroChampionRolesEnabled: true,
-      heroChampionRoles: [{ heroId: 1, discordRoleId: 'role-1', holderDiscordId: 'holder' }],
-    });
+  it('strips hero and rank roles from everyone but the DB holder', async () => {
+    await expect(sweepStrayRoleHolders(client, 'league-1')).resolves.toBe(2);
 
-    const result = await sweepHeroChampionDiscordRoles(client, 'league-1');
-
-    expect(remove).toHaveBeenCalled();
-    expect(add).toHaveBeenCalled();
-    expect(result.removed).toBe(1);
-    expect(result.ensured).toBe(1);
+    // holder keeps hero-role but is not the rank holder; stale loses hero-role.
+    expect(remove).toHaveBeenCalledTimes(2);
+    expect(remove).toHaveBeenCalledWith('rank-role', 'Duplicate role cleanup');
+    expect(remove).toHaveBeenCalledWith('hero-role', 'Duplicate role cleanup');
   });
 });

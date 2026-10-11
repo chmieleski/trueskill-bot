@@ -5,6 +5,11 @@ import {
   respondLeagueAutocomplete,
   withSubcommandLeagueOption,
 } from '../../services/league/index.js';
+import {
+  stripHeroChampionDiscordRoles,
+  sweepStrayCleanupReply as cleanupReply,
+  sweepStrayRoleHolders,
+} from '../../services/hero-champion-roles/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
 import {
   clearRankRoleMapping,
@@ -67,6 +72,13 @@ export const data = new SlashCommandBuilder()
             .setMaxValue(3),
         ),
     ),
+  )
+  .addSubcommand((subcommand) =>
+    withSubcommandLeagueOption(
+      subcommand
+        .setName('cleanup')
+        .setDescription('Remove hero/rank roles from everyone except the current holders'),
+    ),
   );
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
@@ -111,13 +123,18 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     } else if (subcommand === 'map') {
       const rank = interaction.options.getInteger('rank', true);
       const role = interaction.options.getRole('role', true);
-      await setLeagueRankRole(leagueId, rank, role.id);
+      const replaced = await setLeagueRankRole(leagueId, rank, role.id);
+      if (replaced && interaction.guildId) {
+        await stripHeroChampionDiscordRoles(interaction.client, interaction.guildId, [replaced]);
+      }
       await syncRankRoles(interaction.client, leagueId);
       content = `Mapped leaderboard #${rank} → <@&${role.id}>.`;
     } else if (subcommand === 'unmap') {
       const rank = interaction.options.getInteger('rank', true);
       await clearRankRoleMapping(interaction.client, leagueId, rank);
       content = `Cleared the role mapping for leaderboard #${rank}.`;
+    } else if (subcommand === 'cleanup') {
+      content = cleanupReply(await sweepStrayRoleHolders(interaction.client, leagueId));
     } else {
       content = 'Unknown rank role config subcommand.';
     }

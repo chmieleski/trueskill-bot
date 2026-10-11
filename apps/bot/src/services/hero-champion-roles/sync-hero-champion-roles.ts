@@ -7,20 +7,22 @@ import { pickHeroChampion } from './pick-hero-champion.js';
 
 const log = createLogger('hero_champion_roles');
 
-/** Best-effort role removal; logs instead of throwing. Shared with rank role sync. */
+/** Best-effort role removal; logs instead of throwing. True when a role was removed. Shared with rank role sync. */
 export async function tryRemoveRole(
   member: GuildMember | null,
   roleId: string,
   context: Record<string, unknown>,
   reason = 'Hero champion role sync',
-): Promise<void> {
+): Promise<boolean> {
   if (!member?.roles.cache.has(roleId)) {
-    return;
+    return false;
   }
   try {
     await member.roles.remove(roleId, reason);
+    return true;
   } catch (error) {
     log.warn({ err: error, ...context }, 'Failed to remove synced Discord role');
+    return false;
   }
 }
 
@@ -194,92 +196,51 @@ export async function stripHeroChampionDiscordRoles(
   }
 }
 
-export type HeroChampionSweepResult = {
-  removed: number;
-  ensured: number;
-};
-
 /**
- * After holders are synced: strip the champion Discord role from anyone who is
- * not the current DB holder, then ensure the holder has the role.
- * Requires GuildMembers intent so the guild member cache can be filled.
+ * Strip every mapped hero champion / rank role (this league) from anyone who is not
+ * its DB holder. Fixes duplicates left by old remaps or failed removals.
+ * Works without the privileged GuildMembers intent by fetching each Discord-linked
+ * player of the league's game one by one. Best-effort; returns how many roles it removed.
  */
-export async function sweepHeroChampionDiscordRoles(
-  client: Client,
-  leagueId: string,
-): Promise<HeroChampionSweepResult> {
+export async function sweepStrayRoleHolders(client: Client, leagueId: string): Promise<number> {
   const league = await prisma.league.findUnique({
     where: { id: leagueId },
     select: {
       guildId: true,
-      status: true,
-      heroChampionRolesEnabled: true,
-      heroChampionRoles: {
-        select: { heroId: true, discordRoleId: true, holderDiscordId: true },
-      },
+      gameId: true,
+      heroChampionRoles: { select: { discordRoleId: true, holderDiscordId: true } },
+      rankRoles: { select: { discordRoleId: true, holderDiscordId: true } },
     },
   });
+  if (!league) return 0;
+  const mappings = [...league.heroChampionRoles, ...league.rankRoles];
+  if (mappings.length === 0) return 0;
 
-  if (!league?.heroChampionRolesEnabled || league.status === 'ARCHIVED') {
-    return { removed: 0, ensured: 0 };
-  }
+  // ponytail: one REST fetch per linked player (~1k → under a minute); use GuildMembers intent + role.members if it grows.
+  const players = await prisma.player.findMany({
+    where: { gameId: league.gameId, discordId: { not: null } },
+    select: { discordId: true },
+  });
+  const discordIds = [...new Set(players.map((p) => p.discordId!.trim()).filter(Boolean))];
 
-  if (league.heroChampionRoles.length === 0) {
-    return { removed: 0, ensured: 0 };
-  }
-
-  let guild;
-  try {
-    guild = await client.guilds.fetch(league.guildId);
-    await guild.members.fetch();
-  } catch (error) {
-    log.warn(
-      { err: error, leagueId, guildId: league.guildId },
-      'Failed to fetch guild members for champion role sweep',
-    );
-    return { removed: 0, ensured: 0 };
-  }
-
+  const guild = await client.guilds.fetch(league.guildId);
   let removed = 0;
-  let ensured = 0;
-
-  for (const mapping of league.heroChampionRoles) {
-    const withRole = [...guild.members.cache.values()].filter((member) =>
-      member.roles.cache.has(mapping.discordRoleId),
-    );
-
-    for (const member of withRole) {
-      if (member.id === mapping.holderDiscordId) {
-        continue;
-      }
-      const hadRole = member.roles.cache.has(mapping.discordRoleId);
-      await tryRemoveRole(member, mapping.discordRoleId, {
-        leagueId,
-        heroId: mapping.heroId,
-        discordId: member.id,
-        reason: 'champion_role_sweep',
-      });
-      if (hadRole && !member.roles.cache.has(mapping.discordRoleId)) {
+  for (const discordId of discordIds) {
+    const member = await guild.members.fetch(discordId).catch(() => null); // left the server
+    if (!member) continue;
+    for (const { discordRoleId, holderDiscordId } of mappings) {
+      if (discordId === holderDiscordId || !member.roles.cache.has(discordRoleId)) continue;
+      const context = { leagueId, discordId, reason: 'stray_role_sweep' };
+      if (await tryRemoveRole(member, discordRoleId, context, 'Duplicate role cleanup'))
         removed += 1;
-      }
-    }
-
-    if (!mapping.holderDiscordId) {
-      continue;
-    }
-
-    const holder =
-      guild.members.cache.get(mapping.holderDiscordId) ??
-      (await fetchMemberBestEffort(client, league.guildId, mapping.holderDiscordId));
-    await tryAddRole(holder, mapping.discordRoleId, {
-      leagueId,
-      heroId: mapping.heroId,
-      discordId: mapping.holderDiscordId,
-    });
-    if (holder?.roles.cache.has(mapping.discordRoleId)) {
-      ensured += 1;
     }
   }
+  return removed;
+}
 
-  return { removed, ensured };
+/** Staff reply for the hero/rank `cleanup` subcommands. */
+export function sweepStrayCleanupReply(removed: number): string {
+  return removed === 0
+    ? 'No duplicate hero/rank roles found.'
+    : `Removed ${removed} duplicate hero/rank role${removed === 1 ? '' : 's'}.`;
 }

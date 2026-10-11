@@ -11,6 +11,18 @@ export const HERO_CHAMPION_ROLE_DUPLICATE =
 
 export const HERO_CHAMPION_UNKNOWN_HERO = 'Unknown hero.';
 
+/** Discord role + member that a remap displaced. Shared with rank role config. */
+export type ReplacedRoleHolder = { discordRoleId: string; holderDiscordId: string };
+
+/** Keep only a mapping that actually had a holder. */
+export function toReplacedHolder(
+  previous: { discordRoleId: string; holderDiscordId: string | null } | null,
+): ReplacedRoleHolder | null {
+  return previous?.holderDiscordId
+    ? { discordRoleId: previous.discordRoleId, holderDiscordId: previous.holderDiscordId }
+    : null;
+}
+
 export const HERO_CHAMPION_ROLE_USED_BY_RANK =
   'That Discord role is already mapped as a leaderboard rank role in this league.';
 
@@ -44,12 +56,16 @@ export async function setLeagueHeroChampionRolesEnabled(
   });
 }
 
-/** Upsert a staff-mapped Discord role for a hero in this league. */
+/**
+ * Upsert a staff-mapped Discord role for a hero in this league.
+ * Returns the replaced holder so the caller can strip the old Discord role
+ * (the remap forgets the holder, so sync alone would leave a duplicate).
+ */
 export async function setLeagueHeroChampionRole(
   leagueId: string,
   heroId: number,
   discordRoleId: string,
-): Promise<void> {
+): Promise<ReplacedRoleHolder | null> {
   await assertHeroChampionRolesSupported(leagueId);
 
   const hero = await prisma.hero.findUnique({ where: { id: heroId } });
@@ -65,7 +81,11 @@ export async function setLeagueHeroChampionRole(
   }
 
   try {
-    await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx) => {
+      const previous = await tx.leagueHeroChampionRole.findUnique({
+        where: { leagueId_heroId: { leagueId, heroId } },
+        select: { discordRoleId: true, holderDiscordId: true },
+      });
       await tx.leagueHeroChampionRole.upsert({
         where: { leagueId_heroId: { leagueId, heroId } },
         create: {
@@ -84,6 +104,7 @@ export async function setLeagueHeroChampionRole(
         where: { id: leagueId },
         data: { heroChampionRolesDirty: true },
       });
+      return toReplacedHolder(previous);
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
