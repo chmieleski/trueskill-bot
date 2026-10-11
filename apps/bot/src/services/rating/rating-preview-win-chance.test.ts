@@ -130,6 +130,57 @@ describe('computeWinChanceFromRatings', () => {
     expect(dynamic!.teamAPercent).not.toBe(staticSigma!.teamAPercent);
   });
 
+  it('ki strength favors the proven player over a higher-μ uncertain one', () => {
+    const entries = [
+      { playerId: 'p1', slot: 1, team: 1 as const, heroId: 1 },
+      { playerId: 'p2', slot: 7, team: 2 as const, heroId: 7 },
+    ];
+    // p1: higher μ but cold start (ki ≈ 1200); p2: lower μ, proven (ki ≈ 4000).
+    const globals = new Map([
+      ['p1', { mu: 30, sigma: 8, games: 0 }],
+      ['p2', { mu: 25, sigma: 2, games: 20 }],
+    ]);
+    const heroes = new Map([
+      ['p1:1', { mu: 30, sigma: 8, games: 0 }],
+      ['p2:7', { mu: 25, sigma: 2, games: 20 }],
+    ]);
+
+    const dynamic = computeWinChanceFromRatings(entries, globals, heroes);
+    const ki = computeWinChanceFromRatings(entries, globals, heroes, { kiStrength: true });
+
+    expect(dynamic!.teamAPercent).toBeGreaterThan(50);
+    expect(ki!.teamAPercent).toBeLessThan(50);
+  });
+
+  it('ki strength rates paired New seats instead of omitting them', () => {
+    const entries = [
+      { playerId: 'p1', slot: 1, team: 1 as const, heroId: 1, isNewPlayer: true },
+      { playerId: 'p2', slot: 2, team: 1 as const, heroId: 2 },
+      { playerId: 'p3', slot: 7, team: 2 as const, heroId: 7, isNewPlayer: true },
+      { playerId: 'p4', slot: 8, team: 2 as const, heroId: 8 },
+    ];
+    const strong = { mu: 30, sigma: 2, games: 20 };
+    const weak = { mu: 22, sigma: 2, games: 20 };
+    const globals = new Map([
+      ['p1', strong],
+      ['p2', weak],
+      ['p3', weak],
+      ['p4', weak],
+    ]);
+    const heroes = new Map([
+      ['p1:1', strong],
+      ['p2:2', weak],
+      ['p3:7', weak],
+      ['p4:8', weak],
+    ]);
+
+    // Default mode drops the New pair, so the vets are even; ki mode counts p1's edge.
+    expect(computeWinChanceFromRatings(entries, globals, heroes)!.teamAPercent).toBe(50);
+    expect(
+      computeWinChanceFromRatings(entries, globals, heroes, { kiStrength: true })!.teamAPercent,
+    ).toBeGreaterThan(50);
+  });
+
   it('counts one-sided excess New at 80% of blended μ (~50% for 4+New vs 5)', () => {
     const vetsA = ['a1', 'a2', 'a3', 'a4'];
     const vetsB = ['b1', 'b2', 'b3', 'b4', 'b5'];

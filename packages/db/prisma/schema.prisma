@@ -73,6 +73,8 @@ model League {
   archivedAt                     DateTime?
   decayEnabled                   Boolean      @default(true)
   balanceStaticSigmaEnabled      Boolean      @default(false)
+  /// Lobby win% / Balance use display-ki strength (μ − z·σ, fixed σ) instead of μ/σ. predictWin only.
+  balanceKiStrengthEnabled       Boolean      @default(false)
   seasonEndsAt                   DateTime?
   crunchStartedAt                DateTime?
   // Nullable overrides — null means use code defaults in decay-settings.ts

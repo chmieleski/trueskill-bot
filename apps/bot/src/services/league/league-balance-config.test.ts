@@ -12,21 +12,49 @@ vi.mock('../../lib/prisma.js', () => ({
   },
 }));
 
-import { setBalanceStaticSigmaEnabled, setShowSideWinLoss } from './league-balance-config.js';
+import {
+  balanceModeFromFlags,
+  parseBalanceMode,
+  setBalanceMode,
+  setShowSideWinLoss,
+} from './league-balance-config.js';
 
-describe('setBalanceStaticSigmaEnabled', () => {
+describe('setBalanceMode', () => {
   beforeEach(() => {
     update.mockReset();
     update.mockResolvedValue({});
   });
 
-  it('persists the league flag', async () => {
-    await setBalanceStaticSigmaEnabled('league-1', true);
+  it.each([
+    ['dynamic', false, false],
+    ['static', true, false],
+    ['ki', false, true],
+  ] as const)('%s writes both flags', async (mode, staticSigma, ki) => {
+    await setBalanceMode('league-1', mode);
 
     expect(update).toHaveBeenCalledWith({
       where: { id: 'league-1' },
-      data: { balanceStaticSigmaEnabled: true },
+      data: { balanceStaticSigmaEnabled: staticSigma, balanceKiStrengthEnabled: ki },
     });
+  });
+});
+
+describe('balanceModeFromFlags', () => {
+  it('maps flags to a mode, ki first', () => {
+    const flags = (s: boolean, k: boolean) => ({
+      balanceStaticSigmaEnabled: s,
+      balanceKiStrengthEnabled: k,
+    });
+    expect(balanceModeFromFlags(flags(false, false))).toBe('dynamic');
+    expect(balanceModeFromFlags(flags(true, false))).toBe('static');
+    expect(balanceModeFromFlags(flags(true, true))).toBe('ki');
+  });
+});
+
+describe('parseBalanceMode', () => {
+  it('accepts known modes only', () => {
+    expect(parseBalanceMode('ki')).toBe('ki');
+    expect(parseBalanceMode('elo')).toBeUndefined();
   });
 });
 

@@ -20,6 +20,10 @@ import {
   resolveLeagueFromInteraction,
 } from '../../services/league/index.js';
 import { BALANCE_STATIC_SIGMA } from '../../services/rating/rating-entities.js';
+import {
+  balanceModeFromFlags,
+  type BalanceMode,
+} from '../../services/league/league-balance-config.js';
 import type { ResolvedDecaySettings } from '../../services/rating/decay-settings.js';
 import {
   formatWc3statsSlotMapLines,
@@ -109,10 +113,13 @@ export function formatRankResetLine(enabled: boolean, cooldownDays: number): str
   return `**Rank reset:** \`${enabled ? 'on' : 'off'}\` · cooldown \`${cooldownDays}d\``;
 }
 
-export function formatBalanceStaticSigmaLine(enabled: boolean): string {
-  return enabled
-    ? `**Lobby balance σ:** static (\`${BALANCE_STATIC_SIGMA}\`)`
-    : '**Lobby balance σ:** dynamic';
+export function formatBalanceModeLine(mode: BalanceMode): string {
+  const label = {
+    dynamic: 'dynamic (μ/σ)',
+    static: `static (σ=${BALANCE_STATIC_SIGMA})`,
+    ki: 'ki (player/hero ki)',
+  }[mode];
+  return `**Lobby balance:** ${label}`;
 }
 
 export function formatSideWinLossLine(enabled: boolean): string {
@@ -352,7 +359,7 @@ export async function buildConfigViewContent(
     formatMatchApprovalChannelLine(leagueConfig.matchApprovalChannelId),
     formatApiTokenConfigLine(leagueConfig.apiTokenSet, leagueConfig.apiTokenCreatedAt),
     formatRankResetLine(leagueConfig.rankResetEnabled, leagueConfig.rankResetCooldownDays),
-    formatBalanceStaticSigmaLine(leagueConfig.balanceStaticSigmaEnabled),
+    formatBalanceModeLine(balanceModeFromFlags(leagueConfig)),
     formatSideWinLossLine(leagueConfig.showSideWinLoss),
     formatHeroChampionRolesLine(leagueConfig.heroChampionRolesEnabled, heroChampionRoles),
     formatRankRolesLine(leagueConfig.rankRolesEnabled, rankRoles),
