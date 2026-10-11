@@ -1,3 +1,10 @@
+# [1.86.0](https://github.com/chmieleski/trueskill-bot/compare/v1.85.1...v1.86.0) (2026-10-11)
+
+
+### Features
+
+* **balance:** add per-league ki balance mode ([#224](https://github.com/chmieleski/trueskill-bot/issues/224)) ([97ec943](https://github.com/chmieleski/trueskill-bot/commit/97ec9438e21f6dff3402cbbf064803c64187b936))
+
 ## [1.85.1](https://github.com/chmieleski/trueskill-bot/compare/v1.85.0...v1.85.1) (2026-10-11)
 
 
