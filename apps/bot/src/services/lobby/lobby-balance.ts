@@ -10,7 +10,11 @@ import {
   balanceEntitiesForSeat,
   type BalancePredictWinOptions,
 } from '../rating/rating-entities.js';
-import { classifyNewSeatsForBalance, entryPairKey } from '../rating/new-player-partition.js';
+import {
+  classifyNewSeatsForBalance,
+  entryPairKey,
+  isMarkedNewPlayer,
+} from '../rating/new-player-partition.js';
 import { roundWinPercents, splitRosterByTeam, toOpenSkillRatings } from '../rating/rating-math.js';
 
 export type MuSigma = { mu: number; sigma: number };
@@ -114,12 +118,51 @@ export const BALANCE_TARGET_IMBALANCE = 1;
 // ponytail: random sampling, not exhaustive search; raise if 49–51 is often missed on solvable lobbies.
 const BALANCE_ATTEMPTS = 3000;
 
+/** New-player seats per team; `even` = gap is the minimum the count allows (0 even, 1 odd). */
+export type NewPlayerSplit = { team1: number; team2: number; even: boolean };
+
 export type BalanceResult = {
   roster: BalanceRosterEntry[];
   winChance: { teamAPercent: number; teamBPercent: number };
   /** True when the result is within {@link BALANCE_TARGET_IMBALANCE}. */
   balanced: boolean;
+  /** Only uneven when locked seats force it. */
+  newSplit: NewPlayerSplit;
 };
+
+function newPlayerSplit(roster: BalanceRosterEntry[]): NewPlayerSplit {
+  let team1 = 0;
+  let team2 = 0;
+  for (const entry of roster) {
+    if (!isMarkedNewPlayer(entry)) {
+      continue;
+    }
+    if (entry.team === 1) {
+      team1 += 1;
+    } else {
+      team2 += 1;
+    }
+  }
+  return { team1, team2, even: Math.abs(team1 - team2) <= (team1 + team2) % 2 };
+}
+
+/** Seating rank: New-player gap first, then win% imbalance. Lower is better. */
+type SeatingScore = { newGap: number; imbalance: number };
+
+function compareScores(left: SeatingScore, right: SeatingScore): number {
+  return left.newGap - right.newGap || left.imbalance - right.imbalance;
+}
+
+function scoreSeating(
+  roster: BalanceRosterEntry[],
+  winChance: { teamAPercent: number } | undefined,
+): SeatingScore {
+  const split = newPlayerSplit(roster);
+  return {
+    newGap: Math.abs(split.team1 - split.team2),
+    imbalance: winChance ? imbalance(winChance.teamAPercent) : Number.POSITIVE_INFINITY,
+  };
+}
 
 function seatingKey(roster: BalanceRosterEntry[]): string {
   return roster
@@ -139,7 +182,9 @@ function fisherYatesInPlace<T>(items: T[], random: () => number): void {
 
 /**
  * Re-seat unlocked players across all non-locked slots (occupied or empty) so
- * win chance lands at 50/50 or 51/49. Locked seats never move. Random search,
+ * New players split evenly (half each side; odd counts within one) and, among
+ * those seatings, win chance lands at 50/50 or 51/49. An even New split always
+ * beats a better win%; only locked seats can leave it uneven. Locked seats never move. Random search,
  * so repeated calls return different balanced seatings; the current seating is
  * never returned. Falls back to the closest seating found that is no worse than
  * the current one. Returns undefined when nothing can be moved or improved.
@@ -167,9 +212,10 @@ export function findBalancedRoster(
   }
 
   const currentKey = seatingKey(roster);
-  const current = winChanceForRoster(roster, lookup, options);
-  let bestImbalance = current ? imbalance(current.teamAPercent) : Number.POSITIVE_INFINITY;
-  let best: Omit<BalanceResult, 'balanced'> | undefined;
+  const currentSplit = newPlayerSplit(roster);
+  const targetNewGap = (currentSplit.team1 + currentSplit.team2) % 2;
+  let bestScore = scoreSeating(roster, winChanceForRoster(roster, lookup, options));
+  let best: Pick<BalanceResult, 'roster' | 'winChance'> | undefined;
 
   for (let attempt = 0; attempt < BALANCE_ATTEMPTS; attempt += 1) {
     fisherYatesInPlace(openSlots, random);
@@ -184,15 +230,18 @@ export function findBalancedRoster(
       continue;
     }
     const winChance = winChanceForRoster(next, lookup, options);
-    if (!winChance || imbalance(winChance.teamAPercent) > bestImbalance) {
+    if (!winChance) {
       continue;
     }
-    if (best && imbalance(winChance.teamAPercent) === bestImbalance) {
+    const score = scoreSeating(next, winChance);
+    // First pick may tie the current seating; later picks must strictly improve.
+    const order = compareScores(score, bestScore);
+    if (order > 0 || (best && order === 0)) {
       continue;
     }
-    bestImbalance = imbalance(winChance.teamAPercent);
+    bestScore = score;
     best = { roster: next, winChance };
-    if (bestImbalance <= BALANCE_TARGET_IMBALANCE) {
+    if (score.newGap <= targetNewGap && score.imbalance <= BALANCE_TARGET_IMBALANCE) {
       break;
     }
   }
@@ -203,6 +252,7 @@ export function findBalancedRoster(
   return {
     roster: [...best.roster].sort((a, b) => a.slot - b.slot),
     winChance: best.winChance,
-    balanced: bestImbalance <= BALANCE_TARGET_IMBALANCE,
+    balanced: bestScore.imbalance <= BALANCE_TARGET_IMBALANCE,
+    newSplit: newPlayerSplit(best.roster),
   };
 }
