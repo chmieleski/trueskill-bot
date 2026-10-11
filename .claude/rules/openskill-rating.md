@@ -44,7 +44,7 @@ Team array (predictWin) = [Blend1, Blend2, ...]
 
 **New-player balance (predictWin / Balance button only; `rate()` unchanged):** paired non-quit New seats are **omitted** from the team array (same lowest-slot pair-off as rating apply). Excess / one-sided New contribute `μ_eff = min(0.8 × μ_blend, 20)` after the 80/20 blend. Unmarked calibrating players keep full μ. Spec: `docs/superpowers/specs/2026-08-28-new-player-balance-mu-discount-design.md`.
 
-**New-player seating (Balance button):** New seats split evenly across teams (even count → exactly half; odd → within one) before win% is optimised; only locked seats may leave it uneven, and the reply says so (`findBalancedRoster`).
+**New-player seating (Balance button):** New seats split evenly across teams (even count → exactly half; odd → within one) before win% is optimised; only locked seats may leave it uneven, and the reply says so (`findBalancedRoster`). Then win% must land within 45–55, using the fewest in-game `!swap` commands (all 1-swap seatings, then 2-swap, then random search); a 1-swap 54/46 beats a 3-swap 50/50.
 
 Public roster ki is unchanged (still two numbers). `rate()` is the independent ladders above, not this blend. Specs: `docs/superpowers/specs/2026-08-22-player-hero-balance-weight-design.md`, `docs/superpowers/specs/2026-08-24-balance-static-sigma-design.md`. Staff: `/league_config set balance_static_sigma`.
 

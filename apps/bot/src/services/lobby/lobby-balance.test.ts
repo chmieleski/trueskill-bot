@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { getGameProfile } from '../../domain/game-profile.js';
 import { WARCRAFT3_WOS_GAME_ID } from '../../domain/games.js';
 import { computeWinChanceFromRatings } from '../rating/rating-preview.js';
+import { planSwapMoves } from './in-game-roster.js';
 import {
   BALANCE_TARGET_IMBALANCE,
   findBalancedRoster,
@@ -44,6 +45,14 @@ function seat(playerId: string, slot: number, extra: Partial<BalanceRosterEntry>
   } as BalanceRosterEntry;
 }
 
+/** In-game `!swap` commands needed to go from `before` to `after`. */
+function swapCount(before: BalanceRosterEntry[], after: BalanceRosterEntry[]): number {
+  return planSwapMoves(
+    after.map((e) => ({ slot: e.slot, nick: e.playerId })),
+    before.map((e) => ({ slot: e.slot, nick: e.playerId, rawName: e.playerId })),
+  ).length;
+}
+
 function seating(roster: BalanceRosterEntry[]): string {
   return roster.map((entry) => `${entry.slot}:${entry.playerId}`).join('|');
 }
@@ -79,7 +88,7 @@ const STACKED_LOOKUP = lookupFromMaps({
 });
 
 describe('findBalancedRoster', () => {
-  it('reaches 50/50 or 51/49 on a stacked lobby', () => {
+  it('reaches 45–55 on a stacked lobby', () => {
     const result = findBalancedRoster(STACKED, STACKED_LOOKUP, undefined, undefined, seeded(1));
     expect(result).toBeDefined();
     expect(result!.balanced).toBe(true);
@@ -89,6 +98,35 @@ describe('findBalancedRoster', () => {
     expect(result!.roster.map((e) => e.playerId).sort()).toEqual(
       STACKED.map((e) => e.playerId).sort(),
     );
+  });
+
+  it('uses a single swap when one swap is enough', () => {
+    const roster = [seat('a', 1), seat('b', 2), seat('c', 7), seat('d', 8)];
+    const lookup = lookupFromMaps({
+      a: { mu: 30, sigma: 3 },
+      b: { mu: 30, sigma: 3 },
+      c: { mu: 20, sigma: 3 },
+      d: { mu: 20, sigma: 3 },
+    });
+    for (let seed = 1; seed <= 5; seed += 1) {
+      const result = findBalancedRoster(roster, lookup, undefined, undefined, seeded(seed))!;
+      expect(result.balanced).toBe(true);
+      expect(swapCount(roster, result.roster)).toBe(1);
+    }
+  });
+
+  it('balances a stacked lobby in at most two swaps', () => {
+    for (let seed = 1; seed <= 5; seed += 1) {
+      const result = findBalancedRoster(
+        STACKED,
+        STACKED_LOOKUP,
+        undefined,
+        undefined,
+        seeded(seed),
+      )!;
+      expect(result.balanced).toBe(true);
+      expect(swapCount(STACKED, result.roster)).toBeLessThanOrEqual(2);
+    }
   });
 
   it('returns a different balanced combination on another click', () => {
@@ -134,7 +172,7 @@ describe('findBalancedRoster', () => {
     }
   });
 
-  it('falls back to the closest seating when 49–51 is unreachable', () => {
+  it('falls back to the closest seating when 45–55 is unreachable', () => {
     const roster = [seat('pro', 1), seat('a', 2), seat('b', 7)];
     const lookup = lookupFromMaps({ pro: { mu: 45, sigma: 1 }, b: { mu: 10, sigma: 1 } });
     const result = findBalancedRoster(roster, lookup, undefined, undefined, seeded(4))!;
