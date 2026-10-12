@@ -299,4 +299,39 @@ describe('findBalancedRoster', () => {
       expect(calibratingOn(result.roster, 2)).toBe(1);
     });
   });
+
+  describe('team sizes', () => {
+    const sizes = (roster: BalanceRosterEntry[]) =>
+      [1, 2].map((team) => roster.filter((e) => e.team === team).length);
+
+    it('evens out a 6v4 lobby into 5v5', () => {
+      const roster = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((slot) => seat(`p${slot}`, slot));
+      for (let seed = 1; seed <= 10; seed += 1) {
+        const result = findBalancedRoster(
+          roster,
+          lookupFromMaps({ p1: { mu: 35, sigma: 3 }, p7: { mu: 15, sigma: 3 } }),
+          undefined,
+          undefined,
+          seeded(seed),
+        )!;
+        expect(sizes(result.roster)).toEqual([5, 5]);
+        expect(result.teamSplit.even).toBe(true);
+      }
+    });
+
+    it('keeps an odd total within one', () => {
+      const roster = [1, 2, 3, 4, 5, 7, 8, 9, 10].map((slot) => seat(`p${slot}`, slot));
+      for (let seed = 1; seed <= 10; seed += 1) {
+        const result = findBalancedRoster(
+          roster,
+          lookupFromMaps({}),
+          undefined,
+          undefined,
+          seeded(seed),
+        )!;
+        const [a, b] = sizes(result.roster);
+        expect(Math.abs(a! - b!)).toBe(1);
+      }
+    });
+  });
 });

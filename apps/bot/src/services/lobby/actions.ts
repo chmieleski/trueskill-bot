@@ -315,6 +315,7 @@ export async function balanceLobbyRoster(input: ManageLobbyInput): Promise<
   LobbyActionResult & {
     winChance: WinChancePercents;
     balanced: boolean;
+    teamSplit: NewPlayerSplit;
     newSplit: NewPlayerSplit;
     calibratingSplit: NewPlayerSplit;
   }
@@ -346,6 +347,7 @@ export async function balanceLobbyRoster(input: ManageLobbyInput): Promise<
     ...synced,
     winChance: result.winChance,
     balanced: result.balanced,
+    teamSplit: result.teamSplit,
     newSplit: result.newSplit,
     calibratingSplit: result.calibratingSplit,
   };
@@ -360,6 +362,7 @@ export function balanceResultMessage(
   const unevenNote = (label: string, split: NewPlayerSplit) =>
     split.even ? '' : `\n${label} split ${split.team1}/${split.team2} because of locked seats.`;
   const notes =
+    unevenNote('Teams', result.teamSplit) +
     unevenNote('New players', result.newSplit) +
     unevenNote('Calibrating players', result.calibratingSplit);
   return `${prefix} → **${teamAPercent}% / ${teamBPercent}%** in match \`${result.match.id}\`. Click again for another combination.${notes}`;

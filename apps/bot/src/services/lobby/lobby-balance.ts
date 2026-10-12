@@ -129,6 +129,8 @@ export type BalanceResult = {
   winChance: { teamAPercent: number; teamBPercent: number };
   /** True when the result is within {@link BALANCE_TARGET_IMBALANCE}. */
   balanced: boolean;
+  /** Players per team; only uneven when locked seats force it. */
+  teamSplit: NewPlayerSplit;
   /** Only uneven when locked seats force it. */
   newSplit: NewPlayerSplit;
   /** Calibrating seats that are not New; only uneven when locked seats force it. */
@@ -158,6 +160,7 @@ function groupSplit(
   return { team1, team2, even: Math.abs(team1 - team2) <= (team1 + team2) % 2 };
 }
 
+const teamSizeSplit = (roster: BalanceRosterEntry[]) => groupSplit(roster, () => true);
 const newPlayerSplit = (roster: BalanceRosterEntry[]) => groupSplit(roster, isMarkedNewPlayer);
 const calibratingSplit = (roster: BalanceRosterEntry[]) => groupSplit(roster, isCalibratingSeat);
 
@@ -165,11 +168,12 @@ function splitGap(split: NewPlayerSplit): number {
   return Math.abs(split.team1 - split.team2);
 }
 
-/** Seating rank: New-player gap, then calibrating gap, then win% imbalance. Lower is better. */
-type SeatingScore = { newGap: number; calibratingGap: number; imbalance: number };
+/** Seating rank: team-size gap, New gap, calibrating gap, then win% imbalance. Lower is better. */
+type SeatingScore = { teamGap: number; newGap: number; calibratingGap: number; imbalance: number };
 
 function compareScores(left: SeatingScore, right: SeatingScore): number {
   return (
+    left.teamGap - right.teamGap ||
     left.newGap - right.newGap ||
     left.calibratingGap - right.calibratingGap ||
     left.imbalance - right.imbalance
@@ -181,6 +185,7 @@ function scoreSeating(
   winChance: { teamAPercent: number } | undefined,
 ): SeatingScore {
   return {
+    teamGap: splitGap(teamSizeSplit(roster)),
     newGap: splitGap(newPlayerSplit(roster)),
     calibratingGap: splitGap(calibratingSplit(roster)),
     imbalance: winChance ? imbalance(winChance.teamAPercent) : Number.POSITIVE_INFINITY,
@@ -205,7 +210,7 @@ function fisherYatesInPlace<T>(items: T[], random: () => number): void {
 
 /**
  * Re-seat unlocked players across all non-locked slots (occupied or empty) so
- * New players split evenly (half each side; odd counts within one), then
+ * team sizes match (odd totals within one), then New players split evenly (half each side; odd counts within one), then
  * calibrating players (not New) split evenly on their own, and, among those seatings,
  * win chance lands at 50/50 or 51/49. An even split always beats a better win%; only locked seats can leave it uneven. Locked seats never move. Random search,
  * so repeated calls return different balanced seatings; the current seating is
@@ -235,6 +240,7 @@ export function findBalancedRoster(
   }
 
   const currentKey = seatingKey(roster);
+  const targetTeamGap = roster.length % 2;
   const currentSplit = newPlayerSplit(roster);
   const targetNewGap = (currentSplit.team1 + currentSplit.team2) % 2;
   const currentCalibrating = calibratingSplit(roster);
@@ -267,6 +273,7 @@ export function findBalancedRoster(
     bestScore = score;
     best = { roster: next, winChance };
     if (
+      score.teamGap <= targetTeamGap &&
       score.newGap <= targetNewGap &&
       score.calibratingGap <= targetCalibratingGap &&
       score.imbalance <= BALANCE_TARGET_IMBALANCE
@@ -282,6 +289,7 @@ export function findBalancedRoster(
     roster: [...best.roster].sort((a, b) => a.slot - b.slot),
     winChance: best.winChance,
     balanced: bestScore.imbalance <= BALANCE_TARGET_IMBALANCE,
+    teamSplit: teamSizeSplit(best.roster),
     newSplit: newPlayerSplit(best.roster),
     calibratingSplit: calibratingSplit(best.roster),
   };
