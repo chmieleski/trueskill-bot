@@ -1,3 +1,10 @@
+## [1.87.1](https://github.com/chmieleski/trueskill-bot/compare/v1.87.0...v1.87.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* **lobby:** keep team sizes even on balance ([#227](https://github.com/chmieleski/trueskill-bot/issues/227)) ([c5005fa](https://github.com/chmieleski/trueskill-bot/commit/c5005faf2da010ece8924dcde8b8d1a1e55c26b8))
+
 # [1.87.0](https://github.com/chmieleski/trueskill-bot/compare/v1.86.1...v1.87.0) (2026-10-12)
 
 
