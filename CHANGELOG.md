@@ -1,3 +1,10 @@
+# [1.87.0](https://github.com/chmieleski/trueskill-bot/compare/v1.86.1...v1.87.0) (2026-10-12)
+
+
+### Features
+
+* **lobby:** restore random balance and split calibrating players ([#226](https://github.com/chmieleski/trueskill-bot/issues/226)) ([2ad0179](https://github.com/chmieleski/trueskill-bot/commit/2ad0179228e0da548003b24a8c95f9c74bfa5cb9))
+
 ## [1.86.1](https://github.com/chmieleski/trueskill-bot/compare/v1.86.0...v1.86.1) (2026-10-11)
 
 
