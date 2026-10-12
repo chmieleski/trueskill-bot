@@ -14,6 +14,7 @@ import {
 import { classifyNewSeatsForBalance, entryPairKey } from './new-player-partition.js';
 import {
   displayOrdinal,
+  isCalibrating,
   roundWinPercents,
   splitRosterByTeam,
   toOpenSkillRatings,
@@ -561,7 +562,10 @@ export async function loadBalanceContext(
     resolveLeagueConfig(leagueId),
   ]);
   const options = balanceOptionsFromLeagueConfig(leagueConfig);
-  const gamesByPlayer = await loadGamesForKiBalance(leagueId, playerIds, options);
+  // Always loaded: Balance splits calibrating players evenly in every mode.
+  const gamesByPlayer = gamesByPlayerFromStats(
+    await loadMatchDisplayStatsByPlayer(leagueId, playerIds),
+  );
   const globalByPlayer = new Map(globals.map((row) => [row.playerId, row]));
   const heroByKey = new Map(heroes.map((row) => [`${row.playerId}:${row.heroId}`, row]));
 
@@ -575,6 +579,9 @@ export async function loadBalanceContext(
       locked: entry.locked === true,
       ...(globalByPlayer.get(entry.playerId)?.isNewPlayer === true
         ? { isNewPlayer: true as const }
+        : {}),
+      ...(isCalibrating(gamesByPlayer.get(entry.playerId) ?? 0)
+        ? { calibrating: true as const }
         : {}),
     })),
     lookup: {

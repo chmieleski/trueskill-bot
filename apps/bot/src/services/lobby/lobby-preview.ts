@@ -700,7 +700,7 @@ export function buildLobbyButtons(
     .setEmoji('🔄')
     .setStyle(ButtonStyle.Secondary);
 
-  // Workflow order: balance, swap in-game, refresh, then start.
+  // Workflow order: balance, refresh, then start.
   const topRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(LOBBY_CUSTOM_IDS.shuffle)
