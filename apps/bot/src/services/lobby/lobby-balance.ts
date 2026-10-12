@@ -15,9 +15,7 @@ import {
   entryPairKey,
   isMarkedNewPlayer,
 } from '../rating/new-player-partition.js';
-import { normalizeNick } from '../player/player-nick.js';
 import { roundWinPercents, splitRosterByTeam, toOpenSkillRatings } from '../rating/rating-math.js';
-import { planSwapMoves } from './in-game-roster.js';
 
 export type MuSigma = { mu: number; sigma: number };
 
@@ -33,6 +31,8 @@ export type BalanceRosterEntry = {
   isNewPlayer?: boolean;
   /** Completed-match snapshot New flag. */
   wasNewPlayer?: boolean;
+  /** Fewer than 5 completed league games; Balance splits these evenly, separately from New. */
+  calibrating?: boolean;
 };
 
 export type BalanceRatingLookup = {
@@ -110,17 +110,18 @@ function swappedSeat(
     ...(source.isNewPlayer === true ? { isNewPlayer: true as const } : {}),
     ...(source.wasNewPlayer === true ? { wasNewPlayer: true as const } : {}),
     ...(source.locked === true ? { locked: true as const } : {}),
+    ...(source.calibrating === true ? { calibrating: true as const } : {}),
   };
 }
 
-/** Max rounded imbalance (|50 − teamA%|) that counts as balanced: anything from 45/55 to 55/45. */
-export const BALANCE_TARGET_IMBALANCE = 5;
+/** Max rounded imbalance (|50 − teamA%|) that counts as balanced: 50/50 or 51/49. */
+export const BALANCE_TARGET_IMBALANCE = 1;
 
-/** Random placements tried once one- and two-swap seatings can't reach the target. */
-// ponytail: random sampling past two swaps, not exhaustive search; raise if 45–55 is often missed on solvable lobbies.
+/** Random placements tried per Balance click before settling for the closest one. */
+// ponytail: random sampling, not exhaustive search; raise if 49–51 is often missed on solvable lobbies.
 const BALANCE_ATTEMPTS = 3000;
 
-/** New-player seats per team; `even` = gap is the minimum the count allows (0 even, 1 odd). */
+/** Seats per team for a group; `even` = gap is the minimum the count allows (0 even, 1 odd). */
 export type NewPlayerSplit = { team1: number; team2: number; even: boolean };
 
 export type BalanceResult = {
@@ -130,13 +131,22 @@ export type BalanceResult = {
   balanced: boolean;
   /** Only uneven when locked seats force it. */
   newSplit: NewPlayerSplit;
+  /** Calibrating seats that are not New; only uneven when locked seats force it. */
+  calibratingSplit: NewPlayerSplit;
 };
 
-function newPlayerSplit(roster: BalanceRosterEntry[]): NewPlayerSplit {
+function isCalibratingSeat(entry: BalanceRosterEntry): boolean {
+  return entry.calibrating === true && !isMarkedNewPlayer(entry);
+}
+
+function groupSplit(
+  roster: BalanceRosterEntry[],
+  inGroup: (entry: BalanceRosterEntry) => boolean,
+): NewPlayerSplit {
   let team1 = 0;
   let team2 = 0;
   for (const entry of roster) {
-    if (!isMarkedNewPlayer(entry)) {
+    if (!inGroup(entry)) {
       continue;
     }
     if (entry.team === 1) {
@@ -148,47 +158,33 @@ function newPlayerSplit(roster: BalanceRosterEntry[]): NewPlayerSplit {
   return { team1, team2, even: Math.abs(team1 - team2) <= (team1 + team2) % 2 };
 }
 
-/** Seating score; `swaps` = in-game swap commands needed to get there from the current seating. */
-type SeatingScore = { newGap: number; imbalance: number; swaps: number };
+const newPlayerSplit = (roster: BalanceRosterEntry[]) => groupSplit(roster, isMarkedNewPlayer);
+const calibratingSplit = (roster: BalanceRosterEntry[]) => groupSplit(roster, isCalibratingSeat);
+
+function splitGap(split: NewPlayerSplit): number {
+  return Math.abs(split.team1 - split.team2);
+}
+
+/** Seating rank: New-player gap, then calibrating gap, then win% imbalance. Lower is better. */
+type SeatingScore = { newGap: number; calibratingGap: number; imbalance: number };
+
+function compareScores(left: SeatingScore, right: SeatingScore): number {
+  return (
+    left.newGap - right.newGap ||
+    left.calibratingGap - right.calibratingGap ||
+    left.imbalance - right.imbalance
+  );
+}
 
 function scoreSeating(
   roster: BalanceRosterEntry[],
   winChance: { teamAPercent: number } | undefined,
-  swaps: number,
 ): SeatingScore {
-  const split = newPlayerSplit(roster);
   return {
-    newGap: Math.abs(split.team1 - split.team2),
+    newGap: splitGap(newPlayerSplit(roster)),
+    calibratingGap: splitGap(calibratingSplit(roster)),
     imbalance: winChance ? imbalance(winChance.teamAPercent) : Number.POSITIVE_INFINITY,
-    swaps,
   };
-}
-
-function onTarget(score: SeatingScore): boolean {
-  return score.imbalance <= BALANCE_TARGET_IMBALANCE;
-}
-
-/**
- * Lower is better: New-player gap, then reaching the target, then (on target)
- * fewest swaps before best win%. Off target, win% comes first.
- */
-function compareScores(left: SeatingScore, right: SeatingScore): number {
-  const leftOff = onTarget(left) ? 0 : 1;
-  const rightOff = onTarget(right) ? 0 : 1;
-  if (left.newGap !== right.newGap || leftOff !== rightOff) {
-    return left.newGap - right.newGap || leftOff - rightOff;
-  }
-  return leftOff === 0
-    ? left.swaps - right.swaps || left.imbalance - right.imbalance
-    : left.imbalance - right.imbalance || left.swaps - right.swaps;
-}
-
-/** A pick must not undo the New split or make an off-target lobby worse. */
-function noWorseThanCurrent(score: SeatingScore, current: SeatingScore): boolean {
-  if (score.newGap !== current.newGap) {
-    return score.newGap < current.newGap;
-  }
-  return onTarget(score) || score.imbalance <= current.imbalance;
 }
 
 function seatingKey(roster: BalanceRosterEntry[]): string {
@@ -207,52 +203,14 @@ function fisherYatesInPlace<T>(items: T[], random: () => number): void {
   }
 }
 
-/** Unlocked seats as slot → original entry; locked and empty slots are absent. */
-type Seating = Map<number, BalanceRosterEntry>;
-
-/** Every seating one `!swap` away: two players trade seats, or one moves to an empty slot. */
-function pairSwaps(seating: Seating, openSlots: number[]): Seating[] {
-  const out: Seating[] = [];
-  for (let i = 0; i < openSlots.length; i += 1) {
-    for (let j = i + 1; j < openSlots.length; j += 1) {
-      const a = openSlots[i]!;
-      const b = openSlots[j]!;
-      const atA = seating.get(a);
-      const atB = seating.get(b);
-      if (!atA && !atB) {
-        continue;
-      }
-      const next = new Map(seating);
-      next.delete(a);
-      next.delete(b);
-      if (atB) next.set(a, atB);
-      if (atA) next.set(b, atA);
-      out.push(next);
-    }
-  }
-  return out;
-}
-
-function randomSeating(
-  movers: BalanceRosterEntry[],
-  openSlots: number[],
-  random: () => number,
-): Seating {
-  const slots = [...openSlots];
-  fisherYatesInPlace(slots, random);
-  return new Map(movers.map((entry, index) => [slots[index]!, entry]));
-}
-
 /**
  * Re-seat unlocked players across all non-locked slots (occupied or empty) so
- * New players split evenly (half each side; odd counts within one) and win
- * chance lands within 45/55, using the fewest in-game swap commands: every
- * one-swap seating is tried, then every two-swap seating, then random
- * placements. An even New split always beats a better win%; only locked seats
- * can leave it uneven. Locked seats never move. Ties are broken at random, so
- * repeated calls return different seatings; the current seating is never
- * returned. Falls back to the closest seating found that is no worse than the
- * current one. Returns undefined when nothing can be moved or improved.
+ * New players split evenly (half each side; odd counts within one), then
+ * calibrating players (not New) split evenly on their own, and, among those seatings,
+ * win chance lands at 50/50 or 51/49. An even split always beats a better win%; only locked seats can leave it uneven. Locked seats never move. Random search,
+ * so repeated calls return different balanced seatings; the current seating is
+ * never returned. Falls back to the closest seating found that is no worse than
+ * the current one. Returns undefined when nothing can be moved or improved.
  */
 export function findBalancedRoster(
   roster: BalanceRosterEntry[],
@@ -276,63 +234,43 @@ export function findBalancedRoster(
     }
   }
 
-  const toRoster = (seating: Seating) => [
-    ...fixed,
-    ...[...seating].map(([slot, entry]) =>
-      swappedSeat(entry, slot, teamForSlot(resolved, slot), resolved),
-    ),
-  ];
-  // planSwapMoves counts commands exactly as the lobby's Swap commands field will list them.
-  const currentAsSnapshot = movers.map((entry) => ({
-    slot: entry.slot,
-    nick: normalizeNick(entry.playerId),
-    rawName: entry.playerId,
-  }));
-  const swapsTo = (next: BalanceRosterEntry[]) =>
-    planSwapMoves(
-      next
-        .filter((entry) => entry.locked !== true)
-        .map((entry) => ({ slot: entry.slot, nick: entry.playerId })),
-      currentAsSnapshot,
-    ).length;
-
-  const start: Seating = new Map(movers.map((entry) => [entry.slot, entry]));
-  const current = scoreSeating(roster, winChanceForRoster(roster, lookup, options), 0);
+  const currentKey = seatingKey(roster);
   const currentSplit = newPlayerSplit(roster);
   const targetNewGap = (currentSplit.team1 + currentSplit.team2) % 2;
-  const seen = new Set([seatingKey(roster)]);
-  let oneSwap: Seating[] = [];
-  const stages: Array<() => Seating[]> = [
-    () => (oneSwap = pairSwaps(start, openSlots)),
-    () => oneSwap.flatMap((seating) => pairSwaps(seating, openSlots)),
-    () => Array.from({ length: BALANCE_ATTEMPTS }, () => randomSeating(movers, openSlots, random)),
-  ];
-  let best: (Pick<BalanceResult, 'roster' | 'winChance'> & { score: SeatingScore }) | undefined;
+  const currentCalibrating = calibratingSplit(roster);
+  const targetCalibratingGap = (currentCalibrating.team1 + currentCalibrating.team2) % 2;
+  let bestScore = scoreSeating(roster, winChanceForRoster(roster, lookup, options));
+  let best: Pick<BalanceResult, 'roster' | 'winChance'> | undefined;
 
-  for (const stage of stages) {
-    const seatings = stage();
-    fisherYatesInPlace(seatings, random);
-    for (const seating of seatings) {
-      const next = toRoster(seating);
-      const key = seatingKey(next);
-      if (seen.has(key)) {
-        continue;
-      }
-      seen.add(key);
-      const winChance = winChanceForRoster(next, lookup, options);
-      if (!winChance) {
-        continue;
-      }
-      const score = scoreSeating(next, winChance, swapsTo(next));
-      const better = best
-        ? compareScores(score, best.score) < 0
-        : noWorseThanCurrent(score, current);
-      if (better) {
-        best = { roster: next, winChance, score };
-      }
+  for (let attempt = 0; attempt < BALANCE_ATTEMPTS; attempt += 1) {
+    fisherYatesInPlace(openSlots, random);
+    const next = [
+      ...fixed,
+      ...movers.map((entry, index) => {
+        const slot = openSlots[index]!;
+        return swappedSeat(entry, slot, teamForSlot(resolved, slot), resolved);
+      }),
+    ];
+    if (seatingKey(next) === currentKey) {
+      continue;
     }
-    // Stages go up in swap count, so the first stage to hit the target holds the fewest-swap answer.
-    if (best && best.score.newGap <= targetNewGap && onTarget(best.score)) {
+    const winChance = winChanceForRoster(next, lookup, options);
+    if (!winChance) {
+      continue;
+    }
+    const score = scoreSeating(next, winChance);
+    // First pick may tie the current seating; later picks must strictly improve.
+    const order = compareScores(score, bestScore);
+    if (order > 0 || (best && order === 0)) {
+      continue;
+    }
+    bestScore = score;
+    best = { roster: next, winChance };
+    if (
+      score.newGap <= targetNewGap &&
+      score.calibratingGap <= targetCalibratingGap &&
+      score.imbalance <= BALANCE_TARGET_IMBALANCE
+    ) {
       break;
     }
   }
@@ -343,7 +281,8 @@ export function findBalancedRoster(
   return {
     roster: [...best.roster].sort((a, b) => a.slot - b.slot),
     winChance: best.winChance,
-    balanced: onTarget(best.score),
+    balanced: bestScore.imbalance <= BALANCE_TARGET_IMBALANCE,
     newSplit: newPlayerSplit(best.roster),
+    calibratingSplit: calibratingSplit(best.roster),
   };
 }

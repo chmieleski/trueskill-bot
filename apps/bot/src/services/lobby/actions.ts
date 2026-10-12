@@ -308,13 +308,16 @@ export async function setLobbyLockedSlots(
 }
 
 /**
- * Re-seat unlocked players for a 45–55 win chance in the fewest in-game swaps (host or match mod).
+ * Re-seat unlocked players for a 50/50 or 51/49 win chance (host or match mod).
  * Each call picks a different seating; locked seats stay put.
  */
-export async function balanceLobbyRoster(
-  input: ManageLobbyInput,
-): Promise<
-  LobbyActionResult & { winChance: WinChancePercents; balanced: boolean; newSplit: NewPlayerSplit }
+export async function balanceLobbyRoster(input: ManageLobbyInput): Promise<
+  LobbyActionResult & {
+    winChance: WinChancePercents;
+    balanced: boolean;
+    newSplit: NewPlayerSplit;
+    calibratingSplit: NewPlayerSplit;
+  }
 > {
   const { match } = await resolvePendingMatchForManage({
     actorDiscordId: input.actorDiscordId,
@@ -344,6 +347,7 @@ export async function balanceLobbyRoster(
     winChance: result.winChance,
     balanced: result.balanced,
     newSplit: result.newSplit,
+    calibratingSplit: result.calibratingSplit,
   };
 }
 
@@ -353,7 +357,10 @@ export function balanceResultMessage(
 ): string {
   const { teamAPercent, teamBPercent } = result.winChance;
   const prefix = result.balanced ? 'Balanced' : 'Closest found';
-  const { team1, team2, even } = result.newSplit;
-  const newNote = even ? '' : `\nNew players split ${team1}/${team2} because of locked seats.`;
-  return `${prefix} → **${teamAPercent}% / ${teamBPercent}%** in match \`${result.match.id}\`. Click again for another combination.${newNote}`;
+  const unevenNote = (label: string, split: NewPlayerSplit) =>
+    split.even ? '' : `\n${label} split ${split.team1}/${split.team2} because of locked seats.`;
+  const notes =
+    unevenNote('New players', result.newSplit) +
+    unevenNote('Calibrating players', result.calibratingSplit);
+  return `${prefix} → **${teamAPercent}% / ${teamBPercent}%** in match \`${result.match.id}\`. Click again for another combination.${notes}`;
 }

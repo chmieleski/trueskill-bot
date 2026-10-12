@@ -1,7 +1,6 @@
 import type { ActionRowBuilder, ButtonBuilder, Client, EmbedBuilder } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
 import type { InGameRosterSource } from './in-game-roster.js';
-import { loadLobbySwapCommands } from './swap-commands.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
 import {
   buildLobbyButtons,
@@ -138,7 +137,6 @@ export async function syncLobbyDiscordMessage(
           requireLeagueId(match),
           matchPlayersToRatingEntries(match.players),
         );
-    const swapCommands = await loadLobbySwapCommands(match, profile);
     const { playerClaimEnabled, wc3statsReady } = isEvent
       ? { playerClaimEnabled: false, wc3statsReady: false }
       : await resolveLeagueSettingsForLobby(requireLeagueId(match));
@@ -152,7 +150,6 @@ export async function syncLobbyDiscordMessage(
           wc3statsLinkAvailable: wc3statsReady && !match.wc3statsGameId,
           profile,
           eventName,
-          swapCommands,
         }),
       ],
       components: buildLobbyButtons({
