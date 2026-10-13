@@ -39,7 +39,12 @@ export type LobbyDraftAction =
   | 'mrepm'
   | 'cancel';
 
-export type LobbyDraftView = { profile: GameProfile; heroNames: Map<number, string> };
+export type LobbyDraftView = {
+  profile: GameProfile;
+  heroNames: Map<number, string>;
+  /** Hero/slot id → rendered slot color emoji (`<:w3_red:id>`); empty until heroes resolve. */
+  slotEmojis?: Map<number, string>;
+};
 
 export function lobbyDraftCustomId(
   action: LobbyDraftAction,
@@ -113,7 +118,8 @@ export function buildLobbyDraftEmbed(
       const heroText = hero
         ? ` — ${view.heroNames.get(hero.heroId) ?? `#${hero.heroId}`}${hero.how === 'contested' ? ' 🎲' : ''}`
         : '';
-      return `${key === team.captainKey ? '👑 ' : ''}${label(state, key)}${heroText}`;
+      const color = hero ? view.slotEmojis?.get(hero.heroId) : undefined;
+      return `${color ? `${color} ` : ''}${key === team.captainKey ? '👑 ' : ''}${label(state, key)}${heroText}`;
     });
     embed.addFields({
       name: `${name} (${nickOf(state, team.captainKey)})`,
