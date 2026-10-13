@@ -1,11 +1,6 @@
 import type { LobbyDraft, Prisma } from '@dbz/db';
 import { prisma } from '../../lib/prisma.js';
-import {
-  LobbyDraftConflictError,
-  LobbyDraftError,
-  type LobbyDraftState,
-  type LobbyDraftStatus,
-} from './draft-types.js';
+import { LobbyDraftConflictError, LobbyDraftError, type LobbyDraftState } from './draft-types.js';
 
 const PHASES = new Set(['VOTE', 'COIN_CHOICE', 'PICK', 'SIDE', 'HERO']);
 
@@ -66,12 +61,4 @@ export async function saveLobbyDraftState(
     throw new LobbyDraftConflictError();
   }
   return loadLobbyDraftById(draft.id);
-}
-
-/** Sets the lifecycle status (ACTIVE | COMPLETE | CANCELLED). */
-export function setLobbyDraftStatus(
-  draftId: string,
-  status: LobbyDraftStatus,
-): Promise<LobbyDraft> {
-  return prisma.lobbyDraft.update({ where: { id: draftId }, data: { status } });
 }
