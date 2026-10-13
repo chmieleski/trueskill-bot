@@ -11,6 +11,7 @@ import { prisma } from '../../lib/prisma.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
 import { resolveLeagueConfig } from '../league/league-wc3stats.js';
 import { loadHeroSlotColorNames } from '../wc3stats/wc3stats-slot-map.js';
+import { loadHeroWeights } from './hero-pick-losses.js';
 import { syncLobbyDiscordMessage } from '../lobby/discord-sync.js';
 import { nickForDiscordId } from '../lobby/lobby-identity.js';
 import { assertCanManageMatch } from '../match/match-auth.js';
@@ -243,8 +244,12 @@ async function mutateDraft(
     if (draft.status !== 'ACTIVE') {
       throw new LobbyDraftError('This draft is no longer active.');
     }
-    const prev = parseLobbyDraftState(draft);
+    let prev = parseLobbyDraftState(draft);
     const profile = await getGameProfileForLeague(draft.leagueId);
+    if (prev.phase === 'HERO' && !prev.heroResult) {
+      // Fresh each time: heroes can resolve on any HERO mutation (lock-in, timeout, leaver).
+      prev = { ...prev, heroWeights: await loadHeroWeights(draft.leagueId, prev) };
+    }
     let next = mutate(prev, profile, draft);
     if (next.heroResult) {
       next = { ...next, deadlineAt: null };

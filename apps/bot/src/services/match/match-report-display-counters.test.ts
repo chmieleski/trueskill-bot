@@ -59,6 +59,9 @@ vi.mock('../../lib/prisma.js', () => ({
     matchStatsReport: {
       findUnique: vi.fn().mockResolvedValue(null),
     },
+    lobbyDraft: {
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
   },
 }));
 
@@ -210,6 +213,7 @@ describe('completeMatch display counters', () => {
 
     transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) => {
       const tx = {
+        lobbyDraft: { findFirst: vi.fn().mockResolvedValue(null) },
         $queryRaw: queryRaw.mockResolvedValue([{ id: 'match-1' }]),
         match: {
           findUnique: matchFindUnique,
@@ -310,6 +314,7 @@ describe('cancelInProgressMatch display counters', () => {
 
     transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) => {
       const tx = {
+        lobbyDraft: { findFirst: vi.fn().mockResolvedValue(null) },
         $queryRaw: queryRaw.mockResolvedValue([{ id: 'match-1' }]),
         match: {
           findUnique: matchFindUnique,

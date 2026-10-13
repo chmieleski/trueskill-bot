@@ -20,7 +20,7 @@ Ratings are **never** applied for Event matches. IHL ratings and matches **never
 ## Tables
 
 - **Player** — `(gameId, username)` nick identity; optional `discordId` bind for that game
-- **PlayerRating** — League-scoped overall skill (μ/σ). PK `(leagueId, playerId)`
+- **PlayerRating** — League-scoped overall skill (μ/σ). PK `(leagueId, playerId)`; `heroPickLosses` = lobby-draft hero clash weight (1 + losses), +1 on a completed match where the player's picks were all lost to a clash and they played another hero, reset to 0 when they play a pick
 - **Hero** — IDs 1–12, tied to lobby slots (WC3 UDBR catalog; not universal for future games)
 - **PlayerHeroRating** — League-scoped hero μ/σ + `matchesPlayed`. PK `(leagueId, playerId, heroId)`
 - **Match** — Up to 6v6 sessions; exactly one of `leagueId` (IHL) or `eventId` (unrated Event); status (unbalanced fills allowed). `inGameRoster` / `inGameRosterAt` / `inGameRosterSource` hold the last roster read from the game (screenshot or wc3stats) for lobby Swap commands — never written by Discord-side edits.

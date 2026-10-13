@@ -272,6 +272,9 @@ model PlayerRating {
   displayQuits             Int       @default(0)
   displayGriefs            Int       @default(0)
   displayDcs               Int       @default(0)
+  /// Lobby captain draft: completed matches where the player picked heroes, lost every
+  /// pick to a clash and played another hero. Weight = 1 + this; reset when they play a pick.
+  heroPickLosses           Int       @default(0)
   updatedAt                DateTime  @updatedAt
 
   league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
