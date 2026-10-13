@@ -114,15 +114,14 @@ export function tallyVotes(state: LobbyDraftState, rng: Rng = Math.random): [str
   return [order[0]!, order[1]!];
 }
 
-function voteSummary(state: LobbyDraftState, captains: [string, string]): string[] {
+/** Short "(votes …)" suffix for the captains line. */
+function voteSummary(state: LobbyDraftState, captains: [string, string]): string {
   const counts = voteCounts(state);
-  const voted = [...counts.entries()].filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
-  if (voted.length === 0) return ['🗳️ No votes — captains chosen at random. 🎲'];
-  const lines = [`🗳️ Votes: ${voted.map(([key, n]) => `${nickOf(state, key)} ${n}`).join(', ')}`];
+  if (![...counts.values()].some((n) => n > 0)) return '(no votes · random 🎲)';
   const cutoff = counts.get(captains[1])!;
   const tiedOut = [...counts.entries()].some(([key, n]) => n === cutoff && !captains.includes(key));
-  if (tiedOut) lines.push('🎲 Tie for captain broken randomly.');
-  return lines;
+  const tally = `votes ${counts.get(captains[0])}–${cutoff}`;
+  return tiedOut ? `(${tally} · tie broken 🎲)` : `(${tally})`;
 }
 
 /** End voting: pick captains, flip the coin (teams[0] = winner), fill the pool. */
@@ -140,9 +139,8 @@ export function closeVote(state: LobbyDraftState, rng: Rng = Math.random): Lobby
       ],
       pool: state.participants.map((p) => p.key).filter((k) => k !== winner && k !== loser),
     },
-    ...voteSummary(state, [first, second]),
-    `👑 Captains: ${nickOf(state, first)} and ${nickOf(state, second)}.`,
-    `🪙 Coin flip won by ${nickOf(state, winner)} — choose first pick or side.`,
+    `👑 Captains: **${nickOf(state, first)}** vs **${nickOf(state, second)}** ${voteSummary(state, [first, second])}`,
+    `🪙 **${nickOf(state, winner)}** won the coin flip`,
   );
 }
 
@@ -169,19 +167,25 @@ export function castVote(
   return closeEarlyIfDone(next, null, rng);
 }
 
-export function chooseCoin(state: LobbyDraftState, choice: CoinChoice): LobbyDraftState {
+export function chooseCoin(
+  state: LobbyDraftState,
+  choice: CoinChoice,
+  timedOut = false,
+): LobbyDraftState {
   assertPhase(state, 'COIN_CHOICE');
   const teams = requireTeams(state);
   const winner = nickOf(state, teams[0].captainKey);
+  const loser = nickOf(state, teams[1].captainKey);
+  const lead = timedOut ? `⏱️ ${winner} ran out of time (random) —` : '🎯';
   if (choice === 'FIRST_PICK') {
     return withLog(
       { ...state, phase: 'PICK', firstPickTeam: 0, sideChooserTeam: 1 },
-      `${winner} takes first pick; ${nickOf(state, teams[1].captainKey)} will choose the side.`,
+      `${lead} **${winner}** picks first · **${loser}** picks the side`,
     );
   }
   return withLog(
     { ...state, phase: 'SIDE', firstPickTeam: 1, sideChooserTeam: 0 },
-    `${winner} chooses the side; ${nickOf(state, teams[1].captainKey)} picks first.`,
+    `${lead} **${winner}** picks the side · **${loser}** picks first`,
   );
 }
 
@@ -195,7 +199,7 @@ function phaseAfterPicks(state: LobbyDraftState): LobbyDraftState['phase'] {
   return requireTeams(state)[0].side ? 'HERO' : 'SIDE';
 }
 
-export function applyPick(state: LobbyDraftState, key: string): LobbyDraftState {
+export function applyPick(state: LobbyDraftState, key: string, timedOut = false): LobbyDraftState {
   assertPhase(state, 'PICK');
   const teams = requireTeams(state);
   if (!state.pool.includes(key)) {
@@ -214,7 +218,9 @@ export function applyPick(state: LobbyDraftState, key: string): LobbyDraftState 
   };
   return withLog(
     { ...next, phase: pool.length === 0 ? phaseAfterPicks(next) : 'PICK' },
-    `${nickOf(state, teams[t].captainKey)} picked ${nickOf(state, key)}.`,
+    timedOut
+      ? `⏱️ ${nickOf(state, teams[t].captainKey)} ran out of time ➜ **${nickOf(state, key)}** (random)`
+      : `✅ ${nickOf(state, teams[t].captainKey)} ➜ **${nickOf(state, key)}**`,
   );
 }
 
@@ -222,6 +228,7 @@ export function applySide(
   state: LobbyDraftState,
   side: TeamId,
   teamNames: { 1: string; 2: string },
+  timedOut = false,
 ): LobbyDraftState {
   assertPhase(state, 'SIDE');
   const teams = requireTeams(state);
@@ -231,9 +238,10 @@ export function applySide(
     LobbyDraftTeam,
     LobbyDraftTeam,
   ];
+  const sides = `**${nickOf(state, teams[chooser].captainKey)}** ➜ **${teamNames[side]}** · **${nickOf(state, teams[chooser === 0 ? 1 : 0].captainKey)}** ➜ **${teamNames[other]}**`;
   return withLog(
     { ...state, teams: nextTeams, phase: state.pool.length > 0 ? 'PICK' : 'HERO' },
-    `${nickOf(state, teams[chooser].captainKey)} chose ${teamNames[side]}.`,
+    timedOut ? `⏱️ Side picked at random: ${sides}` : `🛡️ Sides: ${sides}`,
   );
 }
 
@@ -366,8 +374,8 @@ export function resolveHeroPhase(
   );
   const lines = Object.entries(heroResult)
     .filter(([, a]) => a.how === 'contested')
-    .map(([key, a]) => `🎲 ${nickOf(state, key)} won the roll for hero #${a.heroId}.`);
-  return withLog({ ...state, heroResult }, '🦸 Heroes assigned.', ...lines);
+    .map(([key, a]) => `🎲 **${nickOf(state, key)}** won the roll for hero #${a.heroId}`);
+  return withLog({ ...state, heroResult }, '🦸 Heroes assigned', ...lines);
 }
 
 /** Final team sizes if the remaining pool is drafted in snake order. */
@@ -441,7 +449,7 @@ export function replaceParticipant(
     heroLockedIn: state.heroLockedIn.filter((k) => k !== outgoingKey),
   };
   return closeEarlyIfDone(
-    withLog(next, `🔁 ${incoming.nick} replaced ${outgoing.nick}.`),
+    withLog(next, `🔁 **${incoming.nick}** replaced ${outgoing.nick}`),
     profile,
     rng,
   );
@@ -496,7 +504,7 @@ export function removeParticipant(
         const taken = successor;
         next = { ...next, pool: next.pool.filter((k) => k !== taken) };
       }
-      lines.push(`👑 ${nickOf(next, successor)} is now captain.`);
+      lines.push(`👑 **${nickOf(next, successor)}** is now captain`);
       return {
         ...team,
         captainKey: successor,
@@ -520,18 +528,17 @@ export function applyTimeout(
   profile: GameProfile,
   rng: Rng = Math.random,
 ): LobbyDraftState {
-  const timedOut = withLog(state, '⏱️ Time ran out — choosing at random.');
   switch (state.phase) {
     case 'VOTE':
-      return closeVote(withLog(state, '⏱️ Voting closed.'), rng);
+      return closeVote(state, rng);
     case 'COIN_CHOICE':
-      return chooseCoin(timedOut, rng() < 0.5 ? 'FIRST_PICK' : 'SIDE');
+      return chooseCoin(state, rng() < 0.5 ? 'FIRST_PICK' : 'SIDE', true);
     case 'PICK':
-      return applyPick(timedOut, shuffle(state.pool, rng)[0]!);
+      return applyPick(state, shuffle(state.pool, rng)[0]!, true);
     case 'SIDE':
-      return applySide(timedOut, rng() < 0.5 ? 1 : 2, profile.teamNames);
+      return applySide(state, rng() < 0.5 ? 1 : 2, profile.teamNames, true);
     case 'HERO':
-      return resolveHeroPhase(withLog(state, '⏱️ Hero pick closed.'), profile, rng);
+      return resolveHeroPhase(withLog(state, '⏱️ Hero pick closed'), profile, rng);
     default:
       throw new LobbyDraftError(STALE_ACTION_MESSAGE);
   }

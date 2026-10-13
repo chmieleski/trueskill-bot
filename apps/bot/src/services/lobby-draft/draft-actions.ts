@@ -83,6 +83,20 @@ async function threadChannel(client: Client, threadId: string) {
   return channel?.isThread() ? channel : null;
 }
 
+/** What the captain on the clock must do now (bold = the button to press). */
+function clockAction(state: LobbyDraftState, teamNames: { 1: string; 2: string }): string {
+  switch (state.phase) {
+    case 'COIN_CHOICE':
+      return 'choose **First pick** or **Pick side**';
+    case 'SIDE':
+      return `pick your side: **${teamNames[1]}** or **${teamNames[2]}**`;
+    case 'PICK':
+      return `**pick a player** (${state.pickIndex + 1}/${state.pickIndex + state.pool.length})`;
+    default:
+      return 'your turn';
+  }
+}
+
 /** Post log lines added by a mutation, pinging whoever must act next. */
 async function postUpdate(
   client: Client,
@@ -90,8 +104,9 @@ async function postUpdate(
   prev: LobbyDraftState,
   next: LobbyDraftState,
 ) {
+  const profile = await getGameProfileForLeague(draft.leagueId);
   const heroNames = next.heroResult
-    ? (await loadView(await getGameProfileForLeague(draft.leagueId))).heroNames
+    ? (await loadView(profile)).heroNames
     : new Map<number, string>();
   const lines = next.log
     .slice(prev.log.length)
@@ -102,13 +117,11 @@ async function postUpdate(
     const id = key ? findParticipant(next, key)?.discordId : undefined;
     if (id) {
       mentions.push(id);
-      lines.push(`<@${id}> you're on the clock.`);
+      lines.push(`👉 <@${id}> — ${clockAction(next, profile.teamNames)}`);
     } else if (next.phase === 'HERO' && prev.phase !== 'HERO' && !next.heroResult) {
       const ids = linkedParticipants(next).map((p) => p.discordId!);
       mentions.push(...ids);
-      lines.push(
-        `Hero pick is open — ${ids.map((i) => `<@${i}>`).join(' ')} press **Pick heroes**.`,
-      );
+      lines.push(`👉 ${ids.map((i) => `<@${i}>`).join(' ')} — press **Pick heroes**`);
     }
   }
   if (lines.length === 0) return;

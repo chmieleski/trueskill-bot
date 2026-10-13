@@ -85,7 +85,7 @@ describe('voting', () => {
       ...initialLobbyDraftState(players, null),
       votes: { 'id-A': ['a', 'b'], 'id-B': ['c'] },
     };
-    expect(closeVote(state, Math.random).log).toContain('🎲 Tie for captain broken randomly.');
+    expect(closeVote(state, Math.random).log.join('\n')).toContain('tie broken 🎲');
   });
 
   it('picks random linked captains when nobody voted', () => {
@@ -116,6 +116,13 @@ describe('coin choice', () => {
     expect(sided.teams![0].side).toBe(2);
     expect(sided.teams![1].side).toBe(1);
     expect(sided.phase).toBe('PICK');
+    // Both captains' sides are spelled out in one line.
+    const [a, b] = sided.teams!.map(
+      (t) => sided.participants.find((p) => p.key === t.captainKey)!.nick,
+    );
+    expect(sided.log.at(-1)).toBe(
+      `🛡️ Sides: **${a}** ➜ **${PROFILE.teamNames[2]}** · **${b}** ➜ **${PROFILE.teamNames[1]}**`,
+    );
   });
 });
 
@@ -226,7 +233,7 @@ describe('replace', () => {
     expect(next.pool).not.toContain('c');
     const cap = replaceParticipant(s, 'a', person('Y'), PROFILE);
     expect(cap.teams![0]).toMatchObject({ captainKey: 'y', roster: ['y'] });
-    expect(cap.log.at(-1)).toContain('Y replaced A');
+    expect(cap.log.at(-1)).toContain('**Y** replaced A');
   });
 
   it('refuses an unlinked replacement that leaves too few linked players before captains', () => {
@@ -298,7 +305,9 @@ describe('applyTimeout', () => {
   it('auto-acts per phase', () => {
     const pick = applyTimeout(pickingState(['A', 'B', 'C', 'D']), PROFILE, () => 0);
     expect(pick.pickIndex).toBe(1);
-    expect(pick.log.some((l) => l.includes('⏱️'))).toBe(true);
+    // One line per timed-out pick: who ran out, who got picked.
+    expect(pick.log.at(-1)).toMatch(/^⏱️ \w+ ran out of time ➜ \*\*\w+\*\* \(random\)$/);
+    expect(pick.log.filter((l) => l.includes('⏱️'))).toHaveLength(1);
 
     const vote = applyTimeout(
       initialLobbyDraftState(
