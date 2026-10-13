@@ -1,3 +1,10 @@
+# [1.88.0](https://github.com/chmieleski/trueskill-bot/compare/v1.87.1...v1.88.0) (2026-10-13)
+
+
+### Features
+
+* **lobby:** captain draft from lobby with vote, snake pick and hero pick ([#228](https://github.com/chmieleski/trueskill-bot/issues/228)) ([02d956f](https://github.com/chmieleski/trueskill-bot/commit/02d956f7963266ae0d6aa5a647d4e686d2518f4b))
+
 ## [1.87.1](https://github.com/chmieleski/trueskill-bot/compare/v1.87.0...v1.87.1) (2026-10-12)
 
 
