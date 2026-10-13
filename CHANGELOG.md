@@ -1,3 +1,10 @@
+## [1.88.1](https://github.com/chmieleski/trueskill-bot/compare/v1.88.0...v1.88.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **lobby:** show captain draft button on new lobbies ([#229](https://github.com/chmieleski/trueskill-bot/issues/229)) ([fa522f8](https://github.com/chmieleski/trueskill-bot/commit/fa522f87e62759618234513c5754905dfb8063ed))
+
 # [1.88.0](https://github.com/chmieleski/trueskill-bot/compare/v1.87.1...v1.88.0) (2026-10-13)
 
 
