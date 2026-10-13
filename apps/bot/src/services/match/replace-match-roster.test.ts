@@ -18,6 +18,8 @@ const {
   playerCreateMany,
   playerRatingCreateMany,
   playerHeroRatingCreateMany,
+  lobbyDraftFindFirst,
+  lobbyDraftUpdate,
 } = vi.hoisted(() => ({
   matchFindUnique: vi.fn(),
   prismaTransaction: vi.fn(),
@@ -34,6 +36,8 @@ const {
   playerCreateMany: vi.fn(),
   playerRatingCreateMany: vi.fn(),
   playerHeroRatingCreateMany: vi.fn(),
+  lobbyDraftFindFirst: vi.fn(),
+  lobbyDraftUpdate: vi.fn(),
 }));
 
 vi.mock('../../lib/prisma.js', () => ({
@@ -84,6 +88,7 @@ function pendingMatch(overrides: Record<string, unknown> = {}) {
 
 function stubTransaction(previousRows: PreviousRow[]) {
   matchPlayerFindMany.mockResolvedValue(previousRows);
+  lobbyDraftFindFirst.mockResolvedValue(null);
   matchFindUniqueInTx.mockResolvedValue(pendingMatch());
   matchPlayerDeleteMany.mockResolvedValue({ count: 0 });
   matchPlayerCreateMany.mockResolvedValue({ count: 0 });
@@ -122,6 +127,7 @@ function stubTransaction(previousRows: PreviousRow[]) {
       playerHeroRating: {
         createMany: playerHeroRatingCreateMany,
       },
+      lobbyDraft: { findFirst: lobbyDraftFindFirst, update: lobbyDraftUpdate },
     };
     return fn(tx);
   });
@@ -520,5 +526,40 @@ describe('replaceMatchRoster diff', () => {
     });
     expect(matchPlayerCreate).not.toHaveBeenCalled();
     expect(matchPlayerUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('lobby draft freeze', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    getGameProfileForLeague.mockResolvedValue(getGameProfile(WARCRAFT3_WOS_GAME_ID));
+    matchFindUnique.mockResolvedValue(pendingMatch());
+    stubTransaction([]);
+    stubPlayersByNick([{ id: 'p-a', username: 'a' }]);
+  });
+
+  it('blocks roster writes while a draft is active', async () => {
+    lobbyDraftFindFirst.mockResolvedValue({ id: 'draft-1' });
+    await expect(replaceMatchRoster(MATCH_ID, [{ slot: 1, nick: 'a' }])).rejects.toThrow(
+      'A captain draft is running for this lobby.',
+    );
+  });
+
+  it('lets the finalizing draft write and marks it COMPLETE', async () => {
+    lobbyDraftFindFirst.mockResolvedValue({ id: 'draft-1' });
+    await replaceMatchRoster(MATCH_ID, [{ slot: 1, nick: 'a' }], {
+      completeLobbyDraftId: 'draft-1',
+    });
+    expect(lobbyDraftUpdate).toHaveBeenCalledWith({
+      where: { id: 'draft-1' },
+      data: { status: 'COMPLETE' },
+    });
+  });
+
+  it('refuses a stale finalize', async () => {
+    lobbyDraftFindFirst.mockResolvedValue(null);
+    await expect(
+      replaceMatchRoster(MATCH_ID, [{ slot: 1, nick: 'a' }], { completeLobbyDraftId: 'draft-1' }),
+    ).rejects.toThrow('This captain draft is no longer active.');
   });
 });
