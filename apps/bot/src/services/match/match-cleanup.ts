@@ -16,6 +16,12 @@ async function editCancelledDiscordMessages(
   matches: Awaited<ReturnType<typeof cancelStalePendingMatches>>,
 ): Promise<void> {
   for (const match of matches) {
+    try {
+      const { cancelActiveLobbyDraftForMatch } = await import('../lobby-draft/draft-actions.js');
+      await cancelActiveLobbyDraftForMatch(client, match.id, 'the lobby expired.');
+    } catch (error) {
+      log.warn({ err: error, matchId: match.id }, 'Failed to cancel draft for expired lobby');
+    }
     if (!match.discordMessageId || !match.discordChannelId) {
       continue;
     }

@@ -486,6 +486,7 @@ function successorLeagueCreateData(
     decayEnabled: resetMode === 'continue' ? false : (source.decayEnabled ?? true),
     balanceStaticSigmaEnabled: source.balanceStaticSigmaEnabled,
     balanceKiStrengthEnabled: source.balanceKiStrengthEnabled,
+    lobbyCaptainDraftEnabled: source.lobbyCaptainDraftEnabled,
     decayMidGraceDays: source.decayMidGraceDays,
     decayMidTier1Ki: source.decayMidTier1Ki,
     decayMidTier2Ki: source.decayMidTier2Ki,

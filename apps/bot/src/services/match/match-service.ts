@@ -9,6 +9,7 @@ import {
   UnknownGameIdError,
 } from '../../domain/game-profile.js';
 import { prisma } from '../../lib/prisma.js';
+import { FROZEN_LOBBY_MESSAGE } from '../lobby-draft/draft-types.js';
 import { createLogger } from '../../lib/logger.js';
 import { clearMatchStatsReport, clearMatchStatsReports } from './match-stats-store.js';
 import type { LobbyPlayer } from '../lobby/lobby-ocr.js';
@@ -93,6 +94,8 @@ export type ReplaceMatchRosterOptions = {
   markLobbyRosterAuthority?: boolean;
   /** Set when the roster was read from the game; records the in-game roster snapshot. */
   inGameRosterSource?: InGameRosterSource;
+  /** Lobby captain draft finalize: bypass the draft freeze and mark this draft COMPLETE atomically. */
+  completeLobbyDraftId?: string;
 };
 
 function mapHeroCatalogError(error: unknown): never {
@@ -610,6 +613,13 @@ export async function setMatchPlayersLocked(
   if (match.status !== 'PENDING') {
     throw new MatchServiceError('This match can no longer be edited.');
   }
+  const activeDraft = await prisma.lobbyDraft.findFirst({
+    where: { matchId, status: 'ACTIVE' },
+    select: { id: true },
+  });
+  if (activeDraft) {
+    throw new MatchServiceError(FROZEN_LOBBY_MESSAGE);
+  }
 
   const profile = await loadMatchProfileForTenant(match);
   const updates = changes.map(({ slot, locked }) => {
@@ -716,6 +726,23 @@ export async function replaceMatchRoster(
 
     if (existing.status !== 'PENDING') {
       throw new MatchServiceError('This match can no longer be edited.');
+    }
+
+    const activeDraft = await tx.lobbyDraft.findFirst({
+      where: { matchId, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (options.completeLobbyDraftId) {
+      if (activeDraft?.id !== options.completeLobbyDraftId) {
+        throw new MatchServiceError('This captain draft is no longer active.');
+      }
+      const { count } = await tx.lobbyDraft.updateMany({
+        where: { id: activeDraft.id, status: 'ACTIVE' },
+        data: { status: 'COMPLETE' },
+      });
+      if (count === 0) throw new MatchServiceError('This captain draft is no longer active.');
+    } else if (activeDraft) {
+      throw new MatchServiceError(FROZEN_LOBBY_MESSAGE);
     }
 
     const previousRows = await tx.matchPlayer.findMany({

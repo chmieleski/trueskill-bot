@@ -68,7 +68,7 @@ type ComponentRow = ActionRowBuilder<ButtonBuilder> | ActionRowBuilder<StringSel
 
 const UPDATED_MESSAGE = 'Lobby updated.';
 
-function memberRoleIds(interaction: { member: unknown }): string[] {
+export function memberRoleIds(interaction: { member: unknown }): string[] {
   const member = interaction.member;
 
   if (member instanceof GuildMember) {

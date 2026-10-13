@@ -1,4 +1,6 @@
 import type { ActionRowBuilder, ButtonBuilder, Client, EmbedBuilder } from 'discord.js';
+import { canStartLobbyDraft } from '../lobby-draft/draft-logic.js';
+import { participantKey } from '../lobby-draft/draft-types.js';
 import { createLogger } from '../../lib/logger.js';
 import type { InGameRosterSource } from './in-game-roster.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
@@ -72,22 +74,24 @@ export function guildIdFromChannel(channel: object): string | undefined {
 
 async function resolveLeagueSettingsForLobby(
   leagueId: string,
-): Promise<{ playerClaimEnabled: boolean; wc3statsReady: boolean }> {
+): Promise<{ playerClaimEnabled: boolean; wc3statsReady: boolean; captainDraftEnabled: boolean }> {
   const league = await prisma.league.findUnique({
     where: { id: leagueId },
     select: {
       lobbyPlayerClaimEnabled: true,
+      lobbyCaptainDraftEnabled: true,
       wc3statsEnabled: true,
       wc3statsMapPattern: true,
     },
   });
 
   if (!league) {
-    return { playerClaimEnabled: true, wc3statsReady: false };
+    return { playerClaimEnabled: true, wc3statsReady: false, captainDraftEnabled: false };
   }
 
   return {
     playerClaimEnabled: league.lobbyPlayerClaimEnabled,
+    captainDraftEnabled: league.lobbyCaptainDraftEnabled,
     wc3statsReady: isLeagueWc3statsImportReady({
       wc3statsEnabled: league.wc3statsEnabled,
       wc3statsMapPattern: league.wc3statsMapPattern ?? undefined,
@@ -137,9 +141,19 @@ export async function syncLobbyDiscordMessage(
           requireLeagueId(match),
           matchPlayersToRatingEntries(match.players),
         );
-    const { playerClaimEnabled, wc3statsReady } = isEvent
-      ? { playerClaimEnabled: false, wc3statsReady: false }
+    const { playerClaimEnabled, wc3statsReady, captainDraftEnabled } = isEvent
+      ? { playerClaimEnabled: false, wc3statsReady: false, captainDraftEnabled: false }
       : await resolveLeagueSettingsForLobby(requireLeagueId(match));
+    const captainDraftAvailable =
+      captainDraftEnabled &&
+      profile.heroBinding === 'slot_bound' &&
+      canStartLobbyDraft(
+        match.players.map((mp) => ({
+          key: participantKey(mp.player.username),
+          nick: mp.player.username,
+          ...(mp.player.discordId ? { discordId: mp.player.discordId } : {}),
+        })),
+      );
     payload = {
       embeds: [
         buildMatchLobbyEmbed(match.id, players, {
@@ -159,6 +173,7 @@ export async function syncLobbyDiscordMessage(
         wc3statsGameId: match.wc3statsGameId,
         wc3statsEnabled: wc3statsReady,
         profile,
+        captainDraftAvailable,
       }),
     };
   } else if (mode === 'started') {

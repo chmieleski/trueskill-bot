@@ -15,6 +15,7 @@ import {
 } from './services/observability/index.js';
 import { stopWc3statsHostPromptScheduler } from './services/wc3stats/index.js';
 import { rehydrateHeroDraftTimers } from './services/hero-draft/index.js';
+import { rehydrateLobbyDraftTimers } from './services/lobby-draft/index.js';
 
 const log = createLogger('bootstrap');
 
@@ -48,6 +49,12 @@ async function bootstrap(): Promise<void> {
     await rehydrateHeroDraftTimers(client);
   } catch (error) {
     log.warn({ err: error }, 'Failed to rehydrate hero draft timers');
+  }
+
+  try {
+    await rehydrateLobbyDraftTimers(client);
+  } catch (error) {
+    log.warn({ err: error }, 'Failed to rehydrate lobby draft timers');
   }
 
   if (env.isDev) {

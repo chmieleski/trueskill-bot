@@ -1142,3 +1142,12 @@ describe('swap commands field', () => {
     }
   });
 });
+
+describe('captain draft button', () => {
+  it('shows only when available', () => {
+    const ids = (rows: ReturnType<typeof buildLobbyButtons>) =>
+      rows.flatMap((r) => r.toJSON().components.map((c) => ('custom_id' in c ? c.custom_id : '')));
+    expect(ids(buildLobbyButtons({ captainDraftAvailable: true }))).toContain('ldraft:start');
+    expect(ids(buildLobbyButtons({}))).not.toContain('ldraft:start');
+  });
+});
