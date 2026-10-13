@@ -25,6 +25,7 @@ Ratings are **never** applied for Event matches. IHL ratings and matches **never
 - **PlayerHeroRating** — League-scoped hero μ/σ + `matchesPlayed`. PK `(leagueId, playerId, heroId)`
 - **Match** — Up to 6v6 sessions; exactly one of `leagueId` (IHL) or `eventId` (unrated Event); status (unbalanced fills allowed). `inGameRoster` / `inGameRosterAt` / `inGameRosterSource` hold the last roster read from the game (screenshot or wc3stats) for lobby Swap commands — never written by Discord-side edits.
 - **MatchPlayer** — team, slot, hero, result
+- **LobbyDraft** — lobby captain draft (vote → snake → side → hero pick) for one PENDING `matchId`; while ACTIVE the lobby roster is frozen (`replaceMatchRoster` / `setMatchPlayersLocked` guard). `game:warcraft3_udbr` (slot-bound) only.
 - **Event** / **EventChannelBinding** — unrated event containers + channel/category binds
 - **LeagueWc3statsSlotMap** — `game:warcraft3_udbr` slot layout. PK `(leagueId, wc3statsSlot)`
 - **BotRelease** — semver PK; staff draft vs published/skipped player notes
