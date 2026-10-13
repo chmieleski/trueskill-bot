@@ -1,3 +1,10 @@
+# [1.90.0](https://github.com/chmieleski/trueskill-bot/compare/v1.89.0...v1.90.0) (2026-10-13)
+
+
+### Features
+
+* **lobby-draft:** slot color emoji on finished draft ([#231](https://github.com/chmieleski/trueskill-bot/issues/231)) ([6bd3ecf](https://github.com/chmieleski/trueskill-bot/commit/6bd3ecf64d0f14170a980d79c24eadfb08ab3f8b))
+
 # [1.89.0](https://github.com/chmieleski/trueskill-bot/compare/v1.88.1...v1.89.0) (2026-10-13)
 
 
