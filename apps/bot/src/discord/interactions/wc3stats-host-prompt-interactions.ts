@@ -1,7 +1,11 @@
 import { GuildMember, MessageFlags } from 'discord.js';
 import type { ButtonInteraction, Interaction } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
-import { buildLobbyButtons, buildMatchLobbyEmbed } from '../../services/lobby/index.js';
+import {
+  buildLobbyButtons,
+  buildMatchLobbyEmbed,
+  isLobbyCaptainDraftAvailableById,
+} from '../../services/lobby/index.js';
 import {
   attachCreatedMatchMessage,
   createMatchFromWc3statsLobby,
@@ -111,6 +115,7 @@ async function handleOpen(interaction: ButtonInteraction): Promise<void> {
         wc3statsGameId: created.wc3statsGameId,
         wc3statsEnabled: created.wc3statsReady,
         profile: created.profile,
+        captainDraftAvailable: await isLobbyCaptainDraftAvailableById(created.matchId),
       }),
     });
 

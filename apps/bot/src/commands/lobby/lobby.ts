@@ -26,6 +26,7 @@ import {
   startLobbyMatch,
   swapLobbyPlayers,
   unlockLobbySlots,
+  isLobbyCaptainDraftAvailableById,
 } from '../../services/lobby/index.js';
 import { MatchServiceError } from '../../services/match/index.js';
 import { parseFlagSlots } from '../match/match.js';
@@ -579,6 +580,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           wc3statsGameId: result.wc3statsGameId,
           wc3statsEnabled: result.wc3statsReady,
           profile: result.profile,
+          captainDraftAvailable: await isLobbyCaptainDraftAvailableById(result.matchId),
         }),
       });
 
