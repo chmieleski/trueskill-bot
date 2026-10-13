@@ -10,6 +10,7 @@ import { createLogger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
 import { resolveLeagueConfig } from '../league/league-wc3stats.js';
+import { loadHeroSlotColorNames } from '../wc3stats/wc3stats-slot-map.js';
 import { syncLobbyDiscordMessage } from '../lobby/discord-sync.js';
 import { nickForDiscordId } from '../lobby/lobby-identity.js';
 import { assertCanManageMatch } from '../match/match-auth.js';
@@ -78,6 +79,29 @@ async function loadView(profile: GameProfile): Promise<LobbyDraftView> {
   return { profile, heroNames: new Map(heroes.map((h) => [h.id, h.name])) };
 }
 
+/**
+ * Hero/slot id → `w3_<color>` application emoji. Missing emojis are skipped, so the
+ * roster still renders (without colors) before they are uploaded.
+ */
+async function loadSlotEmojis(client: Client, leagueId: string): Promise<Map<number, string>> {
+  try {
+    const [colors, emojis] = await Promise.all([
+      loadHeroSlotColorNames(leagueId),
+      client.application?.emojis.fetch(),
+    ]);
+    const byName = new Map(emojis?.map((e) => [e.name, e.toString()]));
+    const result = new Map<number, string>();
+    for (const [heroId, color] of colors) {
+      const emoji = byName.get(`w3_${color}`);
+      if (emoji) result.set(heroId, emoji);
+    }
+    return result;
+  } catch (error) {
+    log.warn({ err: error, leagueId }, 'Failed to load slot color emojis');
+    return new Map();
+  }
+}
+
 async function threadChannel(client: Client, threadId: string) {
   const channel = await client.channels.fetch(threadId).catch(() => null);
   return channel?.isThread() ? channel : null;
@@ -141,6 +165,7 @@ export async function syncLobbyDraftLiveMessage(client: Client, draftId: string)
   if (!draft.liveMessageId) return;
   const state = parseLobbyDraftState(draft);
   const view = await loadView(await getGameProfileForLeague(draft.leagueId));
+  if (state.heroResult) view.slotEmojis = await loadSlotEmojis(client, draft.leagueId);
   const payload = {
     embeds: [buildLobbyDraftEmbed(draft, state, view)],
     components: draft.status === 'ACTIVE' ? buildLobbyDraftComponents(draft.id, state, view) : [],

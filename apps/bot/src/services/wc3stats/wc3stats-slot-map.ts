@@ -162,6 +162,33 @@ export async function listLeagueWc3statsSlotMaps(
   return rows;
 }
 
+/** WC3 player color per 0-based wc3stats slot index (`w3_<name>` application emoji). */
+export const WC3_PLAYER_COLOR_NAMES = [
+  'red',
+  'blue',
+  'teal',
+  'purple',
+  'yellow',
+  'orange',
+  'green',
+  'pink',
+  'gray',
+  'light_blue',
+  'dark_green',
+  'brown',
+] as const;
+
+/** Hero/slot id → in-game color name, from the league slot map (UDBR default when unset). */
+export async function loadHeroSlotColorNames(leagueId: string): Promise<Map<number, string>> {
+  const rows = await listLeagueWc3statsSlotMaps(leagueId);
+  const colors = new Map<number, string>();
+  for (const { wc3statsSlot, heroId } of rows.length > 0 ? rows : UDBR_WC3STATS_SLOT_MAP) {
+    const color = WC3_PLAYER_COLOR_NAMES[wc3statsSlot];
+    if (color) colors.set(heroId, color);
+  }
+  return colors;
+}
+
 export async function loadLeagueWc3statsHeroSlotMap(
   leagueId: string,
 ): Promise<Wc3statsHeroSlotMap | null> {

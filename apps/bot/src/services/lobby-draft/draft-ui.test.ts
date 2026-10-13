@@ -3,6 +3,7 @@ import {
   buildHeroMenu,
   buildVoteMenu,
   buildLobbyDraftComponents,
+  buildLobbyDraftEmbed,
   lobbyDraftCustomId,
   parseLobbyDraftCustomId,
 } from './draft-ui.js';
@@ -72,5 +73,25 @@ describe('lobby draft ui', () => {
     ]);
     expect(opts).toContainEqual(['b', true]);
     expect(opts).toContainEqual(['a', false]);
+  });
+
+  it('finished roster prefixes each player with their slot color emoji', () => {
+    const state = pickingState(['A', 'B']);
+    const [a, b] = state.teams!.map((t) => t.captainKey);
+    const done = {
+      ...state,
+      heroResult: {
+        [a]: { heroId: 1, how: 'wanted' as const },
+        [b]: { heroId: 2, how: 'wanted' as const },
+      },
+    };
+    const embed = buildLobbyDraftEmbed({ status: 'COMPLETE' }, done, {
+      ...view,
+      slotEmojis: new Map([[1, '<:w3_red:1>']]),
+    }).toJSON();
+    const values = embed.fields!.map((f) => f.value).join('\n');
+    expect(values).toMatch(/^<:w3_red:1> 👑 .+ — Goku$/m);
+    // No emoji for slot 2 → line renders without a color prefix.
+    expect(values).toMatch(/^👑 .+ — Vegeta$/m);
   });
 });
