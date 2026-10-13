@@ -1,3 +1,10 @@
+# [1.91.0](https://github.com/chmieleski/trueskill-bot/compare/v1.90.0...v1.91.0) (2026-10-13)
+
+
+### Features
+
+* **lobby-draft:** favor past clash losers in hero picks ([#232](https://github.com/chmieleski/trueskill-bot/issues/232)) ([d6c16a0](https://github.com/chmieleski/trueskill-bot/commit/d6c16a0148866adb09be54fb1dbe6b1f051e821c))
+
 # [1.90.0](https://github.com/chmieleski/trueskill-bot/compare/v1.89.0...v1.90.0) (2026-10-13)
 
 
