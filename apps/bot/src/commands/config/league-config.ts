@@ -71,7 +71,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('leaderboard_channel')
-            .setDescription('Channel for the live overall leaderboard')
+            .setDescription('Live overall leaderboard channel')
             .addChannelOption((option) =>
               option
                 .setName('channel')
@@ -84,7 +84,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('leaderboard_size')
-            .setDescription('Players shown on the live overall leaderboard')
+            .setDescription('Players on the live leaderboard')
             .addIntegerOption((option) =>
               option
                 .setName('size')
@@ -99,11 +99,11 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('player_claim')
-            .setDescription('Allow linked players to claim a lobby slot')
+            .setDescription('Let linked players claim a lobby slot')
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
-                .setDescription('On: players claim/leave slots. Off: host seats only.')
+                .setDescription('On: players self-seat. Off: host only.')
                 .setRequired(true),
             ),
         ),
@@ -112,17 +112,17 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('lobby_channel')
-            .setDescription('Require lobby creation in a dedicated channel')
+            .setDescription('Require a dedicated lobby channel')
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
-                .setDescription('On: only create lobbies in the chosen channel')
+                .setDescription('On: lobbies only in that channel')
                 .setRequired(false),
             )
             .addChannelOption((option) =>
               option
                 .setName('channel')
-                .setDescription('Dedicated lobby channel (required when enabling)')
+                .setDescription('Lobby channel (required to enable)')
                 .setRequired(false),
             ),
         ),
@@ -131,7 +131,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('match_approval_channel')
-            .setDescription('Channel for HTTP match approval posts')
+            .setDescription('Channel for HTTP match approvals')
             .addChannelOption((option) =>
               option
                 .setName('channel')
@@ -139,10 +139,7 @@ export const data = new SlashCommandBuilder()
                 .setRequired(false),
             )
             .addBooleanOption((option) =>
-              option
-                .setName('clear')
-                .setDescription('Clear approval channel (ignores channel)')
-                .setRequired(false),
+              option.setName('clear').setDescription('Clear approval channel').setRequired(false),
             ),
         ),
       )
@@ -150,7 +147,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('api_token')
-            .setDescription('Rotate or revoke the league HTTP API token')
+            .setDescription('Rotate or revoke the HTTP API token')
             .addStringOption((option) =>
               option
                 .setName('action')
@@ -177,7 +174,7 @@ export const data = new SlashCommandBuilder()
             .addIntegerOption((option) =>
               option
                 .setName('cooldown_days')
-                .setDescription('Days between self-resets (1–365); optional')
+                .setDescription('Days between self-resets (1–365)')
                 .setRequired(false)
                 .setMinValue(1)
                 .setMaxValue(365),
@@ -188,7 +185,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('rank_reset_cooldown')
-            .setDescription('Set the cooldown between player self rank resets')
+            .setDescription('Set cooldown between self rank resets')
             .addIntegerOption((option) =>
               option
                 .setName('days')
@@ -207,7 +204,7 @@ export const data = new SlashCommandBuilder()
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
-                .setDescription('On: idle players lose ki over time. Off: no decay.')
+                .setDescription('On: idle players lose ki. Off: no decay.')
                 .setRequired(true),
             ),
         ),
@@ -216,7 +213,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('balance_mode')
-            .setDescription('Lobby win%/Balance: dynamic μ/σ, static σ, or ki')
+            .setDescription('Lobby balance: dynamic μ/σ, static σ, or ki')
             .addStringOption((option) =>
               option
                 .setName('mode')
@@ -234,7 +231,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('side_win_loss')
-            .setDescription('Show side W–L on /rank (ZF/Evil or Team A/B)')
+            .setDescription('Show side W–L on /rank')
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
@@ -247,11 +244,11 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('captain_draft')
-            .setDescription('Show the lobby Captain draft button (UDBR)')
+            .setDescription('Lobby Captain draft button (UDBR)')
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
-                .setDescription('On: hosts/mods can start a captain draft from the lobby.')
+                .setDescription('On: show the Captain draft button.')
                 .setRequired(true),
             ),
         ),
@@ -260,7 +257,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('wc3stats_slot')
-            .setDescription('Map one wc3stats slot index to a hero/lobby slot')
+            .setDescription('Map a wc3stats slot index to a hero slot')
             .addIntegerOption((option) =>
               option
                 .setName('wc3_slot')
@@ -283,11 +280,11 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('wc3stats_map')
-            .setDescription('Replace all wc3stats→hero mappings (bulk)')
+            .setDescription('Replace all wc3stats→hero mappings')
             .addStringOption((option) =>
               option
                 .setName('entries')
-                .setDescription('Pairs like 0=1,1=2,4=7 (wc3_slot=hero_slot)')
+                .setDescription('Pairs like 0=1,1=2 (wc3_slot=hero_slot)')
                 .setRequired(true),
             ),
         ),
@@ -296,7 +293,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('wc3stats_map_preset')
-            .setDescription('Load a built-in wc3stats→hero map for this server')
+            .setDescription('Load a built-in wc3stats→hero map')
             .addStringOption((option) =>
               option
                 .setName('preset')
@@ -313,17 +310,17 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('wc3stats_host_prompt')
-            .setDescription('Ping linked hosts when their wc3stats lobby appears')
+            .setDescription('Ping linked hosts for wc3stats lobbies')
             .addBooleanOption((option) =>
               option
                 .setName('enabled')
-                .setDescription('On: post Open lobby prompts for linked hosts')
+                .setDescription('On: post Open lobby prompts')
                 .setRequired(true),
             )
             .addChannelOption((option) =>
               option
                 .setName('channel')
-                .setDescription('Channel for host prompts (required when enabling)')
+                .setDescription('Host prompt channel (required to enable)')
                 .setRequired(false),
             ),
         ),
@@ -332,12 +329,9 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('wc3stats_host_prompt_pings')
-            .setDescription('Allow or block wc3stats host @-mentions')
+            .setDescription('Allow or block wc3stats host pings')
             .addBooleanOption((option) =>
-              option
-                .setName('enabled')
-                .setDescription('Off: no host pings until staff re-enable')
-                .setRequired(true),
+              option.setName('enabled').setDescription('Off: no host pings').setRequired(true),
             ),
         ),
       ),
@@ -350,7 +344,7 @@ export const data = new SlashCommandBuilder()
         withSubcommandLeagueOption(
           subcommand
             .setName('leaderboard_channel')
-            .setDescription('Remove the live overall leaderboard binding'),
+            .setDescription('Remove the live leaderboard binding'),
         ),
       )
       .addSubcommand((subcommand) =>
@@ -362,9 +356,7 @@ export const data = new SlashCommandBuilder()
       )
       .addSubcommand((subcommand) =>
         withSubcommandLeagueOption(
-          subcommand
-            .setName('lobby_channel')
-            .setDescription('Disable the lobby channel gate and forget the channel'),
+          subcommand.setName('lobby_channel').setDescription('Disable the lobby channel gate'),
         ),
       )
       .addSubcommand((subcommand) =>
@@ -375,7 +367,7 @@ export const data = new SlashCommandBuilder()
             .addIntegerOption((option) =>
               option
                 .setName('wc3_slot')
-                .setDescription('0-based wc3stats slots[] index to unmap')
+                .setDescription('0-based wc3stats slot index to unmap')
                 .setRequired(true)
                 .setMinValue(0)
                 .setMaxValue(23),
@@ -384,23 +376,17 @@ export const data = new SlashCommandBuilder()
       )
       .addSubcommand((subcommand) =>
         withSubcommandLeagueOption(
-          subcommand
-            .setName('wc3stats_map')
-            .setDescription('Remove all wc3stats→hero mappings for this server'),
+          subcommand.setName('wc3stats_map').setDescription('Remove all wc3stats→hero mappings'),
         ),
       )
       .addSubcommand((subcommand) =>
         withSubcommandLeagueOption(
-          subcommand
-            .setName('wc3stats')
-            .setDescription('Disable wc3stats import and clear filter + slot map'),
+          subcommand.setName('wc3stats').setDescription('Disable wc3stats import (clears map)'),
         ),
       )
       .addSubcommand((subcommand) =>
         withSubcommandLeagueOption(
-          subcommand
-            .setName('wc3stats_host_prompt')
-            .setDescription('Disable host lobby prompts and clear the prompt channel'),
+          subcommand.setName('wc3stats_host_prompt').setDescription('Disable host lobby prompts'),
         ),
       ),
   );
