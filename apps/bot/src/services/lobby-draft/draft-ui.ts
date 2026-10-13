@@ -113,7 +113,13 @@ export function buildLobbyDraftEmbed(
   const embed = new EmbedBuilder().setTitle(title).setDescription(lines.join('\n') || '​');
   state.teams?.forEach((team, i) => {
     const name = team.side ? view.profile.teamNames[team.side] : `Team ${i + 1}`;
-    const roster = team.roster.map((key) => {
+    // Once heroes are assigned, list by slot so colors read in lobby order.
+    const ordered = state.heroResult
+      ? [...team.roster].sort(
+          (a, b) => (state.heroResult![a]?.heroId ?? 99) - (state.heroResult![b]?.heroId ?? 99),
+        )
+      : team.roster;
+    const roster = ordered.map((key) => {
       const hero = state.heroResult?.[key];
       const heroText = hero
         ? ` — ${view.heroNames.get(hero.heroId) ?? `#${hero.heroId}`}${hero.how === 'contested' ? ' 🎲' : ''}`
