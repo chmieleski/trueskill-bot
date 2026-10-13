@@ -14,6 +14,7 @@ import {
   canStartLobby,
 } from './lobby-preview.js';
 import {
+  getMatchById,
   matchToLobbyPlayers,
   replaceMatchRoster,
   type MatchWithPlayers,
@@ -72,26 +73,56 @@ export function guildIdFromChannel(channel: object): string | undefined {
   return guildId || undefined;
 }
 
+/**
+ * Whether a PENDING lobby shows the Captain draft button: league flag on, slot-bound
+ * game, and enough (linked) players. Every lobby post/refresh path must use this.
+ */
+export async function isLobbyCaptainDraftAvailable(match: MatchWithPlayers): Promise<boolean> {
+  if (isEventMatch(match) || !match.leagueId) {
+    return false;
+  }
+  const participants = match.players.map((mp) => ({
+    key: participantKey(mp.player.username),
+    nick: mp.player.username,
+    ...(mp.player.discordId ? { discordId: mp.player.discordId } : {}),
+  }));
+  if (!canStartLobbyDraft(participants)) {
+    return false;
+  }
+  const [league, profile] = await Promise.all([
+    prisma.league.findUnique({
+      where: { id: match.leagueId },
+      select: { lobbyCaptainDraftEnabled: true },
+    }),
+    getGameProfileForMatch(match),
+  ]);
+  return Boolean(league?.lobbyCaptainDraftEnabled) && profile.heroBinding === 'slot_bound';
+}
+
+/** {@link isLobbyCaptainDraftAvailable} for create paths that only hold a match id. */
+export async function isLobbyCaptainDraftAvailableById(matchId: string): Promise<boolean> {
+  const match = await getMatchById(matchId);
+  return match ? isLobbyCaptainDraftAvailable(match) : false;
+}
+
 async function resolveLeagueSettingsForLobby(
   leagueId: string,
-): Promise<{ playerClaimEnabled: boolean; wc3statsReady: boolean; captainDraftEnabled: boolean }> {
+): Promise<{ playerClaimEnabled: boolean; wc3statsReady: boolean }> {
   const league = await prisma.league.findUnique({
     where: { id: leagueId },
     select: {
       lobbyPlayerClaimEnabled: true,
-      lobbyCaptainDraftEnabled: true,
       wc3statsEnabled: true,
       wc3statsMapPattern: true,
     },
   });
 
   if (!league) {
-    return { playerClaimEnabled: true, wc3statsReady: false, captainDraftEnabled: false };
+    return { playerClaimEnabled: true, wc3statsReady: false };
   }
 
   return {
     playerClaimEnabled: league.lobbyPlayerClaimEnabled,
-    captainDraftEnabled: league.lobbyCaptainDraftEnabled,
     wc3statsReady: isLeagueWc3statsImportReady({
       wc3statsEnabled: league.wc3statsEnabled,
       wc3statsMapPattern: league.wc3statsMapPattern ?? undefined,
@@ -141,19 +172,10 @@ export async function syncLobbyDiscordMessage(
           requireLeagueId(match),
           matchPlayersToRatingEntries(match.players),
         );
-    const { playerClaimEnabled, wc3statsReady, captainDraftEnabled } = isEvent
-      ? { playerClaimEnabled: false, wc3statsReady: false, captainDraftEnabled: false }
+    const { playerClaimEnabled, wc3statsReady } = isEvent
+      ? { playerClaimEnabled: false, wc3statsReady: false }
       : await resolveLeagueSettingsForLobby(requireLeagueId(match));
-    const captainDraftAvailable =
-      captainDraftEnabled &&
-      profile.heroBinding === 'slot_bound' &&
-      canStartLobbyDraft(
-        match.players.map((mp) => ({
-          key: participantKey(mp.player.username),
-          nick: mp.player.username,
-          ...(mp.player.discordId ? { discordId: mp.player.discordId } : {}),
-        })),
-      );
+    const captainDraftAvailable = await isLobbyCaptainDraftAvailable(match);
     payload = {
       embeds: [
         buildMatchLobbyEmbed(match.id, players, {

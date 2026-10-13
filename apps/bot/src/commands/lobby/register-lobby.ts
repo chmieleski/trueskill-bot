@@ -8,7 +8,7 @@ import {
   canStartLobby,
 } from '../../services/lobby/index.js';
 import { resolveGuildConfig, type ResolvedGuildConfig } from '../../services/guild/index.js';
-import { nickForDiscordId } from '../../services/lobby/index.js';
+import { isLobbyCaptainDraftAvailable, nickForDiscordId } from '../../services/lobby/index.js';
 import { assertCanCreateMatch, hasMatchModRole } from '../../services/match/index.js';
 import {
   attachDiscordMessage,
@@ -174,6 +174,7 @@ async function replyWithWos2ReportLobby(
       playerClaimEnabled: input.playerClaimEnabled ?? false,
       wc3statsEnabled: input.wc3statsReady ?? false,
       profile: filled.profile,
+      captainDraftAvailable: await isLobbyCaptainDraftAvailable(filled.match),
     }),
   });
 
@@ -644,6 +645,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         wc3statsGameId,
         wc3statsEnabled: wc3statsReady,
         profile,
+        captainDraftAvailable: match ? await isLobbyCaptainDraftAvailable(match) : false,
       }),
     });
 
