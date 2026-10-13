@@ -294,7 +294,12 @@ export function closeEarlyIfDone(
   if (state.phase === 'VOTE' && votedCount(state) === linked.length) {
     return closeVote(state, rng);
   }
-  if (state.phase === 'HERO' && profile && heroLockedInCount(state) === linked.length) {
+  if (
+    state.phase === 'HERO' &&
+    !state.heroResult &&
+    profile &&
+    heroLockedInCount(state) === linked.length
+  ) {
     return resolveHeroPhase(state, profile, rng);
   }
   return state;
@@ -398,6 +403,7 @@ export function replaceParticipant(
   profile: GameProfile,
   rng: Rng = Math.random,
 ): LobbyDraftState {
+  if (state.heroResult) throw new LobbyDraftError(STALE_ACTION_MESSAGE);
   const outgoing = findParticipant(state, outgoingKey);
   if (!outgoing) {
     throw new LobbyDraftError('Participant not found.');
@@ -448,6 +454,7 @@ export function removeParticipant(
   profile: GameProfile,
   rng: Rng = Math.random,
 ): LobbyDraftState {
+  if (state.heroResult) throw new LobbyDraftError(STALE_ACTION_MESSAGE);
   const outgoing = findParticipant(state, key);
   if (!outgoing) {
     throw new LobbyDraftError('Participant not found.');
@@ -484,7 +491,6 @@ export function removeParticipant(
         }
         const taken = successor;
         next = { ...next, pool: next.pool.filter((k) => k !== taken) };
-        roster.unshift(successor);
       }
       lines.push(`👑 ${nickOf(next, successor)} is now captain.`);
       return {
@@ -522,5 +528,7 @@ export function applyTimeout(
       return applySide(timedOut, rng() < 0.5 ? 1 : 2, profile.teamNames);
     case 'HERO':
       return resolveHeroPhase(withLog(state, '⏱️ Hero pick closed.'), profile, rng);
+    default:
+      throw new LobbyDraftError(STALE_ACTION_MESSAGE);
   }
 }

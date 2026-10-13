@@ -264,6 +264,7 @@ describe('remove', () => {
     s = applyPick(s, 'c'); // team 0: a, c
     const next = removeParticipant(s, 'a', PROFILE);
     expect(next.teams![0]).toMatchObject({ captainKey: 'c', roster: ['c'] });
+    expect(next.participants.some((p) => p.key === 'a')).toBe(false);
 
     const fresh = pickingState(['A', 'B', 'C', 'D', 'E', 'F']);
     const fromPool = removeParticipant(fresh, 'a', PROFILE, () => 0);
@@ -297,5 +298,94 @@ describe('applyTimeout', () => {
       PROFILE,
     );
     expect(vote.phase).toBe('COIN_CHOICE');
+  });
+});
+
+describe('fix round 1', () => {
+  const resolved = () => resolveHeroPhase(heroState(), PROFILE);
+
+  it('remove/replace on a resolved draft are stale', () => {
+    expect(() => removeParticipant(resolved(), 'c', PROFILE)).toThrow('no longer valid');
+    expect(() => replaceParticipant(resolved(), 'c', person('Z'), PROFILE)).toThrow(
+      'no longer valid',
+    );
+  });
+
+  it('applyTimeout covers COIN_CHOICE, SIDE and HERO', () => {
+    const coin = applyTimeout(
+      { ...pickingState(['A', 'B', 'C', 'D']), phase: 'COIN_CHOICE' },
+      PROFILE,
+    );
+    expect(coin.phase).not.toBe('COIN_CHOICE');
+    expect(coin.log.some((l) => l.includes('⏱️'))).toBe(true);
+
+    const side = applyTimeout({ ...pickingState(['A', 'B', 'C', 'D']), phase: 'SIDE' }, PROFILE);
+    expect(side.teams!.every((tm) => tm.side !== null)).toBe(true);
+
+    expect(applyTimeout(heroState(), PROFILE).heroResult).not.toBeNull();
+  });
+
+  it('replace drops hero prefs and lock-in; refuses duplicate discord id', () => {
+    let s = setHeroPrefs(heroState(), 'id-C', [1], PROFILE);
+    s = lockInHero(s, 'id-C', PROFILE);
+    const next = replaceParticipant(s, 'c', person('Z'), PROFILE);
+    expect(next.heroPrefs.c).toBeUndefined();
+    expect(next.heroLockedIn).not.toContain('c');
+    expect(() =>
+      replaceParticipant(
+        pickingState(['A', 'B', 'C', 'D']),
+        'c',
+        { key: 'q', nick: 'Q', discordId: 'id-D' },
+        PROFILE,
+      ),
+    ).toThrow('already in this draft');
+  });
+
+  it('remove refusals', () => {
+    const vote = initialLobbyDraftState(
+      [person('A'), person('B'), person('C', false), person('D', false), person('E', false)],
+      null,
+    );
+    expect(() => removeParticipant(vote, 'a', PROFILE)).toThrow('Need at least 2v2');
+
+    const base = pickingState(['A', 'B', 'C', 'D']);
+    const noLinked: LobbyDraftState = {
+      ...base,
+      participants: [
+        person('A'),
+        person('B'),
+        person('C', false),
+        person('D', false),
+        person('E', false),
+      ],
+      pool: ['c', 'd', 'e'],
+    };
+    expect(() => removeParticipant(noLinked, 'a', PROFILE)).toThrow(
+      'No linked player can take over as captain',
+    );
+  });
+
+  it('remove: PICK moves to SIDE when the pool empties', () => {
+    let s = pickingState(['A', 'B', 'C', 'D', 'E', 'F']);
+    for (const k of ['c', 'd', 'e']) s = applyPick(s, k);
+    expect(removeParticipant(s, 'f', PROFILE).phase).toBe('SIDE');
+  });
+
+  it('remove closes simultaneous phases early', () => {
+    const players = ['A', 'B', 'C', 'D', 'E'].map((n) => person(n));
+    const vote: LobbyDraftState = {
+      ...initialLobbyDraftState(players, null),
+      votes: { 'id-A': ['a', 'b'], 'id-B': ['a'], 'id-C': ['b'], 'id-D': ['a'] },
+    };
+    expect(removeParticipant(vote, 'e', PROFILE).phase).toBe('COIN_CHOICE');
+
+    let hero = heroState();
+    for (const id of ['id-A', 'id-B', 'id-D']) hero = lockInHero(hero, id, PROFILE);
+    expect(removeParticipant(hero, 'c', PROFILE).heroResult).not.toBeNull();
+  });
+
+  it('projectedTeamSizes works with firstPickTeam null', () => {
+    const s = { ...pickingState(['A', 'B', 'C', 'D', 'E']), firstPickTeam: null };
+    expect(projectedTeamSizes(s)).toEqual([2, 3]);
   });
 });
