@@ -1,6 +1,8 @@
 import { captainIndexForPick } from '../captain-draft/draft-logic.js';
 import { teamForSlot, type GameProfile, type TeamId } from '../../domain/game-profile.js';
+import { assignHeroes } from './hero-assign.js';
 import {
+  LOBBY_DRAFT_MAX_HERO_PREFS,
   LOBBY_DRAFT_MAX_VOTES,
   LOBBY_DRAFT_MIN_LINKED,
   LOBBY_DRAFT_MIN_PLAYERS,
@@ -9,6 +11,7 @@ import {
   NOT_IN_DRAFT_MESSAGE,
   STALE_ACTION_MESSAGE,
   type CoinChoice,
+  type HeroAssignment,
   type LobbyDraftParticipant,
   type LobbyDraftState,
   type LobbyDraftTeam,
@@ -291,5 +294,71 @@ export function closeEarlyIfDone(
   if (state.phase === 'VOTE' && votedCount(state) === linked.length) {
     return closeVote(state, rng);
   }
+  if (state.phase === 'HERO' && profile && heroLockedInCount(state) === linked.length) {
+    return resolveHeroPhase(state, profile, rng);
+  }
   return state;
+}
+
+export function heroLockedInCount(state: LobbyDraftState): number {
+  return linkedParticipants(state).filter((p) => state.heroLockedIn.includes(p.key)).length;
+}
+
+function heroActor(state: LobbyDraftState, actorDiscordId: string): { key: string; side: TeamId } {
+  assertPhase(state, 'HERO');
+  const actor = participantByDiscordId(state, actorDiscordId);
+  const t = actor ? teamOfKey(state, actor.key) : null;
+  const side = t === null ? null : requireTeams(state)[t].side;
+  if (!actor || !side) {
+    throw new LobbyDraftError(NOT_IN_DRAFT_MESSAGE);
+  }
+  return { key: actor.key, side };
+}
+
+export function setHeroPrefs(
+  state: LobbyDraftState,
+  actorDiscordId: string,
+  heroIds: number[],
+  profile: GameProfile,
+): LobbyDraftState {
+  const { key, side } = heroActor(state, actorDiscordId);
+  const unique = [...new Set(heroIds)];
+  const sideHeroes = heroIdsForSide(profile, side);
+  if (unique.length > LOBBY_DRAFT_MAX_HERO_PREFS || unique.some((h) => !sideHeroes.includes(h))) {
+    throw new LobbyDraftError('Pick up to 2 heroes from your side.');
+  }
+  return { ...state, heroPrefs: { ...state.heroPrefs, [key]: unique } };
+}
+
+export function lockInHero(
+  state: LobbyDraftState,
+  actorDiscordId: string,
+  profile: GameProfile,
+  rng: Rng = Math.random,
+): LobbyDraftState {
+  const { key } = heroActor(state, actorDiscordId);
+  if (state.heroLockedIn.includes(key)) return state;
+  return closeEarlyIfDone({ ...state, heroLockedIn: [...state.heroLockedIn, key] }, profile, rng);
+}
+
+export function resolveHeroPhase(
+  state: LobbyDraftState,
+  profile: GameProfile,
+  rng: Rng = Math.random,
+): LobbyDraftState {
+  assertPhase(state, 'HERO');
+  const heroResult: Record<string, HeroAssignment> = Object.assign(
+    {},
+    ...requireTeams(state).map((team) =>
+      assignHeroes(
+        team.roster.map((key) => ({ key, wanted: state.heroPrefs[key] ?? [] })),
+        heroIdsForSide(profile, team.side!),
+        rng,
+      ),
+    ),
+  );
+  const lines = Object.entries(heroResult)
+    .filter(([, a]) => a.how === 'contested')
+    .map(([key, a]) => `🎲 ${nickOf(state, key)} won the roll for hero #${a.heroId}.`);
+  return withLog({ ...state, heroResult }, '🦸 Heroes assigned.', ...lines);
 }

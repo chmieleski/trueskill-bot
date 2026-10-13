@@ -8,6 +8,9 @@ import {
   chooseCoin,
   closeVote,
   heroIdsForSide,
+  lockInHero,
+  resolveHeroPhase,
+  setHeroPrefs,
   onClockTeam,
   pickingTeam,
   tallyVotes,
@@ -153,5 +156,52 @@ describe('heroIdsForSide', () => {
   it('maps UDBR sides to slots 1–6 and 7–12', () => {
     expect(heroIdsForSide(PROFILE, 1)).toEqual([1, 2, 3, 4, 5, 6]);
     expect(heroIdsForSide(PROFILE, 2)).toEqual([7, 8, 9, 10, 11, 12]);
+  });
+});
+
+function heroState(): LobbyDraftState {
+  const base = pickingState(['A', 'B', 'C', 'D', 'E']);
+  return {
+    ...base,
+    phase: 'HERO',
+    participants: [...base.participants.slice(0, 4), person('E', false)],
+    pool: [],
+    teams: [
+      { captainKey: 'a', roster: ['a', 'c', 'e'], side: 1 },
+      { captainKey: 'b', roster: ['b', 'd'], side: 2 },
+    ],
+  };
+}
+
+describe('hero phase', () => {
+  it('accepts 0–2 heroes of the player side only', () => {
+    const s = heroState();
+    expect(setHeroPrefs(s, 'id-A', [], PROFILE).heroPrefs.a).toEqual([]);
+    expect(setHeroPrefs(s, 'id-A', [1, 2], PROFILE).heroPrefs.a).toEqual([1, 2]);
+    expect(() => setHeroPrefs(s, 'id-A', [7], PROFILE)).toThrow(
+      'Pick up to 2 heroes from your side.',
+    );
+    expect(() => setHeroPrefs(s, 'id-A', [1, 2, 3], PROFILE)).toThrow(
+      'Pick up to 2 heroes from your side.',
+    );
+    expect(() => setHeroPrefs(s, 'id-X', [1], PROFILE)).toThrow("You're not in this draft.");
+  });
+
+  it('resolves when every linked player locked in; unlinked get random heroes', () => {
+    let s = heroState();
+    for (const id of ['id-A', 'id-B', 'id-C']) s = lockInHero(s, id, PROFILE);
+    expect(s.heroResult).toBeNull();
+    s = lockInHero(s, 'id-D', PROFILE);
+    expect(s.heroResult).not.toBeNull();
+    const result = s.heroResult!;
+    expect(Object.keys(result).sort()).toEqual(['a', 'b', 'c', 'd', 'e']);
+    for (const key of ['a', 'c', 'e']) expect(result[key]!.heroId).toBeLessThanOrEqual(6);
+    for (const key of ['b', 'd']) expect(result[key]!.heroId).toBeGreaterThanOrEqual(7);
+    expect(result.e!.how).toBe('random');
+  });
+
+  it('resolveHeroPhase works on timeout with partial prefs', () => {
+    const s = setHeroPrefs(heroState(), 'id-A', [3], PROFILE);
+    expect(resolveHeroPhase(s, PROFILE).heroResult!.a).toEqual({ heroId: 3, how: 'wanted' });
   });
 });
