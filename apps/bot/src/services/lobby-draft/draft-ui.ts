@@ -227,7 +227,7 @@ export function buildHeroMenu(
           .setCustomId(lobbyDraftCustomId('herosel', draftId))
           .setPlaceholder('Optional: up to 2 heroes')
           .setMinValues(0)
-          .setMaxValues(2)
+          .setMaxValues(Math.min(2, heroes.length))
           .addOptions(
             heroes.map((h) => ({
               label: h.name,
@@ -274,7 +274,7 @@ export function buildReplaceModal(draftId: string, key: string, nick: string): M
           .setLabel('Discord @mention / user ID, or in-game nick')
           .setStyle(TextInputStyle.Short)
           .setRequired(true)
-          .setMaxLength(64),
+          .setMaxLength(32),
       ),
     );
 }

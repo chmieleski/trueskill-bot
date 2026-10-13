@@ -1,4 +1,9 @@
-import { ThreadAutoArchiveDuration, type Client } from 'discord.js';
+import {
+  ChannelType,
+  RESTJSONErrorCodes,
+  ThreadAutoArchiveDuration,
+  type Client,
+} from 'discord.js';
 import type { LobbyDraft } from '@dbz/db';
 import type { GameProfile } from '../../domain/game-profile.js';
 import { createLogger } from '../../lib/logger.js';
@@ -103,10 +108,14 @@ async function postUpdate(
   }
   if (lines.length === 0) return;
   const thread = await threadChannel(client, draft.threadId);
-  await thread?.send({
-    content: lines.join('\n').slice(0, 2000),
-    allowedMentions: { users: mentions },
-  });
+  await thread
+    ?.send({
+      content: lines.join('\n').slice(0, 2000),
+      allowedMentions: { users: mentions },
+    })
+    .catch((error: unknown) =>
+      log.warn({ err: error, draftId: draft.id }, 'Failed to post draft update'),
+    );
 }
 
 export async function syncLobbyDraftLiveMessage(client: Client, draftId: string): Promise<void> {
@@ -114,13 +123,21 @@ export async function syncLobbyDraftLiveMessage(client: Client, draftId: string)
   if (!draft.liveMessageId) return;
   const state = parseLobbyDraftState(draft);
   const view = await loadView(await getGameProfileForLeague(draft.leagueId));
+  const payload = {
+    embeds: [buildLobbyDraftEmbed(draft, state, view)],
+    components: draft.status === 'ACTIVE' ? buildLobbyDraftComponents(draft.id, state, view) : [],
+  };
   try {
     const thread = await threadChannel(client, draft.threadId);
-    const message = await thread?.messages.fetch(draft.liveMessageId);
-    await message?.edit({
-      embeds: [buildLobbyDraftEmbed(draft, state, view)],
-      components: draft.status === 'ACTIVE' ? buildLobbyDraftComponents(draft.id, state, view) : [],
-    });
+    if (!thread) return;
+    try {
+      const message = await thread.messages.fetch(draft.liveMessageId);
+      await message.edit(payload);
+    } catch (error) {
+      if ((error as { code?: number }).code !== RESTJSONErrorCodes.UnknownMessage) throw error;
+      const fresh = await thread.send(payload);
+      await prisma.lobbyDraft.update({ where: { id: draftId }, data: { liveMessageId: fresh.id } });
+    }
   } catch (error) {
     log.warn({ err: error, draftId }, 'Failed to sync lobby draft live message');
   }
@@ -131,20 +148,28 @@ async function finalize(client: Client, draft: LobbyDraft, state: LobbyDraftStat
     slot: state.heroResult![p.key]!.heroId,
     nick: p.nick,
   }));
+  let match;
   try {
-    const match = await replaceMatchRoster(draft.matchId, players, {
+    match = await replaceMatchRoster(draft.matchId, players, {
       markLobbyRosterAuthority: true,
       completeLobbyDraftId: draft.id,
     });
-    clearLobbyDraftTimer(draft.id);
-    await syncLobbyDiscordMessage(client, match, 'pending');
-    await (
-      await threadChannel(client, draft.threadId)
-    )?.send('✅ Lobby updated with the drafted teams and heroes.');
   } catch (error) {
     if (!(error instanceof MatchServiceError)) throw error;
     await cancelLobbyDraft(client, draft.id, error.message);
+    return;
   }
+  clearLobbyDraftTimer(draft.id);
+  await syncLobbyDiscordMessage(client, match, 'pending').catch((error: unknown) =>
+    log.warn({ err: error, draftId: draft.id }, 'Failed to sync lobby message after draft'),
+  );
+  await (
+    await threadChannel(client, draft.threadId)
+  )
+    ?.send('✅ Lobby updated with the drafted teams and heroes.')
+    .catch((error: unknown) =>
+      log.warn({ err: error, draftId: draft.id }, 'Failed to post draft completion'),
+    );
 }
 
 /**
@@ -226,12 +251,11 @@ export async function startLobbyDraft(
   const state = initialLobbyDraftState(participants, deadlineFor('VOTE'));
 
   const channel = await input.client.channels.fetch(match.discordChannelId);
-  if (!channel?.isTextBased() || channel.isDMBased()) {
+  if (channel?.type !== ChannelType.GuildText && channel?.type !== ChannelType.GuildAnnouncement) {
     throw new LobbyDraftError('Cannot open a thread in this channel.');
   }
-  const lobbyMessage = await channel.messages.fetch(match.discordMessageId);
-  const thread = await lobbyMessage.startThread({
-    name: `Captain draft ${match.id.slice(-6)}`,
+  const thread = await channel.threads.create({
+    name: `Draft – lobby ${match.id.slice(-6)}`,
     autoArchiveDuration: ThreadAutoArchiveDuration.OneHour,
     reason: 'Lobby captain draft',
   });
@@ -261,26 +285,31 @@ export async function startLobbyDraft(
     throw error;
   }
 
-  const linkedIds = linkedParticipants(state).map((p) => p.discordId!);
-  const unlinked = state.participants.filter((p) => !p.discordId).map((p) => `\`${p.nick}\``);
-  const view = await loadView(profile);
-  const live = await thread.send({
-    content: [
-      `⚔️ Captain draft for this lobby. ${linkedIds.map((id) => `<@${id}>`).join(' ')}`,
-      unlinked.length ? `Unlinked: ${unlinked.join(', ')}` : '',
-      'The lobby is frozen until the draft ends or is cancelled.',
-    ]
-      .filter(Boolean)
-      .join('\n'),
-    embeds: [buildLobbyDraftEmbed(draft, state, view)],
-    components: buildLobbyDraftComponents(draft.id, state, view),
-    allowedMentions: { users: linkedIds },
-  });
-  draft = await prisma.lobbyDraft.update({
-    where: { id: draft.id },
-    data: { liveMessageId: live.id },
-  });
-  scheduleLobbyDraftTimeout(input.client, draft.id, state.deadlineAt);
+  try {
+    const view = await loadView(profile);
+    const linkedIds = linkedParticipants(state).map((p) => p.discordId!);
+    const unlinked = state.participants.filter((p) => !p.discordId).map((p) => `\`${p.nick}\``);
+    const live = await thread.send({
+      content: [
+        `⚔️ Captain draft for this lobby. ${linkedIds.map((id) => `<@${id}>`).join(' ')}`,
+        unlinked.length ? `Unlinked: ${unlinked.join(', ')}` : '',
+        'The lobby is frozen until the draft ends or is cancelled.',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      embeds: [buildLobbyDraftEmbed(draft, state, view)],
+      components: buildLobbyDraftComponents(draft.id, state, view),
+      allowedMentions: { users: linkedIds },
+    });
+    draft = await prisma.lobbyDraft.update({
+      where: { id: draft.id },
+      data: { liveMessageId: live.id },
+    });
+    scheduleLobbyDraftTimeout(input.client, draft.id, state.deadlineAt);
+  } catch (error) {
+    await cancelLobbyDraft(input.client, draft.id, 'the draft could not be set up.');
+    throw error;
+  }
   log.info({ draftId: draft.id, matchId: match.id }, 'Lobby captain draft started');
   return draft;
 }
@@ -350,6 +379,7 @@ export async function resolveIncomingParticipant(
   if (!text) {
     throw new LobbyDraftError('Enter a Discord @mention, user ID, or in-game nick.');
   }
+  if (text.length > 32) throw new LobbyDraftError('That name is too long (max 32 characters).');
   const player = await prisma.player.findUnique({
     where: { gameId_username: { gameId, username: participantKey(text) } },
   });
@@ -373,10 +403,14 @@ export async function manageReplace(
   if (incoming.discordId) {
     await (
       await threadChannel(input.client, draft.threadId)
-    )?.send({
-      content: `<@${incoming.discordId}> you joined this captain draft.`,
-      allowedMentions: { users: [incoming.discordId] },
-    });
+    )
+      ?.send({
+        content: `<@${incoming.discordId}> you joined this captain draft.`,
+        allowedMentions: { users: [incoming.discordId] },
+      })
+      .catch((error: unknown) =>
+        log.warn({ err: error, draftId: draft.id }, 'Failed to post join notice'),
+      );
   }
 }
 
@@ -397,7 +431,7 @@ export async function cancelLobbyDraft(
   const thread = await threadChannel(client, draft.threadId);
   await thread
     ?.send(`🚫 Draft cancelled: ${reason} The lobby can be edited again.`)
-    .catch(() => undefined);
+    .catch((error: unknown) => log.warn({ err: error, draftId }, 'Failed to post cancel notice'));
   await thread
     ?.setLocked(true)
     .catch((error: unknown) => log.warn({ err: error, draftId }, 'Failed to lock draft thread'));
@@ -441,7 +475,9 @@ export async function getVoteMenuForActor(
   draftId: string,
   actorDiscordId: string,
 ): Promise<LobbyDraftState> {
-  const state = parseLobbyDraftState(await loadLobbyDraftById(draftId));
+  const draft = await loadLobbyDraftById(draftId);
+  if (draft.status !== 'ACTIVE') throw new LobbyDraftError('This draft is no longer active.');
+  const state = parseLobbyDraftState(draft);
   if (state.phase !== 'VOTE') throw new LobbyDraftError('Voting is closed.');
   if (!participantByDiscordId(state, actorDiscordId))
     throw new LobbyDraftError(NOT_IN_DRAFT_MESSAGE);
@@ -453,6 +489,7 @@ export async function getHeroMenuForActor(
   actorDiscordId: string,
 ): Promise<{ heroes: Array<{ id: number; name: string }>; current: number[] }> {
   const draft = await loadLobbyDraftById(draftId);
+  if (draft.status !== 'ACTIVE') throw new LobbyDraftError('This draft is no longer active.');
   const state = parseLobbyDraftState(draft);
   const actor = participantByDiscordId(state, actorDiscordId);
   const t = actor ? teamOfKey(state, actor.key) : null;
