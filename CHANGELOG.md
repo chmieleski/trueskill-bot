@@ -1,3 +1,10 @@
+# [1.89.0](https://github.com/chmieleski/trueskill-bot/compare/v1.88.1...v1.89.0) (2026-10-13)
+
+
+### Features
+
+* **lobby-draft:** shorter action-first thread messages ([#230](https://github.com/chmieleski/trueskill-bot/issues/230)) ([685a095](https://github.com/chmieleski/trueskill-bot/commit/685a0955cc42c56afa685a83f1b0bb38e79e952e))
+
 ## [1.88.1](https://github.com/chmieleski/trueskill-bot/compare/v1.88.0...v1.88.1) (2026-10-13)
 
 
