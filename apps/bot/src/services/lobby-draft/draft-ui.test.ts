@@ -94,4 +94,38 @@ describe('lobby draft ui', () => {
     // No emoji for slot 2 → line renders without a color prefix.
     expect(values).toMatch(/^👑 .+ — Vegeta$/m);
   });
+
+  it('finished roster is listed in slot order, not draft order', () => {
+    const state = pickingState(['A', 'B', 'C', 'D']);
+    const [cap, other] = state.teams!.map((t) => t.captainKey);
+    const [x, y] = state.pool;
+    const done = {
+      ...state,
+      pool: [],
+      teams: [
+        { ...state.teams![0], roster: [cap!, x!, y!], side: 1 as const },
+        { ...state.teams![1], roster: [other!], side: 2 as const },
+      ] as typeof state.teams,
+      heroResult: {
+        [cap!]: { heroId: 3, how: 'wanted' as const },
+        [x!]: { heroId: 1, how: 'wanted' as const },
+        [y!]: { heroId: 2, how: 'wanted' as const },
+        [other!]: { heroId: 7, how: 'wanted' as const },
+      },
+    };
+    const embed = buildLobbyDraftEmbed({ status: 'COMPLETE' }, done, {
+      ...view,
+      slotEmojis: new Map([
+        [1, '<:w3_red:1>'],
+        [2, '<:w3_blue:2>'],
+        [3, '<:w3_teal:3>'],
+      ]),
+    }).toJSON();
+    const lines = embed.fields![0]!.value.split('\n');
+    expect(lines.map((l) => l.split(' ')[0])).toEqual([
+      '<:w3_red:1>',
+      '<:w3_blue:2>',
+      '<:w3_teal:3>',
+    ]);
+  });
 });
