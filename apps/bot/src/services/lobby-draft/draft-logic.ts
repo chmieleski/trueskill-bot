@@ -366,7 +366,11 @@ export function resolveHeroPhase(
     {},
     ...requireTeams(state).map((team) =>
       assignHeroes(
-        team.roster.map((key) => ({ key, wanted: state.heroPrefs[key] ?? [] })),
+        team.roster.map((key) => ({
+          key,
+          wanted: state.heroPrefs[key] ?? [],
+          weight: state.heroWeights?.[key] ?? 1,
+        })),
         heroIdsForSide(profile, team.side!),
         rng,
       ),

@@ -40,6 +40,7 @@ vi.mock('../lobby/discord-sync.js', () => ({ syncLobbyDiscordMessage: m.syncLobb
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
     hero: { findMany: vi.fn().mockResolvedValue([]) },
+    playerRating: { findMany: vi.fn().mockResolvedValue([]) },
     lobbyDraft: { updateMany: m.updateMany, update: m.update },
     $transaction: async (fn: (tx: unknown) => unknown) =>
       fn({

@@ -42,6 +42,7 @@ import { recomputeDisplayCountersForPlayers } from '../rating/display-counters.j
 import { loadIsNewPlayerByPlayerId, playerIdsToClearNewFlag } from '../rating/new-player.js';
 import { markLeagueHeroChampionRolesDirty } from '../hero-champion-roles/mark-dirty.js';
 import { WOS_MATCH_REPORT_REQUIRED_MESSAGE } from './match-stats-upload.js';
+import { applyHeroPickLosses } from '../lobby-draft/hero-pick-losses.js';
 
 const log = createLogger('match-report');
 
@@ -421,6 +422,7 @@ export async function completeMatch(
       match.players.map((p) => ({ playerId: p.playerId, heroId: p.heroId })),
       tx,
     );
+    await applyHeroPickLosses(tx, matchId, leagueId, match.players);
     const playerIds = match.players.map((p) => p.playerId);
     const isNewByPlayerId = await loadIsNewPlayerByPlayerId(leagueId, playerIds, tx);
     const entries = toRatingEntries(match, quitterSet, grieferSet, dcSet, isNewByPlayerId);

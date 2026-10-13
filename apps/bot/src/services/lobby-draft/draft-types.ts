@@ -40,6 +40,8 @@ export type LobbyDraftState = {
   heroPrefs: Record<string, number[]>;
   heroLockedIn: string[];
   heroResult: Record<string, HeroAssignment> | null;
+  /** participant key → clash weight (1 + PlayerRating.heroPickLosses), loaded during HERO. */
+  heroWeights?: Record<string, number>;
   deadlineAt: string | null;
   /** Human-readable history; new entries are posted to the thread. */
   log: string[];

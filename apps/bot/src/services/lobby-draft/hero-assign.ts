@@ -2,13 +2,25 @@ import { shuffle } from './draft-logic.js';
 import { LobbyDraftError, type HeroAssignment } from './draft-types.js';
 
 /**
+ * Random order where each player goes first with odds weight / Σweights
+ * (Efraimidis–Spirakis: sort by rng^(1/weight)). Weight ≤ 0 counts as 1.
+ */
+export function weightedOrder<T extends { weight?: number }>(items: T[], rng: () => number): T[] {
+  return items
+    .map((item) => ({ item, k: rng() ** (1 / Math.max(item.weight ?? 1, 1)) }))
+    .sort((a, b) => b.k - a.k)
+    .map(({ item }) => item);
+}
+
+/**
  * Give as many players as possible one of their wanted heroes (maximum bipartite
- * matching, Kuhn's augmenting paths — ≤6×6 so cost is trivial). Players and wish
- * lists are shuffled first, so only real clashes are decided by chance.
- * Everyone left over gets a random free hero.
+ * matching, Kuhn's augmenting paths — ≤6×6 so cost is trivial). Players are put in a
+ * weighted random order: earlier players keep their hero in a clash, so `weight`
+ * (1 + past clash losses) raises the odds but never to 100%. A hero only one player
+ * wanted is always theirs. Everyone left over gets a random free hero.
  */
 export function assignHeroes(
-  players: Array<{ key: string; wanted: number[] }>,
+  players: Array<{ key: string; wanted: number[]; weight?: number }>,
   heroes: number[],
   rng: () => number = Math.random,
 ): Record<string, HeroAssignment> {
@@ -17,7 +29,7 @@ export function assignHeroes(
   }
   const heroSet = new Set(heroes);
   const wanted = new Map(
-    shuffle(players, rng).map((p) => [
+    weightedOrder(players, rng).map((p) => [
       p.key,
       shuffle(
         p.wanted.filter((h) => heroSet.has(h)),

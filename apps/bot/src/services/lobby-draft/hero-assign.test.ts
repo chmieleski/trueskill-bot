@@ -63,3 +63,58 @@ describe('assignHeroes', () => {
     expect(() => assignHeroes(players, HEROES)).toThrow();
   });
 });
+
+describe('weighted clashes', () => {
+  /** Deterministic LCG so frequency checks don't flake. */
+  function seeded(seed = 42): () => number {
+    let s = seed;
+    return () => {
+      s = (s * 1664525 + 1013904223) % 2 ** 32;
+      return s / 2 ** 32;
+    };
+  }
+
+  function winRate(weightA: number, weightB: number, runs = 4000): number {
+    const rng = seeded();
+    let aWins = 0;
+    for (let i = 0; i < runs; i += 1) {
+      const r = assignHeroes(
+        [
+          { key: 'a', wanted: [1], weight: weightA },
+          { key: 'b', wanted: [1], weight: weightB },
+        ],
+        HEROES,
+        rng,
+      );
+      if (r.a!.heroId === 1) aWins += 1;
+    }
+    return aWins / runs;
+  }
+
+  it('odds follow weight / Σweights (1 + losses)', () => {
+    expect(winRate(1, 1)).toBeCloseTo(0.5, 1);
+    expect(winRate(2, 1)).toBeCloseTo(2 / 3, 1);
+    expect(winRate(4, 1)).toBeCloseTo(0.8, 1);
+  });
+
+  it('a big weight is never a guarantee in a clash', () => {
+    const rate = winRate(50, 1);
+    expect(rate).toBeGreaterThan(0.9);
+    expect(rate).toBeLessThan(1);
+  });
+
+  it('a hero only one player wanted is always theirs, whatever the weights', () => {
+    const rng = seeded(7);
+    for (let i = 0; i < 200; i += 1) {
+      const r = assignHeroes(
+        [
+          { key: 'a', wanted: [1], weight: 1 },
+          { key: 'b', wanted: [2], weight: 50 },
+        ],
+        HEROES,
+        rng,
+      );
+      expect(r.a!.heroId).toBe(1);
+    }
+  });
+});
