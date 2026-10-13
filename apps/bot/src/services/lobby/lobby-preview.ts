@@ -6,6 +6,7 @@ import {
   time,
   TimestampStyles,
 } from 'discord.js';
+import { LOBBY_DRAFT_START_ID } from '../lobby-draft/draft-ui.js';
 import type { InGameRosterSource } from './in-game-roster.js';
 import type { LobbyPlayer, ValidatedLobby } from './lobby-ocr.js';
 import type { LobbyRatingPlayerLine, LobbyRatingPreview } from '../rating/rating-preview.js';
@@ -681,6 +682,7 @@ export function buildLobbyButtons(
     wc3statsGameId?: string | null;
     wc3statsEnabled?: boolean;
     profile?: GameProfile;
+    captainDraftAvailable?: boolean;
   } = {},
 ): ActionRowBuilder<ButtonBuilder>[] {
   if (options.locked) {
@@ -718,6 +720,15 @@ export function buildLobbyButtons(
         .setLabel('Start Match')
         .setEmoji('▶️')
         .setStyle(ButtonStyle.Success),
+    );
+  }
+  if (options.captainDraftAvailable) {
+    topRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId(LOBBY_DRAFT_START_ID)
+        .setLabel('Captain draft')
+        .setEmoji('⚔️')
+        .setStyle(ButtonStyle.Secondary),
     );
   }
   rows.push(topRow);

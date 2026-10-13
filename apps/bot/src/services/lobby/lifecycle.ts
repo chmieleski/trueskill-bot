@@ -1,4 +1,5 @@
 import type { Client } from 'discord.js';
+import { cancelActiveLobbyDraftForMatch } from '../lobby-draft/index.js';
 import { cancelMatch, matchToLobbyPlayers, startMatch } from '../match/match-service.js';
 import { type LobbyActionResult, syncLobbyDiscordMessage } from './discord-sync.js';
 import {
@@ -17,6 +18,7 @@ export async function startLobbyMatch(input: {
     matchId: input.matchId,
   });
   const started = await startMatch(match.id);
+  await cancelActiveLobbyDraftForMatch(input.client, match.id, 'the lobby was started.');
   await syncLobbyDiscordMessage(input.client, started, 'started');
   return { match: started, players: matchToLobbyPlayers(started) };
 }
@@ -29,6 +31,7 @@ export async function startLobbyMatchByMessageId(input: {
     messageId: input.messageId,
   });
   const started = await startMatch(match.id);
+  await cancelActiveLobbyDraftForMatch(input.client, match.id, 'the lobby was started.');
   await syncLobbyDiscordMessage(input.client, started, 'started');
   return { match: started, players: matchToLobbyPlayers(started) };
 }
@@ -47,6 +50,7 @@ export async function cancelLobbyMatch(input: {
     matchModRoleId: input.matchModRoleId,
   });
   const cancelled = await cancelMatch(match.id);
+  await cancelActiveLobbyDraftForMatch(input.client, match.id, 'the lobby was cancelled.');
   const cancelReason =
     match.hostDiscordId === input.actorDiscordId ? 'by the host' : 'by a moderator';
   await syncLobbyDiscordMessage(input.client, cancelled, 'cancelled', { cancelReason });
