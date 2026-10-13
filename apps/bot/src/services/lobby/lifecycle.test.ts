@@ -21,7 +21,7 @@ vi.mock('./resolve.js', () => ({
   resolvePendingMatchForManage: m.resolveManage,
 }));
 
-import { cancelLobbyMatch, startLobbyMatch } from './lifecycle.js';
+import { cancelLobbyMatch, startLobbyMatch, startLobbyMatchByMessageId } from './lifecycle.js';
 
 describe('lifecycle cancels active draft', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -38,5 +38,29 @@ describe('lifecycle cancels active draft', () => {
     m.cancelMatch.mockResolvedValue({ id: 'M' });
     await cancelLobbyMatch({ client: {} as never, actorDiscordId: 'h', memberRoleIds: [] });
     expect(m.cancelDraft).toHaveBeenCalledWith({}, 'M', 'the lobby was cancelled.');
+  });
+
+  it('on start by message id', async () => {
+    m.resolveHost.mockResolvedValue({ match: { id: 'M' } });
+    m.startMatch.mockResolvedValue({ id: 'M' });
+    await startLobbyMatchByMessageId({ client: {} as never, messageId: 'x' });
+    expect(m.cancelDraft).toHaveBeenCalledWith({}, 'M', 'the lobby was started.');
+  });
+
+  it('still syncs when draft cancel fails', async () => {
+    m.resolveHost.mockResolvedValue({ match: { id: 'M' } });
+    m.startMatch.mockResolvedValue({ id: 'M' });
+    m.cancelDraft.mockRejectedValue(new Error('db'));
+    await expect(
+      startLobbyMatch({ client: {} as never, hostDiscordId: 'h' }),
+    ).resolves.toBeDefined();
+    expect(m.sync).toHaveBeenCalled();
+  });
+
+  it('does not cancel draft when startMatch fails', async () => {
+    m.resolveHost.mockResolvedValue({ match: { id: 'M' } });
+    m.startMatch.mockRejectedValue(new Error('nope'));
+    await expect(startLobbyMatch({ client: {} as never, hostDiscordId: 'h' })).rejects.toThrow();
+    expect(m.cancelDraft).not.toHaveBeenCalled();
   });
 });
