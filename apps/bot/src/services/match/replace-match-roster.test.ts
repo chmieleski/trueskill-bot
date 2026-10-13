@@ -20,7 +20,7 @@ const {
   playerRatingCreateMany,
   playerHeroRatingCreateMany,
   lobbyDraftFindFirst,
-  lobbyDraftUpdate,
+  lobbyDraftUpdateMany,
 } = vi.hoisted(() => ({
   matchFindUnique: vi.fn(),
   prismaTransaction: vi.fn(),
@@ -38,7 +38,7 @@ const {
   playerRatingCreateMany: vi.fn(),
   playerHeroRatingCreateMany: vi.fn(),
   lobbyDraftFindFirst: vi.fn(),
-  lobbyDraftUpdate: vi.fn(),
+  lobbyDraftUpdateMany: vi.fn(),
 }));
 
 vi.mock('../../lib/prisma.js', () => ({
@@ -90,6 +90,7 @@ function pendingMatch(overrides: Record<string, unknown> = {}) {
 function stubTransaction(previousRows: PreviousRow[]) {
   matchPlayerFindMany.mockResolvedValue(previousRows);
   lobbyDraftFindFirst.mockResolvedValue(null);
+  lobbyDraftUpdateMany.mockResolvedValue({ count: 1 });
   matchFindUniqueInTx.mockResolvedValue(pendingMatch());
   matchPlayerDeleteMany.mockResolvedValue({ count: 0 });
   matchPlayerCreateMany.mockResolvedValue({ count: 0 });
@@ -128,7 +129,7 @@ function stubTransaction(previousRows: PreviousRow[]) {
       playerHeroRating: {
         createMany: playerHeroRatingCreateMany,
       },
-      lobbyDraft: { findFirst: lobbyDraftFindFirst, update: lobbyDraftUpdate },
+      lobbyDraft: { findFirst: lobbyDraftFindFirst, updateMany: lobbyDraftUpdateMany },
     };
     return fn(tx);
   });
@@ -555,10 +556,18 @@ describe('lobby draft freeze', () => {
     await replaceMatchRoster(MATCH_ID, [{ slot: 1, nick: 'a' }], {
       completeLobbyDraftId: 'draft-1',
     });
-    expect(lobbyDraftUpdate).toHaveBeenCalledWith({
-      where: { id: 'draft-1' },
+    expect(lobbyDraftUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'draft-1', status: 'ACTIVE' },
       data: { status: 'COMPLETE' },
     });
+  });
+
+  it('refuses finalize when the draft was cancelled concurrently', async () => {
+    lobbyDraftFindFirst.mockResolvedValue({ id: 'draft-1' });
+    lobbyDraftUpdateMany.mockResolvedValue({ count: 0 });
+    await expect(
+      replaceMatchRoster(MATCH_ID, [{ slot: 1, nick: 'a' }], { completeLobbyDraftId: 'draft-1' }),
+    ).rejects.toThrow('This captain draft is no longer active.');
   });
 
   it('refuses a stale finalize', async () => {
@@ -566,6 +575,6 @@ describe('lobby draft freeze', () => {
     await expect(
       replaceMatchRoster(MATCH_ID, [{ slot: 1, nick: 'a' }], { completeLobbyDraftId: 'draft-1' }),
     ).rejects.toThrow('This captain draft is no longer active.');
-    expect(lobbyDraftUpdate).not.toHaveBeenCalled();
+    expect(lobbyDraftUpdateMany).not.toHaveBeenCalled();
   });
 });

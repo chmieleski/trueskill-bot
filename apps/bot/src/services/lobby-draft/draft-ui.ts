@@ -197,8 +197,9 @@ export function buildLobbyDraftComponents(
   return rows;
 }
 
-export function buildVoteMenu(draftId: string, state: LobbyDraftState) {
+export function buildVoteMenu(draftId: string, state: LobbyDraftState, actorDiscordId: string) {
   const linked = linkedParticipants(state);
+  const mine = new Set(state.votes[actorDiscordId] ?? []);
   return {
     content:
       'Vote for up to 2 captains (you can vote for yourself). You can change your vote until time runs out.',
@@ -208,7 +209,11 @@ export function buildVoteMenu(draftId: string, state: LobbyDraftState) {
           .setCustomId(lobbyDraftCustomId('votesel', draftId))
           .setMinValues(1)
           .setMaxValues(Math.min(2, linked.length))
-          .addOptions(linked.slice(0, 25).map((p) => ({ label: p.nick, value: p.key }))),
+          .addOptions(
+            linked
+              .slice(0, 25)
+              .map((p) => ({ label: p.nick, value: p.key, default: mine.has(p.key) })),
+          ),
       ),
     ],
   };

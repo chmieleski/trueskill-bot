@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildHeroMenu,
+  buildVoteMenu,
   buildLobbyDraftComponents,
   lobbyDraftCustomId,
   parseLobbyDraftCustomId,
 } from './draft-ui.js';
 import { HERO_PICK_HELP } from './draft-types.js';
-import { PROFILE, pickingState } from './test-fixtures.js';
+import { initialLobbyDraftState } from './draft-types.js';
+import { PROFILE, person, pickingState } from './test-fixtures.js';
 
 const view = {
   profile: PROFILE,
@@ -53,5 +55,22 @@ describe('lobby draft ui', () => {
     expect(select.min_values).toBe(0);
     expect(select.max_values).toBe(2);
     expect(menu.content).toBe(HERO_PICK_HELP);
+  });
+
+  it('vote menu pre-selects the voter ballot', () => {
+    const s = {
+      ...initialLobbyDraftState(
+        ['A', 'B', 'C', 'D'].map((n) => person(n)),
+        null,
+      ),
+      votes: { 'id-A': ['b'] },
+    };
+    const menu = buildVoteMenu('d1', s, 'id-A');
+    const opts = menu.components[0]!.components[0]!.options.map((o) => [
+      o.data.value,
+      o.data.default,
+    ]);
+    expect(opts).toContainEqual(['b', true]);
+    expect(opts).toContainEqual(['a', false]);
   });
 });

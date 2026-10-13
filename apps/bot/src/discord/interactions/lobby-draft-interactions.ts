@@ -25,7 +25,6 @@ import {
   lockInHeroes,
   manageRemove,
   manageReplace,
-  nickOf,
   parseLobbyDraftCustomId,
   pickPlayer,
   setHeroPreferences,
@@ -62,12 +61,12 @@ async function route(interaction: DraftInteraction): Promise<boolean> {
 
   if (interaction.isButton() && interaction.customId === LOBBY_DRAFT_START_ID) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    await startLobbyDraft({
+    const draft = await startLobbyDraft({
       client,
       messageId: interaction.message.id,
       ...(await manageAuth(interaction)),
     });
-    await interaction.editReply({ content: 'Captain draft started — see the thread.' });
+    await interaction.editReply({ content: `Captain draft started — <#${draft.threadId}>.` });
     return true;
   }
 
@@ -80,7 +79,11 @@ async function route(interaction: DraftInteraction): Promise<boolean> {
       case 'vote':
         await ephemeral(
           interaction,
-          buildVoteMenu(draftId, await getVoteMenuForActor(draftId, actorDiscordId)),
+          buildVoteMenu(
+            draftId,
+            await getVoteMenuForActor(draftId, actorDiscordId),
+            actorDiscordId,
+          ),
         );
         return true;
       case 'hero': {
@@ -162,8 +165,11 @@ async function route(interaction: DraftInteraction): Promise<boolean> {
         return true;
       case 'mrep': {
         const key = interaction.values[0]!;
-        const state = await getManageMenuForActor(draftId, await manageAuth(interaction));
-        await interaction.showModal(buildReplaceModal(draftId, key, nickOf(state, key)));
+        // Take the nick from the selected option's label; auth is re-checked on submit.
+        const label = interaction.component.options.find((o) => o.value === key)?.label;
+        await interaction.showModal(
+          buildReplaceModal(draftId, key, label?.replace(/ 🔗$/, '') ?? key),
+        );
         return true;
       }
       default:

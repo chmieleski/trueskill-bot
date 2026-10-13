@@ -420,6 +420,10 @@ export function replaceParticipant(
       'A captain must be linked — remove the captain instead so a teammate takes over.',
     );
   }
+  if (!state.teams && !incoming.discordId) {
+    const linkedAfter = linkedParticipants(state).filter((p) => p.key !== outgoingKey).length;
+    if (linkedAfter < LOBBY_DRAFT_MIN_LINKED) throw new LobbyDraftError(NEED_2V2_MESSAGE);
+  }
   const swap = (k: string) => (k === outgoingKey ? incoming.key : k);
   const next: LobbyDraftState = {
     ...state,

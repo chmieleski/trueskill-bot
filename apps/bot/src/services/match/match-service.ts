@@ -736,7 +736,11 @@ export async function replaceMatchRoster(
       if (activeDraft?.id !== options.completeLobbyDraftId) {
         throw new MatchServiceError('This captain draft is no longer active.');
       }
-      await tx.lobbyDraft.update({ where: { id: activeDraft.id }, data: { status: 'COMPLETE' } });
+      const { count } = await tx.lobbyDraft.updateMany({
+        where: { id: activeDraft.id, status: 'ACTIVE' },
+        data: { status: 'COMPLETE' },
+      });
+      if (count === 0) throw new MatchServiceError('This captain draft is no longer active.');
     } else if (activeDraft) {
       throw new MatchServiceError(FROZEN_LOBBY_MESSAGE);
     }

@@ -43,6 +43,7 @@ vi.mock('../../lib/prisma.js', () => ({
     lobbyDraft: { updateMany: m.updateMany, update: m.update },
     $transaction: async (fn: (tx: unknown) => unknown) =>
       fn({
+        $executeRaw: async () => 1,
         lobbyDraft: {
           findFirst: async () => null,
           create: async () => row(initialLobbyDraftState([], null)),
@@ -56,10 +57,12 @@ import {
   getHeroMenuForActor,
   getVoteMenuForActor,
   lockInHeroes,
+  finalizeLobbyDraft,
   startLobbyDraft,
   syncLobbyDraftLiveMessage,
   voteCaptains,
 } from './draft-actions.js';
+import { prisma } from '../../lib/prisma.js';
 import { LobbyDraftConflictError } from './draft-types.js';
 import { initialLobbyDraftState } from './draft-types.js';
 import { person, pickingState } from './test-fixtures.js';
@@ -214,6 +217,47 @@ describe('lobby draft actions', () => {
     await syncLobbyDraftLiveMessage({ channels: { fetch } } as never, 'd1');
     expect(send).toHaveBeenCalled();
     expect(m.update).toHaveBeenCalledWith({ where: { id: 'd1' }, data: { liveMessageId: 'new' } });
+  });
+
+  it('finalizeLobbyDraft recovers an ACTIVE draft with heroResult set', async () => {
+    const heroResult = Object.fromEntries(
+      ['a', 'b', 'c', 'd'].map((k, i) => [k, { heroId: i + 1, how: 'pref' }]),
+    );
+    m.load.mockResolvedValue(row({ ...heroState(), heroResult }));
+    m.replaceMatchRoster.mockResolvedValue({ id: 'M' });
+    await finalizeLobbyDraft(client, 'd1');
+    expect(m.replaceMatchRoster).toHaveBeenCalled();
+  });
+
+  it('finalizeLobbyDraft ignores drafts without heroResult', async () => {
+    m.load.mockResolvedValue(row(heroState()));
+    await finalizeLobbyDraft(client, 'd1');
+    expect(m.replaceMatchRoster).not.toHaveBeenCalled();
+  });
+
+  it('thread log shows hero names for contested rolls', async () => {
+    const state = { ...heroState(), heroPrefs: { a: [1], c: [1] } };
+    const draft = row(state);
+    m.load.mockResolvedValue(draft);
+    m.save.mockResolvedValue(draft);
+    m.replaceMatchRoster.mockResolvedValue({ id: 'M' });
+    vi.mocked(prisma.hero.findMany).mockResolvedValue(
+      Array.from({ length: 12 }, (_, i) => ({ id: i + 1, name: `Hero${i + 1}` })) as never,
+    );
+    const send = vi.fn().mockResolvedValue({});
+    const fetch = vi.fn().mockResolvedValue({
+      isThread: () => true,
+      send,
+      messages: { fetch: vi.fn().mockResolvedValue(null) },
+    });
+    await lockInHeroes({
+      client: { channels: { fetch } } as never,
+      draftId: 'd1',
+      actorDiscordId: 'id-D',
+    });
+    const posted = send.mock.calls.map((c) => String(c[0]?.content ?? c[0])).join('\n');
+    expect(posted).toMatch(/won the roll for Hero\d+\./);
+    expect(posted).not.toContain('hero #');
   });
 
   it('menus refuse non-ACTIVE drafts', async () => {

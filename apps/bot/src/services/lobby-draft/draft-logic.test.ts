@@ -229,6 +229,16 @@ describe('replace', () => {
     expect(cap.log.at(-1)).toContain('Y replaced A');
   });
 
+  it('refuses an unlinked replacement that leaves too few linked players before captains', () => {
+    const s = initialLobbyDraftState(
+      [person('A'), person('B'), person('C', false), person('D', false)],
+      null,
+    );
+    expect(() => replaceParticipant(s, 'a', person('Z', false), PROFILE)).toThrow(
+      'Need at least 2v2',
+    );
+  });
+
   it('refuses unlinked captain replacement', () => {
     expect(() =>
       replaceParticipant(pickingState(['A', 'B', 'C', 'D']), 'a', person('Z', false), PROFILE),

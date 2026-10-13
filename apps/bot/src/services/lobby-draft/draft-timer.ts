@@ -1,5 +1,6 @@
 import type { Client } from 'discord.js';
 import { createLogger } from '../../lib/logger.js';
+import { LobbyDraftError } from './draft-types.js';
 import { listActiveLobbyDrafts, parseLobbyDraftState } from './draft-state.js';
 
 const log = createLogger('lobby_draft_timer');
@@ -39,6 +40,9 @@ export function scheduleLobbyDraftTimeout(
           await applyLobbyDraftTimeout({ client, draftId });
         } catch (error) {
           log.warn({ err: error, draftId }, 'Lobby draft timeout handler failed');
+          if (!(error instanceof LobbyDraftError)) {
+            scheduleLobbyDraftTimeout(client, draftId, new Date(Date.now() + 5000).toISOString());
+          }
         }
       })();
     },
@@ -51,11 +55,15 @@ export function scheduleLobbyDraftTimeout(
 export async function rehydrateLobbyDraftTimers(client: Client): Promise<void> {
   const drafts = await listActiveLobbyDrafts();
   log.info({ count: drafts.length }, 'Rehydrating lobby draft timers');
-  const { syncLobbyDraftLiveMessage } = await import('./draft-actions.js');
+  const { finalizeLobbyDraft, syncLobbyDraftLiveMessage } = await import('./draft-actions.js');
 
   for (const draft of drafts) {
     try {
-      const { deadlineAt } = parseLobbyDraftState(draft);
+      const { deadlineAt, heroResult } = parseLobbyDraftState(draft);
+      if (heroResult) {
+        await finalizeLobbyDraft(client, draft.id);
+        continue;
+      }
       if (!deadlineAt) continue;
       scheduleLobbyDraftTimeout(client, draft.id, deadlineAt);
       await syncLobbyDraftLiveMessage(client, draft.id);

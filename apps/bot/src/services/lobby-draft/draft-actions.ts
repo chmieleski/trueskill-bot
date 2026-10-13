@@ -90,7 +90,12 @@ async function postUpdate(
   prev: LobbyDraftState,
   next: LobbyDraftState,
 ) {
-  const lines = next.log.slice(prev.log.length);
+  const heroNames = next.heroResult
+    ? (await loadView(await getGameProfileForLeague(draft.leagueId))).heroNames
+    : new Map<number, string>();
+  const lines = next.log
+    .slice(prev.log.length)
+    .map((l) => l.replace(/hero #(\d+)/g, (m0, id: string) => heroNames.get(Number(id)) ?? m0));
   const mentions: string[] = [];
   if (clockChanged(prev, next)) {
     const key = onClockCaptainKey(next);
@@ -166,10 +171,24 @@ async function finalize(client: Client, draft: LobbyDraft, state: LobbyDraftStat
   await (
     await threadChannel(client, draft.threadId)
   )
-    ?.send('✅ Lobby updated with the drafted teams and heroes.')
+    ?.send(
+      match.discordMessageId && match.discordChannelId
+        ? `✅ Lobby updated with the drafted teams and heroes: https://discord.com/channels/${draft.guildId}/${match.discordChannelId}/${match.discordMessageId}`
+        : '✅ Lobby updated with the drafted teams and heroes.',
+    )
     .catch((error: unknown) =>
       log.warn({ err: error, draftId: draft.id }, 'Failed to post draft completion'),
     );
+}
+
+/** Re-run finalize for an ACTIVE draft whose heroes were assigned but never applied. */
+export async function finalizeLobbyDraft(client: Client, draftId: string): Promise<void> {
+  const draft = await loadLobbyDraftById(draftId);
+  if (draft.status !== 'ACTIVE') return;
+  const state = parseLobbyDraftState(draft);
+  if (!state.heroResult) return;
+  await finalize(client, draft, state);
+  await syncLobbyDraftLiveMessage(client, draftId);
 }
 
 /**
@@ -262,8 +281,9 @@ export async function startLobbyDraft(
 
   let draft: LobbyDraft;
   try {
-    // ponytail: check-then-create inside one tx; two clicks in the same ms could still race. Add a partial unique index if it ever happens.
     draft = await prisma.$transaction(async (tx) => {
+      // Serialize concurrent starts for the same match (released at commit).
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${match.id}))`;
       if (await tx.lobbyDraft.findFirst({ where: { matchId: match.id, status: 'ACTIVE' } })) {
         throw new LobbyDraftError('A captain draft is already running for this lobby.');
       }
@@ -307,7 +327,10 @@ export async function startLobbyDraft(
     });
     scheduleLobbyDraftTimeout(input.client, draft.id, state.deadlineAt);
   } catch (error) {
-    await cancelLobbyDraft(input.client, draft.id, 'the draft could not be set up.');
+    await cancelLobbyDraft(input.client, draft.id, 'the draft could not be set up.').catch(
+      (cancelError: unknown) =>
+        log.warn({ err: cancelError, draftId: draft.id }, 'Failed to roll back draft setup'),
+    );
     throw error;
   }
   log.info({ draftId: draft.id, matchId: match.id }, 'Lobby captain draft started');
