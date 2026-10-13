@@ -36,3 +36,14 @@ export async function setShowSideWinLoss(leagueId: string, enabled: boolean): Pr
     data: { showSideWinLoss: enabled },
   });
 }
+
+/** Enable or disable the lobby "Captain draft" button for this league. */
+export async function setLobbyCaptainDraftEnabled(
+  leagueId: string,
+  enabled: boolean,
+): Promise<void> {
+  await prisma.league.update({
+    where: { id: leagueId },
+    data: { lobbyCaptainDraftEnabled: enabled },
+  });
+}

@@ -16,6 +16,7 @@ import {
   balanceModeFromFlags,
   parseBalanceMode,
   setBalanceMode,
+  setLobbyCaptainDraftEnabled,
   setShowSideWinLoss,
 } from './league-balance-config.js';
 
@@ -70,6 +71,17 @@ describe('setShowSideWinLoss', () => {
     expect(update).toHaveBeenCalledWith({
       where: { id: 'league-1' },
       data: { showSideWinLoss: false },
+    });
+  });
+});
+
+describe('setLobbyCaptainDraftEnabled', () => {
+  it('writes the flag on the league row', async () => {
+    update.mockResolvedValue({});
+    await setLobbyCaptainDraftEnabled('league-1', true);
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'league-1' },
+      data: { lobbyCaptainDraftEnabled: true },
     });
   });
 });

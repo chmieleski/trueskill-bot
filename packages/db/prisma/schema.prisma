@@ -75,6 +75,8 @@ model League {
   balanceStaticSigmaEnabled      Boolean      @default(false)
   /// Lobby win% / Balance use display-ki strength (μ − z·σ, fixed σ) instead of μ/σ. predictWin only.
   balanceKiStrengthEnabled       Boolean      @default(false)
+  /// Lobby "Captain draft" button (vote captains → snake → side → hero pick). UDBR only.
+  lobbyCaptainDraftEnabled       Boolean      @default(false)
   seasonEndsAt                   DateTime?
   crunchStartedAt                DateTime?
   // Nullable overrides — null means use code defaults in decay-settings.ts
@@ -659,4 +661,26 @@ model HeroDraft {
   @@index([guildId, status])
   @@index([threadId])
   @@index([guildId, parentChannelId, status])
+}
+
+/// Lobby captain draft (vote → snake → side → simultaneous hero pick); one public thread per draft.
+model LobbyDraft {
+  id              String   @id @default(cuid())
+  guildId         String
+  leagueId        String
+  matchId         String
+  parentChannelId String
+  threadId        String
+  /// Lobby host at draft start (manage/cancel auth uses host-or-mod).
+  hostDiscordId   String
+  /// ACTIVE | COMPLETE | CANCELLED
+  status          String
+  state           Json
+  liveMessageId   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([matchId, status])
+  @@index([guildId, status])
+  @@index([threadId])
 }

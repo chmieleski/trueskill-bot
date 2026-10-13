@@ -31,6 +31,7 @@ import {
 import {
   parseBalanceMode,
   setBalanceMode,
+  setLobbyCaptainDraftEnabled,
   setShowSideWinLoss,
 } from '../../services/league/league-balance-config.js';
 import {
@@ -238,6 +239,19 @@ export const data = new SlashCommandBuilder()
               option
                 .setName('enabled')
                 .setDescription('On: side W–L on /rank. Off: hide it.')
+                .setRequired(true),
+            ),
+        ),
+      )
+      .addSubcommand((subcommand) =>
+        withSubcommandLeagueOption(
+          subcommand
+            .setName('captain_draft')
+            .setDescription('Show the lobby Captain draft button (UDBR)')
+            .addBooleanOption((option) =>
+              option
+                .setName('enabled')
+                .setDescription('On: hosts/mods can start a captain draft from the lobby.')
                 .setRequired(true),
             ),
         ),
@@ -707,6 +721,23 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       );
       await interaction.reply({
         content: enabled ? 'Side W–L line enabled on /rank.' : 'Side W–L line disabled on /rank.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (subcommand === 'captain_draft') {
+      const leagueId = await requireLeagueId(interaction);
+      if (!leagueId) return;
+
+      const enabled = interaction.options.getBoolean('enabled', true);
+      await setLobbyCaptainDraftEnabled(leagueId, enabled);
+      log.info(
+        { guildId: interaction.guildId, leagueId, enabled, userId: interaction.user.id },
+        'Lobby captain draft setting updated',
+      );
+      await interaction.reply({
+        content: enabled ? 'Lobby captain draft enabled.' : 'Lobby captain draft disabled.',
         flags: MessageFlags.Ephemeral,
       });
       return;
