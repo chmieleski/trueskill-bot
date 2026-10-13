@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getGameProfile } from '../../domain/game-profile.js';
 import { WARCRAFT3_WOS_GAME_ID } from '../../domain/games.js';
+import { FROZEN_LOBBY_MESSAGE } from '../lobby-draft/draft-types.js';
 
 const {
   matchFindUnique,
@@ -541,8 +542,12 @@ describe('lobby draft freeze', () => {
   it('blocks roster writes while a draft is active', async () => {
     lobbyDraftFindFirst.mockResolvedValue({ id: 'draft-1' });
     await expect(replaceMatchRoster(MATCH_ID, [{ slot: 1, nick: 'a' }])).rejects.toThrow(
-      'A captain draft is running for this lobby.',
+      FROZEN_LOBBY_MESSAGE,
     );
+    expect(matchPlayerDeleteMany).not.toHaveBeenCalled();
+    expect(matchPlayerCreate).not.toHaveBeenCalled();
+    expect(matchPlayerCreateMany).not.toHaveBeenCalled();
+    expect(matchPlayerUpdate).not.toHaveBeenCalled();
   });
 
   it('lets the finalizing draft write and marks it COMPLETE', async () => {
@@ -561,5 +566,6 @@ describe('lobby draft freeze', () => {
     await expect(
       replaceMatchRoster(MATCH_ID, [{ slot: 1, nick: 'a' }], { completeLobbyDraftId: 'draft-1' }),
     ).rejects.toThrow('This captain draft is no longer active.');
+    expect(lobbyDraftUpdate).not.toHaveBeenCalled();
   });
 });
