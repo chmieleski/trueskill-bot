@@ -306,6 +306,7 @@ export function heroLockedInCount(state: LobbyDraftState): number {
 
 function heroActor(state: LobbyDraftState, actorDiscordId: string): { key: string; side: TeamId } {
   assertPhase(state, 'HERO');
+  if (state.heroResult) throw new LobbyDraftError(STALE_ACTION_MESSAGE);
   const actor = participantByDiscordId(state, actorDiscordId);
   const t = actor ? teamOfKey(state, actor.key) : null;
   const side = t === null ? null : requireTeams(state)[t].side;
@@ -347,6 +348,7 @@ export function resolveHeroPhase(
   rng: Rng = Math.random,
 ): LobbyDraftState {
   assertPhase(state, 'HERO');
+  if (state.heroResult) throw new LobbyDraftError(STALE_ACTION_MESSAGE);
   const heroResult: Record<string, HeroAssignment> = Object.assign(
     {},
     ...requireTeams(state).map((team) =>
@@ -361,4 +363,164 @@ export function resolveHeroPhase(
     .filter(([, a]) => a.how === 'contested')
     .map(([key, a]) => `🎲 ${nickOf(state, key)} won the roll for hero #${a.heroId}.`);
   return withLog({ ...state, heroResult }, '🦸 Heroes assigned.', ...lines);
+}
+
+/** Final team sizes if the remaining pool is drafted in snake order. */
+export function projectedTeamSizes(state: LobbyDraftState): [number, number] {
+  const teams = requireTeams(state);
+  const sizes: [number, number] = [teams[0].roster.length, teams[1].roster.length];
+  for (let i = 0; i < state.pool.length; i += 1) {
+    sizes[pickingTeam({ ...state, pickIndex: state.pickIndex + i })] += 1;
+  }
+  return sizes;
+}
+
+/** Drop a leaver's ballot (by voter id) and every vote cast for them (by key). */
+function withoutVotesFor(votes: LobbyDraftState['votes'], key: string, voterId?: string) {
+  const next: LobbyDraftState['votes'] = {};
+  for (const [voter, keys] of Object.entries(votes)) {
+    if (voter === voterId) continue;
+    const kept = keys.filter((k) => k !== key);
+    if (kept.length > 0) next[voter] = kept;
+  }
+  return next;
+}
+
+function withoutKey<T>(record: Record<string, T>, key: string): Record<string, T> {
+  return Object.fromEntries(Object.entries(record).filter(([k]) => k !== key));
+}
+
+/** Newcomer takes the leaver's seat as-is (pool, roster, captaincy). */
+export function replaceParticipant(
+  state: LobbyDraftState,
+  outgoingKey: string,
+  incoming: LobbyDraftParticipant,
+  profile: GameProfile,
+  rng: Rng = Math.random,
+): LobbyDraftState {
+  const outgoing = findParticipant(state, outgoingKey);
+  if (!outgoing) {
+    throw new LobbyDraftError('Participant not found.');
+  }
+  if (
+    findParticipant(state, incoming.key) ||
+    (incoming.discordId && participantByDiscordId(state, incoming.discordId))
+  ) {
+    throw new LobbyDraftError('That player is already in this draft.');
+  }
+  const isCaptain = state.teams?.some((t) => t.captainKey === outgoingKey) ?? false;
+  if (isCaptain && !incoming.discordId) {
+    throw new LobbyDraftError(
+      'A captain must be linked — remove the captain instead so a teammate takes over.',
+    );
+  }
+  const swap = (k: string) => (k === outgoingKey ? incoming.key : k);
+  const next: LobbyDraftState = {
+    ...state,
+    participants: state.participants.map((p) => (p.key === outgoingKey ? incoming : p)),
+    pool: state.pool.map(swap),
+    teams: state.teams
+      ? (state.teams.map((t) => ({
+          ...t,
+          captainKey: swap(t.captainKey),
+          roster: t.roster.map(swap),
+        })) as [LobbyDraftTeam, LobbyDraftTeam])
+      : null,
+    votes: withoutVotesFor(state.votes, outgoingKey, outgoing.discordId),
+    heroPrefs: withoutKey(state.heroPrefs, outgoingKey),
+    heroLockedIn: state.heroLockedIn.filter((k) => k !== outgoingKey),
+  };
+  return closeEarlyIfDone(
+    withLog(next, `🔁 ${incoming.nick} replaced ${outgoing.nick}.`),
+    profile,
+    rng,
+  );
+}
+
+/**
+ * Remove a leaver. Refused when the draft could no longer end at least 2v2.
+ * A removed captain is succeeded by the earliest-drafted linked teammate,
+ * else a random linked pool player, else the removal is refused.
+ */
+export function removeParticipant(
+  state: LobbyDraftState,
+  key: string,
+  profile: GameProfile,
+  rng: Rng = Math.random,
+): LobbyDraftState {
+  const outgoing = findParticipant(state, key);
+  if (!outgoing) {
+    throw new LobbyDraftError('Participant not found.');
+  }
+  const participants = state.participants.filter((p) => p.key !== key);
+  if (participants.length < LOBBY_DRAFT_MIN_PLAYERS) {
+    throw new LobbyDraftError(NEED_2V2_MESSAGE);
+  }
+  let next: LobbyDraftState = {
+    ...state,
+    participants,
+    pool: state.pool.filter((k) => k !== key),
+    votes: withoutVotesFor(state.votes, key, outgoing.discordId),
+    heroPrefs: withoutKey(state.heroPrefs, key),
+    heroLockedIn: state.heroLockedIn.filter((k) => k !== key),
+  };
+  const lines = [`➖ ${outgoing.nick} was removed.`];
+
+  if (!next.teams) {
+    if (linkedParticipants(next).length < LOBBY_DRAFT_MIN_LINKED) {
+      throw new LobbyDraftError(NEED_2V2_MESSAGE);
+    }
+  } else {
+    const isLinked = (k: string) => Boolean(findParticipant(next, k)?.discordId);
+    const teams = next.teams.map((team) => {
+      if (!team.roster.includes(key)) return team;
+      const roster = team.roster.filter((k) => k !== key);
+      if (team.captainKey !== key) return { ...team, roster };
+      let successor = roster.find(isLinked);
+      if (!successor) {
+        successor = shuffle(next.pool.filter(isLinked), rng)[0];
+        if (!successor) {
+          throw new LobbyDraftError('No linked player can take over as captain — replace instead.');
+        }
+        const taken = successor;
+        next = { ...next, pool: next.pool.filter((k) => k !== taken) };
+        roster.unshift(successor);
+      }
+      lines.push(`👑 ${nickOf(next, successor)} is now captain.`);
+      return {
+        ...team,
+        captainKey: successor,
+        roster: [successor, ...roster.filter((k) => k !== successor)],
+      };
+    }) as [LobbyDraftTeam, LobbyDraftTeam];
+    next = { ...next, teams };
+    if (projectedTeamSizes(next).some((n) => n < 2)) {
+      throw new LobbyDraftError(NEED_2V2_MESSAGE);
+    }
+    if (next.phase === 'PICK' && next.pool.length === 0) {
+      next = { ...next, phase: phaseAfterPicks(next) };
+    }
+  }
+  return closeEarlyIfDone(withLog(next, ...lines), profile, rng);
+}
+
+/** Deadline passed: act at random for whoever is on the clock. */
+export function applyTimeout(
+  state: LobbyDraftState,
+  profile: GameProfile,
+  rng: Rng = Math.random,
+): LobbyDraftState {
+  const timedOut = withLog(state, '⏱️ Time ran out — choosing at random.');
+  switch (state.phase) {
+    case 'VOTE':
+      return closeVote(withLog(state, '⏱️ Voting closed.'), rng);
+    case 'COIN_CHOICE':
+      return chooseCoin(timedOut, rng() < 0.5 ? 'FIRST_PICK' : 'SIDE');
+    case 'PICK':
+      return applyPick(timedOut, shuffle(state.pool, rng)[0]!);
+    case 'SIDE':
+      return applySide(timedOut, rng() < 0.5 ? 1 : 2, profile.teamNames);
+    case 'HERO':
+      return resolveHeroPhase(withLog(state, '⏱️ Hero pick closed.'), profile, rng);
+  }
 }

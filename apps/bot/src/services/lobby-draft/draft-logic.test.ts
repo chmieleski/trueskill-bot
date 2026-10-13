@@ -5,7 +5,12 @@ import {
   assertCanStartLobbyDraft,
   assertOnClock,
   castVote,
+  applyTimeout,
   chooseCoin,
+  clockChanged,
+  projectedTeamSizes,
+  removeParticipant,
+  replaceParticipant,
   closeVote,
   heroIdsForSide,
   lockInHero,
@@ -203,5 +208,94 @@ describe('hero phase', () => {
   it('resolveHeroPhase works on timeout with partial prefs', () => {
     const s = setHeroPrefs(heroState(), 'id-A', [3], PROFILE);
     expect(resolveHeroPhase(s, PROFILE).heroResult!.a).toEqual({ heroId: 3, how: 'wanted' });
+  });
+
+  it('rejects hero actions once heroes are resolved', () => {
+    const s = resolveHeroPhase(heroState(), PROFILE);
+    expect(() => lockInHero(s, 'id-A', PROFILE)).toThrow('That action is no longer valid.');
+    expect(() => setHeroPrefs(s, 'id-A', [1], PROFILE)).toThrow('That action is no longer valid.');
+    expect(() => resolveHeroPhase(s, PROFILE)).toThrow('That action is no longer valid.');
+  });
+});
+
+describe('replace', () => {
+  it('newcomer takes the seat as-is (pool, roster, captain)', () => {
+    const s = pickingState(['A', 'B', 'C', 'D', 'E']);
+    const next = replaceParticipant(s, 'c', person('Z'), PROFILE);
+    expect(next.pool).toContain('z');
+    expect(next.pool).not.toContain('c');
+    const cap = replaceParticipant(s, 'a', person('Y'), PROFILE);
+    expect(cap.teams![0]).toMatchObject({ captainKey: 'y', roster: ['y'] });
+    expect(cap.log.at(-1)).toContain('Y replaced A');
+  });
+
+  it('refuses unlinked captain replacement', () => {
+    expect(() =>
+      replaceParticipant(pickingState(['A', 'B', 'C', 'D']), 'a', person('Z', false), PROFILE),
+    ).toThrow('A captain must be linked');
+  });
+
+  it('refuses someone already in the draft', () => {
+    expect(() =>
+      replaceParticipant(pickingState(['A', 'B', 'C', 'D']), 'c', person('D'), PROFILE),
+    ).toThrow('already in this draft');
+  });
+
+  it('drops the leaver ballot and votes for them', () => {
+    const players = ['A', 'B', 'C', 'D', 'E'].map((n) => person(n));
+    const s: LobbyDraftState = {
+      ...initialLobbyDraftState(players, null),
+      votes: { 'id-C': ['a'], 'id-A': ['c', 'b'] },
+    };
+    const next = replaceParticipant(s, 'c', person('Z'), PROFILE);
+    expect(next.votes).toEqual({ 'id-A': ['b'] });
+  });
+});
+
+describe('remove', () => {
+  it('refuses when the draft could not end 2v2', () => {
+    expect(() => removeParticipant(pickingState(['A', 'B', 'C', 'D']), 'c', PROFILE)).toThrow(
+      'Need at least 2v2',
+    );
+  });
+
+  it('captain succession: earliest-drafted linked teammate, else linked pool player', () => {
+    let s = pickingState(['A', 'B', 'C', 'D', 'E', 'F']);
+    s = applyPick(s, 'c'); // team 0: a, c
+    const next = removeParticipant(s, 'a', PROFILE);
+    expect(next.teams![0]).toMatchObject({ captainKey: 'c', roster: ['c'] });
+
+    const fresh = pickingState(['A', 'B', 'C', 'D', 'E', 'F']);
+    const fromPool = removeParticipant(fresh, 'a', PROFILE, () => 0);
+    expect(fromPool.teams![0].roster).toHaveLength(1);
+    expect(fromPool.pool).not.toContain(fromPool.teams![0].captainKey);
+  });
+
+  it('clockChanged when on-clock captain changes', () => {
+    const s = pickingState(['A', 'B', 'C', 'D', 'E', 'F'], 0);
+    const next = removeParticipant(s, 'a', PROFILE, () => 0);
+    expect(clockChanged(s, next)).toBe(true);
+    expect(clockChanged(s, removeParticipant(s, 'f', PROFILE))).toBe(false);
+  });
+
+  it('projects final sizes from remaining snake picks', () => {
+    expect(projectedTeamSizes(pickingState(['A', 'B', 'C', 'D', 'E']))).toEqual([2, 3]);
+  });
+});
+
+describe('applyTimeout', () => {
+  it('auto-acts per phase', () => {
+    const pick = applyTimeout(pickingState(['A', 'B', 'C', 'D']), PROFILE, () => 0);
+    expect(pick.pickIndex).toBe(1);
+    expect(pick.log.some((l) => l.includes('⏱️'))).toBe(true);
+
+    const vote = applyTimeout(
+      initialLobbyDraftState(
+        ['A', 'B', 'C', 'D'].map((n) => person(n)),
+        null,
+      ),
+      PROFILE,
+    );
+    expect(vote.phase).toBe('COIN_CHOICE');
   });
 });
