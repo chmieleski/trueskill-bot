@@ -1,3 +1,10 @@
+# [1.92.0](https://github.com/chmieleski/trueskill-bot/compare/v1.91.0...v1.92.0) (2026-10-13)
+
+
+### Features
+
+* **lobby-draft:** list finished roster by slot ([#233](https://github.com/chmieleski/trueskill-bot/issues/233)) ([2a2f7f5](https://github.com/chmieleski/trueskill-bot/commit/2a2f7f58aa5224ed54958c23e91dcc0a9b667e58))
+
 # [1.91.0](https://github.com/chmieleski/trueskill-bot/compare/v1.90.0...v1.91.0) (2026-10-13)
 
 
