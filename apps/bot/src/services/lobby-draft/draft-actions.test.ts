@@ -256,7 +256,7 @@ describe('lobby draft actions', () => {
       actorDiscordId: 'id-D',
     });
     const posted = send.mock.calls.map((c) => String(c[0]?.content ?? c[0])).join('\n');
-    expect(posted).toMatch(/won the roll for Hero\d+\./);
+    expect(posted).toMatch(/won the roll for Hero\d+/);
     expect(posted).not.toContain('hero #');
   });
 

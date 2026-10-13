@@ -154,7 +154,7 @@ export function buildLobbyDraftComponents(
     rows.push(
       new ActionRowBuilder<ButtonBuilder>().addComponents(
         button(lobbyDraftCustomId('coin', draftId, 'FIRST_PICK'), 'First pick'),
-        button(lobbyDraftCustomId('coin', draftId, 'SIDE'), 'Side choice'),
+        button(lobbyDraftCustomId('coin', draftId, 'SIDE'), 'Pick side'),
       ),
     );
   } else if (state.phase === 'PICK' && state.pool.length > 0) {
