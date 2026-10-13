@@ -95,7 +95,7 @@ Discord `customId`s use the `ldraft:` prefix and route through the existing inte
 
 ### Start
 
-Host/mod clicks **Captain draft** (button visible when flag on, profile `slot_bound`, match PENDING). Validation: no ACTIVE draft for match, ≥2 linked players, ≥2 players total. Bot creates a public thread on the lobby message (`Draft – <lobby #>`), persists the draft, posts:
+Host/mod clicks **Captain draft** (button visible when flag on, profile `slot_bound`, match PENDING). Validation: no ACTIVE draft for match, ≥2 linked players, ≥4 players total (minimum 2v2). Bot creates a public thread on the lobby message (`Draft – <lobby #>`), persists the draft, posts:
 
 > ⚔️ Captain draft for this lobby. @A @B @C … Unlinked: `Nick1`, `Nick2`. The lobby is frozen until the draft ends or is cancelled.
 
@@ -134,10 +134,10 @@ Host/mod **Cancel draft**, or the lobby is cancelled/started → draft CANCELLED
 ## Leavers — Manage (host/mod)
 
 - **Replace player**: new person (linked Discord user or typed nick) takes the seat as-is — pool, team, captaincy, chosen hero. Linked newcomer is pinged. Refused if newcomer is already in the draft.
-- **Remove player**: seat dropped. Unbalanced teams allowed while each team keeps ≥1 player.
+- **Remove player**: seat dropped. Unbalanced teams allowed, but the draft must still end at least 2v2: a removal that would make that impossible (fewer than 4 participants, or a team that can no longer reach 2) is refused with "Need at least 2v2 — replace the player or cancel the draft."
   - Removed captain → team's earliest-drafted player becomes captain; if none, a random linked pool player.
   - Their votes are dropped, and votes for them are ignored.
-  - If removal empties a team, or leaves <2 linked players before captains are set, the draft is cancelled with a notice.
+  - If removal would leave <2 linked players before captains are set, it is refused with the same message.
 - Phase and timer continue; if the affected person is the one on the clock, the deadline restarts for the replacement/successor.
 - Every change is logged in the thread ("🔁 Goku_BR replaced Vegeta77 (Team Goku)").
 
