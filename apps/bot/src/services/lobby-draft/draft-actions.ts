@@ -3,6 +3,7 @@ import {
   RESTJSONErrorCodes,
   ThreadAutoArchiveDuration,
   type Client,
+  type MessageCreateOptions,
 } from 'discord.js';
 import type { LobbyDraft } from '@dbz/db';
 import type { GameProfile } from '../../domain/game-profile.js';
@@ -108,6 +109,34 @@ async function threadChannel(client: Client, threadId: string) {
   return channel?.isThread() ? channel : null;
 }
 
+/** Bot notices kept below the live message; older ones are deleted so the buttons stay in view. */
+const KEEP_NOTICE_LINES = 6;
+
+/** Post a notice in the draft thread, then delete older bot notices beyond {@link KEEP_NOTICE_LINES}. */
+async function postNotice(
+  client: Client,
+  draft: LobbyDraft,
+  message: string | MessageCreateOptions,
+): Promise<void> {
+  const thread = await threadChannel(client, draft.threadId);
+  if (!thread) return;
+  try {
+    await thread.send(message);
+    const recent = await thread.messages.fetch({ limit: 50 });
+    const notices = [...recent.values()]
+      .filter((m) => m.author.id === client.user?.id && m.id !== draft.liveMessageId && !m.system)
+      .sort((a, b) => b.createdTimestamp - a.createdTimestamp);
+    let lines = 0;
+    const stale = notices.filter((m, i) => {
+      lines += m.content.split('\n').length;
+      return i > 0 && lines > KEEP_NOTICE_LINES;
+    });
+    await Promise.all(stale.map((m) => m.delete().catch(() => undefined)));
+  } catch (error) {
+    log.warn({ err: error, draftId: draft.id }, 'Failed to post draft notice');
+  }
+}
+
 /** What the captain on the clock must do now (bold = the button to press). */
 function clockAction(state: LobbyDraftState, teamNames: { 1: string; 2: string }): string {
   switch (state.phase) {
@@ -150,15 +179,10 @@ async function postUpdate(
     }
   }
   if (lines.length === 0) return;
-  const thread = await threadChannel(client, draft.threadId);
-  await thread
-    ?.send({
-      content: lines.join('\n').slice(0, 2000),
-      allowedMentions: { users: mentions },
-    })
-    .catch((error: unknown) =>
-      log.warn({ err: error, draftId: draft.id }, 'Failed to post draft update'),
-    );
+  await postNotice(client, draft, {
+    content: lines.join('\n').slice(0, 2000),
+    allowedMentions: { users: mentions },
+  });
 }
 
 export async function syncLobbyDraftLiveMessage(client: Client, draftId: string): Promise<void> {
@@ -207,17 +231,13 @@ async function finalize(client: Client, draft: LobbyDraft, state: LobbyDraftStat
   await syncLobbyDiscordMessage(client, match, 'pending').catch((error: unknown) =>
     log.warn({ err: error, draftId: draft.id }, 'Failed to sync lobby message after draft'),
   );
-  await (
-    await threadChannel(client, draft.threadId)
-  )
-    ?.send(
-      match.discordMessageId && match.discordChannelId
-        ? `✅ Lobby updated with the drafted teams and heroes: https://discord.com/channels/${draft.guildId}/${match.discordChannelId}/${match.discordMessageId}`
-        : '✅ Lobby updated with the drafted teams and heroes.',
-    )
-    .catch((error: unknown) =>
-      log.warn({ err: error, draftId: draft.id }, 'Failed to post draft completion'),
-    );
+  await postNotice(
+    client,
+    draft,
+    match.discordMessageId && match.discordChannelId
+      ? `✅ Lobby updated with the drafted teams and heroes: https://discord.com/channels/${draft.guildId}/${match.discordChannelId}/${match.discordMessageId}`
+      : '✅ Lobby updated with the drafted teams and heroes.',
+  );
 }
 
 /** Re-run finalize for an ACTIVE draft whose heroes were assigned but never applied. */
@@ -467,16 +487,10 @@ export async function manageReplace(
     replaceParticipant(s, input.key, incoming, p),
   );
   if (incoming.discordId) {
-    await (
-      await threadChannel(input.client, draft.threadId)
-    )
-      ?.send({
-        content: `<@${incoming.discordId}> you joined this captain draft.`,
-        allowedMentions: { users: [incoming.discordId] },
-      })
-      .catch((error: unknown) =>
-        log.warn({ err: error, draftId: draft.id }, 'Failed to post join notice'),
-      );
+    await postNotice(input.client, draft, {
+      content: `<@${incoming.discordId}> you joined this captain draft.`,
+      allowedMentions: { users: [incoming.discordId] },
+    });
   }
 }
 

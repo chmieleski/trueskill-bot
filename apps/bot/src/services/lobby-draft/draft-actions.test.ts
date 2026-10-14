@@ -261,6 +261,44 @@ describe('lobby draft actions', () => {
     expect(posted).not.toContain('hero #');
   });
 
+  it('deletes older bot notices beyond the line budget, keeping the live message', async () => {
+    const state = { ...heroState(), heroPrefs: { a: [1], c: [1] } };
+    const draft = { ...row(state), liveMessageId: 'live' };
+    m.load.mockResolvedValue(draft);
+    m.save.mockResolvedValue(draft);
+    m.replaceMatchRoster.mockResolvedValue({ id: 'M' });
+    vi.mocked(prisma.hero.findMany).mockResolvedValue([] as never);
+    const msg = (id: string, at: number, content: string, author = 'bot') => ({
+      id,
+      createdTimestamp: at,
+      content,
+      system: false,
+      author: { id: author },
+      delete: vi.fn().mockResolvedValue(undefined),
+    });
+    const msgs = [
+      msg('live', 0, 'a\nb\nc\nd\ne\nf\ng'),
+      msg('old', 1, 'x\ny'),
+      msg('user', 2, 'hi', 'human'),
+      msg('mid', 3, 'x\ny\nz'),
+      msg('new', 4, 'x\ny\nz'),
+    ];
+    const fetch = vi.fn().mockResolvedValue({
+      isThread: () => true,
+      send: vi.fn().mockResolvedValue({}),
+      messages: {
+        fetch: vi.fn().mockResolvedValue(new Map(msgs.map((x) => [x.id, x]))),
+      },
+    });
+    await lockInHeroes({
+      client: { channels: { fetch }, user: { id: 'bot' } } as never,
+      draftId: 'd1',
+      actorDiscordId: 'id-D',
+    });
+    const deleted = msgs.filter((x) => x.delete.mock.calls.length).map((x) => x.id);
+    expect(deleted).toEqual(['old']);
+  });
+
   it('menus refuse non-ACTIVE drafts', async () => {
     m.load.mockResolvedValue({ ...row(heroState()), status: 'CANCELLED' });
     await expect(getVoteMenuForActor('d1', 'id-A')).rejects.toThrow('no longer active');
