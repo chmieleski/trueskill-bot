@@ -132,13 +132,14 @@ describe('coin choice', () => {
 });
 
 describe('snake pick', () => {
-  it('follows A, B, B, A and moves to SIDE when the pool empties', () => {
+  it('follows A, B, B, A, auto-assigns the last player and moves to SIDE', () => {
     let state = pickingState(['A', 'B', 'C', 'D', 'E', 'F'], 0);
     expect([0, 1, 2, 3].map((i) => pickingTeam({ ...state, pickIndex: i }))).toEqual([0, 1, 1, 0]);
     state = applyPick(state, 'c');
     state = applyPick(state, 'd');
     state = applyPick(state, 'e');
-    state = applyPick(state, 'f');
+    expect(state.pool).toEqual([]);
+    expect(state.log.at(-1)).toBe('✅ A ➜ **F** (last pick)');
     expect(state.teams![0].roster).toEqual(['a', 'c', 'f']);
     expect(state.teams![1].roster).toEqual(['b', 'd', 'e']);
     expect(state.phase).toBe('SIDE');
@@ -153,7 +154,7 @@ describe('snake pick', () => {
         { ...state.teams![1], side: 2 },
       ],
     };
-    state = applyPick(applyPick(state, 'c'), 'd');
+    state = applyPick(state, 'c');
     expect(state.phase).toBe('HERO');
   });
 
@@ -308,7 +309,7 @@ describe('remove', () => {
 
 describe('applyTimeout', () => {
   it('auto-acts per phase', () => {
-    const pick = applyTimeout(pickingState(['A', 'B', 'C', 'D']), PROFILE, () => 0);
+    const pick = applyTimeout(pickingState(['A', 'B', 'C', 'D', 'E']), PROFILE, () => 0);
     expect(pick.pickIndex).toBe(1);
     // One line per timed-out pick: who ran out, who got picked.
     expect(pick.log.at(-1)).toMatch(/^⏱️ \w+ ran out of time ➜ \*\*\w+\*\* \(random\)$/);

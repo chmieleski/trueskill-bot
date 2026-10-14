@@ -200,7 +200,18 @@ function phaseAfterPicks(state: LobbyDraftState): LobbyDraftState['phase'] {
   return requireTeams(state)[0].side ? 'HERO' : 'SIDE';
 }
 
-export function applyPick(state: LobbyDraftState, key: string, timedOut = false): LobbyDraftState {
+/** One player left in the pool: there is no choice, so give them to the captain on the clock. */
+function autoLastPick(state: LobbyDraftState): LobbyDraftState {
+  return state.phase === 'PICK' && state.pool.length === 1
+    ? applyPick(state, state.pool[0]!, 'last')
+    : state;
+}
+
+export function applyPick(
+  state: LobbyDraftState,
+  key: string,
+  how: 'pick' | 'timeout' | 'last' = 'pick',
+): LobbyDraftState {
   assertPhase(state, 'PICK');
   const teams = requireTeams(state);
   if (!state.pool.includes(key)) {
@@ -217,11 +228,17 @@ export function applyPick(state: LobbyDraftState, key: string, timedOut = false)
     pool,
     pickIndex: state.pickIndex + 1,
   };
-  return withLog(
-    { ...next, phase: pool.length === 0 ? phaseAfterPicks(next) : 'PICK' },
-    timedOut
-      ? `⏱️ ${nickOf(state, teams[t].captainKey)} ran out of time ➜ **${nickOf(state, key)}** (random)`
-      : `✅ ${nickOf(state, teams[t].captainKey)} ➜ **${nickOf(state, key)}**`,
+  const captain = nickOf(state, teams[t].captainKey);
+  const player = nickOf(state, key);
+  return autoLastPick(
+    withLog(
+      { ...next, phase: pool.length === 0 ? phaseAfterPicks(next) : 'PICK' },
+      how === 'timeout'
+        ? `⏱️ ${captain} ran out of time ➜ **${player}** (random)`
+        : how === 'last'
+          ? `✅ ${captain} ➜ **${player}** (last pick)`
+          : `✅ ${captain} ➜ **${player}**`,
+    ),
   );
 }
 
@@ -240,9 +257,11 @@ export function applySide(
     LobbyDraftTeam,
   ];
   const sides = `**${nickOf(state, teams[chooser].captainKey)}** ➜ **${teamNames[side]}** · **${nickOf(state, teams[chooser === 0 ? 1 : 0].captainKey)}** ➜ **${teamNames[other]}**`;
-  return withLog(
-    { ...state, teams: nextTeams, phase: state.pool.length > 0 ? 'PICK' : 'HERO' },
-    timedOut ? `⏱️ Side picked at random: ${sides}` : `🛡️ Sides: ${sides}`,
+  return autoLastPick(
+    withLog(
+      { ...state, teams: nextTeams, phase: state.pool.length > 0 ? 'PICK' : 'HERO' },
+      timedOut ? `⏱️ Side picked at random: ${sides}` : `🛡️ Sides: ${sides}`,
+    ),
   );
 }
 
@@ -524,7 +543,7 @@ export function removeParticipant(
       next = { ...next, phase: phaseAfterPicks(next) };
     }
   }
-  return closeEarlyIfDone(withLog(next, ...lines), profile, rng);
+  return closeEarlyIfDone(autoLastPick(withLog(next, ...lines)), profile, rng);
 }
 
 /** Deadline passed: act at random for whoever is on the clock. */
@@ -539,7 +558,7 @@ export function applyTimeout(
     case 'COIN_CHOICE':
       return chooseCoin(state, rng() < 0.5 ? 'FIRST_PICK' : 'SIDE', true);
     case 'PICK':
-      return applyPick(state, shuffle(state.pool, rng)[0]!, true);
+      return applyPick(state, shuffle(state.pool, rng)[0]!, 'timeout');
     case 'SIDE':
       return applySide(state, rng() < 0.5 ? 1 : 2, profile.teamNames, true);
     case 'HERO':
