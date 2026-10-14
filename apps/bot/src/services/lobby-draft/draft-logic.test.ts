@@ -104,9 +104,14 @@ describe('coin choice', () => {
     sideChooserTeam: null,
   });
 
-  it('FIRST_PICK: winner picks first, loser chooses side', () => {
+  it('FIRST_PICK: loser chooses side before the winner picks first', () => {
     const next = chooseCoin(base(), 'FIRST_PICK');
-    expect(next).toMatchObject({ phase: 'PICK', firstPickTeam: 0, sideChooserTeam: 1 });
+    expect(next).toMatchObject({ phase: 'SIDE', firstPickTeam: 0, sideChooserTeam: 1 });
+    expect(onClockTeam(next)).toBe(1);
+    const sided = applySide(next, 1, PROFILE.teamNames);
+    expect(sided.teams!.map((t) => t.side)).toEqual([2, 1]);
+    expect(sided.phase).toBe('PICK');
+    expect(pickingTeam(sided)).toBe(0);
   });
 
   it('SIDE: winner chooses side now, loser picks first', () => {

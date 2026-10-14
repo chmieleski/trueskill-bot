@@ -177,9 +177,10 @@ export function chooseCoin(
   const winner = nickOf(state, teams[0].captainKey);
   const loser = nickOf(state, teams[1].captainKey);
   const lead = timedOut ? `⏱️ ${winner} ran out of time (random) —` : '🎯';
+  // Sides are always settled before the player picks, whichever option the winner takes.
   if (choice === 'FIRST_PICK') {
     return withLog(
-      { ...state, phase: 'PICK', firstPickTeam: 0, sideChooserTeam: 1 },
+      { ...state, phase: 'SIDE', firstPickTeam: 0, sideChooserTeam: 1 },
       `${lead} **${winner}** picks first · **${loser}** picks the side`,
     );
   }
