@@ -58,6 +58,7 @@ import {
   getHeroMenuForActor,
   getVoteMenuForActor,
   lockInHeroes,
+  setHeroPreferences,
   finalizeLobbyDraft,
   startLobbyDraft,
   syncLobbyDraftLiveMessage,
@@ -101,6 +102,34 @@ describe('lobby draft actions', () => {
     await voteCaptains({ client, draftId: 'd1', actorDiscordId: 'id-A', keys: ['a'] });
     expect(m.save).toHaveBeenCalledTimes(2);
     expect(m.load).toHaveBeenCalledTimes(3); // 2 attempts reload + 1 live-message sync
+  });
+
+  it('queues a fast Lock in behind the hero select so the last lock-in keeps the picks', async () => {
+    const base = pickingState(['A', 'B', 'C', 'D']);
+    let db = row({
+      ...base,
+      phase: 'HERO' as const,
+      pool: [],
+      teams: [
+        { captainKey: 'a', roster: ['a', 'c'], side: 1 as const },
+        { captainKey: 'b', roster: ['b', 'd'], side: 2 as const },
+      ] as typeof base.teams,
+      heroLockedIn: ['a', 'b', 'c'],
+    });
+    // Last-write-wins store: without the queue, Lock in saves over the select.
+    m.load.mockImplementation(async () => db);
+    m.save.mockImplementation(async (_draft: LobbyDraft, next: unknown) => {
+      await new Promise((r) => setTimeout(r, 5));
+      db = row(next);
+      return db;
+    });
+    m.replaceMatchRoster.mockResolvedValue({ id: 'M' });
+    await Promise.all([
+      setHeroPreferences({ client, draftId: 'd1', actorDiscordId: 'id-D', heroIds: [9] }),
+      lockInHeroes({ client, draftId: 'd1', actorDiscordId: 'id-D' }),
+    ]);
+    const players = m.replaceMatchRoster.mock.calls[0]![1] as Array<{ slot: number; nick: string }>;
+    expect(players.find((p) => p.nick === 'D')!.slot).toBe(9);
   });
 
   it('finalizes into the lobby when the last linked player locks in', async () => {

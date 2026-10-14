@@ -251,7 +251,7 @@ export async function finalizeLobbyDraft(client: Client, draftId: string): Promi
 }
 
 /**
- * Load → mutate → optimistic save (retrying on conflict) → side effects.
+ * Queued load → mutate → optimistic save (retrying on conflict) → side effects.
  * `mutate` must be pure so it can be re-run on fresh state.
  */
 async function mutateDraft(
@@ -259,6 +259,39 @@ async function mutateDraft(
   draftId: string,
   mutate: (state: LobbyDraftState, profile: GameProfile, draft: LobbyDraft) => LobbyDraftState,
 ): Promise<void> {
+  const { saved, prev, next } = await inDraftQueue(draftId, () => saveMutation(draftId, mutate));
+  await postUpdate(client, saved, prev, next);
+  if (next.heroResult) {
+    await finalize(client, saved, next);
+  } else {
+    scheduleLobbyDraftTimeout(client, saved.id, next.deadlineAt);
+  }
+  await syncLobbyDraftLiveMessage(client, saved.id);
+}
+
+/** Tail of each draft's save queue (in-process; the bot runs as one process). */
+const draftQueues = new Map<string, Promise<unknown>>();
+
+/**
+ * Run `task` after every earlier queued task for the same draft. Players acting at once
+ * (12 hero lock-ins, a hero select followed by a fast Lock in) then save in arrival order
+ * instead of racing the optimistic version check until retries run out.
+ */
+function inDraftQueue<T>(draftId: string, task: () => Promise<T>): Promise<T> {
+  const run = (draftQueues.get(draftId) ?? Promise.resolve()).then(task, task);
+  const tail = run.catch(() => undefined);
+  draftQueues.set(draftId, tail);
+  void tail.then(() => {
+    if (draftQueues.get(draftId) === tail) draftQueues.delete(draftId);
+  });
+  return run;
+}
+
+/** Load → mutate → optimistic save, retrying on a version conflict. */
+async function saveMutation(
+  draftId: string,
+  mutate: (state: LobbyDraftState, profile: GameProfile, draft: LobbyDraft) => LobbyDraftState,
+): Promise<{ saved: LobbyDraft; prev: LobbyDraftState; next: LobbyDraftState }> {
   for (let attempt = 1; ; attempt += 1) {
     const draft = await loadLobbyDraftById(draftId);
     if (draft.status !== 'ACTIVE') {
@@ -276,23 +309,12 @@ async function mutateDraft(
     } else if (clockChanged(prev, next)) {
       next = { ...next, deadlineAt: deadlineFor(next.phase) };
     }
-
-    let saved: LobbyDraft;
     try {
-      saved = await saveLobbyDraftState(draft, next);
+      return { saved: await saveLobbyDraftState(draft, next), prev, next };
     } catch (error) {
       if (error instanceof LobbyDraftConflictError && attempt < MAX_SAVE_ATTEMPTS) continue;
       throw error;
     }
-
-    await postUpdate(client, saved, prev, next);
-    if (next.heroResult) {
-      await finalize(client, saved, next);
-    } else {
-      scheduleLobbyDraftTimeout(client, saved.id, next.deadlineAt);
-    }
-    await syncLobbyDraftLiveMessage(client, saved.id);
-    return;
   }
 }
 
