@@ -12,6 +12,8 @@ import { prisma } from '../../lib/prisma.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
 import { resolveLeagueConfig } from '../league/league-wc3stats.js';
 import { loadHeroSlotColorNames } from '../wc3stats/wc3stats-slot-map.js';
+import { formatPublicKi } from '../rating/rating-math.js';
+import { loadPlayerKiBySlot } from '../rating/rating-preview.js';
 import { loadHeroWeights } from './hero-pick-losses.js';
 import { syncLobbyDiscordMessage } from '../lobby/discord-sync.js';
 import { nickForDiscordId } from '../lobby/lobby-identity.js';
@@ -79,6 +81,38 @@ function deadlineFor(phase: LobbyDraftState['phase']): string {
 async function loadView(profile: GameProfile): Promise<LobbyDraftView> {
   const heroes = await prisma.hero.findMany({ select: { id: true, name: true } });
   return { profile, heroNames: new Map(heroes.map((h) => [h.id, h.name])) };
+}
+
+/**
+ * Participant key → public league ki, so captains see strength while voting and picking.
+ * Unknown nicks get no ki; failures leave the map empty so the draft still renders.
+ */
+async function loadParticipantKi(
+  leagueId: string,
+  gameId: string,
+  state: LobbyDraftState,
+): Promise<Map<string, string>> {
+  try {
+    const players = await prisma.player.findMany({
+      where: { gameId, username: { in: state.participants.map((p) => p.nick) } },
+      select: { id: true, username: true },
+    });
+    const idByNick = new Map(players.map((p) => [p.username, p.id]));
+    // Participant index doubles as the "slot" key of the ki loader.
+    const entries = state.participants.flatMap((p, slot) => {
+      const playerId = idByNick.get(p.nick);
+      return playerId ? [{ playerId, heroId: null, slot }] : [];
+    });
+    const kiBySlot = await loadPlayerKiBySlot(leagueId, entries);
+    const result = new Map<string, string>();
+    for (const [slot, ki] of kiBySlot) {
+      result.set(state.participants[slot]!.key, formatPublicKi(ki.global, ki.games ?? 0));
+    }
+    return result;
+  } catch (error) {
+    log.warn({ err: error, leagueId }, 'Failed to load draft participant ki');
+    return new Map();
+  }
 }
 
 /**
@@ -189,7 +223,9 @@ export async function syncLobbyDraftLiveMessage(client: Client, draftId: string)
   const draft = await loadLobbyDraftById(draftId);
   if (!draft.liveMessageId) return;
   const state = parseLobbyDraftState(draft);
-  const view = await loadView(await getGameProfileForLeague(draft.leagueId));
+  const profile = await getGameProfileForLeague(draft.leagueId);
+  const view = await loadView(profile);
+  view.ki = await loadParticipantKi(draft.leagueId, profile.gameId, state);
   if (state.heroResult) view.slotEmojis = await loadSlotEmojis(client, draft.leagueId);
   const payload = {
     embeds: [buildLobbyDraftEmbed(draft, state, view)],
@@ -392,6 +428,7 @@ export async function startLobbyDraft(
 
   try {
     const view = await loadView(profile);
+    view.ki = await loadParticipantKi(draft.leagueId, profile.gameId, state);
     const linkedIds = linkedParticipants(state).map((p) => p.discordId!);
     const unlinked = state.participants.filter((p) => !p.discordId).map((p) => `\`${p.nick}\``);
     const live = await thread.send({
