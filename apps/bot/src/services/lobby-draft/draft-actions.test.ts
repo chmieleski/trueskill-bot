@@ -58,6 +58,7 @@ import {
   getHeroMenuForActor,
   getVoteMenuForActor,
   lockInHeroes,
+  setHeroPreferences,
   finalizeLobbyDraft,
   startLobbyDraft,
   syncLobbyDraftLiveMessage,
@@ -101,6 +102,34 @@ describe('lobby draft actions', () => {
     await voteCaptains({ client, draftId: 'd1', actorDiscordId: 'id-A', keys: ['a'] });
     expect(m.save).toHaveBeenCalledTimes(2);
     expect(m.load).toHaveBeenCalledTimes(3); // 2 attempts reload + 1 live-message sync
+  });
+
+  it('queues a fast Lock in behind the hero select so the last lock-in keeps the picks', async () => {
+    const base = pickingState(['A', 'B', 'C', 'D']);
+    let db = row({
+      ...base,
+      phase: 'HERO' as const,
+      pool: [],
+      teams: [
+        { captainKey: 'a', roster: ['a', 'c'], side: 1 as const },
+        { captainKey: 'b', roster: ['b', 'd'], side: 2 as const },
+      ] as typeof base.teams,
+      heroLockedIn: ['a', 'b', 'c'],
+    });
+    // Last-write-wins store: without the queue, Lock in saves over the select.
+    m.load.mockImplementation(async () => db);
+    m.save.mockImplementation(async (_draft: LobbyDraft, next: unknown) => {
+      await new Promise((r) => setTimeout(r, 5));
+      db = row(next);
+      return db;
+    });
+    m.replaceMatchRoster.mockResolvedValue({ id: 'M' });
+    await Promise.all([
+      setHeroPreferences({ client, draftId: 'd1', actorDiscordId: 'id-D', heroIds: [9] }),
+      lockInHeroes({ client, draftId: 'd1', actorDiscordId: 'id-D' }),
+    ]);
+    const players = m.replaceMatchRoster.mock.calls[0]![1] as Array<{ slot: number; nick: string }>;
+    expect(players.find((p) => p.nick === 'D')!.slot).toBe(9);
   });
 
   it('finalizes into the lobby when the last linked player locks in', async () => {
@@ -259,6 +288,44 @@ describe('lobby draft actions', () => {
     const posted = send.mock.calls.map((c) => String(c[0]?.content ?? c[0])).join('\n');
     expect(posted).toMatch(/won the roll for Hero\d+/);
     expect(posted).not.toContain('hero #');
+  });
+
+  it('deletes older bot notices beyond the line budget, keeping the live message', async () => {
+    const state = { ...heroState(), heroPrefs: { a: [1], c: [1] } };
+    const draft = { ...row(state), liveMessageId: 'live' };
+    m.load.mockResolvedValue(draft);
+    m.save.mockResolvedValue(draft);
+    m.replaceMatchRoster.mockResolvedValue({ id: 'M' });
+    vi.mocked(prisma.hero.findMany).mockResolvedValue([] as never);
+    const msg = (id: string, at: number, content: string, author = 'bot') => ({
+      id,
+      createdTimestamp: at,
+      content,
+      system: false,
+      author: { id: author },
+      delete: vi.fn().mockResolvedValue(undefined),
+    });
+    const msgs = [
+      msg('live', 0, 'a\nb\nc\nd\ne\nf\ng'),
+      msg('old', 1, 'x\ny'),
+      msg('user', 2, 'hi', 'human'),
+      msg('mid', 3, 'x\ny\nz'),
+      msg('new', 4, 'x\ny\nz'),
+    ];
+    const fetch = vi.fn().mockResolvedValue({
+      isThread: () => true,
+      send: vi.fn().mockResolvedValue({}),
+      messages: {
+        fetch: vi.fn().mockResolvedValue(new Map(msgs.map((x) => [x.id, x]))),
+      },
+    });
+    await lockInHeroes({
+      client: { channels: { fetch }, user: { id: 'bot' } } as never,
+      draftId: 'd1',
+      actorDiscordId: 'id-D',
+    });
+    const deleted = msgs.filter((x) => x.delete.mock.calls.length).map((x) => x.id);
+    expect(deleted).toEqual(['old']);
   });
 
   it('menus refuse non-ACTIVE drafts', async () => {

@@ -3,6 +3,7 @@ import {
   RESTJSONErrorCodes,
   ThreadAutoArchiveDuration,
   type Client,
+  type MessageCreateOptions,
 } from 'discord.js';
 import type { LobbyDraft } from '@dbz/db';
 import type { GameProfile } from '../../domain/game-profile.js';
@@ -11,6 +12,8 @@ import { prisma } from '../../lib/prisma.js';
 import { getGameProfileForLeague } from '../league/league-profile.js';
 import { resolveLeagueConfig } from '../league/league-wc3stats.js';
 import { loadHeroSlotColorNames } from '../wc3stats/wc3stats-slot-map.js';
+import { formatPublicKi } from '../rating/rating-math.js';
+import { loadPlayerKiBySlot } from '../rating/rating-preview.js';
 import { loadHeroWeights } from './hero-pick-losses.js';
 import { syncLobbyDiscordMessage } from '../lobby/discord-sync.js';
 import { nickForDiscordId } from '../lobby/lobby-identity.js';
@@ -81,6 +84,38 @@ async function loadView(profile: GameProfile): Promise<LobbyDraftView> {
 }
 
 /**
+ * Participant key → public league ki, so captains see strength while voting and picking.
+ * Unknown nicks get no ki; failures leave the map empty so the draft still renders.
+ */
+async function loadParticipantKi(
+  leagueId: string,
+  gameId: string,
+  state: LobbyDraftState,
+): Promise<Map<string, string>> {
+  try {
+    const players = await prisma.player.findMany({
+      where: { gameId, username: { in: state.participants.map((p) => p.nick) } },
+      select: { id: true, username: true },
+    });
+    const idByNick = new Map(players.map((p) => [p.username, p.id]));
+    // Participant index doubles as the "slot" key of the ki loader.
+    const entries = state.participants.flatMap((p, slot) => {
+      const playerId = idByNick.get(p.nick);
+      return playerId ? [{ playerId, heroId: null, slot }] : [];
+    });
+    const kiBySlot = await loadPlayerKiBySlot(leagueId, entries);
+    const result = new Map<string, string>();
+    for (const [slot, ki] of kiBySlot) {
+      result.set(state.participants[slot]!.key, formatPublicKi(ki.global, ki.games ?? 0));
+    }
+    return result;
+  } catch (error) {
+    log.warn({ err: error, leagueId }, 'Failed to load draft participant ki');
+    return new Map();
+  }
+}
+
+/**
  * Hero/slot id → `w3_<color>` application emoji. Missing emojis are skipped, so the
  * roster still renders (without colors) before they are uploaded.
  */
@@ -106,6 +141,34 @@ async function loadSlotEmojis(client: Client, leagueId: string): Promise<Map<num
 async function threadChannel(client: Client, threadId: string) {
   const channel = await client.channels.fetch(threadId).catch(() => null);
   return channel?.isThread() ? channel : null;
+}
+
+/** Bot notices kept below the live message; older ones are deleted so the buttons stay in view. */
+const KEEP_NOTICE_LINES = 6;
+
+/** Post a notice in the draft thread, then delete older bot notices beyond {@link KEEP_NOTICE_LINES}. */
+async function postNotice(
+  client: Client,
+  draft: LobbyDraft,
+  message: string | MessageCreateOptions,
+): Promise<void> {
+  const thread = await threadChannel(client, draft.threadId);
+  if (!thread) return;
+  try {
+    await thread.send(message);
+    const recent = await thread.messages.fetch({ limit: 50 });
+    const notices = [...recent.values()]
+      .filter((m) => m.author.id === client.user?.id && m.id !== draft.liveMessageId && !m.system)
+      .sort((a, b) => b.createdTimestamp - a.createdTimestamp);
+    let lines = 0;
+    const stale = notices.filter((m, i) => {
+      lines += m.content.split('\n').length;
+      return i > 0 && lines > KEEP_NOTICE_LINES;
+    });
+    await Promise.all(stale.map((m) => m.delete().catch(() => undefined)));
+  } catch (error) {
+    log.warn({ err: error, draftId: draft.id }, 'Failed to post draft notice');
+  }
 }
 
 /** What the captain on the clock must do now (bold = the button to press). */
@@ -150,22 +213,19 @@ async function postUpdate(
     }
   }
   if (lines.length === 0) return;
-  const thread = await threadChannel(client, draft.threadId);
-  await thread
-    ?.send({
-      content: lines.join('\n').slice(0, 2000),
-      allowedMentions: { users: mentions },
-    })
-    .catch((error: unknown) =>
-      log.warn({ err: error, draftId: draft.id }, 'Failed to post draft update'),
-    );
+  await postNotice(client, draft, {
+    content: lines.join('\n').slice(0, 2000),
+    allowedMentions: { users: mentions },
+  });
 }
 
 export async function syncLobbyDraftLiveMessage(client: Client, draftId: string): Promise<void> {
   const draft = await loadLobbyDraftById(draftId);
   if (!draft.liveMessageId) return;
   const state = parseLobbyDraftState(draft);
-  const view = await loadView(await getGameProfileForLeague(draft.leagueId));
+  const profile = await getGameProfileForLeague(draft.leagueId);
+  const view = await loadView(profile);
+  view.ki = await loadParticipantKi(draft.leagueId, profile.gameId, state);
   if (state.heroResult) view.slotEmojis = await loadSlotEmojis(client, draft.leagueId);
   const payload = {
     embeds: [buildLobbyDraftEmbed(draft, state, view)],
@@ -207,17 +267,13 @@ async function finalize(client: Client, draft: LobbyDraft, state: LobbyDraftStat
   await syncLobbyDiscordMessage(client, match, 'pending').catch((error: unknown) =>
     log.warn({ err: error, draftId: draft.id }, 'Failed to sync lobby message after draft'),
   );
-  await (
-    await threadChannel(client, draft.threadId)
-  )
-    ?.send(
-      match.discordMessageId && match.discordChannelId
-        ? `✅ Lobby updated with the drafted teams and heroes: https://discord.com/channels/${draft.guildId}/${match.discordChannelId}/${match.discordMessageId}`
-        : '✅ Lobby updated with the drafted teams and heroes.',
-    )
-    .catch((error: unknown) =>
-      log.warn({ err: error, draftId: draft.id }, 'Failed to post draft completion'),
-    );
+  await postNotice(
+    client,
+    draft,
+    match.discordMessageId && match.discordChannelId
+      ? `✅ Lobby updated with the drafted teams and heroes: https://discord.com/channels/${draft.guildId}/${match.discordChannelId}/${match.discordMessageId}`
+      : '✅ Lobby updated with the drafted teams and heroes.',
+  );
 }
 
 /** Re-run finalize for an ACTIVE draft whose heroes were assigned but never applied. */
@@ -231,7 +287,7 @@ export async function finalizeLobbyDraft(client: Client, draftId: string): Promi
 }
 
 /**
- * Load → mutate → optimistic save (retrying on conflict) → side effects.
+ * Queued load → mutate → optimistic save (retrying on conflict) → side effects.
  * `mutate` must be pure so it can be re-run on fresh state.
  */
 async function mutateDraft(
@@ -239,6 +295,39 @@ async function mutateDraft(
   draftId: string,
   mutate: (state: LobbyDraftState, profile: GameProfile, draft: LobbyDraft) => LobbyDraftState,
 ): Promise<void> {
+  const { saved, prev, next } = await inDraftQueue(draftId, () => saveMutation(draftId, mutate));
+  await postUpdate(client, saved, prev, next);
+  if (next.heroResult) {
+    await finalize(client, saved, next);
+  } else {
+    scheduleLobbyDraftTimeout(client, saved.id, next.deadlineAt);
+  }
+  await syncLobbyDraftLiveMessage(client, saved.id);
+}
+
+/** Tail of each draft's save queue (in-process; the bot runs as one process). */
+const draftQueues = new Map<string, Promise<unknown>>();
+
+/**
+ * Run `task` after every earlier queued task for the same draft. Players acting at once
+ * (12 hero lock-ins, a hero select followed by a fast Lock in) then save in arrival order
+ * instead of racing the optimistic version check until retries run out.
+ */
+function inDraftQueue<T>(draftId: string, task: () => Promise<T>): Promise<T> {
+  const run = (draftQueues.get(draftId) ?? Promise.resolve()).then(task, task);
+  const tail = run.catch(() => undefined);
+  draftQueues.set(draftId, tail);
+  void tail.then(() => {
+    if (draftQueues.get(draftId) === tail) draftQueues.delete(draftId);
+  });
+  return run;
+}
+
+/** Load → mutate → optimistic save, retrying on a version conflict. */
+async function saveMutation(
+  draftId: string,
+  mutate: (state: LobbyDraftState, profile: GameProfile, draft: LobbyDraft) => LobbyDraftState,
+): Promise<{ saved: LobbyDraft; prev: LobbyDraftState; next: LobbyDraftState }> {
   for (let attempt = 1; ; attempt += 1) {
     const draft = await loadLobbyDraftById(draftId);
     if (draft.status !== 'ACTIVE') {
@@ -256,23 +345,12 @@ async function mutateDraft(
     } else if (clockChanged(prev, next)) {
       next = { ...next, deadlineAt: deadlineFor(next.phase) };
     }
-
-    let saved: LobbyDraft;
     try {
-      saved = await saveLobbyDraftState(draft, next);
+      return { saved: await saveLobbyDraftState(draft, next), prev, next };
     } catch (error) {
       if (error instanceof LobbyDraftConflictError && attempt < MAX_SAVE_ATTEMPTS) continue;
       throw error;
     }
-
-    await postUpdate(client, saved, prev, next);
-    if (next.heroResult) {
-      await finalize(client, saved, next);
-    } else {
-      scheduleLobbyDraftTimeout(client, saved.id, next.deadlineAt);
-    }
-    await syncLobbyDraftLiveMessage(client, saved.id);
-    return;
   }
 }
 
@@ -350,6 +428,7 @@ export async function startLobbyDraft(
 
   try {
     const view = await loadView(profile);
+    view.ki = await loadParticipantKi(draft.leagueId, profile.gameId, state);
     const linkedIds = linkedParticipants(state).map((p) => p.discordId!);
     const unlinked = state.participants.filter((p) => !p.discordId).map((p) => `\`${p.nick}\``);
     const live = await thread.send({
@@ -467,16 +546,10 @@ export async function manageReplace(
     replaceParticipant(s, input.key, incoming, p),
   );
   if (incoming.discordId) {
-    await (
-      await threadChannel(input.client, draft.threadId)
-    )
-      ?.send({
-        content: `<@${incoming.discordId}> you joined this captain draft.`,
-        allowedMentions: { users: [incoming.discordId] },
-      })
-      .catch((error: unknown) =>
-        log.warn({ err: error, draftId: draft.id }, 'Failed to post join notice'),
-      );
+    await postNotice(input.client, draft, {
+      content: `<@${incoming.discordId}> you joined this captain draft.`,
+      allowedMentions: { users: [incoming.discordId] },
+    });
   }
 }
 

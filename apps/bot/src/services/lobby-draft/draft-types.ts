@@ -50,9 +50,9 @@ export type LobbyDraftState = {
 export const LOBBY_DRAFT_PHASE_SECONDS: Record<LobbyDraftPhase, number> = {
   VOTE: 60,
   COIN_CHOICE: 30,
-  PICK: 45,
+  PICK: 30,
   SIDE: 30,
-  HERO: 120,
+  HERO: 60,
 };
 export const LOBBY_DRAFT_MIN_PLAYERS = 4;
 export const LOBBY_DRAFT_MIN_LINKED = 2;

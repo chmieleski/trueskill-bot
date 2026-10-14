@@ -40,6 +40,29 @@ describe('lobby draft ui', () => {
     expect(ids).toContain('ldraft:cancel:d1');
   });
 
+  it('shows ki next to names in the embed and the pick menu', () => {
+    const state = pickingState(['A', 'B', 'C', 'D']);
+    const withKi = {
+      ...view,
+      ki: new Map([
+        ['a', '2100'],
+        ['c', '1850'],
+        ['d', 'Calibrating'],
+      ]),
+    };
+    const embed = buildLobbyDraftEmbed({ status: 'ACTIVE' }, state, withKi).toJSON();
+    const text = embed.fields!.map((f) => f.value).join('\n');
+    expect(text).toContain('A 🔗 · 2100');
+    expect(text).toContain('C 🔗 · 1850');
+    expect(text).toContain('D 🔗 · Calibrating');
+    expect(text).toMatch(/^👑 B 🔗$/m);
+    const menu = buildLobbyDraftComponents('d1', state, withKi)[0]!.toJSON();
+    const labels = (menu.components[0] as { options: Array<{ label: string }> }).options.map(
+      (o) => o.label,
+    );
+    expect(labels).toEqual(['C 🔗 · 1850', 'D 🔗 · Calibrating']);
+  });
+
   it('hero menu allows 0–2 and explains it is optional', () => {
     const menu = buildHeroMenu(
       'd1',

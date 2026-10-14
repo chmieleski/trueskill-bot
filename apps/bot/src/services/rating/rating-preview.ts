@@ -280,6 +280,8 @@ export async function loadRosterWinChance(
 export type PlayerKiPair = {
   global: number;
   hero: number;
+  /** League completed W/L count (Calibrating gate); set by {@link loadPlayerKiBySlot}. */
+  games?: number;
 };
 
 /**
@@ -332,7 +334,7 @@ export async function loadPlayerKiBySlot(
     const globalKi = displayOrdinal(global.mu, global.sigma, globalGames);
 
     if (entry.heroId == null) {
-      result.set(entry.slot, { global: globalKi, hero: globalKi });
+      result.set(entry.slot, { global: globalKi, hero: globalKi, games: globalGames });
       continue;
     }
 
@@ -342,6 +344,7 @@ export async function loadPlayerKiBySlot(
     result.set(entry.slot, {
       global: globalKi,
       hero: displayOrdinal(hero.mu, hero.sigma, heroGames),
+      games: globalGames,
     });
   }
 

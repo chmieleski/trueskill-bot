@@ -44,6 +44,8 @@ export type LobbyDraftView = {
   heroNames: Map<number, string>;
   /** Hero/slot id → rendered slot color emoji (`<:w3_red:id>`); empty until heroes resolve. */
   slotEmojis?: Map<number, string>;
+  /** Participant key → public ki (`1234` or `Calibrating`); missing keys show no ki. */
+  ki?: Map<string, string>;
 };
 
 export function lobbyDraftCustomId(
@@ -76,9 +78,10 @@ const PHASE_TITLES: Record<LobbyDraftState['phase'], string> = {
   HERO: '🦸 Hero pick',
 };
 
-function label(state: LobbyDraftState, key: string): string {
+function label(state: LobbyDraftState, key: string, view: LobbyDraftView): string {
   const p = findParticipant(state, key);
-  return `${p?.nick ?? key}${p?.discordId ? ' 🔗' : ''}`;
+  const ki = view.ki?.get(key);
+  return `${p?.nick ?? key}${p?.discordId ? ' 🔗' : ''}${ki ? ` · ${ki}` : ''}`;
 }
 
 function sideRange(profile: GameProfile, side: 1 | 2): string {
@@ -125,7 +128,7 @@ export function buildLobbyDraftEmbed(
         ? ` — ${view.heroNames.get(hero.heroId) ?? `#${hero.heroId}`}${hero.how === 'contested' ? ' 🎲' : ''}`
         : '';
       const color = hero ? view.slotEmojis?.get(hero.heroId) : undefined;
-      return `${color ? `${color} ` : ''}${key === team.captainKey ? '👑 ' : ''}${label(state, key)}${heroText}`;
+      return `${color ? `${color} ` : ''}${key === team.captainKey ? '👑 ' : ''}${label(state, key, view)}${heroText}`;
     });
     embed.addFields({
       name: `${name} (${nickOf(state, team.captainKey)})`,
@@ -137,7 +140,7 @@ export function buildLobbyDraftEmbed(
   if (pool.length > 0) {
     embed.addFields({
       name: state.teams ? 'Pool' : 'Players',
-      value: pool.map((k) => label(state, k)).join('\n'),
+      value: pool.map((k) => label(state, k, view)).join('\n'),
     });
   }
   if (state.log.length > 0) {
@@ -176,7 +179,7 @@ export function buildLobbyDraftComponents(
           .setCustomId(lobbyDraftCustomId('pick', draftId))
           .setPlaceholder(`${nickOf(state, onClockCaptainKey(state) ?? '')}'s pick`)
           .addOptions(
-            state.pool.slice(0, 25).map((key) => ({ label: label(state, key), value: key })),
+            state.pool.slice(0, 25).map((key) => ({ label: label(state, key, view), value: key })),
           ),
       ),
     );
