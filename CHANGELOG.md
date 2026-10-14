@@ -1,3 +1,10 @@
+# [1.93.0](https://github.com/chmieleski/trueskill-bot/compare/v1.92.0...v1.93.0) (2026-10-14)
+
+
+### Features
+
+* **lobby-draft:** thread polish, sides first, auto last pick, ki labels, timers ([#234](https://github.com/chmieleski/trueskill-bot/issues/234)) ([c5de47d](https://github.com/chmieleski/trueskill-bot/commit/c5de47dee61d733bcf1a5caac6d328472fe0c1f3))
+
 # [1.92.0](https://github.com/chmieleski/trueskill-bot/compare/v1.91.0...v1.92.0) (2026-10-13)
 
 
