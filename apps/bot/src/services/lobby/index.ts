@@ -78,6 +78,7 @@ export {
   balanceLobbyRoster,
   balanceResultMessage,
 } from './actions.js';
+export { lockModeOf, type LobbyLockMode } from './locked-slots.js';
 export { applyRemapPairs, parseRemapPairs, resolveSwapForm } from './remap.js';
 export {
   buildLobbyButtons,

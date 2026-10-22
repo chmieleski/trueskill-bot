@@ -13,7 +13,12 @@ import { FROZEN_LOBBY_MESSAGE } from '../lobby-draft/draft-types.js';
 import { createLogger } from '../../lib/logger.js';
 import { clearMatchStatsReport, clearMatchStatsReports } from './match-stats-store.js';
 import type { LobbyPlayer } from '../lobby/lobby-ocr.js';
-import { matchPlayerLockPairKey, reconcileMatchPlayerLocked } from '../lobby/locked-slots.js';
+import {
+  type LobbyLockMode,
+  matchPlayerLockPairKey,
+  reconcileMatchPlayerLocked,
+  reconcileMatchPlayerSideLocked,
+} from '../lobby/locked-slots.js';
 import { normalizeNick } from '../player/player-nick.js';
 import {
   assertHeroCatalogReady,
@@ -204,6 +209,7 @@ function toLobbyPlayers(match: MatchWithPlayers): LobbyPlayer[] {
       slot: entry.slot,
       nick: normalizeNick(entry.player.username),
       ...(entry.locked === true ? { locked: true as const } : {}),
+      ...(entry.sideLocked === true ? { sideLocked: true as const } : {}),
     }))
     .sort((a, b) => a.slot - b.slot);
 }
@@ -599,12 +605,13 @@ export async function getMatchById(matchId: string): Promise<MatchWithPlayers | 
 }
 
 /**
- * Set soft locks on PENDING MatchPlayer seats (no roster rewrite).
- * Validates every slot before writing so a bad slot changes nothing.
+ * Set slot / side locks on PENDING MatchPlayer seats (no roster rewrite).
+ * A seat holds at most one lock mode. Validates every slot before writing so a
+ * bad slot changes nothing.
  */
 export async function setMatchPlayersLocked(
   matchId: string,
-  changes: Array<{ slot: number; locked: boolean }>,
+  changes: Array<{ slot: number; mode: LobbyLockMode }>,
 ): Promise<MatchWithPlayers> {
   const match = await getMatchById(matchId);
   if (!match) {
@@ -622,19 +629,19 @@ export async function setMatchPlayersLocked(
   }
 
   const profile = await loadMatchProfileForTenant(match);
-  const updates = changes.map(({ slot, locked }) => {
+  const updates = changes.map(({ slot, mode }) => {
     if (!isSlotInProfile(profile, slot)) {
       throw new MatchServiceError(invalidSlotMessage(profile));
     }
     const occupant = match.players.find((player) => player.slot === slot);
     if (!occupant) {
       throw new MatchServiceError(
-        locked ? `Nobody in slot ${slot} to lock.` : `Slot ${slot} is empty.`,
+        mode === 'none' ? `Slot ${slot} is empty.` : `Nobody in slot ${slot} to lock.`,
       );
     }
     return prisma.matchPlayer.update({
       where: { matchId_playerId: { matchId, playerId: occupant.playerId } },
-      data: { locked },
+      data: { locked: mode === 'slot', sideLocked: mode === 'side' },
     });
   });
 
@@ -753,6 +760,7 @@ export async function replaceMatchRoster(
         team: true,
         heroId: true,
         locked: true,
+        sideLocked: true,
         isQuitter: true,
         isGriefer: true,
       },
@@ -762,8 +770,14 @@ export async function replaceMatchRoster(
         .filter((row) => row.locked)
         .map((row) => matchPlayerLockPairKey(row.playerId, row.slot)),
     );
+    const previousSideLockedTeams = new Map(
+      previousRows.filter((row) => row.sideLocked).map((row) => [row.playerId, row.team] as const),
+    );
     const incomingLockedBySlot = new Map(
       roster.map((player) => [player.slot, player.locked] as const),
+    );
+    const incomingSideLockedBySlot = new Map(
+      roster.map((player) => [player.slot, player.sideLocked] as const),
     );
 
     const resolved = await resolvePlayersInTx(tx, roster, existing.leagueId, profile);
@@ -787,6 +801,14 @@ export async function replaceMatchRoster(
         entry.slot,
         incomingLockedBySlot.get(entry.slot),
       );
+      const sideLocked =
+        !locked &&
+        reconcileMatchPlayerSideLocked(
+          previousSideLockedTeams,
+          entry.playerId,
+          entry.team,
+          incomingSideLockedBySlot.get(entry.slot),
+        );
       const prev = prevByPlayerId.get(entry.playerId);
       const data = {
         team: entry.team,
@@ -796,6 +818,7 @@ export async function replaceMatchRoster(
         isQuitter: entry.isQuitter === true,
         isGriefer: false,
         locked,
+        sideLocked,
       };
       if (!prev) {
         await tx.matchPlayer.create({
@@ -807,7 +830,8 @@ export async function replaceMatchRoster(
         prev.heroId !== data.heroId ||
         prev.isQuitter !== data.isQuitter ||
         prev.isGriefer !== data.isGriefer ||
-        prev.locked !== data.locked
+        prev.locked !== data.locked ||
+        prev.sideLocked !== data.sideLocked
       ) {
         await tx.matchPlayer.update({
           where: { matchId_playerId: { matchId, playerId: entry.playerId } },

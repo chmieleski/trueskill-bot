@@ -47,7 +47,7 @@ describe('setMatchPlayersLocked draft freeze', () => {
 
   it('rejects lock toggles while a draft is active', async () => {
     lobbyDraftFindFirst.mockResolvedValue({ id: 'draft-1' });
-    await expect(setMatchPlayersLocked('match-1', [{ slot: 1, locked: true }])).rejects.toThrow(
+    await expect(setMatchPlayersLocked('match-1', [{ slot: 1, mode: 'slot' }])).rejects.toThrow(
       FROZEN_LOBBY_MESSAGE,
     );
     expect(prismaTransaction).not.toHaveBeenCalled();

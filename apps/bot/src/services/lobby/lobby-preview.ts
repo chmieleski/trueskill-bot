@@ -139,7 +139,7 @@ export function formatTeamLinesFromPreview(players: LobbyRatingPlayerLine[]): st
       const grieferMark = !player.isQuitter && player.isGriefer ? ' 🐛' : '';
       const dcMark = !player.isQuitter && player.isDc ? ' 🔌' : '';
       const newMark = player.isNewPlayer || player.wasNewPlayer ? NEW_PLAYER_ROSTER_MARKER : '';
-      const lockMark = player.locked ? ' 🔒' : '';
+      const lockMark = player.locked ? ' 🔒' : player.sideLocked ? ' 🛡️' : '';
       const flagMark = `${habitualMark}${quitterMark}${grieferMark}${dcMark}${newMark}${lockMark}`;
       if (player.showHero === false) {
         return `\`${slotLabel}  ${nick}   ${global}\`${flagMark}`;

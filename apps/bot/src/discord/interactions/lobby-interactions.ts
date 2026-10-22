@@ -39,6 +39,7 @@ import {
   syncLobbyDiscordMessage,
   setLobbyLockedSlots,
   formatSlotList,
+  lockModeOf,
 } from '../../services/lobby/index.js';
 import { claimSlotSelectOptions, LOBBY_CUSTOM_IDS } from '../../services/lobby/index.js';
 import { loadHeroCatalog } from '../../services/guild/index.js';
@@ -378,37 +379,48 @@ async function handleLockToggleEntry(interaction: ButtonInteraction): Promise<vo
     return;
   }
 
-  const lockedSlots = new Set(
-    result.players.filter((player) => player.locked === true).map((player) => player.slot),
-  );
-  const options = playerSelectOptions(result.players).map((option) => ({
-    ...option,
-    default: lockedSlots.has(Number(option.value)),
-  }));
-  if (options.length === 0) {
+  if (result.players.length === 0) {
     await replyEphemeral(interaction, 'No players to lock or unlock.');
     return;
   }
 
-  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId(`lobby:select:lock_slot:${messageId}`)
-      .setPlaceholder('Select the players to lock')
-      .setMinValues(0)
-      .setMaxValues(options.length)
-      .addOptions(options),
-  );
-
-  await replyEphemeral(
-    interaction,
-    'Select every player to lock. Unselected players are unlocked:',
-    [row],
-  );
+  await replyEphemeral(interaction, LOCK_PROMPT, lockSelectRows(result.players, messageId));
 }
 
-async function handleSelectLockSlot(
+const LOCK_PROMPT =
+  '🔒 **Slot lock** keeps a player in their exact slot. 🛡️ **Side lock** keeps a player on their team; Balance may still move them to another slot on that team.\nSelect every player for each lock. Unselected players lose that lock:';
+
+/** Slot-lock and side-lock selects for the Lock button, defaulted to the current locks. */
+function lockSelectRows(
+  players: LobbyPlayer[],
+  messageId: string,
+): ActionRowBuilder<StringSelectMenuBuilder>[] {
+  const select = (mode: 'slot' | 'side', placeholder: string) => {
+    const options = playerSelectOptions(players).map((option) => ({
+      ...option,
+      default: players.some(
+        (player) => player.slot === Number(option.value) && lockModeOf(player) === mode,
+      ),
+    }));
+    return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(`lobby:select:lock_${mode}:${messageId}`)
+        .setPlaceholder(placeholder)
+        .setMinValues(0)
+        .setMaxValues(options.length)
+        .addOptions(options),
+    );
+  };
+  return [
+    select('slot', '🔒 Slot lock: stay in this exact slot'),
+    select('side', '🛡️ Side lock: stay on this team'),
+  ];
+}
+
+async function handleSelectLock(
   interaction: StringSelectMenuInteraction,
   messageId: string,
+  mode: 'slot' | 'side',
 ): Promise<void> {
   const slots = interaction.values.map(Number).sort((a, b) => a - b);
   if (!slots.every(Number.isInteger)) {
@@ -437,14 +449,19 @@ async function handleSelectLockSlot(
       actorDiscordId: interaction.user.id,
       matchId: pending.match.id,
       lockedSlots: slots,
+      mode,
       memberRoleIds: memberRoleIds(interaction),
       matchModRoleId: config.matchModRoleId,
     });
+    const label = mode === 'slot' ? 'Slot-locked' : 'Side-locked';
+    const status =
+      slots.length > 0
+        ? `${label} ${formatSlotList(slots)} in match \`${result.match.id}\`.`
+        : `Cleared every ${mode} lock in match \`${result.match.id}\`.`;
     await updateEphemeral(
       interaction,
-      slots.length > 0
-        ? `Locked ${formatSlotList(slots)} in match \`${result.match.id}\`. Everyone else is unlocked.`
-        : `Unlocked every slot in match \`${result.match.id}\`.`,
+      `${status}\n\n${LOCK_PROMPT}`,
+      lockSelectRows(result.players, messageId),
     );
   } catch (error) {
     if (error instanceof MatchServiceError) {
@@ -1497,8 +1514,8 @@ async function handleSelect(interaction: StringSelectMenuInteraction): Promise<v
     return;
   }
 
-  if (kind === 'lock_slot') {
-    await handleSelectLockSlot(interaction, messageId);
+  if (kind === 'lock_slot' || kind === 'lock_side') {
+    await handleSelectLock(interaction, messageId, kind === 'lock_slot' ? 'slot' : 'side');
     return;
   }
 

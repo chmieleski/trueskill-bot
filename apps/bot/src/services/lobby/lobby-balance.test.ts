@@ -113,6 +113,41 @@ describe('findBalancedRoster', () => {
     expect(result.roster.filter((e) => e.locked === true)).toHaveLength(2);
   });
 
+  it('keeps side-locked players on their team while still balancing', () => {
+    const pinned = new Set(['s1', 's2', 'w1']);
+    const roster = STACKED.map((e) => (pinned.has(e.playerId) ? { ...e, sideLocked: true } : e));
+    const moved = new Set<string>();
+    for (let seed = 1; seed <= 8; seed += 1) {
+      const rng = seeded(seed);
+      const result = findBalancedRoster(roster, STACKED_LOOKUP, undefined, undefined, rng)!;
+      for (const original of roster.filter((e) => e.sideLocked === true)) {
+        const placed = result.roster.find((e) => e.playerId === original.playerId)!;
+        expect(placed.team).toBe(original.team);
+        expect(placed.sideLocked).toBe(true);
+        if (placed.slot !== original.slot) {
+          moved.add(placed.playerId);
+        }
+      }
+      if (seed === 1) {
+        expect(result.balanced).toBe(true);
+      }
+    }
+    // Side lock is team-only: Balance may still move them to another slot on that team.
+    expect(moved.size).toBeGreaterThan(0);
+  });
+
+  it('reports an uneven team split when side locks force it', () => {
+    const roster = [
+      seat('a1', 1, { sideLocked: true }),
+      seat('a2', 2, { sideLocked: true }),
+      seat('a3', 3, { sideLocked: true }),
+      seat('free', 4),
+    ];
+    const result = findBalancedRoster(roster, lookupFromMaps({}), undefined, undefined, seeded(5))!;
+    expect(result.roster.find((e) => e.playerId === 'free')!.team).toBe(2);
+    expect(result.teamSplit).toEqual({ team1: 3, team2: 1, even: false });
+  });
+
   it('may use empty slots but keeps both teams populated and within the profile', () => {
     const wos = getGameProfile(WARCRAFT3_WOS_GAME_ID);
     const roster: BalanceRosterEntry[] = [

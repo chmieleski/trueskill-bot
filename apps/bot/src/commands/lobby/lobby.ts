@@ -177,12 +177,22 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName('lock')
-      .setDescription('Soft-lock players into their current slots (host or match moderator)')
+      .setDescription('Lock players to their slot or team for Balance (host or match moderator)')
       .addStringOption((option) =>
         option
           .setName('slots')
           .setDescription('Comma-separated slots to lock, like "1,3,7"')
           .setRequired(true),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('mode')
+          .setDescription('slot = stay in this exact slot (default); side = stay on this team')
+          .setRequired(false)
+          .addChoices(
+            { name: 'slot — stay in this exact slot', value: 'slot' },
+            { name: 'side — stay on this team, any slot', value: 'side' },
+          ),
       )
       .addStringOption((option) =>
         option
@@ -194,7 +204,7 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName('unlock')
-      .setDescription('Clear soft locks on lobby slots (host or match moderator)')
+      .setDescription('Clear slot and side locks on lobby slots (host or match moderator)')
       .addStringOption((option) =>
         option
           .setName('slots')
@@ -418,16 +428,21 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const matchModRoleId = interaction.guildId
         ? (await resolveGuildConfig(interaction.guildId)).matchModRoleId
         : undefined;
+      const mode = interaction.options.getString('mode') === 'side' ? 'side' : 'slot';
       const result = await lockLobbySlots({
         client: interaction.client,
         actorDiscordId: hostDiscordId,
         matchId,
         slots,
+        mode,
         memberRoleIds: memberRoleIds(interaction),
         matchModRoleId,
       });
       await interaction.editReply({
-        content: `Locked ${formatSlotList(slots)} in match \`${result.match.id}\`.`,
+        content:
+          mode === 'side'
+            ? `Side-locked ${formatSlotList(slots)} in match \`${result.match.id}\`. Balance keeps them on their team.`
+            : `Locked ${formatSlotList(slots)} in match \`${result.match.id}\`.`,
       });
       return;
     }

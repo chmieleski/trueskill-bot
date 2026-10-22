@@ -38,6 +38,7 @@ import {
   resolvePendingMatchForManage,
 } from './resolve.js';
 import type { LobbyPlayer } from './lobby-ocr.js';
+import { type LobbyLockMode, lockChangesForSelection } from './locked-slots.js';
 
 export type { LobbyActionResult };
 
@@ -263,35 +264,41 @@ export function formatSlotList(slots: number[]): string {
   return `${slots.length === 1 ? 'slot' : 'slots'} ${slots.join(', ')}`;
 }
 
-/** Soft-lock occupied PENDING seats (host or match mod). */
+/**
+ * Lock occupied PENDING seats (host or match mod). `slot` (default) pins the
+ * player↔slot pair; `side` keeps the player on their team. Replaces any other
+ * lock mode on those seats.
+ */
 export async function lockLobbySlots(
-  input: ManageLobbyInput & { slots: number[] },
+  input: ManageLobbyInput & { slots: number[]; mode?: Exclude<LobbyLockMode, 'none'> },
 ): Promise<LobbyActionResult> {
   const { match } = await resolvePendingMatchForManage(input);
+  const mode = input.mode ?? 'slot';
   const updated = await setMatchPlayersLocked(
     match.id,
-    input.slots.map((slot) => ({ slot, locked: true })),
+    input.slots.map((slot) => ({ slot, mode })),
   );
   return syncAfterLock(input.client, updated);
 }
 
-/** Clear soft locks on PENDING seats (host or match mod). Idempotent when unlocked. */
+/** Clear slot and side locks on PENDING seats (host or match mod). Idempotent when unlocked. */
 export async function unlockLobbySlots(
   input: ManageLobbyInput & { slots: number[] },
 ): Promise<LobbyActionResult> {
   const { match } = await resolvePendingMatchForManage(input);
   const updated = await setMatchPlayersLocked(
     match.id,
-    input.slots.map((slot) => ({ slot, locked: false })),
+    input.slots.map((slot) => ({ slot, mode: 'none' as const })),
   );
   return syncAfterLock(input.client, updated);
 }
 
 /**
- * Lock exactly `lockedSlots` and unlock every other occupied seat (button path).
+ * Give exactly `lockedSlots` the `mode` lock and clear that mode from every other
+ * occupied seat (button path). Seats holding the other mode are left alone.
  */
 export async function setLobbyLockedSlots(
-  input: ManageLobbyInput & { lockedSlots: number[] },
+  input: ManageLobbyInput & { lockedSlots: number[]; mode?: Exclude<LobbyLockMode, 'none'> },
 ): Promise<LobbyActionResult> {
   const { match, players } = await resolvePendingMatchForManage(input);
   const occupied = new Set(players.map((player) => player.slot));
@@ -299,17 +306,17 @@ export async function setLobbyLockedSlots(
   if (stale !== undefined) {
     throw new MatchServiceError(`Nobody in slot ${stale} to lock.`);
   }
-  const wanted = new Set(input.lockedSlots);
   const updated = await setMatchPlayersLocked(
     match.id,
-    players.map((player) => ({ slot: player.slot, locked: wanted.has(player.slot) })),
+    lockChangesForSelection(players, new Set(input.lockedSlots), input.mode ?? 'slot'),
   );
   return syncAfterLock(input.client, updated);
 }
 
 /**
  * Re-seat unlocked players for a 50/50 or 51/49 win chance (host or match mod).
- * Each call picks a different seating; locked seats stay put.
+ * Each call picks a different seating; locked seats stay put and side-locked
+ * players stay on their team.
  */
 export async function balanceLobbyRoster(input: ManageLobbyInput): Promise<
   LobbyActionResult & {
@@ -341,6 +348,7 @@ export async function balanceLobbyRoster(input: ManageLobbyInput): Promise<
     slot: entry.slot,
     nick: normalizeNick(entry.nick),
     ...(entry.locked === true ? { locked: true as const } : {}),
+    ...(entry.sideLocked === true ? { sideLocked: true as const } : {}),
   }));
   const synced = await applyRosterAndSync(input.client, match.id, next);
   return {

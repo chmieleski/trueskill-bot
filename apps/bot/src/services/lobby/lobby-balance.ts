@@ -27,6 +27,8 @@ export type BalanceRosterEntry = {
   nick: string;
   /** Soft lock: Balance never moves this seat. */
   locked?: boolean;
+  /** Side lock: Balance may move this seat only to other slots on the same team. */
+  sideLocked?: boolean;
   /** Live lobby New flag for win% / Balance. */
   isNewPlayer?: boolean;
   /** Completed-match snapshot New flag. */
@@ -110,6 +112,7 @@ function swappedSeat(
     ...(source.isNewPlayer === true ? { isNewPlayer: true as const } : {}),
     ...(source.wasNewPlayer === true ? { wasNewPlayer: true as const } : {}),
     ...(source.locked === true ? { locked: true as const } : {}),
+    ...(source.sideLocked === true ? { sideLocked: true as const } : {}),
     ...(source.calibrating === true ? { calibrating: true as const } : {}),
   };
 }
@@ -209,10 +212,42 @@ function fisherYatesInPlace<T>(items: T[], random: () => number): void {
 }
 
 /**
+ * One random placement: side-locked movers take random open slots on their own
+ * team, then free movers take random slots from what is left (either team).
+ * `openByTeam` is shuffled in place.
+ */
+function placeMovers(
+  sideLockedByTeam: Record<1 | 2, BalanceRosterEntry[]>,
+  freeMovers: BalanceRosterEntry[],
+  openByTeam: Record<1 | 2, number[]>,
+  profile: GameProfile,
+  random: () => number,
+): BalanceRosterEntry[] {
+  const placed: BalanceRosterEntry[] = [];
+  const leftover: number[] = [];
+  for (const team of [1, 2] as const) {
+    const slots = openByTeam[team];
+    fisherYatesInPlace(slots, random);
+    const pinned = sideLockedByTeam[team];
+    pinned.forEach((entry, index) => {
+      placed.push(swappedSeat(entry, slots[index]!, team, profile));
+    });
+    leftover.push(...slots.slice(pinned.length));
+  }
+  fisherYatesInPlace(leftover, random);
+  freeMovers.forEach((entry, index) => {
+    const slot = leftover[index]!;
+    placed.push(swappedSeat(entry, slot, teamForSlot(profile, slot), profile));
+  });
+  return placed;
+}
+
+/**
  * Re-seat unlocked players across all non-locked slots (occupied or empty) so
  * team sizes match (odd totals within one), then New players split evenly (half each side; odd counts within one), then
  * calibrating players (not New) split evenly on their own, and, among those seatings,
- * win chance lands at 50/50 or 51/49. An even split always beats a better win%; only locked seats can leave it uneven. Locked seats never move. Random search,
+ * win chance lands at 50/50 or 51/49. An even split always beats a better win%; only locked seats can leave it uneven. Locked seats never move;
+ * side-locked seats move only within their own team. Random search,
  * so repeated calls return different balanced seatings; the current seating is
  * never returned. Falls back to the closest seating found that is no worse than
  * the current one. Returns undefined when nothing can be moved or improved.
@@ -232,12 +267,17 @@ export function findBalancedRoster(
   }
 
   const lockedSlots = new Set(fixed.map((entry) => entry.slot));
-  const openSlots: number[] = [];
+  const openByTeam: Record<1 | 2, number[]> = { 1: [], 2: [] };
   for (let slot = 1; slot <= resolved.slotCount; slot += 1) {
     if (!lockedSlots.has(slot)) {
-      openSlots.push(slot);
+      openByTeam[teamForSlot(resolved, slot)].push(slot);
     }
   }
+  const sideLockedByTeam: Record<1 | 2, BalanceRosterEntry[]> = {
+    1: movers.filter((entry) => entry.sideLocked === true && entry.team === 1),
+    2: movers.filter((entry) => entry.sideLocked === true && entry.team === 2),
+  };
+  const freeMovers = movers.filter((entry) => entry.sideLocked !== true);
 
   const currentKey = seatingKey(roster);
   const targetTeamGap = roster.length % 2;
@@ -249,13 +289,9 @@ export function findBalancedRoster(
   let best: Pick<BalanceResult, 'roster' | 'winChance'> | undefined;
 
   for (let attempt = 0; attempt < BALANCE_ATTEMPTS; attempt += 1) {
-    fisherYatesInPlace(openSlots, random);
     const next = [
       ...fixed,
-      ...movers.map((entry, index) => {
-        const slot = openSlots[index]!;
-        return swappedSeat(entry, slot, teamForSlot(resolved, slot), resolved);
-      }),
+      ...placeMovers(sideLockedByTeam, freeMovers, openByTeam, resolved, random),
     ];
     if (seatingKey(next) === currentKey) {
       continue;
