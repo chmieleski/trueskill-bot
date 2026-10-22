@@ -89,9 +89,7 @@ function pendingMatch(overrides: Record<string, unknown> = {}) {
 }
 
 function stubTransaction(previousRows: PreviousRow[]) {
-  matchPlayerFindMany.mockResolvedValue(
-    previousRows.map((row) => ({ sideLocked: false, ...row })),
-  );
+  matchPlayerFindMany.mockResolvedValue(previousRows.map((row) => ({ sideLocked: false, ...row })));
   lobbyDraftFindFirst.mockResolvedValue(null);
   lobbyDraftUpdateMany.mockResolvedValue({ count: 1 });
   matchFindUniqueInTx.mockResolvedValue(pendingMatch());
