@@ -1,3 +1,10 @@
+# [1.94.0](https://github.com/chmieleski/trueskill-bot/compare/v1.93.0...v1.94.0) (2026-10-23)
+
+
+### Features
+
+* **lobby:** side lock keeps a player on their team during Balance ([#235](https://github.com/chmieleski/trueskill-bot/issues/235)) ([a75e9c4](https://github.com/chmieleski/trueskill-bot/commit/a75e9c48855e16de666071ddf0b6dcab5383b466))
+
 # [1.93.0](https://github.com/chmieleski/trueskill-bot/compare/v1.92.0...v1.93.0) (2026-10-14)
 
 
