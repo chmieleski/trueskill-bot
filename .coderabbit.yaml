@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+  path_filters:
+    - '!**/node_modules/**'
+    - '!**/dist/**'
+    - '!**/.next/**'
+    - '!**/generated/**'
+    - '!pnpm-lock.yaml'
+    - '!CHANGELOG.md'
+    - '!examples/**'
+  path_instructions:
+    - path: 'apps/bot/src/**/*.ts'
+      instructions: |
+        - Flag game-specific (e.g. WC3/UDBR) imports or constants leaking into general modules.
+        - Every read/write touching matches, ratings or leaderboards must be scoped by leagueId.
+        - All user-facing strings, logs and errors must be English.
+    - path: 'packages/db/prisma/**'
+      instructions: |
+        - Check migrations preserve per-league isolation (leagueId keys, per-league uniqueness).
+
+knowledge_base:
+  code_guidelines:
+    filePatterns:
+      - '.claude/rules/*.md'
+
+chat:
+  auto_reply: true
