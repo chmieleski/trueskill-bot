@@ -73,6 +73,7 @@ type PreviousRow = {
   team: number;
   heroId: number | null;
   locked: boolean;
+  sideLocked?: boolean;
   isQuitter: boolean;
   isGriefer: boolean;
 };
@@ -88,7 +89,7 @@ function pendingMatch(overrides: Record<string, unknown> = {}) {
 }
 
 function stubTransaction(previousRows: PreviousRow[]) {
-  matchPlayerFindMany.mockResolvedValue(previousRows);
+  matchPlayerFindMany.mockResolvedValue(previousRows.map((row) => ({ sideLocked: false, ...row })));
   lobbyDraftFindFirst.mockResolvedValue(null);
   lobbyDraftUpdateMany.mockResolvedValue({ count: 1 });
   matchFindUniqueInTx.mockResolvedValue(pendingMatch());
@@ -494,6 +495,75 @@ describe('replaceMatchRoster diff', () => {
     expect(matchPlayerUpdate).toHaveBeenCalledWith({
       where: { matchId_playerId: { matchId: MATCH_ID, playerId: 'p-a' } },
       data: expect.objectContaining({ slot: 1, locked: false }),
+    });
+  });
+
+  it('keeps a side lock when the player moves to another slot on the same team', async () => {
+    stubTransaction([
+      {
+        playerId: 'p-a',
+        slot: 1,
+        team: 1,
+        heroId: null,
+        locked: false,
+        sideLocked: true,
+        isQuitter: false,
+        isGriefer: false,
+      },
+    ]);
+    stubPlayersByNick([{ id: 'p-a', username: 'alice' }]);
+
+    await replaceMatchRoster(MATCH_ID, [{ slot: 2, nick: 'alice', locked: false }]);
+
+    expect(matchPlayerUpdate).toHaveBeenCalledWith({
+      where: { matchId_playerId: { matchId: MATCH_ID, playerId: 'p-a' } },
+      data: expect.objectContaining({ slot: 2, team: 1, locked: false, sideLocked: true }),
+    });
+  });
+
+  it('clears a side lock when the player switches team', async () => {
+    stubTransaction([
+      {
+        playerId: 'p-a',
+        slot: 1,
+        team: 1,
+        heroId: null,
+        locked: false,
+        sideLocked: true,
+        isQuitter: false,
+        isGriefer: false,
+      },
+    ]);
+    stubPlayersByNick([{ id: 'p-a', username: 'alice' }]);
+
+    await replaceMatchRoster(MATCH_ID, [{ slot: 6, nick: 'alice', sideLocked: true }]);
+
+    expect(matchPlayerUpdate).toHaveBeenCalledWith({
+      where: { matchId_playerId: { matchId: MATCH_ID, playerId: 'p-a' } },
+      data: expect.objectContaining({ slot: 6, team: 2, sideLocked: false }),
+    });
+  });
+
+  it('clears a side lock when the incoming row explicitly sets sideLocked: false', async () => {
+    stubTransaction([
+      {
+        playerId: 'p-a',
+        slot: 1,
+        team: 1,
+        heroId: null,
+        locked: false,
+        sideLocked: true,
+        isQuitter: false,
+        isGriefer: false,
+      },
+    ]);
+    stubPlayersByNick([{ id: 'p-a', username: 'alice' }]);
+
+    await replaceMatchRoster(MATCH_ID, [{ slot: 1, nick: 'alice', sideLocked: false }]);
+
+    expect(matchPlayerUpdate).toHaveBeenCalledWith({
+      where: { matchId_playerId: { matchId: MATCH_ID, playerId: 'p-a' } },
+      data: expect.objectContaining({ slot: 1, sideLocked: false }),
     });
   });
 

@@ -65,6 +65,8 @@ export interface LobbyRatingPlayerLine {
   habitualQuitter?: boolean;
   /** Soft lock: Balance leaves this seat alone. */
   locked?: boolean;
+  /** Side lock: Balance keeps this player on their team. */
+  sideLocked?: boolean;
 }
 
 export interface LobbyRatingPreview {
@@ -87,6 +89,7 @@ export type RatingPreviewRosterEntry = {
   /** Completed/history snapshot (`MatchPlayer.wasNewPlayer`). */
   wasNewPlayer?: boolean;
   locked?: boolean;
+  sideLocked?: boolean;
 };
 
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -473,6 +476,7 @@ export async function loadLobbyRatingPreview(
           leagueGames: globalGames,
           habitualQuitter: habitualQuitterFromStats(lifetimeStats, entry.playerId),
           ...(entry.locked === true ? { locked: true as const } : {}),
+          ...(entry.sideLocked === true ? { sideLocked: true as const } : {}),
         };
       }
 
@@ -492,6 +496,7 @@ export async function loadLobbyRatingPreview(
         leagueGames: globalGames,
         habitualQuitter: habitualQuitterFromStats(lifetimeStats, entry.playerId),
         ...(entry.locked === true ? { locked: true as const } : {}),
+        ...(entry.sideLocked === true ? { sideLocked: true as const } : {}),
       };
     });
 
@@ -580,6 +585,7 @@ export async function loadBalanceContext(
       heroId: entry.heroId,
       nick: entry.nick,
       locked: entry.locked === true,
+      sideLocked: entry.sideLocked === true,
       ...(globalByPlayer.get(entry.playerId)?.isNewPlayer === true
         ? { isNewPlayer: true as const }
         : {}),
@@ -615,6 +621,7 @@ export function matchPlayersToRatingEntries(
     isDc?: boolean;
     wasNewPlayer?: boolean;
     locked?: boolean;
+    sideLocked?: boolean;
     player: { username: string };
   }[],
 ): RatingPreviewRosterEntry[] {
@@ -629,5 +636,6 @@ export function matchPlayersToRatingEntries(
     isDc: entry.isDc,
     wasNewPlayer: entry.wasNewPlayer,
     locked: entry.locked === true,
+    sideLocked: entry.sideLocked === true,
   }));
 }

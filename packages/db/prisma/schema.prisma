@@ -430,6 +430,8 @@ model MatchPlayer {
   isDc               Boolean      @default(false) // Disconnect incident; season tax from count
   /// Soft lock: balance hints + shuffle leave this player↔slot pair alone.
   locked             Boolean      @default(false)
+  /// Side lock: Balance may move this player only within their current team. Never set with `locked`.
+  sideLocked         Boolean      @default(false)
   /// Deferred global ki tax for this griefer incident (null when not griefer).
   grieferKiAccrued   Int?
   wasNewPlayer       Boolean      @default(false) // Snapshot of PlayerRating.isNewPlayer at rating apply

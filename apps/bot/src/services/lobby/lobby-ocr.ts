@@ -11,6 +11,8 @@ export interface LobbyPlayer {
   nick: string;
   /** Soft lock: Balance never moves this seat; omitted/false = unlocked. */
   locked?: boolean;
+  /** Side lock: Balance keeps this player on their team; false = explicit unlock, omitted = no opinion. */
+  sideLocked?: boolean;
   /** Quitter flag when creating a roster; host/mods set via report flow. */
   isQuitter?: boolean;
   /** Exact in-game name (case kept, battle tag stripped) when read from the game. */
